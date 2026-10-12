@@ -2,7 +2,7 @@
 
 **Prototype<a name="section1994468155813"></a>**
 
-**int dcmi\_set\_traceroute \(int card\_id, int device\_id, struct traceroute param\_info, struct node\_info \*ret\_info\[\], unsigned int ret\_info\_size\)**
+**int dcmi\_set\_traceroute \(int card\_id, int device\_id, struct dcmi\_traceroute\_info param\_info, struct dcmi\_network\_node\_info \*ret\_info\[\], unsigned int ret\_info\_size\)**
 
 **Description<a name="section10946138105811"></a>**
 
@@ -68,7 +68,7 @@ Configures traceroute parameters to detect the network nodes where the packets p
 </td>
 <td class="cellrowborder" valign="top" width="15.15%" headers="mcps1.1.5.1.2 "><p id="p1951094580"><a name="p1951094580"></a><a name="p1951094580"></a>Output</p>
 </td>
-<td class="cellrowborder" valign="top" width="17.169999999999998%" headers="mcps1.1.5.1.3 "><p id="p39549175816"><a name="p39549175816"></a><a name="p39549175816"></a>struct node_info *</p>
+<td class="cellrowborder" valign="top" width="17.169999999999998%" headers="mcps1.1.5.1.3 "><p id="p39549175816"><a name="p39549175816"></a><a name="p39549175816"></a>struct dcmi_network_node_info *</p>
 </td>
 <td class="cellrowborder" valign="top" width="50.51%" headers="mcps1.1.5.1.4 "><p id="p12955914581"><a name="p12955914581"></a><a name="p12955914581"></a>Returned information of traceroute</p>
 <p id="p16951693585"><a name="p16951693585"></a><a name="p16951693585"></a>struct tracerout_result {</p>
@@ -215,8 +215,8 @@ Configures traceroute parameters to detect the network nodes where the packets p
 int ret = 0;
 int card_id = 0;
 int device_id = 0;
-struct traceroute param_info = {0};
-struct node_info ret_info[10] = {0};
+struct dcmi\_traceroute\_info param_info = {0};
+struct dcmi_network_node_info ret_info[10] = {0};
 size_t ret_info_size = sizeof(ret_info);
 param_info.sport = 40000;
 param_info.waittime = 5;

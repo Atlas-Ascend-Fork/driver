@@ -2,7 +2,7 @@
 
 **函数原型<a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_toc533412077"></a>**
 
-**int dcmi\_sm\_decrypt\(int card\_id, int device\_id, struct sm\_parm\* parm, struct sm\_data\*data\)**
+**int dcmi\_sm\_decrypt\(int card\_id, int device\_id, struct dcmi\_sm\_parm\* parm, struct dcmi\_sm\_data\*data\)**
 
 **功能说明<a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_toc533412078"></a>**
 
@@ -47,9 +47,9 @@
 </td>
 <td class="cellrowborder" valign="top" width="16.99%" headers="mcps1.1.5.1.2 "><p id="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p1817571618112"><a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p1817571618112"></a><a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p1817571618112"></a>输入</p>
 </td>
-<td class="cellrowborder" valign="top" width="16.009999999999998%" headers="mcps1.1.5.1.3 "><p id="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p20175191611119"><a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p20175191611119"></a><a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p20175191611119"></a>struct sm_parm*</p>
+<td class="cellrowborder" valign="top" width="16.009999999999998%" headers="mcps1.1.5.1.3 "><p id="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p20175191611119"><a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p20175191611119"></a><a name="zh-cn_topic_0000001251427211_zh-cn_topic_0000001178373160_zh-cn_topic_0000001101290912_p20175191611119"></a>struct dcmi_sm_parm*</p>
 </td>
-<td class="cellrowborder" valign="top" width="50%" headers="mcps1.1.5.1.4 "><p id="p2447145210116"><a name="p2447145210116"></a><a name="p2447145210116"></a>struct sm_parm {</p>
+<td class="cellrowborder" valign="top" width="50%" headers="mcps1.1.5.1.4 "><p id="p2447145210116"><a name="p2447145210116"></a><a name="p2447145210116"></a>struct dcmi_sm_parm {</p>
 <p id="p9447105215112"><a name="p9447105215112"></a><a name="p9447105215112"></a>unsigned int key_type;</p>
 <p id="p353613473350"><a name="p353613473350"></a><a name="p353613473350"></a>unsigned int key_len;//SM4密钥长度为16Byte，不涉及SM3</p>
 <p id="p144471352121113"><a name="p144471352121113"></a><a name="p144471352121113"></a>unsigned int iv_len;//SM4初始值长度为16Byte，不涉及SM3</p>
@@ -70,9 +70,9 @@
 </td>
 <td class="cellrowborder" valign="top" width="16.99%" headers="mcps1.1.5.1.2 "><p id="p15244731115812"><a name="p15244731115812"></a><a name="p15244731115812"></a>输入；输出</p>
 </td>
-<td class="cellrowborder" valign="top" width="16.009999999999998%" headers="mcps1.1.5.1.3 "><p id="p3651712129"><a name="p3651712129"></a><a name="p3651712129"></a>struct sm_data*</p>
+<td class="cellrowborder" valign="top" width="16.009999999999998%" headers="mcps1.1.5.1.3 "><p id="p3651712129"><a name="p3651712129"></a><a name="p3651712129"></a>struct dcmi_sm_data*</p>
 </td>
-<td class="cellrowborder" valign="top" width="50%" headers="mcps1.1.5.1.4 "><p id="p619755115125"><a name="p619755115125"></a><a name="p619755115125"></a>struct sm_data {</p>
+<td class="cellrowborder" valign="top" width="50%" headers="mcps1.1.5.1.4 "><p id="p619755115125"><a name="p619755115125"></a><a name="p619755115125"></a>struct dcmi_sm_data {</p>
 <p id="p17197155141219"><a name="p17197155141219"></a><a name="p17197155141219"></a>const unsigned char *in_buf;</p>
 <p id="p61971551171211"><a name="p61971551171211"></a><a name="p61971551171211"></a>unsigned in_len;//SM3长度、SM4长度最多为3072Byte，且SM4长度必须为16Byte的整数倍</p>
 <p id="p1695213111374"><a name="p1695213111374"></a><a name="p1695213111374"></a>unsigned char *out_buf;//输出缓存</p>
@@ -186,7 +186,7 @@ unsigned char key_in1[] = { // 加密/解密输入的key
 unsigned char iv_in1[] = {  // 加密/解密输入的iv值
   /16Byte的iv值/
 };
-struct sm_parm sm_test_param = {0};
+struct dcmi_sm_parm sm_test_param = {0};
 sm_test_param.key_type = SM4_CBC_DECRYPT;
 memcpy(sm_test_param.key, key_in1, sizeof(key_in1));
 memcpy(sm_test_param.key, iv_in1, sizeof(iv_in1));

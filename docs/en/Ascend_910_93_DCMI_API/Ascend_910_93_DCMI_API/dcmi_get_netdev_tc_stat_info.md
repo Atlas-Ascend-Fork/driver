@@ -2,7 +2,7 @@
 
 **Prototype<a name="section520615312440"></a>**
 
-**dcmi\_get\_netdev\_tc\_stat\_info\(int card\_id, int device\_id, struct dcmi\_network\_tc\_stat\_info \*network\_tc\_stat\_info\)**
+**dcmi\_get\_netdev\_tc\_stat\_info\(int card\_id, int device\_id, struct dcmi\_tc\_stat\_data \*network\_tc\_stat\_info\)**
 
 **Description<a name="section1720715394411"></a>**
 
@@ -46,7 +46,7 @@ Obtains the total traffic of the eight TCs on each NPU.
 </td>
 <td class="cellrowborder" valign="top" width="15.15%" headers="mcps1.1.5.1.2 "><p id="p19314537448"><a name="p19314537448"></a><a name="p19314537448"></a>Output</p>
 </td>
-<td class="cellrowborder" valign="top" width="17.169999999999998%" headers="mcps1.1.5.1.3 "><p id="p16314833443"><a name="p16314833443"></a><a name="p16314833443"></a>dcmi_network_tc_stat_info</p>
+<td class="cellrowborder" valign="top" width="17.169999999999998%" headers="mcps1.1.5.1.3 "><p id="p16314833443"><a name="p16314833443"></a><a name="p16314833443"></a>dcmi_tc_stat_data</p>
 </td>
 <td class="cellrowborder" valign="top" width="50.51%" headers="mcps1.1.5.1.4 "><p id="p16523132017109"><a name="p16523132017109"></a><a name="p16523132017109"></a>struct dcmi_tc_stat_data {</p>
 <p id="p195237205105"><a name="p195237205105"></a><a name="p195237205105"></a>unsigned long long tx_packet[TC_QUE_NUM];// Obtain the sent data traffic.</p>
