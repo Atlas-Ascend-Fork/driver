@@ -74,7 +74,7 @@ Driver 在 CANN 软件栈的位置参考[昇腾社区](https://www.hiascend.com/
 │   │   ├── esched                                 # 事件调度（Event Schedule）
 │   │   ├── hdc                                    # 主机-设备通信（Host-Device Communication）
 │   │   ├── inc                                    # HAL层内部公共头文件目录
-│   │   ├── mmpa                                   # MMAP（Medium Multiple Platform Adaptive）基础系统接口库
+│   │   ├── mmpa                                   # MMPA（Medium Multiple Platform Adaptive）基础系统接口库
 │   │   ├── msnpureport                            # 设备侧维测信息导出工具
 │   │   ├── pbl                                    # PBL（Public Base Lib）基础公共库
 │   │   │   ├── uda                                # UDA（Unified Device Access）统一设备接入

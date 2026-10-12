@@ -70,7 +70,7 @@ Key directory structure is as follows:
 │   │   ├── esched                                 # Event Schedule
 │   │   ├── hdc                                    # Host-Device Communication
 │   │   ├── inc                                    # HAL layer internal common header file directory
-│   │   ├── mmpa                                   # MMAP (Medium Multiple Platform Adaptive) basic system interface library
+│   │   ├── mmpa                                   # MMPA (Medium Multiple Platform Adaptive) basic system interface library
 │   │   ├── msnpureport                            # Device-side debugging information export tool
 │   │   ├── pbl                                    # PBL (Public Base Lib) basic public library
 │   │   │   ├── uda                                # UDA (Unified Device Access) unified device access
