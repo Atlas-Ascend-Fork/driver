@@ -15,7 +15,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
- 
+
 #include "securec.h"
 #include "dsmi_common_interface.h"
 #include "dcmi_interface_api.h"
@@ -64,12 +64,12 @@ int dcmiv2_check_device_heartbeat_state(int device_id)
     int ret;
     unsigned int health_err_first[DCMI_ERROR_CODE_MAX_NUM] = {0};
     int health_err_cnt = 0;
- 
+
     if (device_id < 0 || device_id >= MAX_CARD_NUM) {
         gplog(LOG_ERR, "Invalid input: device_id[%d] is invalid.", device_id);
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
- 
+
     ret = dsmi_get_device_errorcode(device_id, &health_err_cnt, health_err_first);
     if (ret != DCMI_OK) {
         gplog(LOG_ERR, "call dsmi_get_device_errorcode failed, (ret=%d)", ret);
@@ -121,8 +121,8 @@ int dcmiv2_get_device_type(int dev_id, enum dcmi_unit_type *device_type)
             *device_type = CPU_TYPE;
             return DCMI_OK;
         } else {
-            gplog(LOG_ERR,
-                "card_id(%d) device_id(%d) >= device_count(%d).", card_id, device_id, card_info->device_count);
+            gplog(LOG_ERR, "card_id(%d) device_id(%d) >= device_count(%d).", card_id, device_id,
+                  card_info->device_count);
             return DCMI_ERR_CODE_INVALID_PARAMETER;
         }
     }
@@ -289,8 +289,7 @@ int dcmiv2_get_device_ub_id_info(int dev_id, struct dcmi_ub_id_info *ub_id_info)
     }
 
     if (device_type == NPU_TYPE) {
-        ret = dsmi_get_device_info(dev_id, DSMI_MAIN_CMD_UB, DSMI_UB_INFO_SUB_CMD_ID,
-                                   (void *)ub_id_info, &out_size);
+        ret = dsmi_get_device_info(dev_id, DSMI_MAIN_CMD_UB, DSMI_UB_INFO_SUB_CMD_ID, (void *)ub_id_info, &out_size);
         if (ret != DSMI_OK) {
             gplog(LOG_ERR, "call dsmi_get_device_info failed. err is %d.", ret);
             return dcmi_convert_error_code(ret);
@@ -511,15 +510,15 @@ int dcmiv2_get_all_device_count(int *all_device_count)
 }
 
 int dcmiv2_set_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd, const void *buf,
-    unsigned int buf_size)
+                           unsigned int buf_size)
 {
     int err, card_id, device_id;
     enum dcmi_unit_type device_type = NPU_TYPE;
 
     err = dcmi_set_device_info_permission_check(main_cmd, sub_cmd);
     if (err != DCMI_OK) {
-        gplog(LOG_ERR, "check permission failed. dev_id=%d, main_cmd=%u, sub_cmd=%u, err=%d",
-            dev_id, main_cmd, sub_cmd, err);
+        gplog(LOG_ERR, "check permission failed. dev_id=%d, main_cmd=%u, sub_cmd=%u, err=%d", dev_id, main_cmd, sub_cmd,
+              err);
         return err;
     }
 
@@ -557,8 +556,8 @@ int dcmiv2_set_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int
     if (device_type == NPU_TYPE) {
         err = dcmi_set_npu_device_info(card_id, device_id, main_cmd, sub_cmd, buf, buf_size);
         if (err != DCMI_OK) {
-            gplog(LOG_ERR, "set device info failed. dev_id=%d, main_cmd=%u, sub_cmd=%u, err=%d",
-                dev_id, main_cmd, sub_cmd, err);
+            gplog(LOG_ERR, "set device info failed. dev_id=%d, main_cmd=%u, sub_cmd=%u, err=%d", dev_id, main_cmd,
+                  sub_cmd, err);
             return err;
         }
         gplog(LOG_OP, "set device info success. dev_id=%d, main_cmd=%u, sub_cmd=%u", dev_id, main_cmd, sub_cmd);
@@ -570,8 +569,7 @@ int dcmiv2_set_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int
     return DCMI_OK;
 }
 
-int dcmiv2_get_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd, void *buf,
-    unsigned int *size)
+int dcmiv2_get_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd, void *buf, unsigned int *size)
 {
     int err, card_id, device_id;
     int cmd_permission = 0;
@@ -589,7 +587,7 @@ int dcmiv2_get_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int
 
     if (buf == NULL || size == NULL || main_cmd >= DCMI_MAIN_CMD_MAX) {
         gplog(LOG_ERR, "input para buf is NULL or para size is NULL or para main_cmd is invalid.main_cmd=%d.",
-            main_cmd);
+              main_cmd);
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
 
@@ -670,7 +668,7 @@ int dcmiv2_get_device_mac_cnt(int dev_id, int *count)
 }
 
 int dcmiv2_get_device_component_static_version(int dev_id, enum dcmi_component_type component_type,
-    unsigned char *version_str, unsigned int len)
+                                               unsigned char *version_str, unsigned int len)
 {
     int err;
     enum dcmi_unit_type device_type = NPU_TYPE;
@@ -698,8 +696,8 @@ int dcmiv2_get_device_component_static_version(int dev_id, enum dcmi_component_t
     }
 
     if (device_type == NPU_TYPE) {
-        err = dsmi_upgrade_get_component_static_version(
-            dev_id, (DSMI_COMPONENT_TYPE)component_type, version_str, len, &length);
+        err = dsmi_upgrade_get_component_static_version(dev_id, (DSMI_COMPONENT_TYPE)component_type, version_str, len,
+                                                        &length);
         if ((err != DSMI_OK) && (err != DSMI_ERR_NOT_SUPPORT)) {
             gplog(LOG_ERR, "call dsmi_upgrade_get_component_static_version failed. err is %d.", err);
         }
@@ -711,11 +709,11 @@ int dcmiv2_get_device_component_static_version(int dev_id, enum dcmi_component_t
     }
 }
 
-STATIC int dcmi_get_and_check_firmware_version(int dev_id, unsigned char *firmware_version,
-    size_t version_len, enum dcmi_device_compat *compatibility)
+STATIC int dcmi_get_and_check_firmware_version(int dev_id, unsigned char *firmware_version, size_t version_len,
+                                               enum dcmi_device_compat *compatibility)
 {
     int ret;
-    
+
     /* 获取固件运行版本 */
     ret = dcmiv2_get_firmware_version(dev_id, firmware_version, version_len);
     if (ret != DCMI_OK) {
@@ -728,7 +726,7 @@ STATIC int dcmi_get_and_check_firmware_version(int dev_id, unsigned char *firmwa
         *compatibility = DCMI_COMPAT_NOK;
         return DCMI_OK;
     }
-    
+
     return DCMI_OK;
 }
 
@@ -749,18 +747,17 @@ STATIC int check_driver_compatibility(int dev_id, enum dcmi_device_compat *compa
     ret = dcmiv2_get_device_user_config(dev_id, COMPAT_LIST_NAME, COMPAT_ITEM_SIZE_MAX, compat_list_drv);
     if (ret != DCMI_OK) {
         gplog(LOG_ERR, "Get flash compat list %s. (dev_id=%d, ret=%d)",
-            (ret == DCMI_ERR_CODE_NOT_SUPPORT) ? "not support" : "failed", dev_id, ret);
+              (ret == DCMI_ERR_CODE_NOT_SUPPORT) ? "not support" : "failed", dev_id, ret);
         *compatibility = DCMI_COMPAT_UNKNOWN;
         return DCMI_OK;
     }
 
-    ret = dcmi_judge_compatibility(driver_version, MAX_VER_LEN, compat_list_drv,
-        COMPAT_ITEM_SIZE_MAX, compatibility);
+    ret = dcmi_judge_compatibility(driver_version, MAX_VER_LEN, compat_list_drv, COMPAT_ITEM_SIZE_MAX, compatibility);
     if (ret != DCMI_OK) {
         gplog(LOG_ERR, "2nd: Judge compatibility failed. (dev_id=%d, ret=%d)", dev_id, ret);
         return ret;
     }
-    
+
     return DCMI_OK;
 }
 
@@ -793,14 +790,14 @@ int dcmiv2_get_device_compatibility(int dev_id, enum dcmi_device_compat *compati
     if (ret != DCMI_OK) {
         return ret;
     } else if (*compatibility == DCMI_COMPAT_NOK) {
-        return DCMI_OK;  // 版本过低，直接返回
+        return DCMI_OK; // 版本过低，直接返回
     }
 
     /* 2. 对比驱动的固件兼容性列表 */
     ret = dcmi_version_info_of_drv_by_field(COMPAT_FIELD_FW, compat_list_fw, COMPAT_ITEM_SIZE_MAX);
     if (ret == DCMI_OK) {
-        ret = dcmi_judge_compatibility(firmware_version, MAX_VER_LEN, compat_list_fw,
-            COMPAT_ITEM_SIZE_MAX, compatibility);
+        ret = dcmi_judge_compatibility(firmware_version, MAX_VER_LEN, compat_list_fw, COMPAT_ITEM_SIZE_MAX,
+                                       compatibility);
         if (ret != DCMI_OK) {
             gplog(LOG_ERR, "1st: Judge compatibility failed. (device_id=%d, ret=%d)", device_id, ret);
             return ret;
@@ -813,12 +810,11 @@ int dcmiv2_get_device_compatibility(int dev_id, enum dcmi_device_compat *compati
     return check_driver_compatibility(dev_id, compatibility);
 }
 
-int dcmiv2_get_computing_power_info(
-    int dev_id, int type, struct dsmi_computing_power_info *computing_power)
+int dcmiv2_get_computing_power_info(int dev_id, int type, struct dsmi_computing_power_info *computing_power)
 {
 #ifndef _WIN32
     int err;
-    struct dcmi_chip_info_v2 chip_info = { { 0 } };
+    struct dcmi_chip_info_v2 chip_info = {{0}};
     const int aicore_cnt_type = 1;
     enum dcmi_unit_type device_type = NPU_TYPE;
 
@@ -865,7 +861,7 @@ int dcmiv2_get_mainboard_id(int dev_id, unsigned int *mainboard_id)
     int ret;
     unsigned int device_phy_id = 0;
     enum dcmi_unit_type device_type = INVALID_TYPE;
- 
+
     if (mainboard_id == NULL) {
         gplog(LOG_ERR, "The mainboard_id is NULL.");
         return DCMI_ERR_CODE_INVALID_PARAMETER;
@@ -881,19 +877,19 @@ int dcmiv2_get_mainboard_id(int dev_id, unsigned int *mainboard_id)
         gplog(LOG_ERR, "dcmi_get_device_type failed. (ret=%d)", ret);
         return ret;
     }
- 
+
     if (device_type == NPU_TYPE) {
         ret = dcmiv2_get_chip_phy_id_by_dev_id(dev_id, &device_phy_id);
         if (ret != DCMI_OK) {
             gplog(LOG_ERR, "dcmiv2_get_chip_phy_id_by_dev_id failed. (ret=%d)", ret);
             return ret;
         }
- 
+
         ret = dsmi_get_mainboard_id(device_phy_id, mainboard_id);
         if ((ret != DSMI_OK) && (ret != DSMI_ERR_NOT_SUPPORT)) {
             gplog(LOG_ERR, "Call dsmi_get_mainboard_id failed, (err=%d)", ret);
         }
- 
+
         return dcmi_convert_error_code(ret);
     } else {
         gplog(LOG_ERR, "The device_type %d is not support.", device_type);
@@ -1040,12 +1036,12 @@ int dcmiv2_get_device_list(int *device_list, int *device_cnt, int list_len)
     int cnt = 0;
     struct dcmi_card_info *card_info = NULL;
     int *card_id_curr = NULL;
-    
+
     if (device_list == NULL || device_cnt == NULL) {
         gplog(LOG_ERR, "input para device_list or device_cnt is NULL.");
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
- 
+
     if (list_len <= 0) {
         gplog(LOG_ERR, "input para list_len is invalid, list_len is %d.", list_len);
         return DCMI_ERR_CODE_INVALID_PARAMETER;
@@ -1055,20 +1051,27 @@ int dcmiv2_get_device_list(int *device_list, int *device_cnt, int list_len)
         gplog(LOG_ERR, "dcmi is not init.");
         return DCMI_ERR_CODE_INNER_ERR;
     }
- 
+
     if (g_board_details.card_count > list_len) {
         gplog(LOG_ERR, "card_count is bigger than list_len.");
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
- 
+
+    if (g_board_details.device_count > list_len) {
+        gplog(LOG_ERR, "device_count is bigger than list_len.");
+        return DCMI_ERR_CODE_INVALID_PARAMETER;
+    }
+
     card_id_curr = device_list;
     for (num_id = 0; num_id < g_board_details.card_count; num_id++) {
         card_info = &g_board_details.card_info[num_id];
         for (chip_index = 0; chip_index < card_info->device_count; chip_index++) {
             ret = dcmiv2_get_device_logic_id(&device_logic_id, card_info->card_id, chip_index);
             if (ret != DCMI_OK) {
-                gplog(LOG_ERR, "dcmiv2_get_device_logic_id failed. "
-                "(card_id=%d, chip_index=%d,ret=%d)", card_info->card_id, chip_index, ret);
+                gplog(LOG_ERR,
+                      "dcmiv2_get_device_logic_id failed. "
+                      "(card_id=%d, chip_index=%d,ret=%d)",
+                      card_info->card_id, chip_index, ret);
                 return ret;
             }
             if (cnt < list_len) {
@@ -1118,7 +1121,6 @@ int dcmiv2_get_device_voltage(int dev_id, unsigned int *voltage)
     }
 }
 
-
 int dcmiv2_get_device_temperature(int dev_id, int *temperature)
 {
     int err, card_id, device_id;
@@ -1160,28 +1162,28 @@ int dcmiv2_get_device_board_id(int dev_id, unsigned int *board_id)
 {
     int err, card_id, dev_phy_id;
     enum dcmi_unit_type device_type = NPU_TYPE;
- 
+
     if (board_id == NULL) {
         gplog(LOG_ERR, "board_id is invalid.");
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
- 
+
     if (!dcmi_board_chip_type_is_ascend_950()) {
         gplog(LOG_OP, "This product does not support this api.");
         return DCMI_ERR_CODE_NOT_SUPPORT;
     }
- 
+
     err = dcmiv2_inner_get_card_id_device_id_from_logicid(&card_id, &dev_phy_id, (unsigned int)dev_id);
     if (err != DCMI_OK) {
         return err;
     }
- 
+
     err = dcmiv2_get_device_type(dev_id, &device_type);
     if (err != DCMI_OK) {
         gplog(LOG_ERR, "dcmiv2_get_device_type failed. err is %d.", err);
         return err;
     }
- 
+
     if (device_type == NPU_TYPE) {
         return dcmi_get_npu_device_board_id(card_id, dev_phy_id, board_id);
     } else if (device_type == MCU_TYPE) {
@@ -1195,33 +1197,33 @@ int dcmiv2_get_device_board_id(int dev_id, unsigned int *board_id)
         return DCMI_ERR_CODE_NOT_SUPPORT;
     }
 }
- 
+
 int dcmiv2_get_device_component_cnt(int dev_id, unsigned int *component_count)
 {
     int err, card_id, dev_phy_id;
     enum dcmi_unit_type device_type = NPU_TYPE;
- 
+
     if (component_count == NULL) {
         gplog(LOG_ERR, "component_count is invalid.");
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
- 
+
     if (!dcmi_board_chip_type_is_ascend_950()) {
         gplog(LOG_OP, "This product does not support this api.");
         return DCMI_ERR_CODE_NOT_SUPPORT;
     }
- 
+
     err = dcmiv2_inner_get_card_id_device_id_from_logicid(&card_id, &dev_phy_id, (unsigned int)dev_id);
     if (err != DCMI_OK) {
         return err;
     }
- 
+
     err = dcmiv2_get_device_type(dev_id, &device_type);
     if (err != DCMI_OK) {
         gplog(LOG_ERR, "dcmiv2_get_device_type failed. err is %d.", err);
         return err;
     }
- 
+
     if (device_type == NPU_TYPE) {
         return dcmi_get_npu_device_component_count(card_id, dev_phy_id, component_count);
     } else {
@@ -1229,39 +1231,39 @@ int dcmiv2_get_device_component_cnt(int dev_id, unsigned int *component_count)
         return DCMI_ERR_CODE_NOT_SUPPORT;
     }
 }
- 
+
 int dcmiv2_get_device_component_list(int dev_id, enum dcmi_component_type *component_table,
-    unsigned int component_count)
+                                     unsigned int component_count)
 {
     int err, card_id, dev_phy_id;
     enum dcmi_unit_type device_type = NPU_TYPE;
- 
+
     if (component_table == NULL) {
         gplog(LOG_ERR, "component_table is invalid.");
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
- 
+
     if (component_count == 0) {
         gplog(LOG_ERR, "component_count %u is invalid.", component_count);
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
- 
+
     if (!dcmi_board_chip_type_is_ascend_950()) {
         gplog(LOG_OP, "This product does not support this api.");
         return DCMI_ERR_CODE_NOT_SUPPORT;
     }
- 
+
     err = dcmiv2_inner_get_card_id_device_id_from_logicid(&card_id, &dev_phy_id, (unsigned int)dev_id);
     if (err != DCMI_OK) {
         return err;
     }
- 
+
     err = dcmiv2_get_device_type(dev_id, &device_type);
     if (err != DCMI_OK) {
         gplog(LOG_ERR, "dcmiv2_get_device_type failed. err is %d.", err);
         return err;
     }
- 
+
     if (device_type == NPU_TYPE) {
         return dcmi_get_npu_device_component_list(card_id, dev_phy_id, component_table, component_count);
     } else {
@@ -1275,10 +1277,12 @@ int dcmiv2_get_slot_id_and_chip_id_by_dev_id(int dev_id, unsigned int *slot_id, 
     int err;
     int card_id, device_id;
     struct dcmi_card_info *card_info = NULL;
-    
+
     if (slot_id == NULL || chip_id == NULL || dev_id < 0 || dev_id >= MAX_CARD_NUM) {
-        gplog(LOG_ERR, "Input param is invalid. "
-        "(dev_id=%d, slot_id_is_NULL=%d, chip_id_is_NULL=%d, )", dev_id, (slot_id == NULL), (chip_id == NULL));
+        gplog(LOG_ERR,
+              "Input param is invalid. "
+              "(dev_id=%d, slot_id_is_NULL=%d, chip_id_is_NULL=%d, )",
+              dev_id, (slot_id == NULL), (chip_id == NULL));
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
 
@@ -1322,7 +1326,7 @@ int dcmiv2_get_dev_id_by_slot_id_and_chip_id(unsigned int slot_id, unsigned int 
         return DCMI_ERR_CODE_NOT_SUPPORT;
     }
 
-    err =  dcmiv2_get_device_list(device_list, &device_cnt, MAX_CARD_NUM);
+    err = dcmiv2_get_device_list(device_list, &device_cnt, MAX_CARD_NUM);
     if (err != DCMI_OK) {
         gplog(LOG_ERR, "dcmiv2_get_device_list failed. err is %d.", err);
         return err;
@@ -1355,8 +1359,10 @@ int dcmiv2_get_group_intra_id_by_dev_id(int dev_id, unsigned int *group_intra_id
     unsigned int buf_size = sizeof(unsigned char);
 
     if (group_intra_id == NULL || dev_id < 0 || dev_id >= MAX_CARD_NUM) {
-        gplog(LOG_ERR, "Input param is invalid. "
-        "(dev_id=%d, group_intra_id_is_NULL=%d)", dev_id, (group_intra_id == NULL));
+        gplog(LOG_ERR,
+              "Input param is invalid. "
+              "(dev_id=%d, group_intra_id_is_NULL=%d)",
+              dev_id, (group_intra_id == NULL));
         return DCMI_ERR_CODE_INVALID_PARAMETER;
     }
 
@@ -1365,8 +1371,8 @@ int dcmiv2_get_group_intra_id_by_dev_id(int dev_id, unsigned int *group_intra_id
         return DCMI_ERR_CODE_NOT_SUPPORT;
     }
 
-    ret = dsmi_get_device_info(dev_id, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_INDEX_IN_GROUP,
-                               (void *)&buf, &buf_size);
+    ret = dsmi_get_device_info(dev_id, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_INDEX_IN_GROUP, (void *)&buf,
+                               &buf_size);
     if (ret != DSMI_OK) {
         gplog(LOG_ERR, "call dsmi_get_device_info failed. err is %d.", ret);
         return dcmi_convert_error_code(ret);
