@@ -1532,8 +1532,13 @@ int dcmi_get_npu_device_utilization_rate_v2(int card_id, int device_id, struct d
 
     ret = dsmi_get_device_info(device_logic_id, DSMI_MAIN_CMD_TS, DSMI_TS_SUB_CMD_NPU_MULTI_UTILIZATION_RATE,
                                (void *)&multi_util_info, &out_size);
-    if ((ret != DSMI_OK) && (ret != DSMI_ERR_NOT_SUPPORT)) {
-        gplog(LOG_ERR, "Call dsmi_get_device_info failed. err is %d.", ret);
+    if (ret != DSMI_OK) {
+        // DSMI_ERR_NOT_SUPPORT means the backend wrote no response, so the
+        // caller must not observe it as a valid zero-utilization sample.
+        // Keep the log suppressed for the not-support case only.
+        if (ret != DSMI_ERR_NOT_SUPPORT) {
+            gplog(LOG_ERR, "Call dsmi_get_device_info failed. err is %d.", ret);
+        }
         return dcmi_convert_error_code(ret);
     }
 
