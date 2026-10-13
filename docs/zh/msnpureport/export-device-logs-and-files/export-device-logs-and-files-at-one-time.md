@@ -160,54 +160,6 @@ msnpureport [options]
   <!-- npu="950" id18 -->
   - Ascend 950PR&950DT系列产品：支持
   <!-- end id18 -->
-- 7：AO(Always Online)区的日志信息。
-  <!-- npu="310b" id26 -->
-  - Atlas 200I/500 A2推理产品：不支持
-  <!-- end id26 -->
-  <!-- npu="310p" id27 -->
-  - Atlas推理系列产品：不支持
-  <!-- end id27 -->
-  <!-- npu="910b" id28 -->
-  - Atlas A2系列产品：不支持
-  <!-- end id28 -->
-  <!-- npu="A3" id29 -->
-  - Atlas A3系列产品：不支持
-  <!-- end id29 -->
-  <!-- npu="950" id30 -->
-  - Ascend 950PR&950DT系列产品：支持
-  <!-- end id30 -->
-- 8：AO计数。
-  <!-- npu="310b" id31 -->
-  - Atlas 200I/500 A2推理产品：不支持
-  <!-- end id31 -->
-  <!-- npu="310p" id32 -->
-  - Atlas推理系列产品：不支持
-  <!-- end id32 -->
-  <!-- npu="910b" id33 -->
-  - Atlas A2系列产品：不支持
-  <!-- end id33 -->
-  <!-- npu="A3" id34 -->
-  - Atlas A3系列产品：不支持
-  <!-- end id34 -->
-  <!-- npu="950" id35 -->
-  - Ascend 950PR&950DT系列产品：支持
-  <!-- end id35 -->
-- 9：串口录音。
-  <!-- npu="310b" id36 -->
-  - Atlas 200I/500 A2推理产品：不支持
-  <!-- end id36 -->
-  <!-- npu="310p" id37 -->
-  - Atlas推理系列产品：不支持
-  <!-- end id37 -->
-  <!-- npu="910b" id38 -->
-  - Atlas A2系列产品：不支持
-  <!-- end id38 -->
-  <!-- npu="A3" id39 -->
-  - Atlas A3系列产品：不支持
-  <!-- end id39 -->
-  <!-- npu="950" id40 -->
-  - Ascend 950PR&950DT系列产品：支持
-  <!-- end id40 -->
 
 ## 使用示例
 
