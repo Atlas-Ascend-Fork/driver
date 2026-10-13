@@ -57,7 +57,7 @@
 - [dcmiv2\_get\_device\_proc\_mem\_info](./Ascend_950_DCMI_API/dcmiv2_get_device_proc_mem_info.md)
 - [dcmiv2\_get\_serdes\_quality\_info](./Ascend_950_DCMI_API/dcmiv2_get_serdes_quality_info.md)
 - [dcmiv2\_get\_attest\_evidence](./Ascend_950_DCMI_API/dcmiv2_get_attest_evidence.md)
-- [dcmiv2\_get\_attest\_cert](./Ascend_950_DCMI_API/dcmiv2_get_attest_cert.md)
+- [dcmiv2\_get\_attest\_akcert](./Ascend_950_DCMI_API/dcmiv2_get_attest_akcert.md)
 - [dcmiv2\_get\_pfc\_duration\_info](./Ascend_950_DCMI_API/dcmiv2_get_pfc_duration_info.md)
 - [dcmiv2\_get\_pcie\_link\_bandwidth\_info](./Ascend_950_DCMI_API/dcmiv2_get_pcie_link_bandwidth_info.md)
 - [dcmiv2\_get\_netdev\_pkt\_stats\_info](./Ascend_950_DCMI_API/dcmiv2_get_netdev_pkt_stats_info.md)

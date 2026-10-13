@@ -1,8 +1,8 @@
-# dcmiv2\_get\_attest\_cert<a name="ZH-CN_TOPIC_0000002565332137"></a>
+# dcmiv2\_get\_attest\_akcert<a name="ZH-CN_TOPIC_0000002565332137"></a>
 
 ## 函数原型<a name="zh-cn_topic_0000001206147244_zh-cn_topic_0000001223414441_zh-cn_topic_0000001099619850_toc533412077"></a>
 
-**int dcmiv2\_get\_attest\_cert\(int dev\_id, unsigned char \*ak\_cert, unsigned int \*ak\_cert\_len\)**
+**int dcmiv2\_get\_attest\_akcert\(int dev\_id, unsigned char \*ak\_cert, unsigned int \*ak\_cert\_len\)**
 
 ## 功能说明<a name="section1468480762"></a>
 
@@ -129,9 +129,9 @@ if (ret != 0) {
     printf("dcmiv2_init failed, ret = %d\n", ret);
     return ret;
 }
-ret = dcmiv2_get_attest_cert(dev_id, ak_cert, &ak_cert_len);
+ret = dcmiv2_get_attest_akcert(dev_id, ak_cert, &ak_cert_len);
 if (ret != 0) {
-    printf("dcmiv2_get_attest_cert failed, ret = %d\n", ret);
+    printf("dcmiv2_get_attest_akcert failed, ret = %d\n", ret);
     return ret;
 }
 …
