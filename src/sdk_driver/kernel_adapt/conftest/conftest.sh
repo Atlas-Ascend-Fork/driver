@@ -1,3 +1,4 @@
+#!/bin/bash
 # ------------------------------------------------------------------------------------------------------------
 # Copyright (c) 2025 Huawei Technologies Co., Ltd.
 # This program is free software, you can redistribute it and/or modify it under the terms and conditions of
@@ -7,7 +8,6 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ------------------------------------------------------------------------------------------------------------
-#!bin/sh
 
 PATH="${PATH}:/bin:/sbin:/usr/bin"
 
@@ -208,7 +208,7 @@ test_header_presence(){
     # Input:
     #     $1: dependent header files
     #     $2: macro name
-        
+
     FILE="$1"
     FILE_DEFINE="$2"
 
@@ -265,7 +265,7 @@ merge_headers_conftest(){
 
     local output_file="./$OUTPUT/conftests.h"
     cat > "$output_file" << EOF
-/* 
+/*
  * Auto-generated conftest header
  * This file includes all individual conftest headers
  */
@@ -289,7 +289,7 @@ EOF
     done
 
     echo '#endif /* _MERGED_CONFTEST_HEADERS_H_ */' >> "$output_file"
-}  
+}
 
 compile_test(){
     case "$1" in
@@ -326,7 +326,7 @@ compile_test(){
                 return __WQ_LEGACY;
             }"
             compile_check_conftest "$CODE" "MACRO_TRS_SQ_GET_WQ_FLAG" "" "macros"
-        
+
         ;;
 
         macro_gfp_retry_or_repeat)
