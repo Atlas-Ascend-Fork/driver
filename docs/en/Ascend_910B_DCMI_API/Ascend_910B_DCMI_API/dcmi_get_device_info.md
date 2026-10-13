@@ -2029,7 +2029,7 @@ return ret;
 
 **Prototype<a name="section5922172553416"></a>**
 
-**int dcmi\_get\_device\_info\(int card\_id, int device\_id, enum dcmi\_main\_cmd main\_cmd, unsigned int sub\_cmd, const void \*buf, unsigned int buf\_size\)**
+**int dcmi\_get\_device\_info\(int card\_id, int device\_id, enum dcmi\_main\_cmd main\_cmd, unsigned int sub\_cmd, void \*buf, unsigned int \*size\)**
 
 **Description<a name="section367034213346"></a>**
 
@@ -2094,18 +2094,18 @@ Obtains TLS certificate information.
 </tr>
 <tr id="row612121619349"><td class="cellrowborder" valign="top" width="10.100000000000001%" headers="mcps1.1.5.1.1 "><p id="p5129164343"><a name="p5129164343"></a><a name="p5129164343"></a>buf</p>
 </td>
-<td class="cellrowborder" valign="top" width="8.08%" headers="mcps1.1.5.1.2 "><p id="p312616163411"><a name="p312616163411"></a><a name="p312616163411"></a>Input</p>
+<td class="cellrowborder" valign="top" width="8.08%" headers="mcps1.1.5.1.2 "><p id="p312616163411"><a name="p312616163411"></a><a name="p312616163411"></a>Input/Output</p>
 </td>
-<td class="cellrowborder" valign="top" width="19.189999999999998%" headers="mcps1.1.5.1.3 "><p id="p151219163343"><a name="p151219163343"></a><a name="p151219163343"></a>const void *</p>
+<td class="cellrowborder" valign="top" width="19.189999999999998%" headers="mcps1.1.5.1.3 "><p id="p151219163343"><a name="p151219163343"></a><a name="p151219163343"></a>void *</p>
 </td>
 <td class="cellrowborder" valign="top" width="62.629999999999995%" headers="mcps1.1.5.1.4 "><p id="p1512516103412"><a name="p1512516103412"></a><a name="p1512516103412"></a>For details, see the restrictions.</p>
 </td>
 </tr>
-<tr id="row1912101611341"><td class="cellrowborder" valign="top" width="10.100000000000001%" headers="mcps1.1.5.1.1 "><p id="p112151617346"><a name="p112151617346"></a><a name="p112151617346"></a>buf_size</p>
+<tr id="row1912101611341"><td class="cellrowborder" valign="top" width="10.100000000000001%" headers="mcps1.1.5.1.1 "><p id="p112151617346"><a name="p112151617346"></a><a name="p112151617346"></a>size</p>
 </td>
-<td class="cellrowborder" valign="top" width="8.08%" headers="mcps1.1.5.1.2 "><p id="p11121616193413"><a name="p11121616193413"></a><a name="p11121616193413"></a>Input</p>
+<td class="cellrowborder" valign="top" width="8.08%" headers="mcps1.1.5.1.2 "><p id="p11121616193413"><a name="p11121616193413"></a><a name="p11121616193413"></a>Input/Output</p>
 </td>
-<td class="cellrowborder" valign="top" width="19.189999999999998%" headers="mcps1.1.5.1.3 "><p id="p512151616341"><a name="p512151616341"></a><a name="p512151616341"></a>unsigned int</p>
+<td class="cellrowborder" valign="top" width="19.189999999999998%" headers="mcps1.1.5.1.3 "><p id="p512151616341"><a name="p512151616341"></a><a name="p512151616341"></a>unsigned int *</p>
 </td>
 <td class="cellrowborder" valign="top" width="62.629999999999995%" headers="mcps1.1.5.1.4 "><p id="p191317165344"><a name="p191317165344"></a><a name="p191317165344"></a>Length of the <strong id="b47590999735210"><a name="b47590999735210"></a><a name="b47590999735210"></a>buf</strong> array.</p>
 </td>
@@ -2289,9 +2289,9 @@ int card_id = 0;
 int device_id = 0;
 struct dcmi_cert_info cert_info = { 0 };
 DCMI_MAIN_CMD main_cmd = DCMI_MAIN_CMD_EX_CERT;
-unsigned int sub_cmd = DCMI_CERT_SUB_CMD_INIT_TLS_PUB_KEY;
+unsigned int sub_cmd = DCMI_CERT_SUB_CMD_TLS_CERT_INFO;
 unsigned int size = sizeof(struct dcmi_cert_info);
-ret = dcmi_get_device_info(card_id, device_id, main_cmd, sub_cmd, (void *)&cert_info, size);
+ret = dcmi_get_device_info(card_id, device_id, main_cmd, sub_cmd, (void *)&cert_info, &size);
 if (ret) {
    // todo
 }
