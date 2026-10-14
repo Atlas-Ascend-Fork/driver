@@ -189,7 +189,7 @@ unsigned char iv_in1[] = {  // 加密/解密输入的iv值
 struct dcmi_sm_parm sm_test_param = {0};
 sm_test_param.key_type = SM4_CBC_DECRYPT;
 memcpy(sm_test_param.key, key_in1, sizeof(key_in1));
-memcpy(sm_test_param.key, iv_in1, sizeof(iv_in1));
+memcpy(sm_test_param.iv, iv_in1, sizeof(iv_in1));
 sm_test_param.key_len = 16;
 sm_test_param.iv_len = 16;
 unsigned char *out_buf =  (unsigned char *)malloc(sizeof(data1));
