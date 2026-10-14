@@ -44,7 +44,7 @@
 #ifdef CFG_FEATURE_VF_SINGLE_AICORE
 #define VDEV_TOKEN_TIME_1MS 0xFFFFFULL
 #define VDEV_TOKEN_TIME_2MS 0x1FFFFFULL
-#define VDEV_TASK_TIMEOUT   0x3200000000 /* It is a fixed value. */
+#define VDEV_TASK_TIMEOUT 0x3200000000 /* It is a fixed value. */
 #define VDEV_PF_AICORE_NUM 1
 #define MAX_SPLIT_PIECE 4
 
@@ -62,30 +62,22 @@ struct dev_mnt_vdev_pieces g_split_details = {0};
 #define VDAVINCI_SUPPORT_DIVIDE_AICORE_NUM 36
 const u32 g_vdev_dtype[VDAVINCI_SUPPORT_DIVIDE_AICORE_NUM + 1] = {0};
 #elif (defined CFG_FEATURE_VFIO) && (defined CFG_FEATURE_RC_MODE)
-const u32 g_vdev_dtype[VDAVINCI_MAX_VFID_NUM + 1] = {
-    MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_C1_4, MNT_VDAVINCI_TYPE_C2_4, MNT_VDAVINCI_TYPE_MAX,
-    MNT_VDAVINCI_TYPE_MAX
-};
+const u32 g_vdev_dtype[VDAVINCI_MAX_VFID_NUM + 1] = {MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_C1_4,
+                                                     MNT_VDAVINCI_TYPE_C2_4, MNT_VDAVINCI_TYPE_MAX,
+                                                     MNT_VDAVINCI_TYPE_MAX};
 #else
 #define VDAVINCI_SUPPORT_DIVIDE_AICORE_NUM 16
 const u32 g_vdev_dtype[VDAVINCI_SUPPORT_DIVIDE_AICORE_NUM + 1] = {
-    MNT_VDAVINCI_TYPE_MAX,  MNT_VDAVINCI_TYPE_C1,  MNT_VDAVINCI_TYPE_C2,  MNT_VDAVINCI_TYPE_MAX,
-    MNT_VDAVINCI_TYPE_C4,  MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX,
-    MNT_VDAVINCI_TYPE_C8,  MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX,
-    MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX,
-    MNT_VDAVINCI_TYPE_C16
-};
+    MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_C1,  MNT_VDAVINCI_TYPE_C2,  MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_C4,
+    MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_C8,  MNT_VDAVINCI_TYPE_MAX,
+    MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_MAX,
+    MNT_VDAVINCI_TYPE_MAX, MNT_VDAVINCI_TYPE_C16};
 #endif
 
 STATIC struct dev_mnt_vdev_inform g_vdev_inform;
 STATIC DEV_MNT_VDEV_CB_T *g_mnt_vdev_cb = NULL;
-static ka_file_operations_t dev_mnt_vdev_fops_real = {
-    ka_fs_init_f_owner(KA_THIS_MODULE)
-    ka_fs_init_f_open(NULL)
-    ka_fs_init_f_release(NULL)
-    ka_fs_init_f_unlocked_ioctl(NULL)
-    ka_fs_init_f_mmap(NULL)
-};
+static ka_file_operations_t dev_mnt_vdev_fops_real = {ka_fs_init_f_owner(KA_THIS_MODULE) ka_fs_init_f_open(
+    NULL) ka_fs_init_f_release(NULL) ka_fs_init_f_unlocked_ioctl(NULL) ka_fs_init_f_mmap(NULL)};
 
 STATIC void dev_mnt_vdevice_inform_release(void);
 
@@ -154,8 +146,7 @@ STATIC inline u32 dev_mnt_vdevice_get_vdevice_alloced(u32 phy_id)
 }
 
 #ifdef CFG_FEATURE_VFIO
-STATIC struct vdavinci_info *dev_mnt_vdevice_alloc(u32 phy_id, u32 core_num,
-    u32 vfid, u32 *vdev_id)
+STATIC struct vdavinci_info *dev_mnt_vdevice_alloc(u32 phy_id, u32 core_num, u32 vfid, u32 *vdev_id)
 {
     u32 vdev_index;
 
@@ -208,11 +199,10 @@ STATIC int dev_mnt_destory_vdevice_single(u32 phy_id, u32 vdev_id)
         return -ENODEV;
     }
 
-    if ((info_cb->phy_devid != phy_id) ||
-        (g_mnt_vdev_cb->vdev[vdev_id].info.used == VDAVINCI_STATE_INUSED)) {
+    if ((info_cb->phy_devid != phy_id) || (g_mnt_vdev_cb->vdev[vdev_id].info.used == VDAVINCI_STATE_INUSED)) {
         ka_task_mutex_unlock(&g_mnt_vdev_cb->vdev[vdev_id].lock);
-            devdrv_drv_warn("vdev_id(%u) is inused. phy_id(%u), info_phy_id(%d)\n",
-                VDAVINCI_VDEV_OFFSET_PLUS(vdev_id), phy_id, info_cb->phy_devid);
+        devdrv_drv_warn("vdev_id(%u) is inused. phy_id(%u), info_phy_id(%d)\n", VDAVINCI_VDEV_OFFSET_PLUS(vdev_id),
+                        phy_id, info_cb->phy_devid);
         return -EINVAL;
     }
 
@@ -228,7 +218,7 @@ STATIC int dev_mnt_destory_vdevice_single(u32 phy_id, u32 vdev_id)
     if (ret != 0) {
         ka_task_mutex_unlock(&g_mnt_vdev_cb->vdev[vdev_id].lock);
         devdrv_drv_err("destroy_container failed, phy_id:%u,vfid:%u,ret:%d\n", phy_id,
-            g_mnt_vdev_cb->vdev[vdev_id].info.vfid, ret);
+                       g_mnt_vdev_cb->vdev[vdev_id].info.vfid, ret);
         return ret;
     }
     dev_mnt_vdevice_free(vdev_id);
@@ -364,8 +354,7 @@ STATIC int dev_mnt_create_vdevice_single(u32 phy_id, struct vdev_create_info *vi
     ret = vmngh_create_container_vdev(phy_id, dtype, &vfid, &vf_info);
 #endif
     if (ret != 0 || vfid == 0 || vfid > VDAVINCI_MAX_VFID_NUM) {
-        devdrv_drv_err("create vfid failed, phy_id:%u, core_num:%u, vfid:%u, ret:%d\n",
-            phy_id, core_num, vfid, ret);
+        devdrv_drv_err("create vfid failed, phy_id:%u, core_num:%u, vfid:%u, ret:%d\n", phy_id, core_num, vfid, ret);
         return (ret == -EBUSY ? -EBUSY : -EINVAL);
     }
     vinfo->vdev_info.base.vfg_id = vf_info.vfg.vfg_id;
@@ -378,8 +367,7 @@ STATIC int dev_mnt_create_vdevice_single(u32 phy_id, struct vdev_create_info *vi
 #else
         vmngh_destory_container_vdev(phy_id, vfid);
 #endif
-        devdrv_drv_err("alloc vdevice failed, phy_id:%u, core_num:%u, ret:%d\n",
-            phy_id, core_num, ret);
+        devdrv_drv_err("alloc vdevice failed, phy_id:%u, core_num:%u, ret:%d\n", phy_id, core_num, ret);
         return -EINVAL;
     }
 
@@ -419,8 +407,7 @@ int dev_mnt_vdevice_logical_id_to_phy_id(u32 logical_id, u32 *phy_id, u32 *vfid)
 
     ret = devmng_get_vdavinci_info(vdev_id, phy_id, vfid);
     if (ret != 0) {
-        devdrv_drv_err("get phy id failed, logical_id:%u,vdev_id:%d, ret:%d\n",
-                       logical_id, vdev_id, ret);
+        devdrv_drv_err("get phy id failed, logical_id:%u,vdev_id:%d, ret:%d\n", logical_id, vdev_id, ret);
         return ret;
     }
 
@@ -476,7 +463,7 @@ STATIC int get_single_vdev_info(struct vdev_query_info *query_info, struct vmng_
 }
 
 STATIC int get_device_total_info(u32 phy_id, struct vdev_query_info *query_info,
-    struct vmng_soc_resource_enquire *vm_info)
+                                 struct vmng_soc_resource_enquire *vm_info)
 {
     struct vmng_stars_res_refresh *stars_refresh;
     unsigned long aicpu_bitmap = 0;
@@ -505,13 +492,13 @@ STATIC int get_device_total_info(u32 phy_id, struct vdev_query_info *query_info,
 }
 
 #define DEV_MNT_VFREE(p) \
-    do {                     \
-        dbl_vfree(p);            \
-        p = NULL;            \
+    do {                 \
+        dbl_vfree(p);    \
+        p = NULL;        \
     } while (0)
 
 STATIC int get_device_free_memory_info(u32 phy_id, struct vdev_query_info *query_info,
-    struct vmng_soc_resource_enquire *vm_info)
+                                       struct vmng_soc_resource_enquire *vm_info)
 {
 #ifdef CFG_FEATURE_VDEV_MEMORY_FROM_DEVMNG_H2D
     int ret, i;
@@ -556,8 +543,8 @@ STATIC int get_device_free_memory_info(u32 phy_id, struct vdev_query_info *query
     }
 
     if (memory_used > memory_total) {
-        devdrv_drv_err("Memory used is larger than total. (phy_id=%u; used=%lld; total=%lld)\n",
-            phy_id, memory_used, memory_total);
+        devdrv_drv_err("Memory used is larger than total. (phy_id=%u; used=%lld; total=%lld)\n", phy_id, memory_used,
+                       memory_total);
         DEV_MNT_VFREE(vdevices);
         return -EINVAL;
     }
@@ -572,7 +559,7 @@ STATIC int get_device_free_memory_info(u32 phy_id, struct vdev_query_info *query
 }
 
 STATIC int get_device_free_info(u32 phy_id, struct vdev_query_info *query_info,
-    struct vmng_soc_resource_enquire *vm_info)
+                                struct vmng_soc_resource_enquire *vm_info)
 {
     int ret;
     struct vmng_stars_res_refresh *stars_refresh;
@@ -622,7 +609,7 @@ STATIC int get_single_vdev_activity(u32 phy_id, struct vdev_query_info *query_in
 #endif
 
 STATIC int dev_mnt_get_computing_info(u32 phy_id, struct vdev_query_info *query_info,
-    struct vmng_soc_resource_enquire *vm_info)
+                                      struct vmng_soc_resource_enquire *vm_info)
 {
     int ret;
 
@@ -648,8 +635,8 @@ STATIC int dev_mnt_get_computing_info(u32 phy_id, struct vdev_query_info *query_
     }
 
     if (ret != 0) {
-        devdrv_drv_err("Get computing info failed.(phy_id=%u; sub_cmd=%u, ret=%d)\n",
-            phy_id, query_info->cmd_type, ret);
+        devdrv_drv_err("Get computing info failed.(phy_id=%u; sub_cmd=%u, ret=%d)\n", phy_id, query_info->cmd_type,
+                       ret);
         return ret;
     }
     return 0;
@@ -808,8 +795,7 @@ void dev_mnt_vdevice_uninit(void)
     return;
 }
 
-int dev_mnt_vdev_register_client(u32 phy_id, u32 vfid,
-    const ka_file_operations_t *ops)
+int dev_mnt_vdev_register_client(u32 phy_id, u32 vfid, const ka_file_operations_t *ops)
 {
     if (ops == NULL || phy_id >= ASCEND_DEV_MAX_NUM || vfid > VDAVINCI_MAX_VFID_NUM) {
         devdrv_drv_err("invalid para phy_id(%u), vfid(%u).\n", phy_id, vfid);
@@ -845,8 +831,8 @@ STATIC int dev_mnt_check_create_para_single(u32 phy_id, struct vdev_create_info 
     }
 
     if (token != token_max || task_timeout != VDEV_TASK_TIMEOUT) {
-        devdrv_drv_err("Invalid parameters. (token=%llu; token_max=%llu; is_valid_task_timeout=%d)\n",
-            token, token_max, task_timeout == VDEV_TASK_TIMEOUT);
+        devdrv_drv_err("Invalid parameters. (token=%llu; token_max=%llu; is_valid_task_timeout=%d)\n", token, token_max,
+                       task_timeout == VDEV_TASK_TIMEOUT);
         return -EINVAL;
     }
 
@@ -857,8 +843,8 @@ STATIC int dev_mnt_check_create_para_single(u32 phy_id, struct vdev_create_info 
 
     ratio = VDEV_TOKEN_MAP_VALUE(token) + 1;
     if (g_split_details.splitted_total + ratio > MAX_SPLIT_PIECE) {
-        devdrv_drv_err("It is over current tops. (splitted_total=%u; ratio=%u)\n",
-            g_split_details.splitted_total, ratio);
+        devdrv_drv_err("It is over current tops. (splitted_total=%u; ratio=%u)\n", g_split_details.splitted_total,
+                       ratio);
         return -EINVAL;
     }
 
@@ -903,8 +889,8 @@ STATIC int dev_mnt_check_create_para_single(u32 phy_id, struct vdev_create_info 
     }
 
     if ((core_used + core_need) > core_total) {
-        devdrv_drv_err("check aicore num failed, phy_id:%u, core_need:%u, used:%u, total:%u\n",
-            phy_id, core_need, core_used, core_total);
+        devdrv_drv_err("check aicore num failed, phy_id:%u, core_need:%u, used:%u, total:%u\n", phy_id, core_need,
+                       core_used, core_total);
 #ifndef CFG_FEATURE_ASCEND950_FPGA_STUB
         return -EINVAL;
 #endif
@@ -1023,11 +1009,11 @@ void dev_mnt_vdevice_inform(void)
     KA_INIT_LIST_HEAD(&g_vdev_inform.vdev_action_head);
     ka_task_spin_unlock(&g_vdev_inform.spinlock);
 
-    ka_list_for_each_safe(pos, n, &head) {
+    ka_list_for_each_safe(pos, n, &head)
+    {
         vdev_action = ka_list_entry(pos, struct dev_mnt_vdev_action, list_node);
         if (vdev_action->action == VDEV_BIND) {
-            dev_mnt_vdevice_bind(vdev_action->vdev_id, vdev_action->ns,
-                                 vdev_action->container_id);
+            dev_mnt_vdevice_bind(vdev_action->vdev_id, vdev_action->ns, vdev_action->container_id);
         } else if (vdev_action->action == VDEV_UNBIND) {
             dev_mnt_vdevice_unbind(vdev_action->vdev_id);
         } else {
@@ -1050,7 +1036,8 @@ STATIC void dev_mnt_vdevice_inform_release(void)
     }
 
     ka_task_spin_lock(&g_vdev_inform.spinlock);
-    ka_list_for_each_safe(pos, n, &g_vdev_inform.vdev_action_head) {
+    ka_list_for_each_safe(pos, n, &g_vdev_inform.vdev_action_head)
+    {
         vdev_action = ka_list_entry(pos, struct dev_mnt_vdev_action, list_node);
         ka_list_del(&vdev_action->list_node);
         dbl_kfree(vdev_action);
@@ -1225,6 +1212,7 @@ int devdrv_manager_ioctl_create_vdev(ka_file_t *filep, unsigned int cmd, unsigne
     }
 #endif
     if (copy_to_user_safe((void *)(uintptr_t)arg, &vinfo, sizeof(struct vdev_create_info))) {
+        (void)dev_mnt_destory_vdevice(phy_id, vinfo.vdevid);
         return -EFAULT;
     }
 
@@ -1348,7 +1336,8 @@ int devdrv_manager_ioctl_get_vdevinfo(ka_file_t *filep, unsigned int cmd, unsign
         return -EPERM;
     }
 
-    if (!devdrv_manager_container_is_host_system(ka_task_get_current_mnt_ns()) && !devdrv_manager_container_is_admin()) {
+    if (!devdrv_manager_container_is_host_system(ka_task_get_current_mnt_ns()) &&
+        !devdrv_manager_container_is_admin()) {
         devdrv_drv_err("check permission failed.\n");
         ret = -EPERM;
         goto EXIT;
@@ -1378,8 +1367,7 @@ int devdrv_manager_ioctl_get_vdevinfo(ka_file_t *filep, unsigned int cmd, unsign
 #endif
     vinfo->vfid = vfid;
 
-    if (vinfo->vdev_id_single != 0 &&
-        dev_mnt_get_vfid_from_vdevid(vinfo->vdev_id_single, phy_id, &vinfo->vfid) != 0) {
+    if (vinfo->vdev_id_single != 0 && dev_mnt_get_vfid_from_vdevid(vinfo->vdev_id_single, phy_id, &vinfo->vfid) != 0) {
         devdrv_drv_err("Get vfid from vdevid failed, (vdevid=%d; phyid=%d)\n", vinfo->vdev_id_single, phy_id);
         ret = -EINVAL;
         goto EXIT;
@@ -1461,8 +1449,8 @@ int devdrv_manager_get_vdev_resource_info(struct devdrv_resource_info *dinfo)
     info.owner_id = dinfo->owner_id;
     ret = hvdevmng_get_dev_resource(phy_id, dinfo->tsid, &info);
     if (ret) {
-        devdrv_drv_err("get resource info failed, devid(%u), resource type (%u) ret(%d).\n",
-            dinfo->devid, dinfo->resource_type, ret);
+        devdrv_drv_err("get resource info failed, devid(%u), resource type (%u) ret(%d).\n", dinfo->devid,
+                       dinfo->resource_type, ret);
         return ret;
     }
     *((u64 *)dinfo->buf) = info.value;
