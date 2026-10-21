@@ -27,6 +27,7 @@
 
 #include "queue_client_base.h"
 #include "que_platform.h"
+#include "queue_feature.h"
 
 enum queue_info_type {
     QUEUE_INFO_ENQUE = 0,
@@ -239,7 +240,6 @@ STATIC void queue_free_inherit_resource(void)
 }
 #endif
 
-#ifndef CFG_FEATURE_SUPPORT_SRIOV
 STATIC drvError_t queue_is_support(unsigned int dev_id)
 {
 #ifdef __linux
@@ -261,7 +261,6 @@ STATIC drvError_t queue_is_support(unsigned int dev_id)
 
     return DRV_ERROR_NONE;
 }
-#endif
 
 STATIC drvError_t queue_get_dev_pid(unsigned int dev_id, unsigned int vfid, int hostpid, int *devpid)
 {
@@ -317,7 +316,7 @@ static int queue_drv_event_query_gid(unsigned int dev_id, unsigned int *grp_id)
 
 STATIC drvError_t queue_dc_agent_init(unsigned int dev_id)
 {
-    struct queue_init_msg_para init_para;
+    struct queue_init_msg_para init_para = {0};
     struct queue_msg_info msg_info;
     drvError_t ret;
     char proc_sn;
@@ -418,12 +417,13 @@ STATIC drvError_t queue_init_client(unsigned int dev_id)
     drvError_t ret;
     int fd = -1;
 
-#ifndef CFG_FEATURE_SUPPORT_SRIOV
-    ret = queue_is_support(dev_id);
-    if (ret != DRV_ERROR_NONE) {
-        return ret;
+    if (!queue_has_dev_feature(dev_id, QUEUE_FEATURE_SUPPORT_SRIOV)) {
+        ret = queue_is_support(dev_id);
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
     }
-#endif
+
     (void)pthread_mutex_lock(&g_queue_mutex);
     hostpid = queue_get_hostpid();
     /* child process needs free inherited resource from parent process */
@@ -467,11 +467,11 @@ STATIC drvError_t queue_init_client(unsigned int dev_id)
 
 STATIC void queue_uninit_client(unsigned int dev_id, unsigned int scene)
 {
-#ifndef CFG_FEATURE_SUPPORT_SRIOV
-    if (queue_is_support(dev_id) != DRV_ERROR_NONE) {
-        return;
+    if (!queue_has_dev_feature(dev_id, QUEUE_FEATURE_SUPPORT_SRIOV)) {
+        if (queue_is_support(dev_id) != DRV_ERROR_NONE) {
+            return;
+        }
     }
-#endif
     (void)pthread_mutex_lock(&g_queue_mutex);
     queue_host_uninit(dev_id, scene);
     (void)pthread_mutex_unlock(&g_queue_mutex);
@@ -1283,12 +1283,12 @@ STATIC bool queue_is_need_sync_wait(unsigned int dev_id, unsigned int qid, unsig
     /* The user has subscribed events, so we does not need to wait. */
     if (subevent_id == DRV_SUBEVENT_ENQUEUE_MSG) {
         if (queue_get_remote_info(dev_id, qid, QUEUE_INFO_F2NF) == true) {
-            QUEUE_LOG_INFO("sub event not need wait when enque. (dev_id=%u; qid=%u)\n", dev_id, qid);
+            QUEUE_LOG_INFO("sub event does not need to wait when enque. (dev_id=%u; qid=%u)\n", dev_id, qid);
             return false;
         }
     } else {
         if (queue_get_remote_info(dev_id, qid, QUEUE_INFO_ENQUE) == true) {
-            QUEUE_LOG_INFO("sub event not need wait when deque. (dev_id=%u; qid=%u)\n", dev_id, qid);
+            QUEUE_LOG_INFO("sub event does not need to wait when deque. (dev_id=%u; qid=%u)\n", dev_id, qid);
             return false;
         }
     }

@@ -15,11 +15,11 @@
 
 typedef int pid_t;
 #ifndef ASCEND_DEV_MAX_NUM
-#define ASCEND_DEV_MAX_NUM           64
+#define ASCEND_DEV_MAX_NUM 64
 #endif
 
 #define DEVDRV_MAX_COMPUTING_POWER_TYPE 1
-#if defined (CFG_SOC_PLATFORM_MINI) && !defined(CFG_SOC_PLATFORM_MINIV2) && !defined(DEVMNG_UT) && !defined(LOG_UT)
+#if defined(CFG_SOC_PLATFORM_MINI) && !defined(CFG_SOC_PLATFORM_MINIV2) && !defined(DEVMNG_UT) && !defined(LOG_UT)
 #define DEVDRV_CONTIANER_NUM_OF_LONG ((ASCEND_DEV_MAX_NUM - 1) / 64 + 1)
 struct devdrv_device_info {
     u64 dump_ddr_dma_addr;
@@ -120,7 +120,7 @@ struct devdrv_device_info { /* for device sync to host */
     u32 super_pod_id;
     u16 addr_mode;
     char random_number[DEVMNG_SHM_INFO_RANDOM_SIZE];
-    u8 resv2[190]; 
+    u8 resv2[190];
 };
 #endif
 
@@ -153,7 +153,7 @@ struct devdrv_manager_msg_head {
     u32 vfid;
 };
 
-#if defined (CFG_SOC_PLATFORM_MINI) && !defined(CFG_SOC_PLATFORM_MINIV2) && !defined(DEVMNG_UT) && !defined(LOG_UT)
+#if defined(CFG_SOC_PLATFORM_MINI) && !defined(CFG_SOC_PLATFORM_MINIV2) && !defined(DEVMNG_UT) && !defined(LOG_UT)
 #define DEVDRV_MANAGER_INFO_LEN 512UL
 #else
 #define DEVDRV_MANAGER_INFO_LEN 512UL
@@ -175,7 +175,6 @@ struct devdrv_manager_msg_resource_info {
     u64 resv[8];
 };
 
-
 struct devmng_msg_h2d_info {
     u64 cpu_system_count;
     u64 monotonic_raw_time_ns;
@@ -184,8 +183,8 @@ struct devmng_msg_h2d_info {
     u64 resv[4];
 };
 
-#define PROCESS_SIGN_LENGTH  49
-#define PROCESS_RESV_LENGTH  4
+#define PROCESS_SIGN_LENGTH 49
+#define PROCESS_RESV_LENGTH 4
 struct process_sign {
     pid_t tgid;
     char sign[PROCESS_SIGN_LENGTH];

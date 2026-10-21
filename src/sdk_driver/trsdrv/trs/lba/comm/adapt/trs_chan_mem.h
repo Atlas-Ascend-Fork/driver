@@ -14,6 +14,7 @@
 #define TRS_CHAN_MEM_H
 
 #include "trs_pub_def.h"
+#include "trs_chan.h"
 
 enum trs_chan_mem_type {
     TRS_CHAN_MEM_RSV = 0,
@@ -31,5 +32,9 @@ void *trs_chan_mem_alloc_rsv(struct trs_id_inst *inst, int type, size_t size, ph
 void trs_chan_mem_free_rsv(struct trs_id_inst *inst, int type, void *sq_addr, size_t size);
 int trs_chan_rsv_mem_init(struct trs_id_inst *inst, int type, bool cacheable);
 void trs_chan_rsv_mem_uninit(struct trs_id_inst *inst, int type);
-
+void *trs_chan_mem_alloc_ddr_phy_pages(struct trs_id_inst *inst, u32 nids[], int node_num, size_t size,
+                                       struct trs_chan_mem_attr *mem_attr);
+void trs_chan_mem_free_ddr_phy_pages(struct trs_id_inst *inst, struct trs_chan_mem_attr *mem_attr);
+int trs_chan_mem_alloc_attr_lists(struct trs_chan_mem_attr *mem_attr, u32 pa_num);
+void trs_chan_mem_free_attr_lists(struct trs_chan_mem_attr *mem_attr);
 #endif /* TRS_CHAN_MEM_H */

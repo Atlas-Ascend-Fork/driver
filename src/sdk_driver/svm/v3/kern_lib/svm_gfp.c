@@ -219,7 +219,7 @@ u64 svm_get_page_size_by_pa_seg(u64 va, u64 size, struct svm_pa_seg *pa_seg, u64
         }
 
         if (((pa_seg[i].pa % KA_MM_PAGE_SIZE) != 0) || ((pa_seg[i].size % KA_MM_PAGE_SIZE) != 0)) {
-            svm_err("Invalid pa seg. (size=%llx)\n", pa_seg[i].size);
+            svm_err("Invalid pa seg. (size=%llx; i=%llu; seg_num=%llu)\n", pa_seg[i].size, i, seg_num);
             return 0;
         }
 
@@ -227,7 +227,7 @@ u64 svm_get_page_size_by_pa_seg(u64 va, u64 size, struct svm_pa_seg *pa_seg, u64
     }
 
     if (size != total_seg_size) {
-        svm_err("Invalid pa seg. (size=%llx; total_seg_size=%llx)\n", size, total_seg_size);
+        svm_err("Invalid pa seg. (size=%llx; total_seg_size=%llx; seg_num=%llu)\n", size, total_seg_size, seg_num);
         return 0;
     }
 
@@ -277,4 +277,29 @@ u64 svm_get_max_page_size_by_pa_seg(struct svm_pa_seg *pa_seg, u64 seg_num)
     }
 
     return is_giant_page ? giant_page_size : (is_huge_page ? KA_HPAGE_SIZE : KA_MM_PAGE_SIZE);
+}
+
+u64 svm_get_same_page_size_seg_num_by_pa_seg(u64 va, struct svm_pa_seg *pa_seg, u64 seg_num, u64 *seg_sum_size,
+                                             u64 *page_size)
+{
+    u64 pre_page_size = 0;
+    u64 cur_va = va;
+    u64 i;
+
+    for (i = 0; i < seg_num; i++) {
+        u64 cur_page_size = svm_get_page_size_by_pa_seg(cur_va, pa_seg[i].size, &pa_seg[i], 1);
+        if (cur_page_size == 0) {
+            svm_warn("Invalid pa seg. (va=0x%llx; size=0x%llx; offset=%llu)\n", cur_va, pa_seg[i].size, i);
+            return 0;
+        }
+
+        if ((pre_page_size != 0) && (pre_page_size != cur_page_size)) {
+            break;
+        }
+        pre_page_size = cur_page_size;
+        cur_va += pa_seg[i].size;
+    }
+    *page_size = pre_page_size;
+    *seg_sum_size = cur_va - va;
+    return i;
 }

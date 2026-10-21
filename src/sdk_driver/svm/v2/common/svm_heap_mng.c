@@ -16,6 +16,7 @@
 #include "devmm_proc_info.h"
 #include "devmm_common.h"
 #include "svm_vmma_mng.h"
+#include "svm_vmm_access_comm.h"
 #include "devmm_mem_alloc_interface.h"
 #include "svm_heap_mng.h"
 
@@ -38,6 +39,13 @@ int devmm_get_virt_pfn_by_heap(const struct devmm_svm_heap *heap, u64 va, unsign
         devmm_drv_err("Vaddress overflow. (va=0x%llx; start=0x%llx; size=%llu)\n", va, heap->start, heap->heap_size);
         return -EINVAL;
     }
+
+#ifndef EMU_ST
+    if (heap->chunk_page_size == 0) {
+        devmm_drv_err("Chunk page size is zero.\n");
+        return -EINVAL;
+    }
+#endif
 
     *pfn = (va - heap->start) / heap->chunk_page_size;
     return 0;
@@ -216,28 +224,40 @@ void devmm_svm_clear_bitmap_mapped(u32 *page_bitmap, size_t size, size_t page_si
 int devmm_alloc_new_heap_pagebitmap(struct devmm_svm_heap *heap)
 {
     unsigned long page_cnt;
+    unsigned long alloc_size;
 
     if (heap == NULL) {
         return -ENOMEM;
     }
     page_cnt = heap->heap_size / heap->chunk_page_size;
+    alloc_size = page_cnt * sizeof(u32);
+
+    devmm_drv_info("Vmalloc page_bitmap enter. (heap_start=0x%llx; heap_size=%llu; chunk_size=%u; "
+                   "page_cnt=%lu; alloc_size=%lu; heap_type=%u; heap_sub_type=%u)\n",
+                   heap->start, heap->heap_size, heap->chunk_page_size, page_cnt, alloc_size, heap->heap_type,
+                   heap->heap_sub_type);
+
     heap->page_bitmap = (u32 *)__devmm_vmalloc_ex(
-        page_cnt * sizeof(u32), KA_GFP_KERNEL | __KA_GFP_ZERO | __KA_GFP_NOWARN | __KA_GFP_ACCOUNT, KA_PAGE_KERNEL);
-    devmm_drv_debug("Vmalloc page_bitmap heap. (start=%llx; heap_size=%llu; page_cnt=%lu)\n", heap->start,
-                    heap->heap_size, page_cnt);
+        alloc_size, KA_GFP_KERNEL | __KA_GFP_ZERO | __KA_GFP_NOWARN | __KA_GFP_ACCOUNT, KA_PAGE_KERNEL);
     if (heap->page_bitmap == NULL) {
-        devmm_drv_err("Vmalloc page_bitmap fail. (page_cnt=%lu)\n", page_cnt);
-        return -ENOMEM;
-    }
-    heap->ref = (u32 *)__devmm_vmalloc_ex(
-        page_cnt * sizeof(u32), KA_GFP_KERNEL | __KA_GFP_ZERO | __KA_GFP_NOWARN | __KA_GFP_ACCOUNT, KA_PAGE_KERNEL);
-    if (heap->ref == NULL) {
-        devmm_vfree_ex(heap->page_bitmap);
-        heap->page_bitmap = NULL;
-        devmm_drv_err("Vmalloc page_ref fail. (page_cnt=%lu)\n", page_cnt);
+        devmm_drv_err("Vmalloc page_bitmap fail. (heap_start=0x%llx; heap_size=%llu; chunk_size=%u; "
+                      "page_cnt=%lu; alloc_size=%lu)\n",
+                      heap->start, heap->heap_size, heap->chunk_page_size, page_cnt, alloc_size);
         return -ENOMEM;
     }
 
+    heap->ref = (u32 *)__devmm_vmalloc_ex(
+        alloc_size, KA_GFP_KERNEL | __KA_GFP_ZERO | __KA_GFP_NOWARN | __KA_GFP_ACCOUNT, KA_PAGE_KERNEL);
+    if (heap->ref == NULL) {
+        devmm_vfree_ex(heap->page_bitmap);
+        heap->page_bitmap = NULL;
+        devmm_drv_err("Vmalloc page_ref fail. (heap_start=0x%llx; heap_size=%llu; chunk_size=%u; "
+                      "page_cnt=%lu; alloc_size=%lu)\n",
+                      heap->start, heap->heap_size, heap->chunk_page_size, page_cnt, alloc_size);
+        return -ENOMEM;
+    }
+
+    devmm_drv_info("Vmalloc page_bitmap succ. (page_cnt=%lu; alloc_size=%lu)\n", page_cnt, alloc_size);
     return 0;
 }
 
@@ -331,6 +351,7 @@ void devmm_destroy_reserve_heap_mem(struct devmm_svm_process *svm_proc, struct d
     u64 i;
 
     devmm_vmmas_destroy(svm_proc, &heap->vmma_mng);
+    svm_vmm_access_heap_unmap_local(svm_proc, heap);
     for (i = 0; i < page_cnt; i++) {
         devmm_page_clean_bitmap(page_bitmap + i);
         devmm_try_cond_resched(&stamp);

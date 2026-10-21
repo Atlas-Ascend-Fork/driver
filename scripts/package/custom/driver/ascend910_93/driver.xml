@@ -83,7 +83,7 @@
         <file value="libmbedcrypto.so.16" file_type="shared"/>
         <file value="libmbedtls.so.21" file_type="shared"/>
         <file value="libmbedx509.so.7" file_type="shared"/>
-        <file value="libtls_adp.so" file_type="shared" />
+        <file value="libtls_product.so" file_type="shared" />
     </file_info>
     <file_info value="lib64" copy_type="delivery" src_path="lib" dst_path="driver/lib64/driver" install_path="driver/lib64/driver" install_mod="444" install_type="run;devel;docker">
         <file value="liblingqu-dcmi.so" file_type="shared"/>

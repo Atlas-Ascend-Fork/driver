@@ -28,9 +28,9 @@
 #define STATIC static
 #endif
 
-#define DMS_LOG_BUF_SIZE     0x1400000
-#define DMS_DIR_MAXLEN       256U
-#define DMS_LOG_FILE_NAME    "host_kernel.log"
+#define DMS_LOG_BUF_SIZE 0x1400000
+#define DMS_DIR_MAXLEN 256U
+#define DMS_LOG_FILE_NAME "host_kernel.log"
 struct LogInfo {
     void *buffer;
     u32 length;
@@ -40,15 +40,15 @@ struct LogInfo {
 static int drvKlogSaveFs(const void *buffer, u32 len, const char *logPath)
 {
 #ifndef DMS_UT
-    char fullPath[DMS_DIR_MAXLEN] = { 0 };
+    char fullPath[DMS_DIR_MAXLEN] = {0};
     char *resolvedPath = NULL;
     ssize_t cnt = 0;
     int fd = -1;
     int ret;
 
     if (len == 0) {
-        DMS_ERR("Invalid len to save file. (len=%u, path=%s)\n", len, logPath);
-        return DRV_ERROR_PARA_ERROR;
+        DMS_INFO("Skip saving empty log to file. (len=%u, path=%s)\n", len, logPath);
+        return DRV_ERROR_NONE;
     }
 
     resolvedPath = realpath(logPath, NULL);
@@ -112,17 +112,17 @@ static bool drvIsVritEnv(void)
 
 static int drvGetKlogBufParaCheck(uint32_t devId, const char *path, unsigned int *pSize)
 {
-    unsigned int maxLen = DMS_DIR_MAXLEN - strlen(DMS_LOG_FILE_NAME);
+    unsigned int maxLen = (unsigned int)(DMS_DIR_MAXLEN - strlen(DMS_LOG_FILE_NAME));
 
     if ((devId >= ASCEND_PDEV_MAX_NUM) || (path == NULL) || (pSize == NULL)) {
-        DMS_ERR("Invalid parameters. (devId=%u, buf%s, p_size%s)\n",
-            devId, path == NULL ? "=NULL" : "!=NULL", pSize == NULL ? "=NULL" : "!=NULL");
+        DMS_ERR("Invalid parameters. (devId=%u, buf%s, p_size%s)\n", devId, path == NULL ? "=NULL" : "!=NULL",
+                pSize == NULL ? "=NULL" : "!=NULL");
         return DRV_ERROR_INVALID_VALUE;
     }
 
     if ((*pSize >= maxLen) || (strnlen(path, (size_t)maxLen) != *pSize)) {
-        DMS_ERR("Invalid path or size. (devId=%u, *pSize=%u, pathLen=%d, maxLen=%d)\n", devId, *pSize,
-            strnlen(path, (size_t)maxLen), maxLen);
+        DMS_ERR("Invalid path or size. (devId=%u, *pSize=%u, pathLen=%d, maxLen=%u)\n", devId, *pSize,
+                strnlen(path, (size_t)maxLen), maxLen);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -131,12 +131,12 @@ static int drvGetKlogBufParaCheck(uint32_t devId, const char *path, unsigned int
 
 static int drvGetKlogIoctl(uint32_t devId, struct LogInfo *log_info)
 {
-    struct dms_ioctl_arg ioarg = { 0 };
+    struct dms_ioctl_arg ioarg = {0};
     int ret;
 
 #ifndef DMS_UT
     if (drvIsVritEnv()) {
-        ret = dmanage_common_ioctl(DEVDRV_MANAGER_GET_HOST_KERN_LOG, log_info);
+        ret = dmanage_common_ioctl((int)DEVDRV_MANAGER_GET_HOST_KERN_LOG, log_info);
         if (ret != 0) {
             DMS_EX_NOTSUPPORT_ERR(ret, "Ioctl failed. (dev_id=%u; ret=%d; errno=%d)\n", devId, ret, errno);
             return ret;
@@ -146,10 +146,10 @@ static int drvGetKlogIoctl(uint32_t devId, struct LogInfo *log_info)
         ioarg.sub_cmd = DMS_SUBCMD_GET_LOG_INFO;
         ioarg.filter_len = 0;
         ioarg.input = log_info;
-        ioarg.input_len = sizeof(struct LogInfo);
+        ioarg.input_len = (unsigned int)sizeof(struct LogInfo);
         ioarg.output = &log_info->buf_len;
-        ioarg.output_len = sizeof(u32);
-        ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+        ioarg.output_len = (unsigned int)sizeof(u32);
+        ret = errno_to_user_errno(DmsIoctl((int)DMS_IOCTL_CMD, &ioarg));
         if (ret != 0) {
             DMS_EX_NOTSUPPORT_ERR(ret, "drvGetKlogBuf failed. (devId=%u, ret=%d)", devId, ret);
             return ret;
@@ -162,7 +162,7 @@ static int drvGetKlogIoctl(uint32_t devId, struct LogInfo *log_info)
 
 int drvGetKlogBuf(uint32_t devId, const char *path, unsigned int *pSize)
 {
-    struct LogInfo log_info = { 0 };
+    struct LogInfo log_info = {0};
     int ret;
 
     ret = drvGetKlogBufParaCheck(devId, path, pSize);
@@ -182,7 +182,8 @@ int drvGetKlogBuf(uint32_t devId, const char *path, unsigned int *pSize)
     ret = drvGetKlogIoctl(devId, &log_info);
     if (ret != DRV_ERROR_NONE) {
 #ifndef DMS_UT
-        free(log_info.buffer);
+        DMS_EX_NOTSUPPORT_ERR(ret, "drvGetKlogIoctl failed. (devId=%u, ret=%d)", devId, ret);
+        (void)free(log_info.buffer);
         return ret;
 #endif
     }
@@ -190,7 +191,7 @@ int drvGetKlogBuf(uint32_t devId, const char *path, unsigned int *pSize)
     if (log_info.buf_len > DMS_LOG_BUF_SIZE) {
 #ifndef DMS_UT
         DMS_ERR("Buf len is invalid. (devId=%u, buf_len=%u)\n", devId, log_info.buf_len);
-        free(log_info.buffer);
+        (void)free(log_info.buffer);
         return DRV_ERROR_INVALID_VALUE;
 #endif
     }
@@ -199,26 +200,26 @@ int drvGetKlogBuf(uint32_t devId, const char *path, unsigned int *pSize)
     if (ret != 0) {
 #ifndef DMS_UT
         DMS_ERR("Save klog failed. (ret=%d)\n", ret);
-        free(log_info.buffer);
+        (void)free(log_info.buffer);
         return ret;
 #endif
     }
 
-    free(log_info.buffer);
+    (void)free(log_info.buffer);
     return DRV_ERROR_NONE;
 }
 
 STATIC int g_log_fd = -1;
 static pthread_mutex_t g_log_mtx = PTHREAD_MUTEX_INITIALIZER;
-#define DSMI_LOG_PROC       "/proc/dsmi_log"
-#define MAX_LOG_BUF         1024
+#define DSMI_LOG_PROC "/proc/dsmi_log"
+#define MAX_LOG_BUF 1024
 
 // The fd is automatically closed when the process exits.
 static void __attribute__((destructor)) dsmi_log_exit(void)
 {
     pthread_mutex_lock(&g_log_mtx);
     if (g_log_fd >= 0) {
-        close(g_log_fd);
+        (void)close(g_log_fd);
         g_log_fd = -1;
     }
     pthread_mutex_unlock(&g_log_mtx);
@@ -227,8 +228,9 @@ static void __attribute__((destructor)) dsmi_log_exit(void)
 // only open once
 static int dsmi_log_get_fd(void)
 {
-    if (g_log_fd >= 0)
+    if (g_log_fd >= 0) {
         return g_log_fd;
+    }
 
     int fd = open(DSMI_LOG_PROC, O_WRONLY | O_CLOEXEC);
     if (fd < 0) {
@@ -239,10 +241,9 @@ static int dsmi_log_get_fd(void)
     return g_log_fd;
 }
 
-int dsmi_printf(const char *fmt, ...)
+static int vdsmi_printf(const char *fmt, va_list ap)
 {
     char buf[MAX_LOG_BUF];
-    va_list ap;
     int fd;
     ssize_t len, nwrite;
     ssize_t off = 0;
@@ -251,9 +252,7 @@ int dsmi_printf(const char *fmt, ...)
         return -EINVAL;
     }
 
-    va_start(ap, fmt);
-    len = vsnprintf_s(buf, sizeof(buf), sizeof(buf) - 1, fmt, ap);
-    va_end(ap);
+    len = vsnprintf_s(buf, sizeof(buf), sizeof(buf) - 1U, fmt, ap);
     if (len < 0 || (size_t)len >= sizeof(buf)) {
         return -EINVAL;
     }
@@ -264,7 +263,7 @@ int dsmi_printf(const char *fmt, ...)
         pthread_mutex_unlock(&g_log_mtx);
         return fd;
     }
-    
+
     while (off < len) {
         nwrite = write(fd, buf + off, (size_t)(len - off));
         if (nwrite > 0) {
@@ -282,7 +281,29 @@ int dsmi_printf(const char *fmt, ...)
     return (int)len;
 }
 
-const char *get_process_name(void)
+int dsmi_printf(const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+
+    va_start(ap, fmt);
+    ret = vdsmi_printf(fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+int halDsmiPrintf(const char *fmt, ...)
+{
+    va_list ap;
+    int ret;
+
+    va_start(ap, fmt);
+    ret = vdsmi_printf(fmt, ap);
+    va_end(ap);
+    return ret;
+}
+
+const char *halGetProcessName(void)
 {
     if (program_invocation_short_name == NULL || program_invocation_short_name[0] == '\0') {
         return "unknown";

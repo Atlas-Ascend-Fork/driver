@@ -21,6 +21,7 @@
 #include "hdcdrv_cmd_msg.h"
 #include "hdcdrv_core_ub.h"
 #include "hdcdrv_core_com_ub.h"
+#include "hdcdrv_ctrl_msg.h"
 #include "hdcdrv_proc_fs_ub.h"
 
 // clang-format off
@@ -84,6 +85,9 @@ STATIC ssize_t write_dev_id(ka_file_t *filp, const char *buf, size_t count, loff
     u32 dev_id = 0;
     int ret = 0;
     ret = set_global_id(filp, buf, count, offp, &dev_id);
+    if (ret < 0) {
+        return ret;
+    }
 
     if (dev_id >= HDCDRV_SUPPORT_MAX_DEV) {
         ret = -ERANGE;
@@ -105,8 +109,8 @@ STATIC int read_dev_id_proc_open(ka_inode_t *inode, ka_file_t *file)
     return ka_fs_single_open(file, read_dev_id_proc_show, NULL);
 }
 
-/* Both vdev_stat and dev_stat use this func to collect statistics on session status */
-STATIC void hdcdrv_fill_dev_stat(struct hdcdrv_dev *hdc_dev, struct hdcdrv_session_list_stat *s_brief)
+STATIC void hdcdrv_fill_session_info_list_and_show(ka_seq_file_t *m, struct hdcdrv_dev *hdc_dev,
+                                                   struct hdcdrv_session_list_stat *s_brief)
 {
     int i;
     int status;
@@ -121,21 +125,53 @@ STATIC void hdcdrv_fill_dev_stat(struct hdcdrv_dev *hdc_dev, struct hdcdrv_sessi
         }
     }
 
+    ka_fs_seq_printf(m, "\n-------------------show session list info-------------------\n");
+    ka_fs_seq_printf(m, "\nTotal session number: %d\n", HDCDRV_UB_SINGLE_DEV_MAX_SESSION);
+    ka_fs_seq_printf(m,
+                     "Total active session number: %d\n"
+                     "active session list: ",
+                     s_brief->active_num);
+    for (i = 0; i < s_brief->active_num; i++) {
+        ka_fs_seq_printf(m, "%d ", s_brief->active_list[i]);
+    }
+
+    ka_fs_seq_printf(m, "\nTotal idle session number: %d\n", s_brief->idle_num);
+    for (i = 0; i < s_brief->idle_num; i++) {
+        ka_fs_seq_printf(m, "%d ", s_brief->idle_list[i]);
+    }
+}
+
+STATIC void hdcdrv_fill_msg_pool_stat_and_show(ka_seq_file_t *m, struct hdcdrv_dev *hdc_dev)
+{
+    struct hdcdrv_ctrl_msg_pool_stat pool_stat[HDCDRV_MSG_POOL_TYPE_MAX] = {0};
+    int i;
+
+    ka_fs_seq_printf(m, "\n-------------------show ctrl msg pool info-------------------\n");
+    for (i = 0; i < HDCDRV_MSG_POOL_TYPE_MAX; i++) {
+        hdcdrv_get_ctrl_msg_pool_stat(hdc_dev, i, &pool_stat[i]);
+        ka_fs_seq_printf(m, "\nCtrl_msg_pool type: %d depth: %d head: %d tail: %d\n", pool_stat[i].pool_type,
+                         pool_stat[i].depth, pool_stat[i].head, pool_stat[i].tail);
+        ka_fs_seq_printf(m, "Connect_msg_num: %d\n", pool_stat[i].connect_msg_num);
+        ka_fs_seq_printf(m, "Dfx_msg_num: %d\n", pool_stat[i].dfx_msg_num);
+        ka_fs_seq_printf(m, "Close_msg_num: %d\n", pool_stat[i].close_msg_num);
+    }
     return;
 }
 
 STATIC int hdcdrv_list_stat_init(struct hdcdrv_session_list_stat *s_brief)
 {
-    s_brief->active_list = (int *)hdcdrv_ub_kvmalloc(sizeof(int) * HDCDRV_UB_SINGLE_DEV_MAX_SESSION);
+    s_brief->active_list = (int *)hdcdrv_ub_kvmalloc(sizeof(int) * HDCDRV_UB_SINGLE_DEV_MAX_SESSION,
+                                                     KA_SUB_MODULE_TYPE_4);
     if (s_brief->active_list == NULL) {
         hdcdrv_err("alloc active list err\n");
         return -ENOMEM;
     }
 
-    s_brief->idle_list = (int *)hdcdrv_ub_kvmalloc(sizeof(int) * HDCDRV_UB_SINGLE_DEV_MAX_SESSION);
+    s_brief->idle_list = (int *)hdcdrv_ub_kvmalloc(sizeof(int) * HDCDRV_UB_SINGLE_DEV_MAX_SESSION,
+                                                   KA_SUB_MODULE_TYPE_4);
     if (s_brief->idle_list == NULL) {
         hdcdrv_err("alloc idle list err\n");
-        hdcdrv_ub_kvfree(s_brief->active_list);
+        hdcdrv_ub_kvfree((void **)&s_brief->active_list, KA_SUB_MODULE_TYPE_4);
         return -ENOMEM;
     }
 
@@ -144,8 +180,8 @@ STATIC int hdcdrv_list_stat_init(struct hdcdrv_session_list_stat *s_brief)
 
 STATIC void hdcdrv_list_stat_uninit(struct hdcdrv_session_list_stat *s_brief)
 {
-    hdcdrv_ub_kvfree(s_brief->active_list);
-    hdcdrv_ub_kvfree(s_brief->idle_list);
+    hdcdrv_ub_kvfree((void **)&s_brief->active_list, KA_SUB_MODULE_TYPE_4);
+    hdcdrv_ub_kvfree((void **)&s_brief->idle_list, KA_SUB_MODULE_TYPE_4);
 
     return;
 }
@@ -155,36 +191,24 @@ STATIC void hdcdrv_info_proc_show(ka_seq_file_t *m, void *v, struct hdcdrv_dev *
     struct hdcdrv_session_list_stat s_brief = {0};
     int i, ret;
 
-    ka_fs_seq_printf(m, "\tHDC device %u statistics:\n", hdc_dev->dev_id);
-    ka_fs_seq_printf(m, "\n\tmem_pool \t\t status \t\t session_id \t\t pid\n");
+    ka_fs_seq_printf(m, "HDC device %u statistics:\n", hdc_dev->dev_id);
+    ka_fs_seq_printf(m, "-------------------show mem pool info-------------------\n");
+    ka_fs_seq_printf(m, "\nmem_pool \t\t status \t\t session_id \t\t pid\n");
     for (i = 0; i < HDCDRV_MEM_POOL_NUM; i++) {
-        ka_fs_seq_printf(m, "\tmem_pool[%d]: \t\t %d \t\t %d \t\t %llu\n", i, hdc_dev->mem_pool_list[i].valid,
+        ka_fs_seq_printf(m, "mem_pool[%d]: \t\t %d \t\t %d \t\t %llu\n", i, hdc_dev->mem_pool_list[i].valid,
                          hdc_dev->mem_pool_list[i].session_id, hdc_dev->mem_pool_list[i].pool.pid);
     }
 
+    hdcdrv_fill_msg_pool_stat_and_show(m, hdc_dev);
     ret = hdcdrv_list_stat_init(&s_brief);
     if (ret != HDCDRV_OK) {
-        ka_fs_seq_printf(m, "\n\tCan not malloc mem for session list.\n");
+        ka_fs_seq_printf(m, "\nCan not malloc mem for session list.\n");
         return;
     }
-
-    hdcdrv_fill_dev_stat(hdc_dev, &s_brief);
-    ka_fs_seq_printf(m, "\n\tTotal session number: %d\n", HDCDRV_UB_SINGLE_DEV_MAX_SESSION);
-    ka_fs_seq_printf(m,
-                     "\tTotal active session number: %d\n"
-                     "\tactive session list: ",
-                     s_brief.active_num);
-    for (i = 0; i < s_brief.active_num; i++) {
-        ka_fs_seq_printf(m, "%d ", s_brief.active_list[i]);
-    }
-
-    ka_fs_seq_printf(m, "\n\tTotal idle session number: %d\n", s_brief.idle_num);
-    for (i = 0; i < s_brief.idle_num; i++) {
-        ka_fs_seq_printf(m, "%d ", s_brief.idle_list[i]);
-    }
+    hdcdrv_fill_session_info_list_and_show(m, hdc_dev, &s_brief);
     hdcdrv_list_stat_uninit(&s_brief);
 
-    ka_fs_seq_printf(m, "\n----------------- END -----------------\n");
+    ka_fs_seq_printf(m, "\n------------------- END -------------------\n");
 
     return;
 }

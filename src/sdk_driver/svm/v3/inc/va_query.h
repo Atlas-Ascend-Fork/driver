@@ -24,16 +24,16 @@
 
 static inline int svm_query_va_udevid_by_smp(int master_tgid, u64 va, u64 size, u32 *udevid)
 {
-    u32 devid, tmp_udevid;
+    u32 max_udev_num = uda_get_udev_max_num();
+    u32 tmp_udevid;
     int ret;
 
-    for (devid = 0; devid < SVM_MAX_DEV_NUM; devid++) {
-        ret = uda_devid_to_udevid_ex(devid, &tmp_udevid);
-        if (ret != 0) {
-            break; /* Devid is continuously starting from 0. */
+    for (tmp_udevid = 0; tmp_udevid < max_udev_num; tmp_udevid++) {
+        if (uda_is_udevid_exist(tmp_udevid) == false) {
+            continue;
         }
 
-        /* Get devid from smp, for halMemAlloc va. */
+        /* Check SMP allocation for each existing device. */
         ret = svm_smp_check_mem_exists(tmp_udevid, master_tgid, va, size);
         if (ret == 0) {
             *udevid = tmp_udevid;
@@ -48,13 +48,13 @@ static inline int svm_query_va_udevid_by_ksvmm(int master_tgid, u64 va, u64 size
 {
     struct svm_global_va src_info;
     u64 start;
-    u32 devid, tmp_udevid;
+    u32 max_udev_num = uda_get_udev_max_num();
+    u32 tmp_udevid;
     int cp1_tgid, ret;
 
-    for (devid = 0; devid < SVM_MAX_DEV_NUM; devid++) {
-        ret = uda_devid_to_udevid_ex(devid, &tmp_udevid);
-        if (ret != 0) {
-            break; /* Devid is continuously starting from 0. */
+    for (tmp_udevid = 0; tmp_udevid < max_udev_num; tmp_udevid++) {
+        if (uda_is_udevid_exist(tmp_udevid) == false) {
+            continue;
         }
 
         /* Same (udevid, tgid) is vmm local map. */

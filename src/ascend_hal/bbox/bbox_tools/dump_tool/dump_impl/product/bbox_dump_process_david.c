@@ -64,32 +64,9 @@ STATIC bbox_status bbox_check_bios_stage(u32 phy_id)
 
 STATIC bbox_status bbox_dump_bbox_ddr(u32 phy_id, u32 offset, u32 size, u8 *buf)
 {
-    char dev_buf[DEV_BUF_MAX_LEN];
-    int64_t hd_connect_type;
-    bbox_status ret;
-    u32 logic_id;
-
-    ret = drvDeviceGetIndexByPhyId(phy_id, &logic_id);
-    if (ret != DRV_ERROR_NONE) {
-        BBOX_ERR("Transform phy_id to logic_id failed.");
-        return ret;
-    }
-
-    ret = halGetDeviceInfo(logic_id, MODULE_TYPE_SYSTEM, INFO_TYPE_HD_CONNECT_TYPE, &hd_connect_type);
-    if (ret != DRV_ERROR_NONE) {
-        BBOX_ERR("[%s] get connect type failed. (ret=%d)", bbox_get_dev_str(phy_id, logic_id, dev_buf, sizeof(dev_buf)),
-                 ret);
-        return ret;
-    }
-
-    if (hd_connect_type == HOST_DEVICE_CONNECT_TYPE_UB) {
-        return bbox_drv_read_data(phy_id, MEM_TYPE_BBOX_DDR, offset, buf, size);
-    }
-
-    ret = bbox_dma_dump_bbox_data(phy_id, BBOX_DDR_DMA_BASE_OFFSET, size, buf);
+    bbox_status ret = bbox_dump_bbox_data_read(phy_id, BBOX_DDR_OFFSET, size, buf);
     if (ret != BBOX_SUCCESS) {
-        BBOX_WAR("Dma dump bbox_ddr_dump unsuccessfully, start to pcie dump.");
-        return bbox_pcie_dump_bbox_data(phy_id, offset, size, buf);
+        return bbox_dump_bbox_data(phy_id, offset, size, buf);
     }
     return ret;
 }
@@ -117,7 +94,7 @@ STATIC bbox_status bbox_get_bbox_ddr(u32 phy_id, u32 offset, u32 size, u8 *buf)
 #ifndef BBOX_ST_TEST
     ret = bbox_dump_bbox_ddr(master_id, offset, size, buf);
     if (ret != BBOX_SUCCESS) {
-        BBOX_WAR("master device memory dump is not complete.");
+        BBOX_WAR("master device memory dump not complete.");
     }
 
     u8 *curr_buf = (u8 *)bbox_malloc(size);
@@ -128,7 +105,7 @@ STATIC bbox_status bbox_get_bbox_ddr(u32 phy_id, u32 offset, u32 size, u8 *buf)
 
     ret = bbox_dump_bbox_ddr(phy_id, offset, size, curr_buf);
     if (ret != BBOX_SUCCESS) {
-        BBOX_INF("current device memory dump is not complete.");
+        BBOX_INF("current device memory dump not complete.");
     }
 
     ret = bbox_ddr_dump_joint_dump(curr_buf, buf, size);
@@ -175,7 +152,8 @@ bbox_status bbox_check_dev_event(u32 phy_id, int logic_id, u16 *event, char *tms
 
     const struct rdr_head *head = (const struct rdr_head *)buffer;
     if (bbox_ddr_dump_check(head) == false) {
-        BBOX_ERR("[device-%u] magic(0x%x) and version(0x%x) are wrong.", phy_id, head->top_head.magic,
+        BBOX_ERR("[%s] magic(0x%x) and version(0x%x) are wrong.",
+                 bbox_get_dev_str(phy_id, logic_id, dev_buf, sizeof(dev_buf)), head->top_head.magic,
                  head->top_head.version);
         bbox_free(buffer);
         return BBOX_FAILURE;
@@ -321,7 +299,7 @@ STATIC bbox_status bbox_get_vmcore_data(u32 phy_id, u32 offset, u32 size, u8 *bu
         master_id = phy_id;
     }
     if (phy_id == master_id) {
-        return bbox_dma_dump_vmcore_data(phy_id, offset, size, buf);
+        return bbox_dma_dump_vmcore_data_read(phy_id, offset, size, buf);
     }
     return DRV_ERROR_NOT_SUPPORT;
 }
@@ -378,32 +356,9 @@ STATIC int bbox_check_bbox_ddr(u32 phy_id)
 
 STATIC int bbox_get_cdr_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 {
-    char dev_buf[DEV_BUF_MAX_LEN];
-    int64_t hd_connect_type;
-    u32 logic_id;
-    int ret;
-
-    ret = drvDeviceGetIndexByPhyId(phy_id, &logic_id);
-    if (ret != 0) {
-        BBOX_ERR("Transform phy_id to logic_id failed.");
-        return ret;
-    }
-
-    ret = halGetDeviceInfo(logic_id, MODULE_TYPE_SYSTEM, INFO_TYPE_HD_CONNECT_TYPE, &hd_connect_type);
-    if (ret != DRV_ERROR_NONE) {
-        BBOX_ERR("[%s] get connect type failed. (ret=%d)", bbox_get_dev_str(phy_id, logic_id, dev_buf, sizeof(dev_buf)),
-                 ret);
-        return ret;
-    }
-
-    if (hd_connect_type == HOST_DEVICE_CONNECT_TYPE_UB) {
-        return bbox_drv_read_data(phy_id, MEM_TYPE_REG_DDR, offset, buf, size);
-    }
-
-    ret = bbox_dma_dump_cdr_data(phy_id, BBOX_DDR_CHIP_DFX_DMA_OFFSET, size, buf);
+    int ret = bbox_dump_cdr_data_read(phy_id, BBOX_DDR_CHIP_DFX_BASE_OFFSET, size, buf);
     if (ret != BBOX_SUCCESS) {
-        BBOX_WAR("Dma dump chip full dfx unsuccessfully, start to pcie dump.");
-        return bbox_pcie_dump_cdr_full_data(phy_id, offset, size, buf);
+        return bbox_dump_cdr_full_data(phy_id, offset, size, buf);
     }
     return ret;
 }
@@ -529,7 +484,7 @@ STATIC bbox_status bbox_get_kernel_log(u32 phy_id, u32 offset, u32 size, u8 *buf
         master_id = phy_id;
     }
 
-    return bbox_pcie_dump_klog_data(master_id, offset, size, buf);
+    return bbox_dump_klog_data(master_id, offset, size, buf);
 }
 
 STATIC bbox_status bbox_get_ts_log(u32 phy_id, u32 offset, u32 size, u8 *buf)
@@ -559,8 +514,8 @@ static dump_data_config_st g_boot_failed_config[] = {
      NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
     {"sram_snapshot", BBOX_SRAM_SNAPSHOT_OFFSET, BBOX_SRAM_SNAPSHOT_LEN, BBOX_DUMP_FILE_SRAM_SNAPSHOT,
      PLAINTEXT_TABLE_SRAM_SNAPSHOT, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
-    {"bios_hiss", BBOX_SRAM_BIOS_HISS_OFFSET, BBOX_SRAM_BIOS_HISS_LEN, BBOX_DUMP_FILE_BIOS_HISS,
-     PLAINTEXT_TABLE_BIOS_HISS, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
+    {"chip_dfx_clink", BBOX_SRAM_CHIP_CLINK_OFFSET, BBOX_SRAM_CHIP_CLINK_LEN, BBOX_DUMP_FILE_CDR_CLINK,
+     PLAINTEXT_TABLE_CDR_CLINK, NULL, bbox_get_sram_data, bbox_parse_cdr_clink_data},
     {"hdr_snapshot", BBOX_DDR_HDR_OFFSET, BBOX_DDR_HDR_LEN, BBOX_DUMP_FILE_HDR, PLAINTEXT_TABLE_MAX,
      bbox_check_bios_stage, bbox_get_hdr_data, bbox_parse_hdr_data},
     {"kernel_log", BBOX_DDR_KLOG_OFFSET, BBOX_DDR_KLOG_LEN, BBOX_DUMP_FILE_KLOG, PLAINTEXT_TABLE_MAX, NULL,
@@ -574,12 +529,12 @@ static dump_data_config_st g_heatbeat_lost_config[] = {
      NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
     {"sram_snapshot", BBOX_SRAM_SNAPSHOT_OFFSET, BBOX_SRAM_SNAPSHOT_LEN, BBOX_DUMP_FILE_SRAM_SNAPSHOT,
      PLAINTEXT_TABLE_SRAM_SNAPSHOT, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
-    {"bios_hiss", BBOX_SRAM_BIOS_HISS_OFFSET, BBOX_SRAM_BIOS_HISS_LEN, BBOX_DUMP_FILE_BIOS_HISS,
-     PLAINTEXT_TABLE_BIOS_HISS, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
-    {"kernel_log", BBOX_DDR_KLOG_OFFSET, BBOX_DDR_KLOG_LEN, BBOX_DUMP_FILE_KLOG, PLAINTEXT_TABLE_MAX, NULL,
-     bbox_get_kernel_log, bbox_parse_klog_data},
     {"chip_dfx_min", BBOX_SRAM_CHIP_DFX_OFFSET, BBOX_SRAM_CHIP_DFX_LEN, BBOX_DUMP_FILE_CDR_SRAM,
      PLAINTEXT_TABLE_CDR_SRAM, NULL, bbox_get_sram_data, bbox_parse_cdr_min_data},
+    {"chip_dfx_clink", BBOX_SRAM_CHIP_CLINK_OFFSET, BBOX_SRAM_CHIP_CLINK_LEN, BBOX_DUMP_FILE_CDR_CLINK,
+     PLAINTEXT_TABLE_CDR_CLINK, NULL, bbox_get_sram_data, bbox_parse_cdr_clink_data},
+    {"kernel_log", BBOX_DDR_KLOG_OFFSET, BBOX_DDR_KLOG_LEN, BBOX_DUMP_FILE_KLOG, PLAINTEXT_TABLE_MAX, NULL,
+     bbox_get_kernel_log, bbox_parse_klog_data},
     {"chip_dfx_full", BBOX_DDR_CHIP_DFX_OFFSET, BBOX_DDR_CHIP_DFX_LEN, BBOX_DUMP_FILE_CDR_DDR, PLAINTEXT_TABLE_CDR,
      NULL, bbox_get_cdr_data, bbox_parse_cdr_full_data},
     {"ts_log", BBOX_DUMP_TS_LOG_OFFSET, BBOX_DUMP_TS_LOG_LEN, BBOX_DUMP_FILE_TS_LOG, PLAINTEXT_TABLE_TS_LOG, NULL,
@@ -615,8 +570,6 @@ static dump_data_config_st g_hdc_exception_config[] = {
      NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
     {"sram_snapshot", BBOX_SRAM_SNAPSHOT_OFFSET, BBOX_SRAM_SNAPSHOT_LEN, BBOX_DUMP_FILE_SRAM_SNAPSHOT,
      PLAINTEXT_TABLE_SRAM_SNAPSHOT, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
-    {"bios_hiss", BBOX_SRAM_BIOS_HISS_OFFSET, BBOX_SRAM_BIOS_HISS_LEN, BBOX_DUMP_FILE_BIOS_HISS,
-     PLAINTEXT_TABLE_BIOS_HISS, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
     {"kernel_log", BBOX_DDR_KLOG_OFFSET, BBOX_DDR_KLOG_LEN, BBOX_DUMP_FILE_KLOG, PLAINTEXT_TABLE_MAX, NULL,
      bbox_get_kernel_log, bbox_parse_klog_data},
     {"bbox_ddr_dump", BBOX_DDR_BASE_OFFSET, BBOX_DDR_BASE_LEN, BBOX_DUMP_FILE_DDR_DMA, PLAINTEXT_TABLE_MAX, NULL,
@@ -637,14 +590,14 @@ static dump_data_config_st g_force_config[] = {
      NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
     {"sram_snapshot", BBOX_SRAM_SNAPSHOT_OFFSET, BBOX_SRAM_SNAPSHOT_LEN, BBOX_DUMP_FILE_SRAM_SNAPSHOT,
      PLAINTEXT_TABLE_SRAM_SNAPSHOT, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
-    {"bios_hiss", BBOX_SRAM_BIOS_HISS_OFFSET, BBOX_SRAM_BIOS_HISS_LEN, BBOX_DUMP_FILE_BIOS_HISS,
-     PLAINTEXT_TABLE_BIOS_HISS, NULL, bbox_get_sram_data, bbox_parse_sram_mntn_data},
+    {"chip_dfx_min", BBOX_SRAM_CHIP_DFX_OFFSET, BBOX_SRAM_CHIP_DFX_LEN, BBOX_DUMP_FILE_CDR_SRAM,
+     PLAINTEXT_TABLE_CDR_SRAM_LOOSE, NULL, bbox_get_sram_data, bbox_parse_cdr_min_data},
+    {"chip_dfx_clink", BBOX_SRAM_CHIP_CLINK_OFFSET, BBOX_SRAM_CHIP_CLINK_LEN, BBOX_DUMP_FILE_CDR_CLINK,
+     PLAINTEXT_TABLE_CDR_CLINK, NULL, bbox_get_sram_data, bbox_parse_cdr_clink_data},
     {"hdr_snapshot", BBOX_DDR_HDR_OFFSET, BBOX_DDR_HDR_LEN, BBOX_DUMP_FILE_HDR, PLAINTEXT_TABLE_MAX,
      bbox_check_bios_stage, bbox_get_hdr_data, bbox_parse_hdr_data},
     {"kernel_log", BBOX_DDR_KLOG_OFFSET, BBOX_DDR_KLOG_LEN, BBOX_DUMP_FILE_KLOG, PLAINTEXT_TABLE_MAX, NULL,
      bbox_get_kernel_log, bbox_parse_klog_data},
-    {"chip_dfx_min", BBOX_SRAM_CHIP_DFX_OFFSET, BBOX_SRAM_CHIP_DFX_LEN, BBOX_DUMP_FILE_CDR_SRAM,
-     PLAINTEXT_TABLE_CDR_SRAM_LOOSE, NULL, bbox_get_sram_data, bbox_parse_cdr_min_data},
     {"chip_dfx_full", BBOX_DDR_CHIP_DFX_OFFSET, BBOX_DDR_CHIP_DFX_LEN, BBOX_DUMP_FILE_CDR_DDR, PLAINTEXT_TABLE_CDR,
      NULL, bbox_get_cdr_data, bbox_parse_cdr_full_data},
     {"ts_log", BBOX_DUMP_TS_LOG_OFFSET, BBOX_DUMP_TS_LOG_LEN, BBOX_DUMP_FILE_TS_LOG, PLAINTEXT_TABLE_TS_LOG, NULL,

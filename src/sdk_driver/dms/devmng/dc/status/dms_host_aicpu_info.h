@@ -26,7 +26,7 @@ struct dms_host_aicpu_info {
 };
 
 int dms_host_aicpu_init(void);
-void dms_host_aicpu_exit(void);
+void dms_host_aicpu_uninit(void);
 int dms_set_host_aicpu_info(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_get_host_aicpu_info(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 

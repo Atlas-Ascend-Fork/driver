@@ -25,17 +25,16 @@
 #include "tool.h"
 #include "tool_ops_ip.h"
 
-
-STATIC int tool_ip_set_delete_ip_route_item(FILE *fp, const char *line_buf, int index,
-    struct tool_param *param, struct ds_route_table_value *new_ip_info)
+STATIC int tool_ip_set_delete_ip_route_item(FILE *fp, const char *line_buf, int index, struct tool_param *param,
+                                            struct ds_route_table_value *new_ip_info)
 {
     int ret;
     char via_ip_s[MAX_PARAM_LEN] = {0};
     unsigned int via_ip, eth_id, ip_mask, table_id;
     unsigned char ip_fst, ip_sed, ip_thd, ip_fth, via_fst, via_sed, via_thd, via_fth;
 
-    ret = sscanf_s(&line_buf[index], "add %hhu.%hhu.%hhu.%hhu/%u via %hhu.%hhu.%hhu.%hhu dev eth%u table %u",
-        &ip_fst, &ip_sed, &ip_thd, &ip_fth, &ip_mask, &via_fst, &via_sed, &via_thd, &via_fth, &eth_id, &table_id);
+    ret = sscanf_s(&line_buf[index], "add %hhu.%hhu.%hhu.%hhu/%u via %hhu.%hhu.%hhu.%hhu dev eth%u table %u", &ip_fst,
+                   &ip_sed, &ip_thd, &ip_fth, &ip_mask, &via_fst, &via_sed, &via_thd, &via_fth, &eth_id, &table_id);
     if (ret <= 0) {
         roce_err("Sscanf ip route fail. (ret=%d)", ret);
         return UDA_TOOL_PARSE_CONF_FILE_ERR;
@@ -163,7 +162,7 @@ bool tool_is_910_a3(int logic_id)
     int ret;
     unsigned int unsigned_logic_id = (unsigned int)logic_id;
     unsigned int mainboard_id;
- 
+
     ret = dsmi_get_mainboard_id(unsigned_logic_id, &mainboard_id);
     if (ret) {
         roce_err("get mainboard id fail! (ret=%d; logic_id=%u)", ret, unsigned_logic_id);
@@ -172,7 +171,7 @@ bool tool_is_910_a3(int logic_id)
 
     return is_ATLAS_900_A3_SUPERPOD(mainboard_id);
 }
- 
+
 int is_910_a3_ip_conflict(int logic_id, const char *address, const char *netmask, int is_ipv4)
 {
     int ret;
@@ -182,21 +181,21 @@ int is_910_a3_ip_conflict(int logic_id, const char *address, const char *netmask
     ip_addr_t ip_address = {0};
     ip_addr_t mask_address = {0};
     struct ip6_addr ipv6_address = {0};
- 
+
     // 910_a3，找到当前device对应的另一个DIE
     ret = dsmi_get_phyid_from_logicid(unsigned_logic_id, &phy_id);
     if (ret) {
         roce_err("get phy id from logic id fail! (ret=%d; logic_id=%u)", ret, unsigned_logic_id);
         return ret; // 这个函数不应该失败，失败说明当前device有问题
     }
- 
+
     phy_id ^= 1; // 对最后一位异或，即0变1，1变0，从而找到该device对应的另一个device
     ret = dsmi_get_logicid_from_phyid(phy_id, &unsigned_logic_id);
     if (ret) {
         roce_info("get logic id from phy id fail! (ret=%d; phy_id=%u)", ret, phy_id);
         return ret; // 允许失败，对方可能不在位或有异常，此时认为其IP也不参与工作，不认为冲突
     }
- 
+
     if (is_ipv4) {
         return is_dev_ipaddr_conflict(unsigned_logic_id, DSMI_ROCE_PORT, 0, inet_addr(address), inet_addr(netmask));
     } else {
@@ -206,8 +205,8 @@ int is_910_a3_ip_conflict(int logic_id, const char *address, const char *netmask
             roce_err("translate ipv6 address failed. (ret=%d)", ret);
             return ret; // 正常这里不应该报错，因IPV6地址在之前已被解析过。如果这里报错，不上报IP冲突，而是交给后人拦截非法IP
         }
-        return is_dev_ipaddr_conflict_ipv6(unsigned_logic_id, DSMI_ROCE_PORT, 0,
-            ipv6_address.address_ip, ipv6_address.netmask_ip);
+        return is_dev_ipaddr_conflict_ipv6(unsigned_logic_id, DSMI_ROCE_PORT, 0, ipv6_address.address_ip,
+                                           ipv6_address.netmask_ip);
     }
 }
 
@@ -225,8 +224,7 @@ int tool_route_clear_zero_conf(struct tool_param *param, enum read_route_operati
             route_table_value.netmask = 0x0;
             ret = dsmi_del_route_table(param->logic_id, 0, &route_table_value, info, MAX_CMD_PAYLOAD_LEN);
             if (ret) {
-                roce_err("dsmi del route table fail! ret[%d] logic_id[%d]",
-                    ret, param->logic_id);
+                roce_err("dsmi del route table fail! ret[%d] logic_id[%d]", ret, param->logic_id);
                 return dsmi_analysis_dsmi_ret_to_uda(ret);
             }
         }
@@ -240,8 +238,7 @@ int tool_route_clear_zero_conf(struct tool_param *param, enum read_route_operati
             route_param_v6.prefix_length = INET6_PREFIX_MAX;
             ret = dsmi_del_route_table_ipv6(param->logic_id, 0, &route_param_v6, info, MAX_CMD_PAYLOAD_LEN);
             if (ret) {
-                roce_err("dsmi del route table fail! ret[%d] logic_id[%d]",
-                    ret, param->logic_id);
+                roce_err("dsmi del route table fail! ret[%d] logic_id[%d]", ret, param->logic_id);
                 return dsmi_analysis_dsmi_ret_to_uda(ret);
             }
         }

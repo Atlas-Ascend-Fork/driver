@@ -14,7 +14,6 @@
 #define _DEVDRV_RBTREE_H_
 
 #include "comm_cmd_msg.h"
-#include "devdrv_pci.h"
 
 struct devdrv_dma_pasid_rbtree_node {
     ka_rb_node_t node;
@@ -23,7 +22,7 @@ struct devdrv_dma_pasid_rbtree_node {
 };
 
 struct devdrv_dma_pasid_rbtree_ctrl {
-    ka_task_spinlock_t rb_lock;
+    ka_rwlock_t rb_lock;
     ka_rb_root_t rbtree;
     struct devdrv_msg_chan *msg_chan;
 };
@@ -34,7 +33,7 @@ enum devdrv_pasid_op_code {
     DEVDRV_PASID_MAX,
 };
 
-bool devdrv_dma_pasid_valid_check(u32 dev_id, u64 pasid, int env_boot_mode);
+bool devdrv_dma_pasid_valid_check(u32 dev_id, u64 pasid);
 void devdrv_pasid_rbtree_init(struct devdrv_pci_ctrl *pci_ctrl);
 void devdrv_pasid_rbtree_uninit(struct devdrv_pci_ctrl *pci_ctrl);
 int devdrv_pasid_non_trans_init(struct devdrv_pci_ctrl *pci_ctrl);

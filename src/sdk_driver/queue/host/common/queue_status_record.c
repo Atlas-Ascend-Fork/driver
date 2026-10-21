@@ -16,6 +16,7 @@
 #include "queue_status_record.h"
 #include "ka_list_pub.h"
 #include "ka_fs_pub.h"
+#include "ka_barrier_pub.h"
 
 #define PER_STATUS_SIZE sizeof(struct queue_qid_status)
 #define TIME_RECODE_SIZE (sizeof(long long int) * TIME_RECORD_TYPE_MAX)
@@ -217,8 +218,9 @@ STATIC void queue_collect_qid_status(struct queue_qid_status *except_status, STA
 #ifndef EMU_ST
 void queue_set_perf_switch(bool set_value, u32 time_threshold)
 {
-    perf_switch = set_value;
     g_perf_time_threshold = time_threshold;
+    ka_smp_mb();
+    perf_switch = set_value;
 }
 
 void queue_show_perf_switch(ka_seq_file_t *seq)

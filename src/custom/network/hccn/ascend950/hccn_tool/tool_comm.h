@@ -15,43 +15,55 @@
 #include "ds_data.h"
 #include "hccn_log.h"
 
-#define OUTBUF_LEN_16    16
-#define OUTBUF_LEN_64    64
-#define OUTBUF_LEN_256   256
-#define OUTBUF_LEN_1024  1024
-#define OUTBUF_LEN_2048  2048
-#define OUTBUF_LEN_4096  4096
-#define OUTBUF_LEN_5120  5120
-#define OUTBUF_LEN_32K   32768
+#define OUTBUF_LEN_16 16
+#define OUTBUF_LEN_64 64
+#define OUTBUF_LEN_256 256
+#define OUTBUF_LEN_1024 1024
+#define OUTBUF_LEN_2048 2048
+#define OUTBUF_LEN_4096 4096
+#define OUTBUF_LEN_5120 5120
+#define OUTBUF_LEN_32K 32768
 
-#define TOOL_CHECK_PTR_VALID_RETURN_VAL(p, ret) do { \
-    if ((p) == NULL) { \
-        hccn_err("ptr is NULL!"); \
-        return ret; \
-    } \
-} while (0)
+#define TOOL_CHECK_PTR_VALID_RETURN_VAL(p, ret) \
+    do {                                        \
+        if ((p) == NULL) {                      \
+            hccn_err("ptr is NULL!");           \
+            return ret;                         \
+        }                                       \
+    } while (0)
 
 #ifdef CONFIG_LLT
-#define TOOL_PRINT_INFO(fmt, args...)  \
-        do { \
-            fprintf(stdout, fmt "\n", ##args); \
-        } while (0)
+#define TOOL_PRINT_INFO(fmt, args...)      \
+    do {                                   \
+        fprintf(stdout, fmt "\n", ##args); \
+    } while (0)
 
-#define TOOL_PRINT_ERR(fmt, args...)  \
-        do { \
-            fprintf(stderr, fmt "\n", ##args); \
-        } while (0)
+#define TOOL_PRINT_WARN(fmt, args...)      \
+    do {                                   \
+        fprintf(stdout, fmt "\n", ##args); \
+    } while (0)
+
+#define TOOL_PRINT_ERR(fmt, args...)       \
+    do {                                   \
+        fprintf(stderr, fmt "\n", ##args); \
+    } while (0)
 
 #else
-#define TOOL_PRINT_INFO(fmt, args...)  \
-    do { \
-        fprintf(stdout, fmt "\n", ##args); \
+#define TOOL_PRINT_INFO(fmt, args...)               \
+    do {                                            \
+        fprintf(stdout, fmt "\n", ##args);          \
         NET_INFO(HAL_MODULE_TYPE_NET, fmt, ##args); \
     } while (0)
 
-#define TOOL_PRINT_ERR(fmt, args...)  \
-    do { \
-        fprintf(stderr, fmt "\n", ##args); \
+#define TOOL_PRINT_WARN(fmt, args...)               \
+    do {                                            \
+        fprintf(stdout, fmt "\n", ##args);          \
+        NET_WARN(HAL_MODULE_TYPE_NET, fmt, ##args); \
+    } while (0)
+
+#define TOOL_PRINT_ERR(fmt, args...)               \
+    do {                                           \
+        fprintf(stderr, fmt "\n", ##args);         \
         NET_ERR(HAL_MODULE_TYPE_NET, fmt, ##args); \
     } while (0)
 #endif

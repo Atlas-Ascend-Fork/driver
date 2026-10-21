@@ -100,6 +100,42 @@ static struct pma_ub_seg *pma_ub_seg_erase_one(struct pma_ub_seg_mng *seg_mng)
     return seg;
 }
 
+static bool pma_ub_seg_is_contained(const struct pma_ub_seg *seg, u64 start, u64 size)
+{
+    u64 offset;
+
+    if (seg->range_node.start < start) {
+        return false;
+    }
+
+    offset = seg->range_node.start - start;
+    return (offset <= size) && (seg->range_node.size <= (size - offset));
+}
+
+static struct pma_ub_seg *pma_ub_seg_erase_contained_one(struct pma_ub_seg_mng *seg_mng, u64 start, u64 size)
+{
+    struct range_rbtree_node *range_node = NULL;
+    struct pma_ub_seg *seg = NULL;
+    ka_rb_node_t *node = NULL;
+
+    ka_task_down_write(&seg_mng->rw_sem);
+    node = ka_base_rb_first(&seg_mng->range_tree.root);
+    while (node != NULL) {
+        range_node = ka_base_rb_entry(node, struct range_rbtree_node, node);
+        seg = ka_container_of(range_node, struct pma_ub_seg, range_node);
+        if (pma_ub_seg_is_contained(seg, start, size)) {
+            range_rbtree_erase(&seg_mng->range_tree, &seg->range_node);
+            seg_mng->num--;
+            ka_task_up_write(&seg_mng->rw_sem);
+            return seg;
+        }
+        node = ka_base_rb_next(node);
+    }
+    ka_task_up_write(&seg_mng->rw_sem);
+
+    return NULL;
+}
+
 static struct pma_ub_seg *pma_ub_seg_create(struct pma_ub_seg_mng *seg_mng, u64 start, u64 size, u32 token_id)
 {
     struct pma_ub_seg *seg = NULL;
@@ -210,7 +246,7 @@ int pma_ub_seg_release(struct pma_ub_seg_mng *seg_mng, u64 va, u64 size)
     seg = _pma_ub_seg_search(seg_mng, va, size);
     if (seg == NULL) {
         ka_task_up_read(&seg_mng->rw_sem);
-        svm_err("No such seg. (va=0x%llx; size=%llu)\n", va, size);
+        svm_warn("No such seg. (va=0x%llx; size=%llu)\n", va, size);
         return -EINVAL;
     }
 
@@ -254,6 +290,26 @@ void pma_ub_seg_mng_uninit(struct pma_ub_seg_mng *seg_mng)
     if (recycle_num > 0) {
         svm_info("Recycle mem. (udevid=%u; tgid=%d; recycle_num=%d)\n", seg_mng->udevid, seg_mng->tgid, recycle_num);
     }
+}
+
+void pma_ub_seg_recycle(struct pma_ub_seg_mng *seg_mng, u64 start, u64 size)
+{
+    struct pma_ub_seg *seg = NULL;
+    unsigned long stamp = (unsigned long)ka_jiffies;
+    u64 seg_start, seg_size;
+
+    do {
+        seg = pma_ub_seg_erase_contained_one(seg_mng, start, size);
+        if (seg == NULL) {
+            break;
+        }
+
+        seg_start = seg->range_node.start;
+        seg_size = seg->range_node.size;
+        pma_ub_seg_destroy(seg);
+        (void)pma_ub_ubdevshm_unregister_segment(seg_mng->udevid, seg_mng->tgid, seg_start, seg_size);
+        ka_try_cond_resched(&stamp);
+    } while (1);
 }
 
 void pma_ub_seg_mng_show(struct pma_ub_seg_mng *seg_mng, ka_seq_file_t *seq)

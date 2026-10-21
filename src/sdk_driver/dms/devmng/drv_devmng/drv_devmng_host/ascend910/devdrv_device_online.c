@@ -28,7 +28,7 @@ KA_TASK_DEFINE_SPINLOCK(devdrv_online_fifo_lock);
 static ka_kfifo_t devdrv_devid_kfifo;
 volatile u32 devid_upgrade_flag = 0;
 
-STATIC int devdrv_manager_online_save_devids(ka_kfifo_t* pkfifo, u32 dev_id)
+STATIC int devdrv_manager_online_save_devids(ka_kfifo_t *pkfifo, u32 dev_id)
 {
     ka_task_spin_lock_bh(&devdrv_online_fifo_lock);
     if (ka_base_kfifo_avail(pkfifo) < FIFO_CELL_SIZE) {
@@ -95,7 +95,7 @@ int devdrv_manager_online_get_devids(ka_file_t *filep, unsigned int cmd, unsigne
     int i;
 
     if (devdrv_manager_container_is_in_container()) {
-        devdrv_drv_err("device online interface is not support container\n");
+        devdrv_drv_err("device online interface does not support container\n");
         return -EPERM;
     }
 
@@ -106,7 +106,7 @@ int devdrv_manager_online_get_devids(ka_file_t *filep, unsigned int cmd, unsigne
     i = 0;
     ka_task_spin_lock_bh(&devdrv_online_fifo_lock);
     while (ka_base_kfifo_len(&devdrv_devid_kfifo) >= FIFO_CELL_SIZE) {
-        if (ka_base_kfifo_out(&devdrv_devid_kfifo, &dev_id, FIFO_CELL_SIZE)) {
+        if (ka_base_kfifo_out(&devdrv_devid_kfifo, &dev_id, FIFO_CELL_SIZE) && (i < ASCEND_PDEV_MAX_NUM)) {
             dev_ids[i++] = dev_id;
         }
     }
@@ -134,7 +134,7 @@ u32 devdrv_manager_poll(ka_file_t *filep, ka_poll_table_struct_t *wait)
     u32 ret = 0;
 
     if (devdrv_manager_container_is_in_container()) {
-        devdrv_drv_err("device online poll interface is not support container\n");
+        devdrv_drv_err("device online poll interface does not support container\n");
         return KA_POLLERR;
     }
 

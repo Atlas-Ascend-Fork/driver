@@ -34,14 +34,14 @@ STATIC bool dsmi_ping_is_same_pod(uint32_t src_phy_id, uint32_t dstip, uint32_t 
 
     ret = dsmi_get_logicid_from_phyid(src_phy_id, &src_logic_id);
     if (ret != 0) {
-        roce_err("Ping dsmi_ping_is_same_serverid get logicid from phyid fail. (ret=[%d]; phy_id=[%d])",
-            ret, src_phy_id);
+        roce_err("Ping dsmi_ping_is_same_serverid get logicid from phyid fail. (ret=[%d]; phy_id=[%d])", ret,
+                 src_phy_id);
         return ret;
     }
 
     // 获取源die的server信息
     ret = dsmi_get_device_info(src_logic_id, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_SPOD_INFO,
-                               (void*)&src_sdid_info, &len);
+                               (void *)&src_sdid_info, &len);
     if (ret != 0) {
         roce_err("PING dsmi_ping_is_same_serverid get device info failed. (ret=[%d])", ret);
         return false;
@@ -70,8 +70,8 @@ STATIC bool dsmi_ping_is_same_card(uint32_t src_phy_id, uint32_t dest_phy_id, ch
     return false;
 }
 
-int dsmi_ping_enable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip,
-    uint32_t dest_sdid, char *is_same_card)
+int dsmi_ping_enable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip, uint32_t dest_sdid,
+                         char *is_same_card)
 {
     int ret;
     uint32_t status;
@@ -83,7 +83,8 @@ int dsmi_ping_enable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dst
     if (!dsmi_ping_is_same_pod(src_phy_id, dstip, dest_sdid) ||
         dsmi_ping_is_same_card(src_phy_id, dest_phy_id, is_same_card)) {
         roce_info("PING dsmi_ping_enable_p2p is not in same serverid, or src and dst are on the same card."
-            " (dev1_phyid=[%u]; dev2_phyid=[%u])", dev1_phyid, dev2_phyid);
+                  " (dev1_phyid=[%u]; dev2_phyid=[%u])",
+                  dev1_phyid, dev2_phyid);
         return 0;
     }
     ret = dsmi_get_logicid_from_phyid(dev1_phyid, &dev1);
@@ -113,8 +114,8 @@ int dsmi_ping_enable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dst
     return ret;
 }
 
-int dsmi_ping_disable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip,
-    uint32_t dest_sdid, char *is_same_card)
+int dsmi_ping_disable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip, uint32_t dest_sdid,
+                          char *is_same_card)
 {
     int ret;
     uint32_t status;
@@ -126,7 +127,8 @@ int dsmi_ping_disable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t ds
     if (!dsmi_ping_is_same_pod(src_phy_id, dstip, dest_sdid) ||
         dsmi_ping_is_same_card(src_phy_id, dest_phy_id, is_same_card)) {
         roce_info("PING dsmi_ping_disable_p2p is not in same serverid, or src and dst are on the same card."
-            " (dev1_phyid=[%u]; dev2_phyid=[%u])", dev1_phyid, dev2_phyid);
+                  " (dev1_phyid=[%u]; dev2_phyid=[%u])",
+                  dev1_phyid, dev2_phyid);
         return 0;
     }
     ret = dsmi_get_logicid_from_phyid(dev1_phyid, &dev1);
@@ -154,15 +156,15 @@ int dsmi_ping_disable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t ds
 
     ret = halDeviceDisableP2P(dev1, dev2_phyid, 0);
     if (ret != 0) {
-        roce_err("PING dsmi_ping_disable_p2p dev1 disable p2p failed. (ret=[%d]; dev1=[%u]; dev2=[%u])",
-                 ret, dev1, dev2);
+        roce_err("PING dsmi_ping_disable_p2p dev1 disable p2p failed. (ret=[%d]; dev1=[%u]; dev2=[%u])", ret, dev1,
+                 dev2);
         return ret;
     }
 
     ret = halDeviceDisableP2P(dev2, dev1_phyid, 0);
     if (ret != 0) {
-        roce_err("PING dsmi_ping_disable_p2p dev2 disable p2p failed. (ret=[%d]; dev1=[%u]; dev2=[%u])",
-                 ret, dev1, dev2);
+        roce_err("PING dsmi_ping_disable_p2p dev2 disable p2p failed. (ret=[%d]; dev1=[%u]; dev2=[%u])", ret, dev1,
+                 dev2);
         return ret;
     }
 
@@ -197,9 +199,8 @@ int dsmi_set_ipv6_gateway_address(int logic_id, struct ds_gateway_v6_addr gw_v6_
         return ret;
     }
 
-    DSMI_COMMON_SET_SEND_DATA(data_info, DS_SET_DEFAULT_GATEWAY_IPV6,
-                              (char*)&gw_v6_ip, sizeof(struct ds_gateway_v6_addr),
-                              NULL, &size_out);
+    DSMI_COMMON_SET_SEND_DATA(data_info, DS_SET_DEFAULT_GATEWAY_IPV6, (char *)&gw_v6_ip,
+                              sizeof(struct ds_gateway_v6_addr), NULL, &size_out);
 
     ret = dsmi_network_common_send(logic_id, 0, &data_info);
     if (ret) {
@@ -215,9 +216,7 @@ int dsmi_get_ipv6_gateway_address(int logic_id, struct ds_gateway_v6_addr *gw_v6
     int size_out = sizeof(struct ds_gateway_v6_addr);
     struct ds_trans_data data_info = {0};
 
-    DSMI_COMMON_SET_SEND_DATA(data_info, DS_GET_DEFAULT_GATEWAY_IPV6,
-                              NULL, 0,
-                              (char*)gw_v6_ip, &size_out);
+    DSMI_COMMON_SET_SEND_DATA(data_info, DS_GET_DEFAULT_GATEWAY_IPV6, NULL, 0, (char *)gw_v6_ip, &size_out);
 
     ret = dsmi_network_common_send(logic_id, 0, &data_info);
     if (ret) {

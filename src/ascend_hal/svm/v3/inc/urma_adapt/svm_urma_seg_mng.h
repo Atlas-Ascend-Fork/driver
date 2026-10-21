@@ -33,6 +33,8 @@ int svm_urma_register_seg(u32 user_devid, struct svm_dst_va *dst_va, u32 seg_fla
 /* Unregister only care about if SVM_URMA_SEG_FLAG_SELF_USER. */
 int svm_urma_unregister_seg(u32 user_devid, struct svm_dst_va *dst_va, u32 seg_flag);
 int svm_urma_get_tseg(u32 user_devid, struct svm_dst_va *dst_va, urma_target_seg_t **tseg);
+int svm_urma_tseg_get(u32 user_devid, struct svm_dst_va *dst_va, urma_target_seg_t **tseg);
+void svm_urma_tseg_put(u32 user_devid, struct svm_dst_va *dst_va);
 int svm_urma_get_token_info(u32 user_devid, struct svm_dst_va *dst_va, u32 *token_id, u32 *token_val);
 int svm_urma_get_seg_with_token_info(u32 user_devid, struct svm_dst_va *dst_va, urma_seg_t *seg, u32 *token_id,
                                      u32 *token_val);

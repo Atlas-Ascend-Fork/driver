@@ -35,7 +35,6 @@ STATIC long queue_ioctl(ka_file_t *filep, unsigned int cmd, unsigned long arg)
     }
 
     if (_KA_IOC_TYPE(cmd) != QUEUE_IOC_MAGIC || (unsigned int)_KA_IOC_NR(cmd) >= (unsigned int)QUEUE_CMD_MAX) {
-        queue_err("Cmd is invalid. (_IOC_TYPE=%u, _IOC_NR=%u)\n", _KA_IOC_TYPE(cmd), _KA_IOC_NR(cmd));
         return -EINVAL;
     }
 

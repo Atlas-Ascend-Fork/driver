@@ -30,6 +30,7 @@ static void devmm_fill_soma_heap_info(struct devmm_virt_heap_para *heap_info)
     }
 
     heap_info->is_limited = true;
+    heap_info->is_host_pin = false;
     heap_info->is_base_heap = false;
     heap_info->is_soma_heap = true;
 }

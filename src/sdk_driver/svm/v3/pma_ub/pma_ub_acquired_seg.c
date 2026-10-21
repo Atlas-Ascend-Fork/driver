@@ -164,7 +164,7 @@ int pma_ub_del_acquired_seg(struct pma_ub_acquired_segs_mng *mng, u64 va, u64 si
 
     acquired_seg = pma_ub_acquired_seg_erase(mng, va, size);
     if (acquired_seg == NULL) {
-        svm_err("No such acquired_seg. (va=0x%llx; size=%llu)\n", va, size);
+        svm_warn("No such acquired_seg. (va=0x%llx; size=%llu)\n", va, size);
         return -EINVAL;
     }
 

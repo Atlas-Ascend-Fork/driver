@@ -416,7 +416,7 @@ int halBuffFree(void *buff)
     }
 
     if (head->mbuf_data_flag == UNI_MBUF_DATA_ENABLE) {
-        buff_err("buff %p belong to mbuf, should free mbuf first\n", buff);
+        buff_err("buff %p belongs to mbuf, should free mbuf first\n", buff);
         buff_put_head(head, blk_id);
         return (int)DRV_ERROR_INVALID_VALUE;
     }

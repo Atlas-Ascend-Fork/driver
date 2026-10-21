@@ -80,7 +80,7 @@ static inline int _soc_res_sync(u32 udevid, struct res_sync_target *target, char
     return 0;
 }
 
-#define RES_SYNC_BUF_LEN 1024
+#define RES_SYNC_BUF_LEN 2048
 static inline int soc_res_sync(u32 udevid, u32 dst_udevid, enum soc_res_sync_dir dir,
                                int (*sync)(u32 udevid, struct res_sync_target *target, char *buf, u32 buf_len))
 {

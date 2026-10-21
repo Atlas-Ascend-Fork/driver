@@ -44,13 +44,14 @@ static void trs_shm_cq_recv_proc(struct trs_core_ts_inst *ts_inst, u32 cqid, voi
 {
     struct trs_id_inst *inst = &ts_inst->inst;
     struct trs_shm_cqe *shm_cqe = (struct trs_shm_cqe *)cqe;
+    u32 cqe_sqid = shm_cqe->sqid;
 
-    if (shm_cqe->sqid >= trs_res_get_max_id(ts_inst, TRS_HW_SQ)) {
-        trs_err("Invalid sqid. (devid=%u; tsid=%u; cqid=%u; sqid=%u)\n", inst->devid, inst->tsid, cqid, shm_cqe->sqid);
+    if (cqe_sqid >= trs_res_get_max_id(ts_inst, TRS_HW_SQ)) {
+        trs_err("Invalid sqid. (devid=%u; tsid=%u; cqid=%u; sqid=%u)\n", inst->devid, inst->tsid, cqid, cqe_sqid);
         return;
     }
 
-    (void)trs_chan_ctrl(inst, ts_inst->sq_ctx[shm_cqe->sqid].chan_id, CHAN_CTRL_CMD_SQ_HEAD_UPDATE, shm_cqe->sq_head);
+    (void)trs_chan_ctrl(inst, ts_inst->sq_ctx[cqe_sqid].chan_id, CHAN_CTRL_CMD_SQ_HEAD_UPDATE, shm_cqe->sq_head);
 }
 
 static int trs_shm_cq_recv(struct trs_id_inst *inst, u32 cqid, void *cqe)
@@ -203,7 +204,7 @@ static int trs_shm_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_in
     struct trs_mem_map_para map_para;
     int ret;
 
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_RO_DEV_MEM, alloc_para->uio_info->sq_que_addr, shm_ctx->sq_pa,
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_RO_DEV_MEM, true, alloc_para->uio_info->sq_que_addr, shm_ctx->sq_pa,
                         KA_MM_PAGE_ALIGN(para->sqeDepth * para->sqeSize));
     ret = trs_remap_sq(proc_ctx, ts_inst, &map_para);
     if (ret != 0) {
@@ -288,7 +289,7 @@ int trs_shm_sqcq_alloc(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *t
     int ret;
 
     if (trs_is_stars_inst(ts_inst)) {
-        trs_err("Stars does not support shm. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        trs_err("Stars not support shm. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
         return -EINVAL;
     }
 

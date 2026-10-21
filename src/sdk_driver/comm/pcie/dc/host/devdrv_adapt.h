@@ -126,18 +126,41 @@ int drv_pcie_resume_notify(ka_device_t *dev);
     void (*init_dma_info)(struct devdrv_pci_ctrl * pci_ctrl);      \
     void (*init_setup_runtime_info)(struct devdrv_pci_ctrl * pci_ctrl)
 
-#define DEVDRV_CONNECT_PROTO_COMMON_OPS                                                                   \
-    void (*flush_cache)(u64 base, size_t len, u32 mode);                                                  \
-    int (*get_peh_link_info)(ka_pci_dev_t * pdev, u32 * link_speed, u32 * link_width, u32 * link_status); \
-    void (*link_speed_slow_to_normal)(struct devdrv_pci_ctrl * pci_ctrl)
-
 #define DEVDRV_INIT_INTR_OPS void (*init_intr_info)(struct devdrv_pci_ctrl * pci_ctrl)
+
+struct devdrv_dev_peh_ops {
+    int (*msi_x_table_retrans)(struct devdrv_pci_ctrl *pci_ctrl);
+    void (*flush_cache)(u64 base, size_t len, u32 mode);
+    int (*get_peh_link_info)(ka_pci_dev_t *pdev, u32 *link_speed, u32 *link_width, u32 *link_status);
+    void (*link_speed_slow_to_normal)(struct devdrv_pci_ctrl *pci_ctrl);
+    void (*pdev_sid_init)(struct devdrv_pci_ctrl *pci_ctrl);
+    void (*pdev_sid_uninit)(struct devdrv_pci_ctrl *pci_ctrl);
+    int (*smmu_iova_to_phys_proc)(struct devdrv_pci_ctrl *pci_ctrl, ka_dma_addr_t *va, u32 va_cnt, phys_addr_t *pa);
+};
+
+#define DEVDRV_CONNECT_PROTO_HCCS_MASK (1ULL << (CONNECT_PROTOCOL_HCCS + DEVDRV_FEATURE_CONNECT_PROTO_BIT_OFFSET))
+
+#define DEVDRV_ENV_BOOT_COMMON_OPS                                \
+    bool is_mdev_vf_pm;                                           \
+    bool is_mdev_vf_vm;                                           \
+    bool is_p2p_access_cap_supported;                             \
+    bool is_guard_work_supported;                                 \
+    int (*mdev_pm_init)(struct devdrv_pci_ctrl * pci_ctrl);       \
+    void (*mdev_pm_uninit)(struct devdrv_pci_ctrl * pci_ctrl);    \
+    int (*mdev_vm_init)(struct devdrv_pci_ctrl * pci_ctrl);       \
+    void (*mdev_vm_uninit)(struct devdrv_pci_ctrl * pci_ctrl);    \
+    int (*add_davinci_dev)(struct devdrv_pci_ctrl * pci_ctrl);    \
+    int (*remove_davinci_dev)(struct devdrv_pci_ctrl * pci_ctrl); \
+    int (*init_interrupt)(struct devdrv_pci_ctrl * pci_ctrl);     \
+    int (*uninit_interrupt)(struct devdrv_pci_ctrl * pci_ctrl);   \
+    bool (*dma_pasid_valid_check)(u32 dev_id, u64 pasid)
 
 struct devdrv_dev_ops {
     DEVDRV_COMMON_OPS;
     DEVDRV_PFVF_COMMON_OPS;
-    DEVDRV_CONNECT_PROTO_COMMON_OPS;
     DEVDRV_INIT_INTR_OPS;
+    DEVDRV_ENV_BOOT_COMMON_OPS;
+    struct devdrv_dev_peh_ops *peh;
 };
 
 struct res_config {
@@ -145,7 +168,8 @@ struct res_config {
     struct devdrv_dev_ops ops;
 };
 
-struct res_config *devdrv_feature_get_res_cfg(struct devdrv_pci_ctrl *pci_ctrl, struct res_config *res_cfg,
-                                              size_t res_cfg_size);
+devdrv_feature_ops_bitmap_t devdrv_feature_get_rescfg_bitmap(struct devdrv_pci_ctrl *pci_ctrl);
+struct res_config *devdrv_feature_get_res_cfg(struct res_config *res_cfg, size_t res_cfg_size,
+                                              devdrv_feature_ops_bitmap_t mode);
 
 #endif

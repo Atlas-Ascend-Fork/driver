@@ -7,8 +7,9 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ------------------------------------------------------------------------------------------------------------
-#########libadcore
+#########libmsn_adcore
 set(adcoreHeaders
+    ${CMAKE_CURRENT_LIST_DIR}/../../inc/adump
     ${CMAKE_CURRENT_LIST_DIR}/../inc/adump
     ${CMAKE_CURRENT_LIST_DIR}/../inc/slog
     ${CMAKE_CURRENT_LIST_DIR}/
@@ -48,14 +49,13 @@ set(adcoreSrcList
     ${CMAKE_CURRENT_LIST_DIR}/component/server_register.cpp
 )
 
-add_library(adcore STATIC
+add_library(msn_adcore STATIC
     ${adcoreSrcList}
 )
 
-add_library(adcore_headers INTERFACE)
-target_include_directories(adcore_headers INTERFACE ${adcoreHeaders})
+target_include_directories(msn_adcore PRIVATE ${adcoreHeaders})
 
-target_compile_options(adcore PRIVATE
+target_compile_options(msn_adcore PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_SYSTEM_NAME},Windows>>:-Werror>
     $<$<NOT:$<STREQUAL:${TARGET_SYSTEM_NAME},Windows>>:-Wextra>
     $<$<NOT:$<STREQUAL:${TARGET_SYSTEM_NAME},Windows>>:-Wfloat-equal>
@@ -70,13 +70,13 @@ target_compile_options(adcore PRIVATE
     $<$<CONFIG:Release>:-D_FORTIFY_SOURCE=2 -Os>
 )
 
-target_link_options(adcore PRIVATE
+target_link_options(msn_adcore PRIVATE
     -Wl,-z,relro,-z,now,-z,noexecstack
     -Wl,-Bsymbolic
     -Wl,--exclude-libs,ALL
 )
 
-target_compile_definitions(adcore PRIVATE
+target_compile_definitions(msn_adcore PRIVATE
     $<IF:$<STREQUAL:${PRODUCT_SIDE},host>,ADX_LIB_HOST_DRV,ADX_LIB>
     $<$<STREQUAL:${PRODUCT_SIDE},device>:ADX_LIB_DEVICE_DRV>
     $<$<NOT:$<STREQUAL:${TARGET_SYSTEM_NAME},Windows>>:OS_TYPE=0>
@@ -85,12 +85,11 @@ target_compile_definitions(adcore PRIVATE
 )
 
 if(${TARGET_SYSTEM_NAME} STREQUAL "Windows")
-target_link_libraries(adcore PRIVATE
-    # $<BUILD_INTERFACE:intf_pub>
+target_link_libraries(msn_adcore PRIVATE
+    $<BUILD_INTERFACE:intf_pub>
     # $<BUILD_INTERFACE:mmpa_headers>
     # $<BUILD_INTERFACE:adump_headers>
     # $<BUILD_INTERFACE:slog_headers>
-    $<BUILD_INTERFACE:adcore_headers>
     -Wl,--no-as-needed
     c_sec
     mmpa
@@ -98,12 +97,11 @@ target_link_libraries(adcore PRIVATE
     ascend_hal
 )
 else()
-target_link_libraries(adcore PRIVATE
-    # $<BUILD_INTERFACE:intf_pub>
+target_link_libraries(msn_adcore PRIVATE
+    $<BUILD_INTERFACE:intf_pub>
     # $<BUILD_INTERFACE:mmpa_headers>
     # $<BUILD_INTERFACE:adump_headers>
     # $<BUILD_INTERFACE:slog_headers>
-    $<BUILD_INTERFACE:adcore_headers>
     -Wl,--no-as-needed
     c_sec
     mmpa

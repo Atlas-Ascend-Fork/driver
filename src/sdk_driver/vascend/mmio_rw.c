@@ -79,7 +79,15 @@ STATIC inline u64 hw_vdavinci_get_bar_gpa(struct hw_vdavinci *vdavinci, int bar)
 
 STATIC inline unsigned int hw_vdavinci_gpa_to_mmio_offset(struct hw_vdavinci *vdavinci, u64 gpa, int bar)
 {
-    return gpa - hw_vdavinci_get_bar_gpa(vdavinci, bar);
+    u64 bar_gpa = hw_vdavinci_get_bar_gpa(vdavinci, bar);
+
+    /* Reject underflow/overflow before truncating to u32: a wrapped 64-bit
+     * offset could alias into the valid mmio window and bypass the range
+     * check. UINT_MAX is rejected by reg_is_mmio in the callers. */
+    if (gpa < bar_gpa || (gpa - bar_gpa) > UINT_MAX) {
+        return UINT_MAX;
+    }
+    return (unsigned int)(gpa - bar_gpa);
 }
 
 STATIC int hw_vdavinci_mmio_reg_read(struct hw_vdavinci *vdavinci, u32 offset, void *pdata, unsigned int bytes)
@@ -144,38 +152,37 @@ STATIC void __ka_mm_iomem *hw_vdavinci_get_bar_io_addr(struct hw_vdavinci *vdavi
     if (ka_unlikely(vdavinci == NULL || bar < 0)) {
         return NULL;
     }
-    switch (bar) {
-        case VFIO_PCI_BAR0_REGION_INDEX:
-            io_addr = vdavinci->mmio.bar0_sparse.io_addr;
-            break;
-        case VFIO_PCI_BAR2_REGION_INDEX:
-            io_addr = vdavinci->mmio.bar2_sparse.io_addr;
-            break;
-        case VFIO_PCI_BAR4_REGION_INDEX:
-            io_addr = vdavinci->mmio.bar4_sparse.io_addr;
-            break;
-        default:
-            return NULL;
-    }
-    if (io_addr != NULL) {
-        return io_addr;
-    }
     res_dev = vdavinci_resource_dev(vdavinci);
-    if (res_dev == NULL) {
+    if (ka_unlikely(res_dev == NULL)) {
         return NULL;
     }
     pdev = ka_container_of(res_dev, ka_pci_dev_t, dev);
-    io_addr = ka_mm_pci_iomap(pdev, bar, pci_resource_len(pdev, bar));
-    if (io_addr == NULL) {
+    ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
+    if (bar == VFIO_PCI_BAR0_REGION_INDEX) {
+        io_addr = vdavinci->mmio.bar0_sparse.io_addr;
+    } else if (bar == VFIO_PCI_BAR2_REGION_INDEX) {
+        io_addr = vdavinci->mmio.bar2_sparse.io_addr;
+    } else if (bar == VFIO_PCI_BAR4_REGION_INDEX) {
+        io_addr = vdavinci->mmio.bar4_sparse.io_addr;
+    } else {
+        ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
         return NULL;
     }
-    if (bar == VFIO_PCI_BAR0_REGION_INDEX) {
-        vdavinci->mmio.bar0_sparse.io_addr = io_addr;
-    } else if (bar == VFIO_PCI_BAR2_REGION_INDEX) {
-        vdavinci->mmio.bar2_sparse.io_addr = io_addr;
-    } else if (bar == VFIO_PCI_BAR4_REGION_INDEX) {
-        vdavinci->mmio.bar4_sparse.io_addr = io_addr;
+    if (io_addr == NULL) {
+        io_addr = ka_mm_pci_iomap(pdev, bar, pci_resource_len(pdev, bar));
+        if (io_addr == NULL) {
+            ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
+            return NULL;
+        }
+        if (bar == VFIO_PCI_BAR0_REGION_INDEX) {
+            vdavinci->mmio.bar0_sparse.io_addr = io_addr;
+        } else if (bar == VFIO_PCI_BAR2_REGION_INDEX) {
+            vdavinci->mmio.bar2_sparse.io_addr = io_addr;
+        } else if (bar == VFIO_PCI_BAR4_REGION_INDEX) {
+            vdavinci->mmio.bar4_sparse.io_addr = io_addr;
+        }
     }
+    ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
 
     return io_addr;
 }

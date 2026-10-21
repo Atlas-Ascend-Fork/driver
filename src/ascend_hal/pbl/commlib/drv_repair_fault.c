@@ -32,13 +32,13 @@ drvError_t halRepairFault(uint32_t devid, halRepairFaultInfo *info)
     }
 
     if ((uint32_t)info->fault_type >= (uint32_t)HAL_REPAIR_FAULT_TYPE_MAX) {
-        DRV_COMM_EVENT("Fault type is not support. (devid=%u; type=%d)\n", devid, info->fault_type);
+        DRV_COMM_EVENT("Fault type is not supported. (devid=%u; type=%d)\n", devid, info->fault_type);
         return DRV_ERROR_NOT_SUPPORT;
     }
 
     handler = g_drv_repair_fault_handlers[info->fault_type];
     if (handler == NULL) {
-        DRV_COMM_EVENT("Fault type is not support. (devid=%u; type=%d)\n", devid, info->fault_type);
+        DRV_COMM_EVENT("Fault type is not supported. (devid=%u; type=%d)\n", devid, info->fault_type);
         return DRV_ERROR_NOT_SUPPORT;
     }
 

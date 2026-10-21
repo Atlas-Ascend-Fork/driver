@@ -67,6 +67,7 @@ static void *que_recycle_thread(void *data)
         (void)usleep(QUEUE_THREAD_SLEEP_INTERVAL);
     }
     free(g_que_list[devid]);
+    g_que_list[devid] = NULL;
     return NULL;
 }
 

@@ -27,7 +27,7 @@ struct ksvmm_ctx {
     int tgid;
     void *task_ctx;
 
-    ka_rw_semaphore_t rw_sem;
+    ka_rwlock_t lock;
     struct range_rbtree range_tree;
 };
 

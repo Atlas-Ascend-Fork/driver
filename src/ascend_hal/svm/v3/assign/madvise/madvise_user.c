@@ -9,6 +9,7 @@
  */
 
 #include <sys/ioctl.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "svm_ioctl_ex.h"

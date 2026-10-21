@@ -21,6 +21,7 @@
 #include "queue_client_comm.h"
 #include "que_clt_api.h"
 #include "que_platform.h"
+#include "drv_current.h"
 static struct que_clt_api *g_que_clt_api;
 
 static inline bool que_is_client_type(unsigned int qid)
@@ -44,7 +45,6 @@ drvError_t halQueuePeek(unsigned int devId, unsigned int qid, uint64_t *buf_len,
     }
     if (que_unlikely(devId >= MAX_DEVICE)) {
         QUEUE_LOG_ERR("invalid para.(devid=%u)\n", devId);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_VALUE;
     }
     if (que_unlikely(qid >= MAX_SURPORT_QUEUE_NUM)) {
@@ -62,6 +62,7 @@ drvError_t halQueuePeek(unsigned int devId, unsigned int qid, uint64_t *buf_len,
 
 drvError_t halQueueEnQueueBuff(unsigned int devId, unsigned int qid, struct buff_iovec *vector, int timeout)
 {
+    DRV_CURRENT_API_SCOPE();
     int ret;
 
     if (que_unlikely(que_is_client_type(qid) == false)) {
@@ -84,6 +85,7 @@ drvError_t halQueueEnQueueBuff(unsigned int devId, unsigned int qid, struct buff
 
 drvError_t halQueueDeQueueBuff(unsigned int devId, unsigned int qid, struct buff_iovec *vector, int timeout)
 {
+    DRV_CURRENT_API_SCOPE();
     int ret;
 
     if (que_unlikely(que_is_client_type(qid) == false)) {

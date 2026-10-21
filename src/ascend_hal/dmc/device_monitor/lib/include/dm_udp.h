@@ -14,8 +14,7 @@
 #include <sys/un.h>
 #include "dm_msg_intf.h"
 
-#define PORT_TO_SLAVE(port) ((unsigned char)((port)&0xFF))
-
+#define PORT_TO_SLAVE(port) ((unsigned char)((port) & 0xFF))
 
 typedef struct DM_UDP_ADDR_S {
     int addr_type;
@@ -42,16 +41,16 @@ typedef struct DM_UDP_ADDR_S {
 
 #pragma pack(1)
 typedef struct UDP_MSG_S {
-    unsigned short fromport;             /* message source port */
-    unsigned short toport;               /* message destination port */
-    unsigned short type;                 /* message type */
-    unsigned short version;              /* message version */
-    unsigned short data_len;             /* message length, starting from data */
-    DM_MSG_TYPE msg_type;                /* message type */
-    unsigned int dev_id;                 /* target device id */
-    unsigned long sequence;              /* message sequence number */
-    unsigned char reserved2[UPD_RESERVED2_LEN];         /* 16 reserve data */
-    unsigned char data[MAX_UDP_MSG_BUF]; /* message date */
+    unsigned short fromport;                    /* message source port */
+    unsigned short toport;                      /* message destination port */
+    unsigned short type;                        /* message type */
+    unsigned short version;                     /* message version */
+    unsigned short data_len;                    /* message length, starting from data */
+    DM_MSG_TYPE msg_type;                       /* message type */
+    unsigned int dev_id;                        /* target device id */
+    unsigned long sequence;                     /* message sequence number */
+    unsigned char reserved2[UPD_RESERVED2_LEN]; /* 16 reserve data */
+    unsigned char data[MAX_UDP_MSG_BUF];        /* message date */
 } UDP_MSG_T;
 #pragma pack()
 
@@ -64,8 +63,8 @@ void __format_udp_msg(UDP_MSG_T *udp_msg, DM_MSG_TYPE msg_type, const DM_UDP_ADD
 #endif
 
 #ifdef STATIC_SKIP
-int __dm_udp_send(DM_INTF_S *intf, DM_MSG_TYPE msg_type, DM_ADDR_ST *addr, unsigned int addr_len,
-                  const DM_MSG_ST *msg, signed long msgid);
+int __dm_udp_send(DM_INTF_S *intf, DM_MSG_TYPE msg_type, DM_ADDR_ST *addr, unsigned int addr_len, const DM_MSG_ST *msg,
+                  signed long msgid);
 #endif
 
 #ifdef STATIC_SKIP
@@ -94,8 +93,8 @@ void __dm_udp_close(DM_INTF_S *intf);
 #endif
 
 #ifdef STATIC_SKIP
-int __dm_udp_recv_set_irecv_data(UDP_MSG_T *msg,  DM_RECV_ST *irecv, struct sockaddr_un from,
-    socklen_t fromlen, struct ucred *cred);
+int __dm_udp_recv_set_irecv_data(UDP_MSG_T *msg, DM_RECV_ST *irecv, struct sockaddr_un from, socklen_t fromlen,
+                                 struct ucred *cred);
 #endif
 
 #endif

@@ -100,6 +100,11 @@ int _trs_sqcq_event_update(u32 devid, struct sched_published_event_info *event_i
         return -EINVAL;
     }
 
+    if (event_info->msg_len < (sizeof(int) + sizeof(struct halSqCqOutputInfo) + sizeof(u32))) { /* device proc failed */
+        trs_warn("Msg is incomplete. (msg_is_NULL=%d; msg_len=%u)\n", (event_info->msg == NULL), event_info->msg_len);
+        return 0;
+    }
+
     info = (struct halSqCqOutputInfo *)(event_info->msg + sizeof(int));
     host_pid = *(u32 *)(event_info->msg + sizeof(int) + sizeof(struct halSqCqOutputInfo));
 
@@ -107,7 +112,8 @@ int _trs_sqcq_event_update(u32 devid, struct sched_published_event_info *event_i
     sq_pid = trs_speicified_sqcq_id_pid_get(&inst, TRS_HW_SQ_ID, info->sqId);
     cq_pid = trs_speicified_sqcq_id_pid_get(&inst, TRS_HW_CQ_ID, info->cqId);
     if ((sq_pid == NULL) || (cq_pid == NULL)) {
-        trs_err("Failed get pid. (devid=%u; sqid=%u; cqid=%u; hostpid=%u)\n", devid, info->sqId, info->cqId, host_pid);
+        trs_err("Failed to get pid. (devid=%u; sqid=%u; cqid=%u; hostpid=%u)\n", devid, info->sqId, info->cqId,
+                host_pid);
         return 0;
     }
 

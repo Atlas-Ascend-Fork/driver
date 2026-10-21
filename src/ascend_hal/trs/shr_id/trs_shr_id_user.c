@@ -235,6 +235,8 @@ drvError_t halShrIdOpen(const char *name, struct drvShrIdInfo *info)
     uint32_t dev_id;
     drvError_t err;
 
+    DRV_CURRENT_API_SCOPE();
+
     if (info == NULL) {
         trs_err("Para invalid.\n");
         return DRV_ERROR_INVALID_VALUE;
@@ -281,6 +283,11 @@ drvError_t halShrIdClose(const char *name)
     if (err == DRV_ERROR_NONE) {
         if ((ioctl_info.flag & TSDRV_FLAG_REMOTE_ID) != 0) {
             struct drvShrIdInfo info;
+
+            if (ioctl_info.opened_devid >= TRS_DEV_NUM) {
+                trs_err("Param invalid. (devid=%u)\n", ioctl_info.opened_devid);
+                return DRV_ERROR_INVALID_VALUE;
+            }
 
             info.devid = ioctl_info.devid;
             info.tsid = ioctl_info.tsid;

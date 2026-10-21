@@ -18,8 +18,8 @@
 #define DEV_MON_REQUEST_COMMAND 1
 #define DEV_MON_SETTING_COMMAND 2
 
-typedef int (*dev_mon_device_info_handle)(unsigned int device_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size);
+typedef int (*dev_mon_device_info_handle)(unsigned int device_id, unsigned int main_cmd, unsigned int sub_cmd,
+                                          void *buf, unsigned int *size);
 
 struct dev_mon_device_info_command {
     unsigned short main_cmd;
@@ -33,6 +33,6 @@ struct dev_mon_device_info_command {
 
 int dev_mon_register_device_info(struct dev_mon_device_info_command *device_info_ops);
 struct dev_mon_device_info_command *dev_mon_get_device_info_command(unsigned int main_cmd, unsigned int sub_cmd,
-    unsigned int command_type);
+                                                                    unsigned int command_type);
 
 #endif

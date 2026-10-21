@@ -248,7 +248,7 @@ STATIC struct range_section *range_section_get(unsigned int block_id, const void
 
     if (!range_section_check(section, start, size)) {
         range_section_unref(section);
-        buff_warn("Section range check failed. (block_id=%u, start=%p; size=%lu; section->start=%p, "
+        buff_warn("Section range check not successful. (block_id=%u, start=%p; size=%lu; section->start=%p, "
                   "section->size=%lu)\n",
                   block_id, start, size, section->start, section->size);
         return NULL;

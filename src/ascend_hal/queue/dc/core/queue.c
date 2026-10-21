@@ -274,8 +274,8 @@ static drvError_t queue_create_local(unsigned int dev_id, const QueueAttr *que_a
 
     queue_set_local_info(*qid, &local_info);
 
-    QUEUE_RUN_LOG_INFO("create queue success. (device_id=%u; qid=%u; depth=%u; name=%s; mode=%u; freq=%lluHz)\n",
-                       dev_id, *qid, que_attr->depth, que_attr->name, que_attr->workMode, esched_get_sys_freq());
+    QUEUE_RUN_LOG_INFO("create queue success. (device_id=%u; qid=%u; depth=%u; name=%s; mode=%u; freq=%llu)\n", dev_id,
+                       *qid, que_attr->depth, que_attr->name, que_attr->workMode, esched_get_sys_freq());
     return DRV_ERROR_NONE;
 }
 
@@ -520,13 +520,13 @@ drvError_t queue_reset_local(unsigned int dev_id, unsigned int qid)
 #ifndef EMU_ST
     if (CAS(&que_manage->enque_cas, 0, 1) == false) {
         queue_put(qid);
-        QUEUE_LOG_WARN("queue is trying to enqueue. (dev_id=%u; qid=%u)\n", dev_id, qid);
+        QUEUE_LOG_WARN("queue is try to enque. (dev_id=%u; qid=%u)\n", dev_id, qid);
         return DRV_ERROR_BUSY;
     }
     if (CAS(&que_manage->deque_cas, 0, 1) == false) {
         (void)CAS(&que_manage->enque_cas, 1, 0);
         queue_put(qid);
-        QUEUE_LOG_WARN("queue is trying to dequeue. (dev_id=%u; qid=%u)\n", dev_id, qid);
+        QUEUE_LOG_WARN("queue is try to deque. (dev_id=%u; qid=%u)\n", dev_id, qid);
         return DRV_ERROR_BUSY;
     }
 #endif
@@ -911,7 +911,7 @@ drvError_t queue_enqueue_local(unsigned int dev_id, unsigned int qid, void *mbuf
 
     if (CAS(&que_manage->enque_cas, 0, 1) == false) {
         queue_put(qid);
-        QUEUE_LOG_WARN("queue is trying to enqueue multiple times. (qid=%u)\n", qid);
+        QUEUE_LOG_WARN("queue is try to enque multiple times. (qid=%u)\n", qid);
         return DRV_ERROR_BUSY;
     }
 
@@ -959,8 +959,8 @@ ERR:
     if (enque_timestamp.total_end_timestamp - enque_timestamp.total_start_timestamp > MAX_ENQUE_TIME) {
         QUEUE_LOG_INFO("enqueue start:(%llu), enque end:(%llu), over_write start:(%llu), over_write end:(%llu), "
                        "event start:(%llu), event end:(%llu), enter kernel:(%llu), kernel handle start:(%llu), "
-                       "kernel handle end:(%llu),enqueue total:(%llu), over_write total:(%llu), "
-                       "event total:(%llu),kernel total:(%llu).\n",
+                       "kernel handle end:(%llu),enqueue total:(%lluns), over_write total:(%lluns), "
+                       "event total:(%lluns),kernel total:(%lluns).\n",
                        enque_timestamp.total_start_timestamp, enque_timestamp.total_end_timestamp,
                        enque_timestamp.overwrite_start_timstamp, enque_timestamp.overwrite_end_timestamp,
                        enque_timestamp.submit_start_timestamp, enque_timestamp.submit_end_timestamp,
@@ -1192,7 +1192,7 @@ drvError_t queue_dequeue_local(unsigned int dev_id, unsigned int qid, void **mbu
 
     if (CAS(&que_manage->deque_cas, 0, 1) == false) {
         queue_put(qid);
-        QUEUE_LOG_WARN("queue is trying to dequeue multiple times. (qid=%u)\n", qid);
+        QUEUE_LOG_WARN("queue is try to deque multiple times. (qid=%u)\n", qid);
         return DRV_ERROR_BUSY;
     }
 

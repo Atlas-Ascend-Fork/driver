@@ -221,7 +221,7 @@ static struct share_mbuf *create_share_mbuf(uint32_t devid, void *data, uint64_t
     mbuf_atomlock_init(&s_mbuf->lock);
 
     s_mbuf_head = buff_mempool_get_head((void *)s_mbuf);
-    s_mbuf_head->buff_type = type & 0xF;
+    s_mbuf_head->buff_type = type & 0xFU;
 
     return s_mbuf;
 }
@@ -239,14 +239,52 @@ static void destroy_share_mbuf(struct share_mbuf *s_mbuf)
     (void)buff_free(s_mbuf->blk_id, s_mbuf, s_mbuf_head);
 }
 
+static void mbuf_alloc_info_set(struct mem_info_t *info, int grp_id, unsigned long flag, uint64_t size,
+                                unsigned int align)
+{
+    int grp_id_val = grp_id;
+    if (grp_id != buff_get_default_pool_id()) {
+        buff_warn("Grp_id is not alloc_id. (grp_id=%d; alloc_id=%d)\n", grp_id_val, buff_get_default_pool_id());
+        grp_id_val = buff_get_default_pool_id();
+    }
+    info->grp_id = grp_id_val;
+    info->flag = flag;
+    info->size = size;
+    info->align = align;
+    info->alloc_type = MZ_ALLOC_TYPE_NORMAL;
+}
+
+static drvError_t mbuf_data_block_alloc(struct mem_info_t *info, char **buff_data, uint32_t *data_blk_id,
+                                        struct uni_buff_head_t **data_head)
+{
+    char *data = NULL;
+    drvError_t ret;
+
+    ret = memzone_alloc_buff(info, (void **)&data, data_blk_id);
+    if (ret != DRV_ERROR_NONE) {
+        buff_err("buff_alloc buff_data error:%d!\n", ret);
+        return ret;
+    }
+
+    *data_head = (struct uni_buff_head_t *)(((uintptr_t)data - info->offset) - sizeof(**data_head));
+    if (*data_head == NULL) {
+        buff_err("set data type error, get head failed\n");
+        (void)halBuffFree(data);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+    (*data_head)->mbuf_data_flag = UNI_MBUF_DATA_ENABLE;
+    *buff_data = data;
+
+    return DRV_ERROR_NONE;
+}
+
 int halMbufAllocEx(uint64_t size, unsigned int align, unsigned long flag, int grp_id, Mbuf **mbuf)
 {
-    struct uni_buff_head_t *data_head = NULL;
     struct share_mbuf *s_mbuf = NULL;
     struct Mbuf *tmp_mbuf = NULL;
     char *buff_data = NULL;
+    struct uni_buff_head_t *data_head = NULL;
     struct mem_info_t info;
-    int grp_id_val = grp_id;
     drvError_t ret;
     uint32_t data_blk_id;
 
@@ -260,33 +298,16 @@ int halMbufAllocEx(uint64_t size, unsigned int align, unsigned long flag, int gr
         return (int)DRV_ERROR_INVALID_VALUE;
     }
 
-    if (grp_id_val != buff_get_default_pool_id()) {
-        buff_warn("Grp_id is not alloc_id. (grp_id=%d; alloc_id=%d)\n", grp_id_val, buff_get_default_pool_id());
-        grp_id_val = buff_get_default_pool_id();
-    }
-
-    info.grp_id = grp_id_val;
-    info.flag = flag;
-    info.size = size;
-    info.align = align;
-    info.alloc_type = MZ_ALLOC_TYPE_NORMAL;
-    ret = memzone_alloc_buff(&info, (void **)&buff_data, &data_blk_id);
+    mbuf_alloc_info_set(&info, grp_id, flag, size, align);
+    ret = mbuf_data_block_alloc(&info, &buff_data, &data_blk_id, &data_head);
     if (ret != DRV_ERROR_NONE) {
-        buff_err("buff_alloc buff_data error:%d!\n", ret);
         return (int)ret;
     }
-
-    data_head = (struct uni_buff_head_t *)(((uintptr_t)buff_data - info.offset) - sizeof(*data_head));
-    if (data_head == NULL) {
-        buff_err("set data type error, get head failed\n");
-        (void)halBuffFree(buff_data);
-        return (int)DRV_ERROR_INVALID_VALUE;
-    }
-    data_head->mbuf_data_flag = UNI_MBUF_DATA_ENABLE;
 
     s_mbuf = create_share_mbuf((uint32_t)buff_get_devid_from_flags(flag), buff_data, size, 0, MBUF_NORMAL);
     if (s_mbuf == NULL) {
         buff_err("buff_alloc buff_ctrl error!\n");
+        data_head->mbuf_data_flag = UNI_MBUF_DATA_DISABLE;
         (void)halBuffFree(buff_data);
         return (int)DRV_ERROR_INVALID_VALUE;
     }
@@ -295,6 +316,7 @@ int halMbufAllocEx(uint64_t size, unsigned int align, unsigned long flag, int gr
     tmp_mbuf = create_priv_mbuf(s_mbuf, buff_data, size, 0, MBUF_NORMAL);
     if (tmp_mbuf == NULL) {
         buff_err("Create priv mbuf failed\n");
+        data_head->mbuf_data_flag = UNI_MBUF_DATA_DISABLE;
         (void)halBuffFree(buff_data);
         destroy_share_mbuf(s_mbuf);
         return (int)DRV_ERROR_INVALID_VALUE;
@@ -411,7 +433,7 @@ drvError_t create_priv_mbuf_for_queue(struct Mbuf **mbuf, void *buff, uint32_t b
         }
         if (tmp->blk_id != block_id) {
             buff_range_put(block_id, ext_info);
-            buff_err("Que entity blk_id and share_mbuf blk_id isn't same. (entity_blk_id=%u; s_mbuf->blk_id=%u)\n",
+            buff_err("Que entity blk_id and share_mbuf blk_id are not same. (entity_blk_id=%u; s_mbuf->blk_id=%u)\n",
                      tmp->blk_id, block_id);
             goto err;
         }
@@ -709,7 +731,7 @@ int halMbufCopyRef(Mbuf *mbuf, Mbuf **newMbuf)
     while (tmp != NULL) {
         if (cnt == MBUF_CHAIN_MAX_LEN) {
             ret = DRV_ERROR_OVER_LIMIT;
-            buff_err("mbuf chain len out limit, ret: %d\n", ret);
+            buff_err("mbuf chain len out limit. (chain_len=%u, max_len=%u, ret=%d)\n", cnt, MBUF_CHAIN_MAX_LEN, ret);
             break;
         }
 
@@ -930,43 +952,66 @@ drvError_t mbuf_build_bare_buff(void *buff, uint64_t len, struct Mbuf **mbuf)
     return DRV_ERROR_NONE;
 }
 
-int halMbufChainAppend(Mbuf *mbufChainHead, Mbuf *mbuf)
+static drvError_t mbuf_chain_append_para_check(Mbuf *mbufChainHead, Mbuf *mbuf)
 {
-    struct share_mbuf *prev_share_mbuf = NULL;
-    struct share_mbuf *s_mbuf = NULL;
-    struct Mbuf *tmp = NULL;
-    struct Mbuf *prev = NULL;
-    unsigned int chain_cnt = 0;
-    unsigned int mbuf_cnt = 0;
-    drvError_t ret;
-
     if (mbufChainHead == mbuf) {
         buff_err("mbuf chain head is equal to mbuf: %p\n", mbuf);
-        return (int)DRV_ERROR_PARA_ERROR;
+        return DRV_ERROR_PARA_ERROR;
     }
 
     if (mbuf_chain_head_is_invalid(mbufChainHead)) {
         buff_err("mbuf chain head is invalid\n");
-        return (int)DRV_ERROR_INVALID_VALUE;
+        return DRV_ERROR_INVALID_VALUE;
     }
 
     if (mbuf_chain_head_is_invalid(mbuf)) {
         buff_err("mbuf chain mbuf target is invalid\n");
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    return DRV_ERROR_NONE;
+}
+
+int halMbufChainAppend(Mbuf *mbufChainHead, Mbuf *mbuf)
+{
+    struct share_mbuf *prev_share_mbuf = NULL, *s_mbuf = NULL;
+    struct Mbuf *tmp = NULL, *prev = NULL;
+    unsigned int chain_cnt = 0, mbuf_cnt = 0;
+    drvError_t ret;
+    int sub_ret;
+
+    ret = mbuf_chain_append_para_check(mbufChainHead, mbuf);
+    if (ret != DRV_ERROR_NONE) {
+        return (int)ret;
+    }
+
+    sub_ret = mbuf_atomlock_lock(&mbufChainHead->lock);
+    if (sub_ret != 0) {
+        buff_err("Apply atomic_lock error. (ret=%d)\n", sub_ret);
+        return (int)DRV_ERROR_INNER_ERR;
+    }
+
+    if (mbuf_chain_head_is_invalid(mbufChainHead)) {
+        mbuf_atomlock_unlock(&mbufChainHead->lock);
+        buff_err("mbuf chain head is invalid\n");
         return (int)DRV_ERROR_INVALID_VALUE;
     }
 
     ret = mbuf_chain_get_tail(mbufChainHead, &prev, &chain_cnt);
     if (ret != DRV_ERROR_NONE) {
+        mbuf_atomlock_unlock(&mbufChainHead->lock);
         buff_err("mbuf chain get tail err\n");
         return (int)ret;
     }
 
     ret = mbuf_chain_get_tail(mbuf, &tmp, &mbuf_cnt);
     if (ret != DRV_ERROR_NONE) {
+        mbuf_atomlock_unlock(&mbufChainHead->lock);
         buff_err("mbuf chain target get tail err\n");
         return (int)ret;
     }
     if ((chain_cnt + mbuf_cnt) > MBUF_CHAIN_MAX_LEN) {
+        mbuf_atomlock_unlock(&mbufChainHead->lock);
         buff_err("mbuf total len is out of range, head: %p, len: %u, head: %p, len: %u, range: %u\n", mbufChainHead,
                  chain_cnt, mbuf, mbuf_cnt, MBUF_CHAIN_MAX_LEN);
         return (int)DRV_ERROR_OVER_LIMIT;
@@ -984,6 +1029,8 @@ int halMbufChainAppend(Mbuf *mbufChainHead, Mbuf *mbuf)
     prev_share_mbuf->next_blk_id = s_mbuf->blk_id;
     s_mbuf->prev = prev_share_mbuf;
     s_mbuf->prev_blk_id = prev_share_mbuf->blk_id;
+
+    mbuf_atomlock_unlock(&mbufChainHead->lock);
 
     return (int)DRV_ERROR_NONE;
 }
@@ -1255,7 +1302,7 @@ int halMbufChainGetMbuf(Mbuf *mbufChainHead, unsigned int index, Mbuf **mbuf)
     }
 
     if (index >= MBUF_CHAIN_MAX_LEN) {
-        buff_err("index is out number mbuf chain max len! index: %u\n", index);
+        buff_err("index is out number mbuf chain max len. (index=%u, max_len=%u)\n", index, MBUF_CHAIN_MAX_LEN);
         return DRV_ERROR_INVALID_VALUE;
     }
     ret = mbuf_atomlock_lock(&mbufChainHead->lock);

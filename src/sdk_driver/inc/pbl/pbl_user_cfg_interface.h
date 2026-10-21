@@ -14,8 +14,8 @@
 #ifndef PBL_USER_CFG_INTERFACE_H
 #define PBL_USER_CFG_INTERFACE_H
 
-#define PKCS_SIGN_TYPE_OFF  1
-#define PKCS_SIGN_TYPE_ON   0
+#define PKCS_SIGN_TYPE_OFF 1
+#define PKCS_SIGN_TYPE_ON 0
 
 /* same as struct agentdrv_cpu_info */
 typedef struct dev_cpu_nums_cfg_stru {
@@ -33,7 +33,6 @@ typedef struct dev_cpu_nums_cfg_stru {
 
 int devdrv_config_set_pss_cfg(unsigned int dev_id, int sign);
 int devdrv_config_get_pss_cfg(unsigned int dev_id, int *sign);
-
 
 int dev_user_cfg_get_cpu_number(unsigned int dev_id, dev_cpu_nums_cfg_t *cpu_nums_cfg);
 int soc_platform_get_cpu_number(unsigned int dev_id, dev_cpu_nums_cfg_t *cpu_nums_cfg);

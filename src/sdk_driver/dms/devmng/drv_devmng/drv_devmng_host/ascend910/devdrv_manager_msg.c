@@ -39,8 +39,8 @@ int devdrv_manager_h2d_sync_get_devinfo(struct devdrv_info *dev_info)
     ret = devdrv_sync_msg_send(no_trans_chan, &dev_manager_msg_info, in_len, in_len, &out_len);
     if ((ret != 0) || (dev_manager_msg_info.header.result != 0) ||
         (dev_manager_msg_info.header.valid != DEVDRV_MANAGER_MSG_D2H_MAGIC)) {
-        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)",
-            dev_id, ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
+        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)", dev_id,
+                       ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
         return -EFAULT;
     }
 
@@ -87,8 +87,8 @@ int devdrv_manager_h2d_query_resource_info(u32 devid, struct devdrv_manager_msg_
                                sizeof(dev_manager_msg_info), &out_len);
     if ((ret != 0) || (dev_manager_msg_info.header.result == DEVDRV_MANAGER_MSG_INVALID_RESULT) ||
         (dev_manager_msg_info.header.valid != DEVDRV_MANAGER_MSG_H2D_MAGIC)) {
-        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)",
-            devid, ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
+        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)", devid,
+                       ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
         return -EFAULT;
     }
 
@@ -127,8 +127,8 @@ u32 devdrv_manager_h2d_query_dmp_started(u32 devid)
                                sizeof(dev_manager_msg_info), &out_len);
     if ((ret != 0) || (dev_manager_msg_info.header.result == DEVDRV_MANAGER_MSG_INVALID_RESULT) ||
         (dev_manager_msg_info.header.valid != DEVDRV_MANAGER_MSG_H2D_MAGIC)) {
-        devdrv_drv_warn("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)",
-            devid, ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
+        devdrv_drv_warn("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)", devid,
+                        ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
         return false;
     }
 
@@ -155,8 +155,8 @@ int devdrv_manager_h2d_sync_get_core_utilization(struct devdrv_core_utilization 
     dev_manager_msg_info.header.result = DEVDRV_MANAGER_MSG_INVALID_RESULT;
     dev_manager_msg_info.header.vfid = core_util->vfid;
 
-    ret = memcpy_s(dev_manager_msg_info.payload, DEVDRV_MANAGER_INFO_PAYLOAD_LEN,
-                   core_util, sizeof(struct devdrv_core_utilization));
+    ret = memcpy_s(dev_manager_msg_info.payload, DEVDRV_MANAGER_INFO_PAYLOAD_LEN, core_util,
+                   sizeof(struct devdrv_core_utilization));
     if (ret != 0) {
         devdrv_drv_err("Memcpy failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return -EFAULT;
@@ -172,12 +172,12 @@ int devdrv_manager_h2d_sync_get_core_utilization(struct devdrv_core_utilization 
     ret = devdrv_sync_msg_send(no_trans_chan, &dev_manager_msg_info, in_len, in_len, &out_len);
     if ((ret != 0) || (dev_manager_msg_info.header.result != 0) ||
         (dev_manager_msg_info.header.valid != DEVDRV_MANAGER_MSG_D2H_MAGIC)) {
-        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)",
-            dev_id, ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
+        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)", dev_id,
+                       ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
         return -EFAULT;
     }
 
-    h2d_info = (struct devdrv_core_utilization*)dev_manager_msg_info.payload;
+    h2d_info = (struct devdrv_core_utilization *)dev_manager_msg_info.payload;
 
     core_util->utilization = h2d_info->utilization;
 
@@ -185,7 +185,7 @@ int devdrv_manager_h2d_sync_get_core_utilization(struct devdrv_core_utilization 
 }
 
 STATIC int devdrv_manager_make_up_msg_info(uint32_t dev_id, uint32_t vfid, struct urd_forward_msg *urd_msg,
-    struct devdrv_manager_msg_info *dev_manager_msg_info)
+                                           struct devdrv_manager_msg_info *dev_manager_msg_info)
 {
     int ret = 0;
 
@@ -195,8 +195,8 @@ STATIC int devdrv_manager_make_up_msg_info(uint32_t dev_id, uint32_t vfid, struc
     dev_manager_msg_info->header.result = DEVDRV_MANAGER_MSG_INVALID_RESULT;
     dev_manager_msg_info->header.vfid = vfid;
 
-    ret = memcpy_s(dev_manager_msg_info->payload, DEVDRV_MANAGER_INFO_PAYLOAD_LEN,
-        urd_msg, sizeof(struct urd_forward_msg));
+    ret = memcpy_s(dev_manager_msg_info->payload, DEVDRV_MANAGER_INFO_PAYLOAD_LEN, urd_msg,
+                   sizeof(struct urd_forward_msg));
     if (ret != 0) {
         devdrv_drv_err("Memcpy failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return -EFAULT;
@@ -233,8 +233,8 @@ int devdrv_manager_h2d_sync_urd_forward(uint32_t dev_id, uint32_t vfid, struct u
     ret = devdrv_sync_msg_send(no_trans_chan, &dev_manager_msg_info, in_len, in_len, &out_len);
     if (ret != 0 || (dev_manager_msg_info.header.result != 0) ||
         (dev_manager_msg_info.header.valid != DEVDRV_MANAGER_MSG_D2H_MAGIC)) {
-        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)",
-            dev_id, ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
+        devdrv_drv_err("Failed to send the non trans msg to device. (dev_id=%u; ret=%d; result=%d; valid=0x%x)", dev_id,
+                       ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
         return -EFAULT;
     }
 
@@ -250,14 +250,14 @@ int devdrv_manager_h2d_sync_urd_forward(uint32_t dev_id, uint32_t vfid, struct u
     }
     if (ret_from_device != 0) {
         devdrv_drv_ex_notsupport_err(ret_from_device,
-            "Failed to execute the command on the device."
-            " (dev_id=%u; ret_from_device=%d; main_cmd=%u; sub_cmd=%u; filter=%s)\n",
-            dev_id, ret_from_device, urd_msg->main_cmd, urd_msg->sub_cmd, urd_msg->filter);
+                                     "Failed to execute the command on the device."
+                                     " (dev_id=%u; ret_from_device=%d; main_cmd=%u; sub_cmd=%u; filter=%s)\n",
+                                     dev_id, ret_from_device, urd_msg->main_cmd, urd_msg->sub_cmd, urd_msg->filter);
         return ret_from_device;
     }
 
     ret = memcpy_s(&(urd_msg->payload[0]), PAYLOAD_LEN_MAX, &(dev_manager_msg_info.payload[sizeof(int)]),
-        out_len - sizeof(struct devdrv_manager_msg_head) - sizeof(int));
+                   out_len - sizeof(struct devdrv_manager_msg_head) - sizeof(int));
     if (ret != 0) {
         devdrv_drv_err("memcpy_s failed. (dev_id=%u, ret=%d)\n", dev_id, ret);
         return ret;
@@ -290,8 +290,8 @@ int devdrv_manager_h2d_get_device_process_status(u32 dev_id, u32 *process_status
     if ((ret != 0) || (dev_manager_msg_info.header.result == DEVDRV_MANAGER_MSG_INVALID_RESULT) ||
         (dev_manager_msg_info.header.valid != DEVDRV_MANAGER_MSG_H2D_MAGIC)) {
         devdrv_drv_err("Failed to obtain the device process status through no_trans_chan. "
-            "(dev_id=%u; ret=%d; result=%u; valid=0x%x)\n",
-            dev_id, ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
+                       "(dev_id=%u; ret=%d; result=%u; valid=0x%x)\n",
+                       dev_id, ret, dev_manager_msg_info.header.result, dev_manager_msg_info.header.valid);
         return -EFAULT;
     }
 

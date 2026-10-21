@@ -33,6 +33,13 @@ u32 esched_get_cpuid_in_os(u32 chip_id, u32 cpuid_in_node);
 int esched_hw_dev_init(struct sched_numa_node *node);
 void esched_hw_dev_uninit(struct sched_numa_node *node);
 
+int esched_drv_submit_event_distribute(u32 dev_id, u32 event_src, struct sched_published_event_info *event_info,
+                                       struct sched_published_event_func *event_func);
+int esched_drv_map_host_pid(struct sched_proc_ctx *proc_ctx);
+void esched_drv_unmap_host_pid(struct sched_proc_ctx *proc_ctx);
+void sched_drv_task_exit_check_sched_cpu(struct sched_numa_node *node, struct sched_proc_ctx *proc_ctx);
+void sched_drv_try_resched_cpu(struct sched_numa_node *node);
+
 int esched_drv_init_comm_pid_mapping(u32 node_id);
 void esched_drv_uninit_comm_pid_mapping(u32 node_id);
 

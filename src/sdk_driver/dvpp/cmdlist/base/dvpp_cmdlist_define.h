@@ -15,8 +15,9 @@
 #define DVPP_CMDLIST_BASE_DVPP_DEFINE_H
 
 #define UNUSED(x) (void)(x)
-#define ALIGN_UP(x, a)   ((((x) + ((a) - 1U)) / (a)) * (a))
-#define ALIGN_DOWN(x, a) (((x) / (a)) * (a))
+
+#define DVPP_ALIGN_UP(x, a) ((((x) + ((a) - 1U)) / (a)) * (a))
+#define DVPP_ALIGN_DOWN(x, a) (((x) / (a)) * (a))
 
 #define GET_HIGH_ADDR(val) (((val) >> 32) & 0xffffffff)
 #define GET_LOW_ADDR(val) ((val) & 0xffffffff)

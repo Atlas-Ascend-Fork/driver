@@ -184,8 +184,8 @@ STATIC int bbox_uninit_instance(u32 udevid)
     for (type = DEVDRV_RAO_CLIENT_BBOX_DDR; type <= DEVDRV_RAO_CLIENT_BBOX_KLOG; type++) {
         bbox_free_and_unregister(udevid, type, ctx);
     }
-    ret |= bbox_device_unregister_persistent_export(udevid, ctx);
     ka_task_up_write(&ctx->sem);
+    ret |= bbox_device_unregister_persistent_export(udevid, ctx);
 
     dms_info("Bbox uninit instance successfully. (dev_id=%u)\n", udevid);
     return ret;
@@ -195,6 +195,7 @@ STATIC void bbox_alloc_and_register(u32 udevid, enum devdrv_rao_client_type type
 {
     const struct region_type_info *info = NULL;
     struct dev_mem_region *mem_region = NULL;
+    unsigned int chip_type;
     int ret;
 
     if (type >= KA_BASE_ARRAY_SIZE(g_region_info_tbl)) {
@@ -209,7 +210,17 @@ STATIC void bbox_alloc_and_register(u32 udevid, enum devdrv_rao_client_type type
         return;
     }
 
-    mem_region->base_addr = info->base_addr;
+    chip_type = uda_get_chip_type(udevid);
+    if (chip_type == HISI_CHIP_UNKNOWN) {
+        dms_err("Unknown chip type. (dev_id=%u)\n", udevid);
+        return;
+    }
+
+    if ((chip_type == HISI_CLOUD_V5) && (type == DEVDRV_RAO_CLIENT_BBOX_SRAM)) {
+        mem_region->base_addr = SRAM_BASE_ADDR_V5;
+    } else {
+        mem_region->base_addr = info->base_addr;
+    }
     mem_region->size = info->size;
     mem_region->alloc_func = info->alloc_func;
     mem_region->free_func = info->free_func;

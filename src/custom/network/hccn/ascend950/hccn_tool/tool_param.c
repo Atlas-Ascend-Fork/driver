@@ -116,21 +116,23 @@ int parse_mac(struct sub_option_entry *self, const char *val, value_union *type_
     char curr_chr;
 
     CHK_PRT_RETURN(val == NULL || type_val == NULL, hccn_err("input val or type_val is null"), -EINVAL);
-    CHK_PRT_RETURN(strlen(val) != MAC_STR_LEN,
-        hccn_err("input mac addr len:%zu != %d, ", strlen(val), MAC_STR_LEN), -EINVAL);
+    CHK_PRT_RETURN(strlen(val) != MAC_STR_LEN, hccn_err("input mac addr len:%zu != %d, ", strlen(val), MAC_STR_LEN),
+                   -EINVAL);
 
     for (index = 0; index < MAC_STR_LEN; index++) {
         curr_chr = val[index];
         if ((index % MAC_MOD_3) == MAC_REMAINDER_2) {
             CHK_PRT_RETURN(curr_chr != ':',
-                hccn_err("mac addr string contain invalid char, index[%d], mac_char[%c]", index, curr_chr), -EINVAL);
+                           hccn_err("mac addr string contains invalid char, index[%d], mac_char[%c]", index, curr_chr),
+                           -EINVAL);
             piece_value = 0;
             continue;
         }
 
         c2i = mac_hex_to_dec(curr_chr);
         CHK_PRT_RETURN(c2i == -EINVAL,
-            hccn_err("mac addr string contain invalid char, index[%d], mac_char[%c]", index, curr_chr), -EINVAL);
+                       hccn_err("mac addr string contains invalid char, index[%d], mac_char[%c]", index, curr_chr),
+                       -EINVAL);
 
         if (index % MAC_MOD_3 == MAC_REMAINDER_0) {
             piece_value += c2i * MAC_HEX_BASE_16;
@@ -196,8 +198,9 @@ bool is_value_in_range(struct sub_option_entry *opt, value_union *val)
             int_max = opt->range.int_range.max;
             int_val = val->int_val;
             flag = (int_min <= int_val) && (int_val <= int_max);
-            CHK_PRT_RETURN(!flag, TOOL_PRINT_ERR("Option [%s %d] is out of range [%d, %d].",
-                opt->name, int_val, int_min, int_max), false);
+            CHK_PRT_RETURN(
+                !flag, TOOL_PRINT_ERR("Option [%s %d] is out of range [%d, %d].", opt->name, int_val, int_min, int_max),
+                false);
             return true;
         case ARG_TYPE_OPTSTR:
             if (!val->is_set) {
@@ -208,8 +211,10 @@ bool is_value_in_range(struct sub_option_entry *opt, value_union *val)
             max_len = opt->range.str_range.max_len;
             str_len = (int)strlen(val->str_val);
             flag = str_len <= max_len;
-            CHK_PRT_RETURN(!flag, TOOL_PRINT_ERR("%s length %d is invalid, exceeds the length threshold %d",
-                val->str_val, str_len, max_len), false);
+            CHK_PRT_RETURN(!flag,
+                           TOOL_PRINT_ERR("%s length %d is invalid, exceeds the length threshold %d", val->str_val,
+                                          str_len, max_len),
+                           false);
             return true;
         case ARG_TYPE_IP:
             return true;
@@ -241,8 +246,8 @@ int tool_ipv4_int_to_str(const unsigned int ip, char *str, int len)
     unsigned int gw_fth = SPLIT_UIP(ip, IP_SPLIT_BIT_24);
 
     ret = sprintf_s(str, (size_t)len, "%u.%u.%u.%u", gw_fst, gw_sed, gw_thd, gw_fth);
-    CHK_PRT_RETURN(ret <= 0, hccn_err("sprintf failed %u.%u.%u.%u!, ret:%d",
-        gw_fst, gw_sed, gw_thd, gw_fth, ret), -EIO);
+    CHK_PRT_RETURN(ret <= 0, hccn_err("sprintf failed %u.%u.%u.%u!, ret:%d", gw_fst, gw_sed, gw_thd, gw_fth, ret),
+                   -EIO);
 
     return 0;
 }

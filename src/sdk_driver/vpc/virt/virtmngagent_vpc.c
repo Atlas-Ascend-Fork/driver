@@ -35,6 +35,13 @@ int vmnga_msg_cluster_recv_vpc(void *msg_chan_in, struct vmng_msg_chan_rx_proc_i
     client_proc_info.out_data_len = proc_info->out_data_len;
     client_proc_info.real_out_len = proc_info->real_out_len;
 
+    if ((client_proc_info.in_data_len > VMNG_MSG_SQ_DATA_MAX_SIZE) ||
+        (client_proc_info.out_data_len > VMNG_MSG_SQ_DATA_MAX_SIZE)) {
+        vmng_err("Data length check failed. (dev_id=%u; in_data_len=%u; out_data_len=%u)\n", dev_id,
+                 client_proc_info.in_data_len, client_proc_info.out_data_len);
+        return -EINVAL;
+    }
+
     if (vmng_is_blk_chan(msg_cluster->chan_type) == true) {
         blk_type = vmng_msg_chan_type_to_block_type(msg_cluster->chan_type);
         vpc_type = vmng_blk_to_vpc_type(blk_type);

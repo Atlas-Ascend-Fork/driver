@@ -17,7 +17,8 @@
 #include "prof_communication.h"
 #include "prof_core.h"
 
-drvError_t prof_core_register_channel(uint32_t dev_id, uint32_t chan_id, struct prof_sample_register_para *para, bool support_host_sample)
+drvError_t prof_core_register_channel(uint32_t dev_id, uint32_t chan_id, struct prof_sample_register_para *para,
+                                      bool support_host_sample)
 {
     drvError_t ret;
 
@@ -89,7 +90,7 @@ drvError_t prof_core_chan_stop(uint32_t dev_id, uint32_t chan_id)
 
     prof_poll_chan_stop(dev_id, chan_id);
 
-    return DRV_ERROR_NONE;
+    return para.h2d_ret;
 }
 
 drvError_t prof_core_chan_flush(uint32_t dev_id, uint32_t chan_id, uint32_t *data_len)

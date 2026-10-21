@@ -35,4 +35,6 @@ int devmm_msg_to_agent_mem_unmap(struct devmm_svm_process *svm_proc, struct devm
 int devmm_ioctl_resv_addr_info_query(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg);
 void devmm_destroy_all_heap_vmmas_by_devid(struct devmm_svm_process *svm_proc, u32 devid);
 
+int svm_vmm_vmma_ref_op_msg_register(void);
+
 #endif

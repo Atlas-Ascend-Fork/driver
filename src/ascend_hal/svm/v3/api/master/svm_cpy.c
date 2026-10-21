@@ -30,6 +30,33 @@
 #include "svm_vmm.h"
 #include "svm_cpy_host_pool.h"
 
+#define SVM_D2D_PIPE_CHUNK_SIZE (2ULL * SVM_BYTES_PER_MB) /* 2MB */
+#define SVM_D2D_PIPE_DEPTH 2U                             /* pipeline depth */
+#define SVM_D2D_PIPE_MIN_SIZE SVM_D2D_PIPE_CHUNK_SIZE     /* pipeline enable threshold */
+#define SVM_D2D_PIPE_INVALID_CHAN (-1)                    /* invalid channel id sentinel */
+
+struct svm_d2d_pipe_geom {
+    u64 chunk_size;
+    u32 total_chunks;
+    u64 last_chunk_size;
+};
+
+struct svm_d2d_pipe_buf {
+    u64 va;
+};
+
+struct svm_d2d_pipe_ctx {
+    u64 src_va;
+    u64 dst_va;
+    u64 total_size;
+    u32 src_devid;
+    u32 dst_devid;
+    struct svm_d2d_pipe_geom geom;
+    struct svm_d2d_pipe_buf host_buf[SVM_D2D_PIPE_DEPTH]; /* per-slot bounce buffer, rotated by slot */
+    int d2h_chan;                                         /* pre-allocated D2H channel on src_devid */
+    int h2d_chan;                                         /* pre-allocated H2D channel on dst_devid */
+};
+
 enum svm_copy_shared_type {
     SVM_COPY_SHARED_NONE = 0,
     SVM_COPY_SHARED_IPC,
@@ -114,7 +141,7 @@ static int svm_copy_check_addr_prop_consistency(struct svm_prop *tar_prop, u64 s
         if (((prop.flag & ~SVM_FLAG_ATTR_PA_P2P) != (tar_prop->flag & ~SVM_FLAG_ATTR_PA_P2P)) ||
             (prop.devid != tar_prop->devid)) {
             svm_err("Addr's prop is not consistent.\n");
-            return DRV_ERROR_PARA_ERROR;
+            return DRV_ERROR_INVALID_VALUE;
         }
     }
 
@@ -142,7 +169,7 @@ static int svm_copy_check_addr_prop_cap(u64 va, u64 size, u64 cap_mask)
         }
 
         if ((prop.flag & cap_mask) == 0) {
-            svm_err("Va does not support cur cap. (va=0x%llx; prop.flag=0x%llx)\n", va, prop.flag);
+            svm_err("Va not support cur cap. (va=0x%llx; prop.flag=0x%llx)\n", va, prop.flag);
             return DRV_ERROR_PARA_ERROR;
         }
 
@@ -211,11 +238,15 @@ static int svm_copy_real_info_pack(const struct svm_global_va *src_info, struct 
         return ret;
     }
 
-    ret = halQueryMasterPidByDeviceSlave(info->devid, src_info->tgid, &host_tgid, &proc_type);
-    if (ret != 0) {
-        svm_err("Get master pid by device slave failed. (ret=%d; devid=%u; slave_pid=%d)\n", ret, info->devid,
-                src_info->tgid);
-        return ret;
+    if (info->devid == svm_get_host_devid()) {
+        host_tgid = (u32)src_info->tgid;
+    } else {
+        ret = halQueryMasterTgidByDeviceSlave(info->devid, src_info->tgid, &host_tgid, &proc_type);
+        if (ret != 0) {
+            svm_err("Get master tgid by device slave failed. (ret=%d; devid=%u; slave_tgid=%d)\n", ret, info->devid,
+                    src_info->tgid);
+            return ret;
+        }
     }
 
     info->host_tgid = (int)host_tgid;
@@ -281,7 +312,7 @@ static int svm_copy_try_resolve_shared_info(struct svm_copy_va_info *src_info, s
     }
 
     if (src_is_shared && dst_is_shared) {
-        svm_info("Shared src and dst are not support. (src=0x%llx; dst=0x%llx)\n", src_info->va, dst_info->va);
+        svm_info("Shared src and dst are not supported. (src=0x%llx; dst=0x%llx)\n", src_info->va, dst_info->va);
         return DRV_ERROR_NOT_SUPPORT;
     }
 
@@ -299,9 +330,9 @@ static int svm_mem_sync_copy_local_resolved(struct svm_copy_va_info *src_info, s
 
     if (((src_info->host_tgid != 0) && (src_info->host_tgid != cur_tgid)) ||
         ((dst_info->host_tgid != 0) && (dst_info->host_tgid != cur_tgid))) {
-        svm_info("Resolved local copy tgid does not match current process. (src_host_tgid=%d; dst_host_tgid=%d; "
-                 "cur_tgid=%d)\n",
-                 src_info->host_tgid, dst_info->host_tgid, cur_tgid);
+        svm_info(
+            "Resolved local copy tgid not match current process. (src_host_tgid=%d; dst_host_tgid=%d; cur_tgid=%d)\n",
+            src_info->host_tgid, dst_info->host_tgid, cur_tgid);
         return DRV_ERROR_NOT_SUPPORT; /* todo: later adapt */
     }
 
@@ -445,44 +476,6 @@ static int svm_mem_sync_copy_h2h(struct svm_copy_va_info *src_info, struct svm_c
     return svm_memcpy_local_client(dst_info->devid, dst_info->va, dst_info->size, src_info->va, src_info->size);
 }
 
-static int _svm_mem_sync_copy(enum svm_cpy_dir dir, struct svm_copy_va_info *src_info,
-                              struct svm_copy_va_info *dst_info)
-{
-    struct svm_dst_va register_va;
-    u64 host_va = (dir == SVM_H2D_CPY) ? src_info->va : dst_info->va;
-    u64 size = src_info->size;
-    u32 user_devid = (dir == SVM_H2D_CPY) ? dst_info->devid : src_info->devid;
-    u32 flag = 0;
-    bool is_register = false;
-    int ret;
-
-    svm_dst_va_pack(svm_get_host_devid(), 0, host_va, size, &register_va);
-
-    /* TODO: later remove register_to_master, adapt UB behavior same as PCIe */
-    if ((svm_va_is_in_range(host_va, size) == false) &&
-        (svm_get_device_connect_type(user_devid) != HOST_DEVICE_CONNECT_TYPE_PCIE)) {
-        flag |= (dir == SVM_H2D_CPY) ? 0 : REGISTER_TO_MASTER_FLAG_ACCESS_WRITE;
-        flag |= REGISTER_TO_MASTER_FLAG_PIN;
-
-        ret = svm_register_to_master(user_devid, &register_va, flag);
-        if ((ret != DRV_ERROR_NONE) && (ret != DRV_ERROR_NOT_SUPPORT) && (ret != DRV_ERROR_BUSY)) {
-            svm_err("Register local mem to master failed. (ret=%d; host_va=0x%llx; size=%llu)\n", ret, host_va, size);
-            return ret;
-        }
-
-        if (ret == DRV_ERROR_NONE) {
-            is_register = true;
-        }
-    }
-
-    ret = svm_sync_copy(src_info, dst_info);
-    if (is_register) {
-        (void)svm_unregister_to_master(user_devid, &register_va, flag);
-    }
-
-    return ret;
-}
-
 static int svm_mem_sync_copy_h2d(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info)
 {
     int ret;
@@ -494,7 +487,7 @@ static int svm_mem_sync_copy_h2d(struct svm_copy_va_info *src_info, struct svm_c
         }
     }
 
-    return _svm_mem_sync_copy(SVM_H2D_CPY, src_info, dst_info);
+    return svm_sync_copy(src_info, dst_info);
 }
 
 static int svm_mem_sync_copy_d2h(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info)
@@ -508,7 +501,7 @@ static int svm_mem_sync_copy_d2h(struct svm_copy_va_info *src_info, struct svm_c
         }
     }
 
-    return _svm_mem_sync_copy(SVM_D2H_CPY, src_info, dst_info);
+    return svm_sync_copy(src_info, dst_info);
 }
 
 static int svm_mem_sync_copy_same_d2d(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info)
@@ -516,40 +509,325 @@ static int svm_mem_sync_copy_same_d2d(struct svm_copy_va_info *src_info, struct 
     return svm_memcpy_local_client(dst_info->devid, dst_info->va, dst_info->size, src_info->va, src_info->size);
 }
 
-static int svm_ub_sync_copy_diff_d2d(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info)
+#define SVM_D2D_SYNC_CHUNK_SIZE (16ULL * SVM_BYTES_PER_MB) /* 16MB per-chunk for serial d2d */
+
+static int svm_sync_copy_diff_d2d(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info)
 {
+    u64 chunk_size = SVM_D2D_SYNC_CHUNK_SIZE;
     struct svm_copy_va_info host_info;
-    u64 host_va = 0;
-    void *tmp_host_va = NULL;
+    u64 remaining = src_info->size;
+    u64 offset = 0;
+    void *host_va = NULL;
     int ret;
 
-    ret = halMemAlloc(&tmp_host_va, src_info->size, MEM_HOST | ((u64)DEVMM_MODULE_ID << MEM_MODULE_ID_BIT));
+    ret = halMemAlloc(&host_va, chunk_size, MEM_HOST | ((u64)DEVMM_MODULE_ID << MEM_MODULE_ID_BIT));
     if (ret != DRV_ERROR_NONE) {
-        svm_warn("Alloc d2d local mem failed. (ret=%d)\n", ret);
+        svm_warn("Alloc d2d serial host buf not success. (ret=%d; size=%llu)\n", ret, chunk_size);
         return ret;
     }
-    host_va = (u64)(uintptr_t)tmp_host_va;
 
     host_info.devid = svm_get_host_devid();
-    host_info.va = host_va;
-    host_info.size = src_info->size;
+    host_info.va = (u64)(uintptr_t)host_va;
     host_info.host_tgid = 0;
     host_info.is_share = false;
 
-    ret = svm_mem_sync_copy_d2h(src_info, &host_info);
-    if (ret != DRV_ERROR_NONE) {
-        svm_err("D2H cpy failed. (ret=%d)\n", ret);
-        goto free_host_va;
-    }
+    while (remaining > 0) {
+        u64 sz = (remaining < chunk_size) ? remaining : chunk_size;
+        struct svm_copy_va_info src_chunk;
+        struct svm_copy_va_info dst_chunk;
 
-    ret = svm_mem_sync_copy_h2d(&host_info, dst_info);
-    if (ret != DRV_ERROR_NONE) {
-        svm_err("H2D cpy failed. (ret=%d)\n", ret);
-        goto free_host_va;
+        svm_copy_va_info_pack(src_info->va + offset, sz, src_info->devid, &src_chunk);
+        svm_copy_va_info_pack(dst_info->va + offset, sz, dst_info->devid, &dst_chunk);
+        host_info.size = sz;
+
+        ret = svm_mem_sync_copy_d2h(&src_chunk, &host_info);
+        if (ret != DRV_ERROR_NONE) {
+            svm_err("D2H serial chunk failed. (ret=%d; offset=%llu; size=%llu)\n", ret, offset, sz);
+            goto free_host_va;
+        }
+
+        ret = svm_mem_sync_copy_h2d(&host_info, &dst_chunk);
+        if (ret != DRV_ERROR_NONE) {
+            svm_err("H2D serial chunk failed. (ret=%d; offset=%llu; size=%llu)\n", ret, offset, sz);
+            goto free_host_va;
+        }
+
+        offset += sz;
+        remaining -= sz;
     }
 
 free_host_va:
-    (void)halMemFree((void *)(uintptr_t)host_va);
+    (void)halMemFree(host_va);
+    return ret;
+}
+
+static u64 svm_d2d_pipe_chunk_size(const struct svm_d2d_pipe_geom *geom, u32 chunk_idx)
+{
+    return (chunk_idx == geom->total_chunks - 1) ? geom->last_chunk_size : geom->chunk_size;
+}
+
+static int svm_d2d_pipe_alloc_host_buf(struct svm_d2d_pipe_ctx *ctx)
+{
+    void *slot_ptr = NULL;
+    u32 i, j;
+    int ret;
+
+    for (i = 0; i < SVM_D2D_PIPE_DEPTH; i++) {
+        slot_ptr = NULL;
+        ret = halMemAlloc(&slot_ptr, ctx->geom.chunk_size, MEM_HOST | ((u64)DEVMM_MODULE_ID << MEM_MODULE_ID_BIT));
+        if (ret != DRV_ERROR_NONE) {
+            svm_warn("Alloc d2d pipe host buf slot not success. (ret=%d; slot=%u; size=%llu)\n", ret, i,
+                     ctx->geom.chunk_size);
+            for (j = 0; j < i; j++) {
+                (void)halMemFree((void *)(uintptr_t)ctx->host_buf[j].va);
+                ctx->host_buf[j].va = 0;
+            }
+            return ret;
+        }
+        ctx->host_buf[i].va = (u64)(uintptr_t)slot_ptr;
+    }
+    return DRV_ERROR_NONE;
+}
+
+static void svm_d2d_pipe_free_host_buf(struct svm_d2d_pipe_ctx *ctx)
+{
+    u32 i;
+
+    for (i = 0; i < SVM_D2D_PIPE_DEPTH; i++) {
+        if (ctx->host_buf[i].va != 0) {
+            (void)halMemFree((void *)(uintptr_t)ctx->host_buf[i].va);
+            ctx->host_buf[i].va = 0;
+        }
+    }
+}
+
+static int svm_d2d_pipe_init(struct svm_d2d_pipe_ctx *ctx, struct svm_copy_va_info *src_info,
+                             struct svm_copy_va_info *dst_info)
+{
+    int ret;
+
+    ctx->src_va = src_info->va;
+    ctx->dst_va = dst_info->va;
+    ctx->total_size = src_info->size;
+    ctx->src_devid = src_info->devid;
+    ctx->dst_devid = dst_info->devid;
+    ctx->geom.chunk_size = SVM_D2D_PIPE_CHUNK_SIZE;
+    ctx->geom.total_chunks = (u32)((ctx->total_size + ctx->geom.chunk_size - 1) / ctx->geom.chunk_size);
+    ctx->geom.last_chunk_size = ctx->total_size - (u64)(ctx->geom.total_chunks - 1) * ctx->geom.chunk_size;
+    ctx->d2h_chan = SVM_D2D_PIPE_INVALID_CHAN;
+    ctx->h2d_chan = SVM_D2D_PIPE_INVALID_CHAN;
+
+    ret = svm_d2d_pipe_alloc_host_buf(ctx);
+    if (ret != DRV_ERROR_NONE) {
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    /* Allocate D2H channel on src_devid, then H2D on dst_devid. Each device pool
+     * holds at most 1 channel (no same-pool deadlock). Reverse-direction AB-BA
+     * is mitigated by svm_urma_chan_try_alloc 5s timeout -> serial fallback. */
+    ret = svm_async_chan_alloc(ctx->src_devid, &ctx->d2h_chan);
+    if (ret != DRV_ERROR_NONE) {
+        svm_warn("Alloc d2h chan not success. (ret=%d; devid=%u)\n", ret, ctx->src_devid);
+        ctx->d2h_chan = SVM_D2D_PIPE_INVALID_CHAN;
+        svm_d2d_pipe_free_host_buf(ctx);
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    ret = svm_async_chan_alloc(ctx->dst_devid, &ctx->h2d_chan);
+    if (ret != DRV_ERROR_NONE) {
+        svm_warn("Alloc h2d chan not success. (ret=%d; devid=%u)\n", ret, ctx->dst_devid);
+        svm_async_chan_free(ctx->src_devid, ctx->d2h_chan);
+        ctx->d2h_chan = SVM_D2D_PIPE_INVALID_CHAN;
+        ctx->h2d_chan = SVM_D2D_PIPE_INVALID_CHAN;
+        svm_d2d_pipe_free_host_buf(ctx);
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    return DRV_ERROR_NONE;
+}
+
+static void svm_d2d_pipe_fini(struct svm_d2d_pipe_ctx *ctx)
+{
+    if (ctx->d2h_chan != SVM_D2D_PIPE_INVALID_CHAN) {
+        svm_async_chan_free(ctx->src_devid, ctx->d2h_chan);
+        ctx->d2h_chan = SVM_D2D_PIPE_INVALID_CHAN;
+    }
+    if (ctx->h2d_chan != SVM_D2D_PIPE_INVALID_CHAN) {
+        svm_async_chan_free(ctx->dst_devid, ctx->h2d_chan);
+        ctx->h2d_chan = SVM_D2D_PIPE_INVALID_CHAN;
+    }
+
+    svm_d2d_pipe_free_host_buf(ctx);
+}
+
+static int svm_d2d_pipe_submit_d2h(struct svm_d2d_pipe_ctx *ctx, u32 chunk_idx, u32 slot)
+{
+    struct svm_copy_va_info src;
+    struct svm_copy_va_info host;
+
+    src.va = ctx->src_va + (u64)chunk_idx * ctx->geom.chunk_size;
+    src.size = svm_d2d_pipe_chunk_size(&ctx->geom, chunk_idx);
+    src.devid = ctx->src_devid;
+    src.host_tgid = 0;
+    src.is_share = false;
+
+    host.va = ctx->host_buf[slot].va;
+    host.size = src.size;
+    host.devid = svm_get_host_devid();
+    host.host_tgid = 0;
+    host.is_share = false;
+
+    return svm_async_copy_submit_reuse(ctx->src_devid, ctx->d2h_chan, &src, &host);
+}
+
+static int svm_d2d_pipe_submit_h2d(struct svm_d2d_pipe_ctx *ctx, u32 chunk_idx, u32 slot)
+{
+    struct svm_copy_va_info host;
+    struct svm_copy_va_info dst;
+
+    host.va = ctx->host_buf[slot].va;
+    host.size = svm_d2d_pipe_chunk_size(&ctx->geom, chunk_idx);
+    host.devid = svm_get_host_devid();
+    host.host_tgid = 0;
+    host.is_share = false;
+
+    dst.va = ctx->dst_va + (u64)chunk_idx * ctx->geom.chunk_size;
+    dst.size = host.size;
+    dst.devid = ctx->dst_devid;
+    dst.host_tgid = 0;
+    dst.is_share = false;
+
+    return svm_async_copy_submit_reuse(ctx->dst_devid, ctx->h2d_chan, &host, &dst);
+}
+
+static int svm_d2d_pipe_wait_d2h(struct svm_d2d_pipe_ctx *ctx)
+{
+    return svm_async_copy_wait_one(ctx->src_devid, ctx->d2h_chan);
+}
+
+static int svm_d2d_pipe_wait_h2d(struct svm_d2d_pipe_ctx *ctx)
+{
+    return svm_async_copy_wait_one(ctx->dst_devid, ctx->h2d_chan);
+}
+
+/* Phase 2: Fill D2H — submit fill chunks without waiting. */
+static int svm_d2d_pipe_fill_d2h(struct svm_d2d_pipe_ctx *ctx, u32 fill)
+{
+    u32 chunk;
+    int ret;
+
+    for (chunk = 0; chunk < fill; chunk++) {
+        ret = svm_d2d_pipe_submit_d2h(ctx, chunk, chunk);
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+    }
+    return DRV_ERROR_NONE;
+}
+
+/* Phase 3: Drain D2H one by one and fill H2D for the same chunk. */
+static int svm_d2d_pipe_drain_d2h_fill_h2d(struct svm_d2d_pipe_ctx *ctx, u32 fill)
+{
+    u32 chunk;
+    int ret;
+
+    for (chunk = 0; chunk < fill; chunk++) {
+        ret = svm_d2d_pipe_wait_d2h(ctx);
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+        ret = svm_d2d_pipe_submit_h2d(ctx, chunk, chunk);
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+    }
+    return DRV_ERROR_NONE;
+}
+
+/* Phase 4: Steady state — recycle buf[slot%DEPTH] for D2H(slot+DEPTH). */
+static int svm_d2d_pipe_steady(struct svm_d2d_pipe_ctx *ctx)
+{
+    u32 slot;
+    int ret;
+
+    for (slot = 0; (slot + SVM_D2D_PIPE_DEPTH) < ctx->geom.total_chunks; slot++) {
+        u32 next = slot + SVM_D2D_PIPE_DEPTH;
+        u32 s = slot % SVM_D2D_PIPE_DEPTH;
+
+        ret = svm_d2d_pipe_wait_h2d(ctx); /* release buf[s] */
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+        ret = svm_d2d_pipe_submit_d2h(ctx, next, s);
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+        ret = svm_d2d_pipe_wait_d2h(ctx); /* 1 H2D in flight on dst_dev meanwhile */
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+        ret = svm_d2d_pipe_submit_h2d(ctx, next, s);
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+    }
+    return DRV_ERROR_NONE;
+}
+
+/* Phase 5: Drain remaining in-flight H2D. */
+static int svm_d2d_pipe_drain_h2d(struct svm_d2d_pipe_ctx *ctx, u32 fill)
+{
+    u32 chunk;
+    int ret;
+
+    for (chunk = 0; chunk < fill; chunk++) {
+        ret = svm_d2d_pipe_wait_h2d(ctx);
+        if (ret != DRV_ERROR_NONE) {
+            return ret;
+        }
+    }
+    return DRV_ERROR_NONE;
+}
+
+static int svm_d2d_pipe_run(struct svm_d2d_pipe_ctx *ctx)
+{
+    u32 fill = (ctx->geom.total_chunks < SVM_D2D_PIPE_DEPTH) ? ctx->geom.total_chunks : SVM_D2D_PIPE_DEPTH;
+    int ret;
+
+    /* Phase 2: Fill D2H. */
+    ret = svm_d2d_pipe_fill_d2h(ctx, fill);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    /* Phase 3: Drain D2H + fill H2D. */
+    ret = svm_d2d_pipe_drain_d2h_fill_h2d(ctx, fill);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    /* Phase 4: Steady state. */
+    ret = svm_d2d_pipe_steady(ctx);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    /* Phase 5: Drain remaining H2D. */
+    return svm_d2d_pipe_drain_h2d(ctx, fill);
+}
+
+static int svm_d2d_pipe_copy(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info)
+{
+    struct svm_d2d_pipe_ctx ctx = {0};
+    int ret;
+
+    ret = svm_d2d_pipe_init(&ctx, src_info, dst_info);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    ret = svm_d2d_pipe_run(&ctx);
+    svm_d2d_pipe_fini(&ctx);
     return ret;
 }
 
@@ -559,8 +837,16 @@ static int svm_mem_sync_copy_diff_d2d(struct svm_copy_va_info *src_info, struct 
     if ((hd_connect_type == HOST_DEVICE_CONNECT_TYPE_PCIE) || (hd_connect_type == HOST_DEVICE_CONNECT_TYPE_HCCS)) {
         return svm_sync_copy(src_info, dst_info);
     } else if (hd_connect_type == HOST_DEVICE_CONNECT_TYPE_UB) {
-        return svm_ub_sync_copy_diff_d2d(src_info, dst_info);
+        if (src_info->size > SVM_D2D_PIPE_MIN_SIZE) {
+            int ret = svm_d2d_pipe_copy(src_info, dst_info);
+            if (ret != DRV_ERROR_NOT_SUPPORT) {
+                return ret;
+            }
+            /* tseg lookup or resource alloc failed, fallback to serial path */
+        }
+        return svm_sync_copy_diff_d2d(src_info, dst_info);
     } else {
+        svm_err("Unknown hd connect type. (devid=%u; connect_type=%u)\n", src_info->devid, hd_connect_type);
         return DRV_ERROR_INNER_ERR;
     }
 }
@@ -1258,13 +1544,13 @@ static int svm_cpy_batch_para_prop_check(u64 dst[], u64 src[], u64 size[], u64 c
     u64 i;
 
     for (i = 0; i < count; i++) {
-        if (size[i] == 0ULL) {
-            svm_err("Size is zero. (index=%u)\n", i);
+        if ((src[i] == 0ULL) || (dst[i] == 0ULL) || (size[i] == 0ULL)) {
+            svm_err("Va or size is zero. (index=%u; src=0x%llx; dst=0x%llx; size=%llu)\n", i, src[i], dst[i], size[i]);
             return DRV_ERROR_INVALID_VALUE;
         }
 
         if ((svm_va_is_in_range(src[i], size[i]) == false) && (svm_va_is_in_range(dst[i], size[i]) == false)) {
-            svm_debug("Memcpy batch does not support h2h. (dst=0x%llx; src=0x%llx; index=%u)\n", dst[i], src[i], i);
+            svm_debug("Memcpy batch not support h2h. (dst=0x%llx; src=0x%llx; index=%u)\n", dst[i], src[i], i);
             return DRV_ERROR_NOT_SUPPORT;
         }
 
@@ -1292,7 +1578,8 @@ static int svm_cpy_batch_para_check(u64 dst[], u64 src[], u64 size[], u64 count)
     }
 
     if (count > SVM_CPY_BATCH_MAX_COUNT) {
-        svm_info("Batch cpy addr count over limit. (count=%lu)\n", count);
+        svm_info("Batch cpy addr count over limit. (count=%lu; max=%lu)\n", count,
+                 (unsigned long)SVM_CPY_BATCH_MAX_COUNT);
         return DRV_ERROR_NOT_SUPPORT;
     }
 

@@ -349,4 +349,5 @@ bool devdrv_check_half_probe_finish_inner(u32 index_id);
 /* alloc trans msg chan */
 void *devdrv_pci_pcimsg_alloc_trans_queue(u32 udevid, struct devdrv_trans_msg_chan_info *chan_info);
 int devdrv_pci_pcimsg_realease_trans_queue(void *msg_chan);
+int devdrv_peh_register_irq_by_vector_index(struct devdrv_pci_ctrl *pci_ctrl);
 #endif

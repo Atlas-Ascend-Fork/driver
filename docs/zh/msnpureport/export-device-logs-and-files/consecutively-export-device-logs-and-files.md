@@ -32,7 +32,7 @@ msnpureport提供常驻进程模式持续导出Device侧系统日志。在模型
 - 不建议在同路径同时刻并发使用以免造成落盘时间戳目录名冲突；一个Device不支持并发使用。
 - 容器场景不支持使用该命令（特权容器场景除外，无此限制）。
 - 在异常场景下，可能会出现连续导出Device侧日志和文件失败的情况。
-- 如果用户想要终止导出Device侧日志和文件或者模型推理/训练完成，需要使用“Ctrl+c”或`kill -15 pid`命令结束进程。
+- 如果用户想要终止导出Device侧日志和文件或者模型推理/训练完成，需要使用“Ctrl+C”或`kill -15 pid`命令结束进程。
 
     其中pid代表连续导出日志的脚本进程ID，可以通过**ps -elf | grep msnpureport**命令进行查询。
 
@@ -51,10 +51,10 @@ msnpureport report --permanent [options]
 |-d <deviceId>或--device <deviceId>|可选|指定Device ID（逻辑ID），默认导出所有Device日志。<br>部分产品可能存在SMP工作模式，即多个Device共用一个OS组成一组，此时指定一个OS内的任意Device ID时，会导出该OS下的所有Device日志。<br>SMP工作模式下，一个OS内不支持多个导出进程并发执行，例如：device 0和device 1共用一个OS时，不能同时执行**msnpureport report --permanent -d 0**和**msnpureport report --permanent -d 1**|
 |--sys_log_num <sys_log_num>|可选|设置Device侧系统进程产生的调试日志或运行日志的文件数量。<br>取值范围：[1,1000]，默认值为10。注意该参数控制的是调试日志目录或运行日志目录下各自的最大文件数量。当日志文件数目大于该数目时，新日志覆盖最早的日志。|
 |--sys_log_size <sys_log_size>|可选|设置Device侧系统进程产生的调试日志和运行日志的单个文件大小。取值范围：[1,100]，单位M，默认值为10。<br>当文件大小大于该值时，日志将生成在新的文件中。|
-|--event_log_num <event_log_num>|可选|设置Device侧应用进程产生的EVENT日志的文件数量。<br>取值范围：[1,1000]，默认值为10。<br>当日志文件数目大于该数目时，新日志覆盖最早的日志。|
-|--event_log_size <event_log_size>|可选|设置Device侧应用进程产生的EVENT日志的单个文件大小。<br>取值范围：[1,100]，单位M，默认值为10。<br>当文件大小大于该值时，日志将生成在新的文件中。|
-|--sec_log_num <sec_log_num>|可选|设置Device侧应用进程产生的安全日志的文件数量。<br>取值范围：[1,1000]，默认值为10。<br>当日志文件数目大于该数目时，新日志覆盖最早的日志。|
-|--sec_log_size <sec_log_size>|可选|设置Device侧应用进程产生的安全日志的单个文件大小。<br>取值范围：[1,100]，单位M，默认值为10。<br>当文件大小大于该值时，日志将生成在新的文件中。|
+|--event_log_num <event_log_num>|可选|设置Device侧系统进程产生的EVENT日志的文件数量。<br>取值范围：[1,1000]，默认值为10。<br>当日志文件数目大于该数目时，新日志覆盖最早的日志。|
+|--event_log_size <event_log_size>|可选|设置Device侧系统进程产生的EVENT日志的单个文件大小。<br>取值范围：[1,100]，单位M，默认值为10。<br>当文件大小大于该值时，日志将生成在新的文件中。|
+|--sec_log_num <sec_log_num>|可选|设置Device侧系统进程产生的安全日志的文件数量。<br>取值范围：[1,1000]，默认值为10。<br>当日志文件数目大于该数目时，新日志覆盖最早的日志。|
+|--sec_log_size <sec_log_size>|可选|设置Device侧系统进程产生的安全日志的单个文件大小。<br>取值范围：[1,100]，单位M，默认值为10。<br>当文件大小大于该值时，日志将生成在新的文件中。|
 |--fw_log_num <fw_log_num>|可选|设置非Control CPU上的系统类日志的文件数量。<br>取值范围：[1,1000]，默认值为10。<br>当日志文件数目大于该数目时，新日志覆盖最早的日志。|
 |--fw_log_size <fw_log_size>|可选|设置非Control CPU上的系统类日志的单个文件大小。<br>取值范围：[1,100]，单位M，默认值为10。<br>当文件大小大于该值时，日志将生成在新的文件中。|
 |--stackcore_num <stackcore_num>|可选|设置stackcore目录下的文件数量，具体指以下文件数量：<br>- 当前目录/\*/stackcore/*dev-os-id*/stackcore.slogd.xxx*<br>- 当前目录/\*/stackcore/*dev-os-id*/udf/stackcore.slogd.xxx <br>取值范围：[1,100]，默认值为50。该参数控制的是上述两个目录下各自的最大文件数量。不同产品型号产生的文件名可能不一样，部分型号下文件名为coretrace.slogd.xx。<br>当日志文件数目大于该数目时，新日志覆盖最早的日志。|
@@ -72,7 +72,7 @@ msnpureport report --permanent [options]
 
     **msnpureport** **report --permanent**
 
-4. 如果用户想要终止导出Device侧日志和文件或者模型推理/训练完成，需要使用“Ctrl+c”或`kill -15 pid`命令结束进程。
+4. 如果用户想要终止导出Device侧日志和文件或者模型推理/训练完成，需要使用“Ctrl+C”或`kill -15 pid`命令结束进程。
 
     其中pid代表连续导出日志的脚本进程ID，可以通过**ps -elf | grep msnpureport**命令进行查询。
 
@@ -81,7 +81,7 @@ msnpureport report --permanent [options]
 Device侧的相关日志和文件被导出到Host侧，并存储到当前目录（如/var/log/npu/report）下以时间戳命名的文件夹中，具体如下：
 
 ```sh
-├── hisi_logs
+├── hisi_logs  //仅在监测到device侧log-daemon进程心跳异常时，做一次临终异常上报
 │   └── device-id
 │       ├── 时间戳  //以时间戳命名的文件夹，记录黑匣子日志、黑匣子的设备事件信息和黑匣子存储空间中的历史维测信息等
 │       └── history.log  //记录各文件夹生成的异常场景信息，如Device心跳丢失等

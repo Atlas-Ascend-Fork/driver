@@ -19,4 +19,5 @@ int mem_pool_client_create(u32 devid, u64 pool_id, u64 va, u64 size, u64 global_
 int mem_pool_client_destory(u32 devid, u64 pool_id, u64 *va);
 int mem_pool_client_set_attr(u32 devid, u64 pool_id, u64 attr, u64 value);
 int mem_pool_client_get_attr(u32 devid, u64 pool_id, u64 attr, u64 *value);
+int mem_pool_client_mem_free(u32 devid, u64 pool_id, u64 size, u64 va);
 #endif

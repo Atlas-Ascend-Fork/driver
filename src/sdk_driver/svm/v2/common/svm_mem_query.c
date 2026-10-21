@@ -18,6 +18,7 @@
 #include "svm_mem_query.h"
 #include "svm_dynamic_addr.h"
 #include "svm_ioctl.h"
+#include "svm_kapi_stats.h"
 
 static int devmm_get_addr_type(struct devmm_svm_process_id *process_id, u64 addr, size_t size, unsigned int *addr_flag)
 {
@@ -97,6 +98,10 @@ int devmm_get_mem_pa_list(struct devmm_svm_process_id *process_id, u64 addr, u64
         ret = devmm_shm_get_pa_list(process_id, addr, size, pa_list, pa_num);
     }
 
+    if ((ret == 0) && (addr_flag == DEVMM_SVM_ADDR) && ka_mm_mem_is_ram(pa_list[0])) {
+        devmm_kapi_stats_inc(DEVMM_KAPI_STATS_TYPE_0);
+    }
+
     return ret;
 }
 KA_EXPORT_SYMBOL_GPL(devmm_get_mem_pa_list);
@@ -104,6 +109,7 @@ KA_EXPORT_SYMBOL_GPL(devmm_get_mem_pa_list);
 void devmm_put_mem_pa_list(struct devmm_svm_process_id *process_id, u64 addr, u64 size, u64 *pa_list, u32 pa_num)
 {
     u32 addr_flag = 0;
+    bool is_local_mem = false;
 
     if ((process_id == NULL) || (pa_list == NULL) || (pa_num == 0)) {
 #ifndef EMU_ST
@@ -124,11 +130,16 @@ void devmm_put_mem_pa_list(struct devmm_svm_process_id *process_id, u64 addr, u6
      * checking whether the PA belongs to RAM & not svsp & in da range.
      */
     devmm_update_addr_flag(addr, pa_list[0], &addr_flag);
+    is_local_mem = ka_mm_mem_is_ram(pa_list[0]);
 
     if (addr_flag == DEVMM_SVM_ADDR) {
-        devmm_svm_put_pa_list(process_id, addr, pa_list, pa_num);
+        devmm_svm_put_pa_list(process_id, addr, size, pa_list, pa_num);
     } else {
         devmm_shm_put_pa_list(process_id, addr, pa_list, pa_num);
+    }
+
+    if (is_local_mem && (addr_flag == DEVMM_SVM_ADDR)) {
+        devmm_kapi_stats_dec(DEVMM_KAPI_STATS_TYPE_0);
     }
 }
 KA_EXPORT_SYMBOL_GPL(devmm_put_mem_pa_list);
@@ -148,7 +159,7 @@ STATIC u32 devmm_svm_get_dev_mem_page_size(struct devmm_svm_process_id *process_
     heap = devmm_svm_heap_get(svm_process, addr);
     if (heap == NULL) {
         devmm_svm_proc_put(svm_process);
-        devmm_drv_err("Get heap failed. (va=0x%llx; hostpid=%d; devid=%d; vfid=%d)\n", addr, process_id->hostpid,
+        devmm_drv_err("Get heap fail. (va=0x%llx; hostpid=%d; devid=%d; vfid=%d)\n", addr, process_id->hostpid,
                       process_id->devid, process_id->vfid);
         return 0;
     }

@@ -9,6 +9,9 @@
  */
 #include <stdlib.h>
 #include <pthread.h>
+#include <sys/ioctl.h>
+
+#include "pbl_uda_user.h"
 
 #include "ascend_hal_error.h"
 
@@ -26,8 +29,12 @@
 #include "svm_pipeline.h"
 #include "svm_addr_desc.h"
 #include "svm_mem_repair.h"
+#include "svm_ioctl_ex.h"
+#include "svm_sys_cmd.h"
 
 struct svm_mem_repair_ops *g_ops = {NULL};
+static u64 g_repaired_src_va[MEM_REPAIR_MAX_CNT] = {0};
+static u32 g_repaired_cnt = 0;
 
 void svm_mem_repair_set_ops(struct svm_mem_repair_ops *ops)
 {
@@ -94,8 +101,26 @@ static u32 mem_repair_tranform_mpl_flag(u64 flag)
     mpl_flag |= svm_flag_attr_is_p2p(flag) ? SVM_MPL_FLAG_P2P : 0;
     mpl_flag |= svm_flag_attr_is_pg_nc(flag) ? SVM_MPL_FLAG_PG_NC : 0;
     mpl_flag |= svm_flag_attr_is_pg_rdonly(flag) ? SVM_MPL_FLAG_PG_RDONLY : 0;
+    mpl_flag |= svm_flag_is_dev_private(flag) ? SVM_MPL_FLAG_DEV_PRIVATE : 0;
 
     return mpl_flag;
+}
+
+static int mem_repair_share_remote_process(struct svm_prop *prop, u64 va, u64 size)
+{
+    struct svm_share_repair_para para = {0};
+    int ret;
+
+    svm_global_va_pack(0, prop->tgid, va, size, &para.src_va);
+    ret = uda_get_udevid_by_devid_ex(prop->devid, &para.src_va.udevid);
+    if (ret != DRV_ERROR_NONE) {
+        svm_err("Get udevid failed. (devid=%u; ret=%d)\n", prop->devid, ret);
+        return ret;
+    }
+
+    svm_debug("Submit share repair. (devid=%u; udevid=%u; tgid=%d; va=0x%llx; size=0x%llx)\n", prop->devid,
+              para.src_va.udevid, prop->tgid, va, size);
+    return svm_cmd_ioctl(prop->devid, SVM_SHARE_REPAIR, (void *)&para);
 }
 
 static int _mem_repair_try_map_vmm_va(void *seg_handle, u64 start, struct svm_global_va *src_info, void *priv)
@@ -110,10 +135,7 @@ static int _mem_repair_try_map_vmm_va(void *seg_handle, u64 start, struct svm_gl
     if (real_src_info.va == src_prop->start) {
         struct svm_dst_va dst_info;
         u32 smm_flag = 0;
-
-        if (svm_svmm_get_seg_priv(seg_handle) != NULL) {
-            return DRV_ERROR_INVALID_VALUE;
-        }
+        u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
 
         svm_dst_va_pack(devid, PROCESS_CP1, start, real_src_info.size, &dst_info);
         ret = svm_smm_client_map(&dst_info, &real_src_info, smm_flag);
@@ -123,7 +145,7 @@ static int _mem_repair_try_map_vmm_va(void *seg_handle, u64 start, struct svm_gl
         }
 
         if (g_ops != NULL) {
-            ret = g_ops->vmm_map(seg_handle, devid, start, &real_src_info);
+            ret = g_ops->vmm_map(devid, start, svm_flag, &real_src_info);
             if (ret != 0) {
                 svm_err("Smm task group map failed. (ret=%d; devid=%u; va=%llx; size=%llx)\n", ret, devid, start,
                         real_src_info.size);
@@ -145,13 +167,10 @@ static int _mem_repair_try_unmap_vmm_va(void *seg_handle, u64 start, struct svm_
 
     if (real_src_info.va == src_prop->start) {
         struct svm_dst_va dst_info;
-
-        if (svm_svmm_get_seg_priv(seg_handle) != NULL) {
-            return DRV_ERROR_INVALID_VALUE;
-        }
+        u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
 
         if (g_ops != NULL) {
-            g_ops->vmm_unmap(seg_handle, devid, start, &real_src_info);
+            g_ops->vmm_unmap(devid, start, svm_flag, &real_src_info);
         }
 
         svm_dst_va_pack(devid, PROCESS_CP1, start, real_src_info.size, &dst_info);
@@ -200,6 +219,7 @@ static int mem_repair_try_unmap_vmm_va(void *va_handle, u64 start, struct svm_pr
 
 static int mem_repair_vmm_pa(u32 devid, u64 va, u64 page_size, struct svm_prop *prop)
 {
+    u32 mpl_flag = mem_repair_tranform_mpl_flag(prop->flag);
     int ret;
 
     ret = svm_for_each_valid_handle(mem_repair_try_unmap_vmm_va, (void *)prop);
@@ -208,14 +228,14 @@ static int mem_repair_vmm_pa(u32 devid, u64 va, u64 page_size, struct svm_prop *
         return ret;
     }
 
-    ret = svm_mpl_client_depopulate_no_unpin(devid, va, page_size);
+    ret = svm_mpl_client_depopulate_no_unpin(devid, va, page_size, mpl_flag);
     if (ret != 0) {
         (void)svm_for_each_handle(mem_repair_try_map_vmm_va, (void *)prop);
         svm_err("Mpl client depopulate failed. (devid=%u; va=%llx; size=%llx; ret=%d)\n", devid, va, page_size, ret);
         return ret;
     }
 
-    ret = svm_mpl_client_populate_no_pin(devid, va, page_size, mem_repair_tranform_mpl_flag(prop->flag));
+    ret = svm_mpl_client_populate_no_pin(devid, va, page_size, mpl_flag);
     if (ret != 0) {
         svm_err("Mpl client populate failed. (devid=%u; va=%llx; size=%llx; ret=%d)\n", devid, va, page_size, ret);
         return ret;
@@ -227,7 +247,48 @@ static int mem_repair_vmm_pa(u32 devid, u64 va, u64 page_size, struct svm_prop *
         return ret;
     }
 
+    ret = mem_repair_share_remote_process(prop, va, page_size);
+    if (ret != 0) {
+        svm_err("Share remote process repair failed. (devid=%u; va=%llx; size=%llx; ret=%d)\n", devid, va, page_size,
+                ret);
+        return ret;
+    }
+
     return 0;
+}
+
+static int mem_repair_vmm_va(u32 devid, u64 va, u64 page_size)
+{
+    struct svm_global_va src_info;
+    struct svm_prop src_prop;
+    u32 i;
+    int ret;
+
+    ret = vmm_query_src_info(va, 1, &src_info);
+    if (ret != 0) {
+        svm_err("Query vmm va src_info failed. (devid=%u; va=%llx; size=%llx; ret=%d)\n", devid, va, page_size, ret);
+        return ret;
+    }
+
+    ret = svm_get_prop(src_info.va, &src_prop);
+    if (ret != 0) {
+        svm_err("Get src_info prop failed. (devid=%u; va=%llx; size=%llx; src_va=0x%llx; ret=%d)\n", devid, va,
+                page_size, src_info.va, ret);
+        return ret;
+    }
+
+    for (i = 0; i < g_repaired_cnt; ++i) {
+        if (g_repaired_src_va[i] == src_info.va) {
+            return 0;
+        }
+    }
+
+    ret = mem_repair_vmm_pa(devid, src_info.va, page_size, &src_prop);
+    if (ret == 0) {
+        g_repaired_src_va[g_repaired_cnt] = src_info.va;
+        g_repaired_cnt++;
+    }
+    return ret;
 }
 
 static bool is_support_mem_repair_normal_pa(u64 va)
@@ -247,6 +308,7 @@ static bool is_support_mem_repair_normal_pa(u64 va)
 
 static int mem_repair_normal_pa(u32 devid, u64 va, u64 page_size, struct svm_prop *prop)
 {
+    u32 mpl_flag = mem_repair_tranform_mpl_flag(prop->flag);
     int ret;
 
     if (is_support_mem_repair_normal_pa(va) == false) {
@@ -257,15 +319,17 @@ static int mem_repair_normal_pa(u32 devid, u64 va, u64 page_size, struct svm_pro
         g_ops->normal_unmap(va, prop);
     }
 
-    ret = svm_mpl_client_depopulate_no_unpin(devid, va, page_size);
+    ret = svm_mpl_client_depopulate_no_unpin(devid, va, page_size, mpl_flag);
     if (ret != 0) {
         svm_err("Mpl client depopulate failed. (devid=%u; va=%llx; size=%llx; ret=%d)\n", devid, va, page_size, ret);
         return ret;
     }
 
-    ret = svm_mpl_client_populate_no_pin(devid, va, page_size, mem_repair_tranform_mpl_flag(prop->flag));
+    ret = svm_mpl_client_populate_no_pin(devid, va, page_size, mpl_flag);
     if (ret != 0) {
-        svm_err("Mpl client populate failed. (devid=%u; va=%llx; size=%llx; ret=%d)\n", devid, va, page_size, ret);
+#ifndef EMU_ST
+        svm_err("Mpl client populate failed. (devid=%u; va=0x%llx; size=0x%llx; ret=%d)\n", devid, va, page_size, ret);
+#endif
         return ret;
     }
 
@@ -275,6 +339,14 @@ static int mem_repair_normal_pa(u32 devid, u64 va, u64 page_size, struct svm_pro
             return ret;
         }
     }
+
+    ret = mem_repair_share_remote_process(prop, va, page_size);
+    if (ret != 0) {
+        svm_err("Share remote process repair failed. (devid=%u; va=%llx; size=%llx; ret=%d)\n", devid, va, page_size,
+                ret);
+        return ret;
+    }
+
     return 0;
 }
 
@@ -290,8 +362,8 @@ static int mem_repair_single_addr(u32 devid, u64 va, u64 page_size)
 
     if (svm_flag_cap_is_support_normal_free(prop.flag)) {
         ret = mem_repair_normal_pa(devid, va, page_size, &prop);
-    } else if (svm_flag_cap_is_support_vmm_pa_free(prop.flag)) {
-        ret = mem_repair_vmm_pa(devid, va, page_size, &prop);
+    } else if (svm_flag_cap_is_support_vmm_unmap(prop.flag)) {
+        ret = mem_repair_vmm_va(devid, va, page_size);
     }
 
     return ret;
@@ -306,6 +378,11 @@ int _svm_mem_repair(struct MemRepairInPara *para)
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }
+
+    for (i = 0; i < g_repaired_cnt; ++i) {
+        g_repaired_src_va[i] = 0;
+    }
+    g_repaired_cnt = 0;
 
     for (i = 0; i < para->count; ++i) {
         ret = mem_repair_single_addr(para->devid, para->repairAddrs[i].ptr, para->repairAddrs[i].len);

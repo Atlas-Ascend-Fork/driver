@@ -40,11 +40,8 @@ STATIC int hdcdrv_epoll_vm_resource_check(u32 vm_id)
     return HDCDRV_OK;
 }
 
-STATIC long hdcdrv_epoll_fd_check(int fd, u32 docker_id, u64 check_pid)
+STATIC long hdcdrv_epoll_fd_param_check(int fd, u32 docker_id)
 {
-    struct hdcdrv_epoll_fd *epfd = NULL;
-    u64 task_start_time = hdcdrv_get_task_start_time();
-
     if ((fd >= (int)HDCDRV_EPOLL_FD_NUM) || (fd < 0)) {
         hdcdrv_err_limit("Input parameter is error. (fd=%d)\n", fd);
         return HDCDRV_PARA_ERR;
@@ -55,24 +52,50 @@ STATIC long hdcdrv_epoll_fd_check(int fd, u32 docker_id, u64 check_pid)
         return HDCDRV_PARA_ERR;
     }
 
-    epfd = &hdc_epoll->epoll_docks[docker_id].epfds[fd];
+    return HDCDRV_OK;
+}
+
+/* Caller must hold epfd->mutex */
+STATIC long hdcdrv_epoll_fd_state_check(const struct hdcdrv_epoll_fd *epfd, u64 check_pid)
+{
+    u64 task_start_time = hdcdrv_get_task_start_time();
 
     if (epfd->valid == HDCDRV_INVALID) {
-        hdcdrv_err_limit("epfd is invalid. (epfd=%d)\n", fd);
+        hdcdrv_err_limit("epfd is invalid. (epfd=%d)\n", epfd->fd);
         return HDCDRV_PARA_ERR;
     }
 
     if (epfd->pid != check_pid) {
-        hdcdrv_err("Current pid is invalid for epfd. (pid=%llu; fd=%d)\n", hdcdrv_get_pid(), fd);
+        hdcdrv_err("Current pid is invalid for epfd. (pid=%llu; fd=%d)\n", hdcdrv_get_pid(), epfd->fd);
         return HDCDRV_PARA_ERR;
     }
 
     if (hdcdrv_session_task_start_time_compare(epfd->task_start_time, task_start_time)) {
-        hdcdrv_err("Current task start time is invalid for epfd.(docker_id=%d)\n", docker_id);
+        hdcdrv_err("Current task start time is invalid for epfd. (docker_id=%d; task_start_time=%llu)\n",
+                   epfd->docker_id, task_start_time);
         return HDCDRV_PARA_ERR;
     }
 
     return HDCDRV_OK;
+}
+
+STATIC long hdcdrv_epoll_fd_check(int fd, u32 docker_id, u64 check_pid)
+{
+    struct hdcdrv_epoll_fd *epfd = NULL;
+    long ret;
+
+    ret = hdcdrv_epoll_fd_param_check(fd, docker_id);
+    if (ret != HDCDRV_OK) {
+        return ret;
+    }
+
+    epfd = &hdc_epoll->epoll_docks[docker_id].epfds[fd];
+
+    ka_task_mutex_lock(&epfd->mutex);
+    ret = hdcdrv_epoll_fd_state_check(epfd, check_pid);
+    ka_task_mutex_unlock(&epfd->mutex);
+
+    return ret;
 }
 
 STATIC void hdcdrv_epoll_alloc_fd_init(struct hdcdrv_ctx *ctx, struct hdcdrv_epoll_fd *epfd, struct hdcdrv_event *event,
@@ -143,21 +166,23 @@ STATIC long hdcdrv_epoll_alloc_fd(struct hdcdrv_ctx *ctx, struct hdcdrv_cmd_epol
         epfd = &hdc_epoll->epoll_docks[docker_id].epfds[i];
         if (epfd->valid == HDCDRV_INVALID) {
             fd = i;
-            epfd->valid = HDCDRV_VALID;
-            hdc_epoll->vm_alloc_cnt[vm_id]++;
             break;
         }
     }
 
-    ka_task_mutex_unlock(&hdc_epoll->mutex);
-
     if (fd < 0) {
+        ka_task_mutex_unlock(&hdc_epoll->mutex);
         goto free_event;
     }
 
+    ka_task_mutex_lock(&epfd->mutex);
+    epfd->valid = HDCDRV_VALID;
+    hdc_epoll->vm_alloc_cnt[vm_id]++;
     cmd->epfd = fd;
     epfd->vm_id = (int)vm_id;
     hdcdrv_epoll_alloc_fd_init(ctx, epfd, event, cmd);
+    ka_task_mutex_unlock(&epfd->mutex);
+    ka_task_mutex_unlock(&hdc_epoll->mutex);
 
     return HDCDRV_OK;
 
@@ -203,27 +228,32 @@ STATIC void hdcdrv_epoll_clear_session(struct hdcdrv_epoll_fd *epfd)
     }
 }
 
-STATIC void hdcdrv_epoll_free_fd_handle(struct hdcdrv_epoll_fd *epfd)
+STATIC void hdcdrv_epoll_free_fd_handle(struct hdcdrv_epoll_fd *epfd, const struct hdcdrv_ctx *ctx)
 {
+    ka_task_mutex_lock(&hdc_epoll->mutex);
     ka_task_mutex_lock(&epfd->mutex);
+
+    /* Re-check under lock: fd may have been freed and reallocated by others */
+    if ((epfd->valid != HDCDRV_VALID) || (epfd->ctx != ctx)) {
+        hdcdrv_warn("Epfd is not active or owner changed, skip free. (epfd=%d)\n", epfd->fd);
+        ka_task_mutex_unlock(&epfd->mutex);
+        ka_task_mutex_unlock(&hdc_epoll->mutex);
+        return;
+    }
+
     hdcdrv_epoll_clear_service(epfd);
     hdcdrv_epoll_clear_session(epfd);
-    ka_task_mutex_unlock(&epfd->mutex);
-
-    ka_task_mutex_lock(&hdc_epoll->mutex);
-    if (epfd->valid == HDCDRV_VALID) {
-        ka_task_mutex_lock(&epfd->mutex);
-        epfd->valid = HDCDRV_INVALID;
-        hdcdrv_kvfree((void **)&epfd->events, KA_SUB_MODULE_TYPE_3);
-        hdc_epoll->vm_alloc_cnt[epfd->vm_id]--;
-        ka_wmb();
-        ka_task_wake_up_interruptible(&epfd->wq);
-        if (epfd->ctx != NULL) {
-            epfd->ctx->epfd = NULL;
-            epfd->ctx = NULL;
-        }
-        ka_task_mutex_unlock(&epfd->mutex);
+    epfd->valid = HDCDRV_INVALID;
+    hdcdrv_kvfree((void **)&epfd->events, KA_SUB_MODULE_TYPE_3);
+    hdc_epoll->vm_alloc_cnt[epfd->vm_id]--;
+    ka_wmb();
+    ka_task_wake_up_interruptible(&epfd->wq);
+    if ((epfd->ctx != NULL) && (epfd->ctx != HDCDRV_KERNEL_WITHOUT_CTX)) {
+        epfd->ctx->epfd = NULL;
     }
+    epfd->ctx = NULL;
+
+    ka_task_mutex_unlock(&epfd->mutex);
     ka_task_mutex_unlock(&hdc_epoll->mutex);
 }
 
@@ -247,7 +277,7 @@ STATIC long hdcdrv_epoll_free_fd(const struct hdcdrv_ctx *ctx, const struct hdcd
         return HDCDRV_PARA_ERR;
     }
 
-    hdcdrv_epoll_free_fd_handle(epfd);
+    hdcdrv_epoll_free_fd_handle(epfd, ctx);
     return HDCDRV_OK;
 }
 
@@ -255,7 +285,7 @@ void hdcdrv_epoll_recycle_fd(struct hdcdrv_ctx *ctx)
 {
     if (ctx->epfd != NULL) {
         hdcdrv_info("Recycle epoll. (fd=%d)\n", ctx->epfd->fd);
-        hdcdrv_epoll_free_fd_handle(ctx->epfd);
+        hdcdrv_epoll_free_fd_handle(ctx->epfd, ctx);
     }
 }
 
@@ -355,8 +385,6 @@ STATIC long hdcdrv_epoll_add_event(struct hdcdrv_epoll_fd *epfd, const struct hd
 
     node->events = *event;
 
-    ka_task_mutex_lock(&epfd->mutex);
-
     if (epfd->event_num >= epfd->size) {
         hdcdrv_err("epfd event full. (epfd=%d)\n", epfd->fd);
         ret = HDCDRV_ERR;
@@ -377,12 +405,9 @@ STATIC long hdcdrv_epoll_add_event(struct hdcdrv_epoll_fd *epfd, const struct hd
 
     epfd->event_num++;
 
-    ka_task_mutex_unlock(&epfd->mutex);
-
     return HDCDRV_OK;
 
 error:
-    ka_task_mutex_unlock(&epfd->mutex);
     hdcdrv_kvfree((void **)&node, KA_SUB_MODULE_TYPE_3);
     return ret;
 }
@@ -463,8 +488,6 @@ STATIC long hdcdrv_epoll_del_event(struct hdcdrv_epoll_fd *epfd, const struct hd
 {
     long ret;
 
-    ka_task_mutex_lock(&epfd->mutex);
-
     if ((event->events & HDCDRV_EPOLL_CONN_IN) != 0) {
         ret = hdcdrv_epoll_del_service(epfd, para1, fid, para2);
     } else {
@@ -474,8 +497,6 @@ STATIC long hdcdrv_epoll_del_event(struct hdcdrv_epoll_fd *epfd, const struct hd
     if (ret == HDCDRV_OK) {
         epfd->event_num--;
     }
-
-    ka_task_mutex_unlock(&epfd->mutex);
 
     return ret;
 }
@@ -488,9 +509,8 @@ STATIC long hdcdrv_epoll_ctl(struct hdcdrv_cmd_epoll_ctl *cmd, u32 fid)
 
     docker_id = hdcdrv_get_container_id();
 
-    ret = hdcdrv_epoll_fd_check(cmd->epfd, docker_id, cmd->pid);
+    ret = hdcdrv_epoll_fd_param_check(cmd->epfd, docker_id);
     if (ret != HDCDRV_OK) {
-        hdcdrv_err_limit("Calling hdcdrv_epoll_fd_check error.\n");
         return ret;
     }
 
@@ -501,11 +521,20 @@ STATIC long hdcdrv_epoll_ctl(struct hdcdrv_cmd_epoll_ctl *cmd, u32 fid)
 
     epfd = &hdc_epoll->epoll_docks[docker_id].epfds[cmd->epfd];
 
+    ka_task_mutex_lock(&epfd->mutex);
+    ret = hdcdrv_epoll_fd_state_check(epfd, cmd->pid);
+    if (ret != HDCDRV_OK) {
+        ka_task_mutex_unlock(&epfd->mutex);
+        hdcdrv_err_limit("Calling hdcdrv_epoll_fd_state_check error.\n");
+        return ret;
+    }
+
     if (cmd->op == HDCDRV_EPOLL_OP_ADD) {
         ret = hdcdrv_epoll_add_event(epfd, &cmd->event, cmd->para1, cmd->para2, fid);
     } else {
         ret = hdcdrv_epoll_del_event(epfd, &cmd->event, cmd->para1, cmd->para2, fid);
     }
+    ka_task_mutex_unlock(&epfd->mutex);
 
     return ret;
 }
@@ -669,9 +698,8 @@ long hdcdrv_epoll_wait(struct hdcdrv_cmd_epoll_wait *cmd, int mode)
 
     docker_id = hdcdrv_get_container_id();
 
-    ret = hdcdrv_epoll_fd_check(fd, docker_id, cmd->pid);
+    ret = hdcdrv_epoll_fd_param_check(fd, docker_id);
     if (ret != HDCDRV_OK) {
-        hdcdrv_err_limit("Calling hdcdrv_epoll_fd_check failed.\n");
         return ret;
     }
 
@@ -694,13 +722,19 @@ long hdcdrv_epoll_wait(struct hdcdrv_cmd_epoll_wait *cmd, int mode)
     epfd = &hdc_epoll->epoll_docks[docker_id].epfds[fd];
 
     ka_task_mutex_lock(&epfd->mutex);
+    ret = hdcdrv_epoll_fd_state_check(epfd, cmd->pid);
+    if (ret != HDCDRV_OK) {
+        ka_task_mutex_unlock(&epfd->mutex);
+        return ret;
+    }
     event_num = hdcdrv_epoll_event_num(epfd);
     if (event_num == 0) {
         timeout = ka_system_msecs_to_jiffies((unsigned int)cmd->timeout);
     retry:
         ka_task_mutex_unlock(&epfd->mutex);
         ret = ka_task_wait_event_interruptible_timeout(
-            epfd->wq, ((epfd->wait_flag != 0) || (epfd->valid != HDCDRV_VALID)), (long)timeout);
+            epfd->wq, ((epfd->wait_flag != 0) || (epfd->valid != HDCDRV_VALID) || (epfd->pid != cmd->pid)),
+            (long)timeout);
         if (ret < 0) {
 #ifndef DRV_UT
             HDC_LOG_WARN_LIMIT(&g_epoll_wait_print_cnt, &g_epoll_wait_jiffies,
@@ -710,8 +744,8 @@ long hdcdrv_epoll_wait(struct hdcdrv_cmd_epoll_wait *cmd, int mode)
         }
 
         ka_task_mutex_lock(&epfd->mutex);
-        /* the epoll is closed */
-        if (epfd->valid != HDCDRV_VALID) {
+        /* the epoll is closed or taken over by another owner */
+        if ((epfd->valid != HDCDRV_VALID) || (epfd->pid != cmd->pid)) {
             ka_task_mutex_unlock(&epfd->mutex);
             return HDCDRV_EPOLL_CLOSE;
         }
@@ -763,8 +797,7 @@ long hdcdrv_epoll_operation(struct hdcdrv_ctx *ctx, u32 drv_cmd, union hdcdrv_cm
             break;
 #endif
         default:
-            hdcdrv_err_limit("Parameter cmd is illegal. (drv_cmd=%d)\n", drv_cmd);
-            ret = HDCDRV_PARA_ERR;
+            ret = HDCDRV_NOT_SUPPORT;
             break;
     }
 
@@ -873,7 +906,7 @@ long hdcdrv_kernel_epoll_wait(int epfd, int magic_num, int timeout, int *event_n
             if ((unsigned int)i >= event_len || (unsigned int)i >= para1_len || (unsigned int)i >= para2_len) {
                 hdcdrv_kfree(cmd.event, KA_SUB_MODULE_TYPE_3);
                 cmd.event = NULL;
-                hdcdrv_err("ready_event length is invalid.\n");
+                hdcdrv_err("ready_event length is invalid. (ready_event=%d; max=%d)\n", cmd.ready_event, event_len);
                 return HDCDRV_ERR;
             }
 

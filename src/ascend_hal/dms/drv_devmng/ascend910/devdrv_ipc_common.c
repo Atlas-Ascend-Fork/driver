@@ -12,8 +12,8 @@
 #include "devmng_user_common.h"
 #include "ascend_dev_num.h"
 
-int ipc_msg_request(unsigned int dev_id, unsigned char target_id,
-    unsigned char main_cmd, unsigned char sub_cmd, struct ipc_msg *msg)
+int ipc_msg_request(unsigned int dev_id, unsigned char target_id, unsigned char main_cmd, unsigned char sub_cmd,
+                    struct ipc_msg *msg)
 {
     struct ioctl_ipc ipc_data;
     int ret;
@@ -34,7 +34,7 @@ int ipc_msg_request(unsigned int dev_id, unsigned char target_id,
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
-    ret = dmanage_common_ioctl(DEVDRV_MANAGER_IPC_UNIFY_MSG, (void*)&ipc_data);
+    ret = dmanage_common_ioctl(DEVDRV_MANAGER_IPC_UNIFY_MSG, (void *)&ipc_data);
     if (ret != 0) {
         DEVDRV_DRV_ERR("dmanage_common_ioctl failed. ret(%d) devid(%u).\n", ret, dev_id);
         return DRV_ERROR_IOCRL_FAIL;

@@ -26,13 +26,14 @@
 static dvpp_dma_mem *alloc_host_dma(dvpp_comm_para *para, dvpp_sqe_args *sqe_args)
 {
     dvpp_dma_mem *dma_mem = NULL;
-    uint32_t tlv_node_space;
+    uint32_t tlv_node_space = 0;
+    uint64_t offset = 0;
     dvpp_cmdlist_context *ctx = get_dvpp_cmdlist_ctx();
 
     BEGIN_TIME_STAMP(ctx, sqe_args->streamid, sqe_args->taskid, time_cost_dma_alloc);
-    tlv_node_space = (sqe_args->is_use_mem_pool == 1) ?
-        (sqe_args->tlv_node_num * DVPP_MAX_TLV_TYPE) : (DVPP_MAX_NODE_NUM * DVPP_MAX_TLV_TYPE);
-    uint64_t offset = tlv_node_space * sizeof(void*);
+    tlv_node_space = (sqe_args->is_use_mem_pool == 1) ? (sqe_args->tlv_node_num * DVPP_MAX_TLV_TYPE) :
+                                                        (DVPP_MAX_NODE_NUM * DVPP_MAX_TLV_TYPE);
+    offset = tlv_node_space * sizeof(void *);
 
     dma_mem = (dvpp_dma_mem *)(sqe_args->args_addr + sqe_args->args_size + offset);
 
@@ -46,32 +47,34 @@ static dvpp_dma_mem *alloc_host_dma(dvpp_comm_para *para, dvpp_sqe_args *sqe_arg
     return dma_mem;
 }
 
-static dvpp_svm_pa_info* get_svm_pa_list(
-    dvpp_comm_para *para, dvpp_sqe_args *sqe_args, uint64_t page_size, uint64_t pa_num, uint64_t cmdbuf_size_used)
+static dvpp_svm_pa_info *get_svm_pa_list(dvpp_comm_para *para, dvpp_sqe_args *sqe_args, uint64_t page_size,
+                                         uint64_t pa_num, uint64_t cmdbuf_size_used)
 {
     int32_t ret = 0;
     uint32_t tlv_node_space;
+    uint64_t offset = 0;
+    dvpp_svm_pa_info *pa_info = NULL;
     uint64_t mem_list_size = sizeof(uint64_t) * pa_num;
-    tlv_node_space = (sqe_args->is_use_mem_pool == 1) ?
-        (sqe_args->tlv_node_num * DVPP_MAX_TLV_TYPE) : (DVPP_MAX_NODE_NUM * DVPP_MAX_TLV_TYPE);
-    uint64_t offset = (tlv_node_space * sizeof(void*)) + sizeof(dvpp_dma_mem);
-    dvpp_svm_pa_info *pa_info = (dvpp_svm_pa_info *)(sqe_args->args_addr + sqe_args->args_size + offset);
-    pa_info->pa_list = (uint64_t)(uintptr_t)(pa_info) + sizeof(dvpp_svm_pa_info);
-    pa_info->size_list = (uint64_t)(uintptr_t)(pa_info->pa_list) + mem_list_size;
+    tlv_node_space = (sqe_args->is_use_mem_pool == 1) ? (sqe_args->tlv_node_num * DVPP_MAX_TLV_TYPE) :
+                                                        (DVPP_MAX_NODE_NUM * DVPP_MAX_TLV_TYPE);
+    offset = (tlv_node_space * sizeof(void *)) + sizeof(dvpp_dma_mem);
+    pa_info = (dvpp_svm_pa_info *)(sqe_args->args_addr + sqe_args->args_size + offset);
+    pa_info->pa_list = (uint64_t *)((uint64_t)(uintptr_t)(pa_info) + sizeof(dvpp_svm_pa_info));
+    pa_info->size_list = (uint64_t *)((uint64_t)(uintptr_t)(pa_info->pa_list) + mem_list_size);
     pa_info->num = pa_num;
     pa_info->page_size = page_size;
     ret = dvpp_get_pa_list_from_svm_addr(para->pid, sqe_args->cmdbuf_uva, cmdbuf_size_used, pa_info);
     if (ret != 0) {
         DVPP_CMDLIST_LOG_ERROR("get phy addr list based on svm addr fail, uva = %pK, size = %u, ret = %d\n",
-            sqe_args->cmdbuf_uva, sqe_args->cmdbuf_size, ret);
+                               (void *)(sqe_args->cmdbuf_uva), sqe_args->cmdbuf_size, ret);
         return NULL;
     }
 
     return pa_info;
 }
 
-static int32_t pcie_copy(dvpp_comm_para *para, dvpp_sqe_args *sqe_args,
-    dvpp_dma_mem *dma_mem, dvpp_svm_pa_info *pa_info)
+static int32_t pcie_copy(dvpp_comm_para *para, dvpp_sqe_args *sqe_args, dvpp_dma_mem *dma_mem,
+                         dvpp_svm_pa_info *pa_info)
 {
     int32_t ret = 0;
     dvpp_cmdlist_context *ctx = get_dvpp_cmdlist_ctx();
@@ -88,8 +91,8 @@ static int32_t pcie_copy(dvpp_comm_para *para, dvpp_sqe_args *sqe_args,
     return 0;
 }
 
-static void resource_destroy(dvpp_comm_para *comm_para, dvpp_save_para *save_para,
-    dvpp_dma_mem *dma_mem, dvpp_svm_pa_info *pa_info, dvpp_sqe_args *sqe_args)
+static void resource_destroy(dvpp_comm_para *comm_para, dvpp_save_para *save_para, dvpp_dma_mem *dma_mem,
+                             dvpp_svm_pa_info *pa_info, dvpp_sqe_args *sqe_args)
 {
     dvpp_put_pa_list(comm_para->pid, save_para->cmdbuf_uva, save_para->cmdbuf_size, pa_info);
     free_dma_memory(comm_para->devid, sqe_args, dma_mem);
@@ -114,9 +117,10 @@ static int32_t dvpp_drv_ready(dvpp_sqe_args *sqe_args, dvpp_comm_para *para)
     uint64_t tlv_stru_addr = 0;
     uint32_t pool_id;
     uint64_t cmdbuf_size_used = 0;
+    uint64_t dma_info_size = 0;
 
-    DVPP_CMDLIST_LOG_DEBUG("args_size %u, cmdbuf_size %u, is_use_mem_pool %u, tlv_node_num %u\n",
-        sqe_args->args_size, sqe_args->cmdbuf_size, sqe_args->is_use_mem_pool, sqe_args->tlv_node_num);
+    DVPP_CMDLIST_LOG_DEBUG("args_size %u, cmdbuf_size %u, is_use_mem_pool %u, tlv_node_num %u\n", sqe_args->args_size,
+                           sqe_args->cmdbuf_size, sqe_args->is_use_mem_pool, sqe_args->tlv_node_num);
     page_size = dvpp_get_page_size(para->pid, sqe_args->cmdbuf_uva, sqe_args->cmdbuf_size);
     if (page_size == 0) {
         DVPP_CMDLIST_LOG_ERROR("get page size fail.\n");
@@ -132,7 +136,7 @@ static int32_t dvpp_drv_ready(dvpp_sqe_args *sqe_args, dvpp_comm_para *para)
     mem_ctrl_size = sizeof(dvpp_dma_mem) + sizeof(dvpp_svm_pa_info);
     mem_list_size = ((sizeof(uint64_t) * pa_num) << 1);
     pool_id = para->devid;
-    uint64_t dma_info_size = mem_ctrl_size + mem_list_size + 8; // 多申请8个字节，存放从内存池获取的dma node的地址
+    dma_info_size = mem_ctrl_size + mem_list_size + 8; // 多申请8个字节，存放从内存池获取的dma node的地址
     alloc_size = get_alloc_size(sqe_args, dma_info_size);
 
     // 这里保存用户态args内存，后续会使用
@@ -198,14 +202,14 @@ FAIL0:
     return -1;
 }
 
-int32_t dvpp_sqe_update_phy_mach(uint32_t devid, int pid, void* sqe)
+int32_t dvpp_sqe_update_phy_mach(uint32_t devid, int pid, void *sqe)
 {
     dvpp_sqe_args *sqe_args = NULL;
     time_cost_node *tmp_node = NULL;
     dvpp_comm_para comm_para;
     dvpp_cmdlist_context *ctx = get_dvpp_cmdlist_ctx();
 
-    sqe_args = (dvpp_sqe_args*)sqe;
+    sqe_args = (dvpp_sqe_args *)sqe;
 
     if (ctx->time_cost_stat.enable == 1) {
         tmp_node = alloc_time_cost_node_from_ctx();
@@ -215,7 +219,7 @@ int32_t dvpp_sqe_update_phy_mach(uint32_t devid, int pid, void* sqe)
     }
 
     comm_para.devid = devid;
-    comm_para.pid   = pid;
+    comm_para.pid = pid;
     if (dvpp_drv_ready(sqe_args, &comm_para) != 0) {
         DVPP_CMDLIST_LOG_ERROR("dvpp drv ready fail.\n");
         return -1;

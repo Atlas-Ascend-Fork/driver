@@ -86,6 +86,13 @@ struct devdrv_faultmgr_dev_ops {
     ka_atomic_t dev_cnt;
 };
 
+struct devdrv_serdes_dump_dev_ops {
+    enum devdrv_ops_status status;
+    struct devdrv_serdes_dump_ops ops;
+    ka_rwlock_t rwlock;
+    ka_atomic_t dev_cnt;
+};
+
 struct devdrv_comm_dev_ops *devdrv_add_ops_ref(void);
 struct devdrv_comm_dev_ops *devdrv_add_ops_ref_after_unbind(void);
 struct devdrv_comm_dev_ops *devdrv_add_ops_ref_by_type(u32 type);
@@ -124,4 +131,8 @@ int devdrv_get_connect_protocol_inner(u32 index_id);
 struct devdrv_faultmgr_dev_ops *devdrv_get_faultmgr_ops(void);
 struct devdrv_faultmgr_dev_ops *devdrv_add_faultmgr_ops_ref(void);
 void devdrv_sub_faultmgr_ops_ref(struct devdrv_faultmgr_dev_ops *dev_ops);
+
+struct devdrv_serdes_dump_dev_ops *devdrv_get_serdes_dump_ops(void);
+struct devdrv_serdes_dump_dev_ops *devdrv_add_serdes_dump_ops_ref(void);
+void devdrv_sub_serdes_dump_ops_ref(struct devdrv_serdes_dump_dev_ops *dev_ops);
 #endif

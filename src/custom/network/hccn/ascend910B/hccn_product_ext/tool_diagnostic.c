@@ -7,52 +7,40 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
+
 #include "ds_net_ext.h"
 #include "tool_ext.h"
 #include "tool.h"
 #include "tool_ops.h"
 
-#define TOOL_DIA_PAGE0_MIN      0
-#define TOOL_DIA_PAGE_MAX       255
-#define TOOL_DIA_PAGE_NOT0_MIN  128
-#define TOOL_DIAG_I2C_PARAM_INDEX_I2C_MODE      0x0
-#define TOOL_DIAG_I2C_PARAM_INDEX_SLAVE_OBJ     0x2
-#define TOOL_DIAG_I2C_PARAM_INDEX_PAGE_IDX      0x4
-#define TOOL_DIAG_I2C_PARAM_INDEX_REG_OFFSET    0x6
-#define TOOL_DIAG_I2C_PARAM_INDEX_REG_SIZE      0x8
-#define TOOL_DIAG_I2C_PARAM_INDEX_REG_VALUE     0xA
-#define TOOL_DIAG_I2C_PARAM_MAX_REG_SIZE    0x4
-#define DIAG_READ_PAGE_MAX_LEN   128
-#define DIAG_READ_SIZE_MAX_LEN   128
+#define TOOL_DIA_PAGE0_MIN 0
+#define TOOL_DIA_PAGE_MAX 255
+#define TOOL_DIA_PAGE_NOT0_MIN 128
+#define TOOL_DIAG_I2C_PARAM_INDEX_I2C_MODE 0x0
+#define TOOL_DIAG_I2C_PARAM_INDEX_SLAVE_OBJ 0x2
+#define TOOL_DIAG_I2C_PARAM_INDEX_PAGE_IDX 0x4
+#define TOOL_DIAG_I2C_PARAM_INDEX_REG_OFFSET 0x6
+#define TOOL_DIAG_I2C_PARAM_INDEX_REG_SIZE 0x8
+#define TOOL_DIAG_I2C_PARAM_INDEX_REG_VALUE 0xA
+#define TOOL_DIAG_I2C_PARAM_MAX_REG_SIZE 0x4
+#define DIAG_READ_PAGE_MAX_LEN 128
+#define DIAG_READ_SIZE_MAX_LEN 128
 
 #define TOOL_DIAG_BYTE_REVERSE_32(x) \
-    ( \
-    (((x) >> 24) & 0x000000FF) | \
-    (((x) >> 8)  & 0x0000FF00) | \
-    (((x) << 8)  & 0x00FF0000) | \
-    (((x) << 24) & 0xFF000000) \
-    )
-    
-#define TOOL_DIAG_MAKE_MASK(x)  (1 << ((x) -1))
+    ((((x) >> 24) & 0x000000FF) | (((x) >> 8) & 0x0000FF00) | (((x) << 8) & 0x00FF0000) | (((x) << 24) & 0xFF000000))
+
+#define TOOL_DIAG_MAKE_MASK(x) (1 << ((x) - 1))
 
 struct diag_slave_obj_table g_diag_slave_obj_table[] = {
     {"xsfp", DIAG_SLAVE_XSFP},
     {"cpld", DIAG_SLAVE_CPLD},
 };
 
-struct diag_i2c_mode_table g_diag_i2c_mode_table[] = {
-    {"write", TOOL_DIAGNOSTIC_I2C_WRITE},
-    {"read", TOOL_DIAGNOSTIC_I2C_READ}
-};
+struct diag_i2c_mode_table g_diag_i2c_mode_table[] = {{"write", TOOL_DIAGNOSTIC_I2C_WRITE},
+                                                      {"read", TOOL_DIAGNOSTIC_I2C_READ}};
 
 char *g_diag_i2c_access_params_desc[] = {
-    "i2c_mode",
-    "object",
-    "page",
-    "offset",
-    "size",
-    "value",
+    "i2c_mode", "object", "page", "offset", "size", "value",
 };
 
 void tool_show_diagnostic_mode_info(struct ds_diag_mode_params diag_mode_params)
@@ -62,14 +50,14 @@ void tool_show_diagnostic_mode_info(struct ds_diag_mode_params diag_mode_params)
     enable = (diag_mode_params.is_enabled == TOOL_DIAGNOSTIC_ENABLE) ? "on" : "off";
     TOOL_PRINT_INFO("Diagnostic mode: %s", enable);
     TOOL_PRINT_INFO("Configured duration: %d minutes", diag_mode_params.configured_duration_min);
-    TOOL_PRINT_INFO("Remaining time: %u minutes %u seconds",
-        remaining_seconds / TOOL_ONE_MINUTES_SECONDS, remaining_seconds % TOOL_ONE_MINUTES_SECONDS);
+    TOOL_PRINT_INFO("Remaining time: %u minutes %u seconds", remaining_seconds / TOOL_ONE_MINUTES_SECONDS,
+                    remaining_seconds % TOOL_ONE_MINUTES_SECONDS);
 }
 
 STATIC int tool_get_diagnostic_info(int argc, char **argv, struct tool_param *param)
 {
     int ret;
-    struct ds_diag_mode_params ds_diag_mode_params = { 0 };
+    struct ds_diag_mode_params ds_diag_mode_params = {0};
 
     if (argc > 0) {
         roce_err("Err argc. (argc=%d)", argc);
@@ -85,12 +73,12 @@ STATIC int tool_get_diagnostic_info(int argc, char **argv, struct tool_param *pa
     }
 
     tool_show_diagnostic_mode_info(ds_diag_mode_params);
-    
+
     return UDA_EXE_SUCCESS;
 }
 
 STATIC int tool_diagnostic_mode_params_set_is_enabled(char **argv, int index,
-    struct ds_diag_mode_params *diag_mode_params)
+                                                      struct ds_diag_mode_params *diag_mode_params)
 {
     if (strncmp(argv[index], "on", strlen("on") + 1) == 0) {
         diag_mode_params->is_enabled = TOOL_DIAGNOSTIC_ENABLE;
@@ -103,10 +91,9 @@ STATIC int tool_diagnostic_mode_params_set_is_enabled(char **argv, int index,
     return 0;
 }
 
-STATIC int tool_parse_diagnostic_mode_params(int argc, char **argv,
-    struct ds_diag_mode_params *diag_mode_params)
+STATIC int tool_parse_diagnostic_mode_params(int argc, char **argv, struct ds_diag_mode_params *diag_mode_params)
 {
-    char flag[2] = { 0 };   // Indicates the subcommand settings, total num is 2.
+    char flag[2] = {0}; // Indicates the subcommand settings, total num is 2.
     char *p_tmp = NULL;
     long tmp;
     int i, ret;
@@ -128,17 +115,17 @@ STATIC int tool_parse_diagnostic_mode_params(int argc, char **argv,
             if (ret != 0) {
                 return ret;
             }
-            flag[0] = 1;    // Indicates that the field has been set.
+            flag[0] = 1; // Indicates that the field has been set.
         } else if ((strncmp(argv[i], "duration", strlen("duration") + 1) == 0) && (flag[INDEX_ONE] == 0)) {
             tmp = strtol(argv[i + 1], &p_tmp, NUMBER_BASE);
             if ((*p_tmp != '\0') || (tmp < TOOL_MIN_DIAGNOSTIC_DUTRTION_TIME) ||
                 (tmp > TOOL_MAX_DIAGNOSTIC_DUTRTION_TIME)) {
-                roce_err("The value of duration time is wrong. [%d ~ %d]",
-                    TOOL_MIN_DIAGNOSTIC_DUTRTION_TIME, TOOL_MAX_DIAGNOSTIC_DUTRTION_TIME);
+                roce_err("The value of duration time is wrong. [%d ~ %d]", TOOL_MIN_DIAGNOSTIC_DUTRTION_TIME,
+                         TOOL_MAX_DIAGNOSTIC_DUTRTION_TIME);
                 return UDA_PARAM_INVALID_ERR;
             }
             diag_mode_params->duration_min = (int)tmp;
-            flag[INDEX_ONE] = 1;    // Indicates that the field has been set.
+            flag[INDEX_ONE] = 1; // Indicates that the field has been set.
         } else {
             roce_err("Invalid operation.)");
             return UDA_PARAM_OP_NOT_SUPPORT_ERR;
@@ -174,8 +161,8 @@ int tool_check_diagnostic_i2c_access_params(int argc, char **argv)
     return 0;
 }
 
-STATIC int tool_check_and_set_diagnostic_i2c_access_page_index(char **argv,
-    struct i2c_access_params *i2c_access_params, unsigned char *page_idx)
+STATIC int tool_check_and_set_diagnostic_i2c_access_page_index(char **argv, struct i2c_access_params *i2c_access_params,
+                                                               unsigned char *page_idx)
 {
     char *p_tmp = NULL;
     long page_temp;
@@ -190,8 +177,8 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_page_index(char **argv,
     return 0;
 }
 
-STATIC int tool_check_and_set_diagnostic_i2c_access_reg_offset(char **argv,
-    struct i2c_access_params *i2c_access_params, unsigned char *reg_offset)
+STATIC int tool_check_and_set_diagnostic_i2c_access_reg_offset(char **argv, struct i2c_access_params *i2c_access_params,
+                                                               unsigned char *reg_offset)
 {
     char *p_tmp = NULL;
     long offset_temp;
@@ -208,19 +195,18 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_reg_offset(char **argv,
 }
 
 STATIC int tool_check_diagnostic_i2c_access_write_reg_size(unsigned char page_idx, unsigned char reg_size,
-    unsigned char reg_offset, unsigned char reg_offset_min, unsigned char reg_offset_max)
+                                                           unsigned char reg_offset, unsigned char reg_offset_min,
+                                                           unsigned char reg_offset_max)
 {
     // 写操作时，reg_size范围为1~4,reg_offset范围为min~max(page0 0~255, other page 128~255)
     // 所以reg_offset+reg_size-1需要<=max，并且page0的118~125为光模块的电子标签，所以reg_offset和reg_offset+reg_size-1不可以在118~125范围内
     // 为了清晰描述，if分开来描述
-    if (!(reg_size >= 0x1 && reg_size <= 0x4 &&
-        reg_offset >= reg_offset_min && reg_offset <= reg_offset_max &&
-        (reg_size + reg_offset - 1) <= reg_offset_max)) {
+    if (!(reg_size >= 0x1 && reg_size <= 0x4 && reg_offset >= reg_offset_min && reg_offset <= reg_offset_max &&
+          (reg_size + reg_offset - 1) <= reg_offset_max)) {
         roce_err("The value of write reg size is wrong.");
         return UDA_PARAM_INVALID_ERR;
     }
-    if (page_idx == 0 &&
-        (reg_size + reg_offset - 1) >= TOOL_DIAGNOSTIC_OPTICAL_REG_OFFSET_LABEL_START &&
+    if (page_idx == 0 && (reg_size + reg_offset - 1) >= TOOL_DIAGNOSTIC_OPTICAL_REG_OFFSET_LABEL_START &&
         (reg_size + reg_offset - 1) <= TOOL_DIAGNOSTIC_OPTICAL_REG_OFFSET_LABEL_END) {
         roce_err("The value of write page 0 reg size is wrong.");
         return UDA_PARAM_INVALID_ERR;
@@ -228,15 +214,14 @@ STATIC int tool_check_diagnostic_i2c_access_write_reg_size(unsigned char page_id
     return 0;
 }
 
-STATIC int tool_check_diagnostic_i2c_access_read_reg_size(unsigned char reg_size,
-    unsigned char reg_offset, unsigned char reg_offset_min, unsigned char reg_offset_max)
+STATIC int tool_check_diagnostic_i2c_access_read_reg_size(unsigned char reg_size, unsigned char reg_offset,
+                                                          unsigned char reg_offset_min, unsigned char reg_offset_max)
 {
     // 读操作时，reg_size范围为1~127,reg_offset范围为min~max(page0 0~255, other page 128~255)
     // 所以reg_offset+reg_size-1需要<=max
     // 为了清晰描述，if分开来描述
-    if (!(reg_size >= 0x1 && reg_size <= DIAG_READ_SIZE_MAX_LEN &&
-        reg_offset >= reg_offset_min && reg_offset <= reg_offset_max &&
-        (reg_size + reg_offset - 1) <= reg_offset_max)) {
+    if (!(reg_size >= 0x1 && reg_size <= DIAG_READ_SIZE_MAX_LEN && reg_offset >= reg_offset_min &&
+          reg_offset <= reg_offset_max && (reg_size + reg_offset - 1) <= reg_offset_max)) {
         roce_err("The value of read reg size is wrong.");
         return UDA_PARAM_INVALID_ERR;
     }
@@ -244,7 +229,8 @@ STATIC int tool_check_diagnostic_i2c_access_read_reg_size(unsigned char reg_size
 }
 
 STATIC int tool_check_and_set_diagnostic_i2c_access_reg_size(char **argv, struct i2c_access_params *i2c_access_params,
-    int i2c_mode, unsigned char page_idx, unsigned char reg_offset)
+                                                             int i2c_mode, unsigned char page_idx,
+                                                             unsigned char reg_offset)
 {
     char *p_tmp = NULL;
     unsigned char reg_size, reg_offset_min, reg_offset_max;
@@ -259,12 +245,11 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_reg_size(char **argv, struct
         return UDA_PARAM_INVALID_ERR;
     }
     if (i2c_mode == TOOL_DIAGNOSTIC_I2C_WRITE) {
-        ret = tool_check_diagnostic_i2c_access_write_reg_size(page_idx, reg_size, reg_offset,
-            reg_offset_min, reg_offset_max);
+        ret = tool_check_diagnostic_i2c_access_write_reg_size(page_idx, reg_size, reg_offset, reg_offset_min,
+                                                              reg_offset_max);
     }
     if (i2c_mode == TOOL_DIAGNOSTIC_I2C_READ) {
-        ret = tool_check_diagnostic_i2c_access_read_reg_size(reg_size, reg_offset,
-            reg_offset_min, reg_offset_max);
+        ret = tool_check_diagnostic_i2c_access_read_reg_size(reg_size, reg_offset, reg_offset_min, reg_offset_max);
     }
     if (ret != 0) {
         return ret;
@@ -274,17 +259,14 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_reg_size(char **argv, struct
     return 0;
 }
 
-STATIC int tool_check_and_set_diagnostic_i2c_access_reg_value(char **argv,
-    struct i2c_access_params *i2c_access_params)
+STATIC int tool_check_and_set_diagnostic_i2c_access_reg_value(char **argv, struct i2c_access_params *i2c_access_params)
 {
     unsigned long reg_value;
     char *p_tmp = NULL;
 
     reg_value = strtoul(argv[TOOL_DIAG_I2C_PARAM_INDEX_REG_VALUE + 1], &p_tmp, 0);
-    if ((*p_tmp != '\0') || (reg_value < 0) ||
-        (reg_value > TOOL_MAX_UINT_BYTES(i2c_access_params->xsfp.reg_size))) {
-        roce_err("The value of reg value is wrong. [0 ~ %d]",
-            TOOL_MAX_UINT_BYTES(i2c_access_params->xsfp.reg_size));
+    if ((*p_tmp != '\0') || (reg_value < 0) || (reg_value > TOOL_MAX_UINT_BYTES(i2c_access_params->xsfp.reg_size))) {
+        roce_err("The value of reg value is wrong. [0 ~ %d]", TOOL_MAX_UINT_BYTES(i2c_access_params->xsfp.reg_size));
         return UDA_PARAM_INVALID_ERR;
     }
     // 按1字节读取
@@ -296,7 +278,8 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_reg_value(char **argv,
 }
 
 STATIC int tool_check_and_set_diagnostic_i2c_access_params(int argc, char **argv,
-    struct i2c_access_params *i2c_access_params, struct tool_param *param)
+                                                           struct i2c_access_params *i2c_access_params,
+                                                           struct tool_param *param)
 {
     int index, ret = 0;
     static unsigned char page_idx, reg_offset;
@@ -312,7 +295,7 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_params(int argc, char **argv
 
     for (index = 0; index < argc; index += STEP_TWO) {
         if (strncmp(argv[index], g_diag_i2c_access_params_desc[index / STEP_TWO],
-            strlen(g_diag_i2c_access_params_desc[index / STEP_TWO]) + 1) != 0) {
+                    strlen(g_diag_i2c_access_params_desc[index / STEP_TWO]) + 1) != 0) {
             roce_err("Err argv. (argv=%s, desc=%s)", argv[index], g_diag_i2c_access_params_desc[index / STEP_TWO]);
             return UDA_PARAM_OP_NOT_SUPPORT_ERR;
         }
@@ -328,8 +311,8 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_params(int argc, char **argv
                 ret = tool_check_and_set_diagnostic_i2c_access_reg_offset(argv, i2c_access_params, &reg_offset);
                 break;
             case TOOL_DIAG_I2C_PARAM_INDEX_REG_SIZE:
-                ret = tool_check_and_set_diagnostic_i2c_access_reg_size(argv, i2c_access_params,
-                    i2c_access_params->i2c_mode, page_idx, reg_offset);
+                ret = tool_check_and_set_diagnostic_i2c_access_reg_size(
+                    argv, i2c_access_params, i2c_access_params->i2c_mode, page_idx, reg_offset);
                 break;
             case TOOL_DIAG_I2C_PARAM_INDEX_REG_VALUE:
                 ret = tool_check_and_set_diagnostic_i2c_access_reg_value(argv, i2c_access_params);
@@ -348,7 +331,7 @@ STATIC int tool_check_and_set_diagnostic_i2c_access_params(int argc, char **argv
 }
 
 STATIC int tool_cpld_diagnostic_param_parse(int argc, struct i2c_access_params *i2c_access_params,
-    struct tool_param *param)
+                                            struct tool_param *param)
 {
     if (i2c_access_params->i2c_mode == TOOL_DIAGNOSTIC_I2C_WRITE) {
         roce_err("cpld diag support read only.");
@@ -366,8 +349,8 @@ STATIC int tool_cpld_diagnostic_param_parse(int argc, struct i2c_access_params *
     return 0;
 }
 
-STATIC int tool_parse_diagnostic_i2c_access_params(int argc, char **argv,
-    struct i2c_access_params *i2c_access_params, struct tool_param *param)
+STATIC int tool_parse_diagnostic_i2c_access_params(int argc, char **argv, struct i2c_access_params *i2c_access_params,
+                                                   struct tool_param *param)
 {
     int i, ret;
 
@@ -388,7 +371,7 @@ STATIC int tool_parse_diagnostic_i2c_access_params(int argc, char **argv,
 
     for (i = 0; i < DIAG_SLAVE_MAX; i++) {
         if (strncmp(argv[TOOL_DIAG_I2C_PARAM_INDEX_SLAVE_OBJ + 1], g_diag_slave_obj_table[i].slave_str,
-            strlen(g_diag_slave_obj_table[i].slave_str) + 1) == 0) {
+                    strlen(g_diag_slave_obj_table[i].slave_str) + 1) == 0) {
             i2c_access_params->slave_obj = g_diag_slave_obj_table[i].slave_obj;
             break;
         }
@@ -417,25 +400,25 @@ STATIC int tool_parse_diagnostic_i2c_access_params(int argc, char **argv,
 STATIC int tool_set_diagnostic_mode_cmd(int logic_id, struct ds_diag_mode_params *diag_mode_params)
 {
     int ret;
-    
+
     ret = dsmi_operate_diagnostic_mode(logic_id, diag_mode_params, DS_SET_DIAGNOSTIC_MODE);
     if (ret != 0) {
         roce_err("Failed to set diagnostic mode. (ret=%d, logic_id=%d)", ret, logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
-    
+
     return UDA_EXE_SUCCESS;
 }
 
-STATIC int tool_sprintf_xsfp_diagnostic_i2c_access_col(int index,
-    struct i2c_access_params i2c_access_params, unsigned char *value, unsigned int *value_index)
+STATIC int tool_sprintf_xsfp_diagnostic_i2c_access_col(int index, struct i2c_access_params i2c_access_params,
+                                                       unsigned char *value, unsigned int *value_index)
 {
     int col = 0;
     int ret;
-    
+
     for (col = 0; col < SHOW_ONE_ROW && (index + col) < i2c_access_params.xsfp.reg_size; col++) {
-        ret = sprintf_s(value + strlen(value), TOOL_DUMP_REG_MARGIN + strlen(value), " %02x", \
-            i2c_access_params.xsfp.reg_value[*value_index]);
+        ret = sprintf_s(value + strlen(value), TOOL_DUMP_REG_MARGIN + strlen(value), " %02x",
+                        i2c_access_params.xsfp.reg_value[*value_index]);
         if (ret < 0) {
             roce_err("sprintf_s cmd fail. ret[%d]", ret);
             return ret;
@@ -457,12 +440,11 @@ STATIC int tool_show_xsfp_diagnostic_i2c_access_result(struct i2c_access_params 
     }
     if (i2c_access_params.i2c_mode == TOOL_DIAGNOSTIC_I2C_READ) {
         roce_info("Read i2c access result."
-            "(slave_obj=%u, page_idx=0x%x, reg_offset=0x%x, reg_size=%u)",
-            i2c_access_params.slave_obj, i2c_access_params.xsfp.page_idx, i2c_access_params.xsfp.reg_offset,
-            i2c_access_params.xsfp.reg_size);
-        TOOL_PRINT_INFO("Page %xh Memory : %u - %u", i2c_access_params.xsfp.page_idx,
-            i2c_access_params.xsfp.reg_offset,
-            i2c_access_params.xsfp.reg_offset + i2c_access_params.xsfp.reg_size - 1);
+                  "(slave_obj=%u, page_idx=0x%x, reg_offset=0x%x, reg_size=%u)",
+                  i2c_access_params.slave_obj, i2c_access_params.xsfp.page_idx, i2c_access_params.xsfp.reg_offset,
+                  i2c_access_params.xsfp.reg_size);
+        TOOL_PRINT_INFO("Page %xh Memory : %u - %u", i2c_access_params.xsfp.page_idx, i2c_access_params.xsfp.reg_offset,
+                        i2c_access_params.xsfp.reg_offset + i2c_access_params.xsfp.reg_size - 1);
         for (i = 0; i < i2c_access_params.xsfp.reg_size; i += SHOW_ONE_ROW) {
             ret = sprintf_s(value, DUMP_PAGE_LEN, "[%03d]:", byte_no);
             if (ret < 0) {
@@ -488,8 +470,8 @@ static void tool_show_cpld_diag_header(void)
 }
 
 // 这部分所有安全函数预期都不会出错，只是为了cleancode才处理返回值
-static int tool_show_cpld_diag_add_element(char *line_addr, char *line_value,
-    unsigned char addr, unsigned char value, int length)
+static int tool_show_cpld_diag_add_element(char *line_addr, char *line_value, unsigned char addr, unsigned char value,
+                                           int length)
 {
     int ret;
     ret = sprintf_s(line_addr + strlen(line_addr), length - strlen(line_addr), " 0x%02x |", addr) < 0 ? 1 : 0;
@@ -616,32 +598,32 @@ int tool_show_diagnostic_i2c_access_result(char **argv, struct i2c_access_params
     int i, slave_obj, ret = 0;
     for (i = 0; i < DIAG_SLAVE_MAX; i++) {
         if (strncmp(argv[TOOL_DIAG_I2C_PARAM_INDEX_SLAVE_OBJ + 1], g_diag_slave_obj_table[i].slave_str,
-            strlen(g_diag_slave_obj_table[i].slave_str) + 1) == 0) {
+                    strlen(g_diag_slave_obj_table[i].slave_str) + 1) == 0) {
             slave_obj = g_diag_slave_obj_table[i].slave_obj;
             break;
         }
     }
-    
+
     if (i == DIAG_SLAVE_MAX) {
         roce_err("Invalid slave obj. (slave obj=%s)", argv[TOOL_DIAG_I2C_PARAM_INDEX_SLAVE_OBJ + 1]);
         return UDA_PARAM_INVALID_ERR;
     }
-    
+
     if (slave_obj == DIAG_SLAVE_XSFP) {
         ret = tool_show_xsfp_diagnostic_i2c_access_result(i2c_access_params);
     } else if (slave_obj == DIAG_SLAVE_CPLD) {
         ret = tool_show_cpld_diagnostic_result(&i2c_access_params, is_910A3);
     }
-    
+
     return ret;
 }
 
 STATIC int tool_set_diagnostic_mode_handle(int argc, char **argv, struct tool_param *param)
 {
     int ret;
-    struct ds_diag_mode_params diag_mode_params = { 0 };
+    struct ds_diag_mode_params diag_mode_params = {0};
     int logic_id;
-    
+
     ret = tool_double_check(
         "[WARNING]Executing this command will activate diagnostic mode. "
         "High-risk operations in diagnostic mode may affect the fundamental functions of the network. "
@@ -669,7 +651,7 @@ STATIC int tool_set_diagnostic_i2c_access_handle(int argc, char **argv, struct t
 {
     int ret;
     int logic_id = param->logic_id;
-    struct i2c_access_params i2c_access_params = { 0 };
+    struct i2c_access_params i2c_access_params = {0};
     int is_910A3 = is_ATLAS_900_A3_SUPERPOD(param->mainboard_id);
 
     ret = tool_parse_diagnostic_i2c_access_params(argc, argv, &i2c_access_params, param);
@@ -710,14 +692,13 @@ STATIC int tool_set_diagnostic_i2c_access_handle(int argc, char **argv, struct t
 STATIC int tool_set_diagnostic_info(int argc, char **argv, struct tool_param *param)
 {
     int ret;
-    
+
     if (argc < 0x1) {
         roce_err("Err argc. (argc=%d)", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
-    
-    if (!strncmp(argv[0], "enable", strlen("enable") + 1) ||
-        !strncmp(argv[0], "duration", strlen("duration") + 1)) {
+
+    if (!strncmp(argv[0], "enable", strlen("enable") + 1) || !strncmp(argv[0], "duration", strlen("duration") + 1)) {
         ret = tool_set_diagnostic_mode_handle(argc, argv, param);
         if (ret != 0) {
             return ret;

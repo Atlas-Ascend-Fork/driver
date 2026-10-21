@@ -68,7 +68,7 @@ static LIST_HEAD(extend_driver_name_list);
 static void ibv_extend_warning(const char *format, ...)
 {
     static volatile int show_warning = -1;
-    char msg_buf[warning_msg_buf_len];  // 适中的缓冲区大小
+    char msg_buf[warning_msg_buf_len]; // 适中的缓冲区大小
     va_list args;
     int len;
 
@@ -120,23 +120,19 @@ API_EXPORT void verbs_register_driver_extend(const struct verbs_device_extend_op
     struct ibv_extend_driver *driver;
 
     if (!ops) {
-        (void)fprintf(stderr,
-            OUTPFX "Error: couldn't register driver for NULL ops\n");
+        (void)fprintf(stderr, OUTPFX "Error: couldn't register driver for NULL ops\n");
         return;
     }
 
     if (!ops->name) {
-        (void)fprintf(stderr,
-            OUTPFX "Error: couldn't register driver for NULL name\n");
+        (void)fprintf(stderr, OUTPFX "Error: couldn't register driver for NULL name\n");
         return;
     }
 
     // 内存常驻在进程声明周期中，进程退出回收
     driver = malloc(sizeof(struct ibv_extend_driver));
     if (!driver) {
-        (void)fprintf(stderr,
-            OUTPFX "Error: couldn't allocate extend driver for %s\n",
-            ops->name);
+        (void)fprintf(stderr, OUTPFX "Error: couldn't allocate extend driver for %s\n", ops->name);
         return;
     }
 
@@ -162,7 +158,8 @@ static const struct verbs_device_extend_ops *try_extend_driver(struct ibv_device
 
     vdev = verbs_get_device(device); // 获取设备的verbs_device结构体指针
     // 遍历扩展驱动程序列表，查找匹配的驱动程序
-    list_for_each(&extend_driver_list, driver, entry) {
+    list_for_each(&extend_driver_list, driver, entry)
+    {
         if (strcmp(vdev->ops->name, driver->ops->name) == 0) {
             ext_ops = driver->ops; // 如果找到匹配的驱动程序，更新扩展操作指针
             break;
@@ -185,16 +182,14 @@ static int handle_driver_config(const char *driver_name)
     // 分配驱动名称结构体内存
     ext_driver_name = malloc(sizeof(struct ibv_extend_driver_name));
     if (!ext_driver_name) {
-        (void)fprintf(stderr, OUTPFX "Error: couldn't allocate extend driver name '%s'.\n",
-            driver_name);
+        (void)fprintf(stderr, OUTPFX "Error: couldn't allocate extend driver name '%s'.\n", driver_name);
         return -1;
     }
 
     // 复制驱动名称字符串
     ext_driver_name->ext_name = strdup(driver_name);
     if (!ext_driver_name->ext_name) {
-        (void)fprintf(stderr, OUTPFX "Error: couldn't allocate extend driver name '%s'.\n",
-            driver_name);
+        (void)fprintf(stderr, OUTPFX "Error: couldn't allocate extend driver name '%s'.\n", driver_name);
         free(ext_driver_name);
         return -1;
     }
@@ -240,8 +235,7 @@ static bool validate_config_driver_name(const char *driver_name, const char *pat
     // 校验驱动名称合法性（只允许字母、数字、下划线、连字符）
     for (const char *p = driver_name; *p != '\0'; p++) {
         if (!isalnum((unsigned char)*p) && *p != '_' && *p != '-') {
-            ibv_extend_warning("invalid character in driver name '%s' in file '%s'",
-                driver_name, path);
+            ibv_extend_warning("invalid character in driver name '%s' in file '%s'", driver_name, path);
             return 0;
         }
     }
@@ -306,8 +300,7 @@ static void parse_config_line(char *line, const char *path)
         process_driver_config(ext_config, path);
     } else {
         // 未知的配置项，输出警告
-        ibv_extend_warning("ignoring bad config directive '%s' in file '%s'",
-            field, path);
+        ibv_extend_warning("ignoring bad config directive '%s' in file '%s'", field, path);
     }
 }
 
@@ -379,8 +372,7 @@ static void read_extend_config()
 
         // 构造文件的完整路径
         if (asprintf(&tmp_path, "%s/%s", EXTEND_IBV_CONFIG_DIR, ext_dent->d_name) < 0) {
-            ibv_extend_warning("couldn't read extend config file %s/%s",
-                EXTEND_IBV_CONFIG_DIR, ext_dent->d_name);
+            ibv_extend_warning("couldn't read extend config file %s/%s", EXTEND_IBV_CONFIG_DIR, ext_dent->d_name);
             goto out;
         }
 
@@ -402,7 +394,7 @@ static void read_extend_config()
 
         // 读取扩展配置文件
         read_extend_config_file(tmp_path);
-next:
+    next:
         // 释放
         free(tmp_path);
     }
@@ -589,8 +581,7 @@ static void load_drivers_from_env(const char *env)
     // 在堆上分配内存，避免环境变量配置过长
     list = strdup(env);
     if (!list) {
-        (void)fprintf(stderr,
-            OUTPFX "Error: failed to allocate memory for IBV_EXTEND_DRIVERS.\n");
+        (void)fprintf(stderr, OUTPFX "Error: failed to allocate memory for IBV_EXTEND_DRIVERS.\n");
         return;
     }
 
@@ -609,7 +600,8 @@ static void load_drivers_from_config(void)
     struct ibv_extend_driver_name *name, *next_name;
 
     // 遍历驱动程序名称列表，加载驱动程序并释放内存
-    list_for_each_safe (&extend_driver_name_list, name, next_name, entry) {
+    list_for_each_safe(&extend_driver_name_list, name, next_name, entry)
+    {
         load_extend_driver(name->ext_name);
         list_del(&name->entry);
         free(name->ext_name);
@@ -647,26 +639,25 @@ static void load_extend_drivers()
 static int validate_driver_version(struct ibv_context_extend *ext_context)
 {
     if (!ext_context || !ext_context->ops) {
-        return 0;  // 无ops则跳过版本检查
+        return 0; // 无ops则跳过版本检查
     }
-    
+
     /* 检查版本是否未设置(UNUSED) */
     if (ext_context->ops->version == IBV_EXTEND_DRIVER_VERSION_UNUSED) {
-        (void)fprintf(stderr,
-            OUTPFX "Error: Driver version is not set (version=0). "
-            "Driver must set a valid version number.\n");
+        (void)fprintf(stderr, OUTPFX "Error: Driver version is not set (version=0). "
+                                     "Driver must set a valid version number.\n");
         return -1;
     }
-    
+
     /* 检查版本上限：驱动版本不能超过库支持的最新版本 */
     if (ext_context->ops->version > IBV_EXTEND_DRIVER_VERSION_MAX) {
         (void)fprintf(stderr,
-            OUTPFX "Error: Driver version %d exceeds ibv_extend(%s) max version %d. "
-            "Please upgrade the ibv_extend to support this driver.\n",
-            ext_context->ops->version, IBV_EXTEND_VERSION_STRING, IBV_EXTEND_DRIVER_VERSION_MAX);
+                      OUTPFX "Error: Driver version %d exceeds ibv_extend(%s) max version %d. "
+                             "Please upgrade the ibv_extend to support this driver.\n",
+                      ext_context->ops->version, IBV_EXTEND_VERSION_STRING, IBV_EXTEND_DRIVER_VERSION_MAX);
         return -1;
     }
-    
+
     return 0;
 }
 
@@ -676,23 +667,22 @@ static int validate_driver_version(struct ibv_context_extend *ext_context)
  * @param ext_ops 扩展操作结构体
  * @return 扩展上下文指针，失败返回NULL
  */
-static struct ibv_context_extend *alloc_and_validate_context(
-    struct ibv_context *context,
-    const struct verbs_device_extend_ops *ext_ops)
+static struct ibv_context_extend *alloc_and_validate_context(struct ibv_context *context,
+                                                             const struct verbs_device_extend_ops *ext_ops)
 {
     struct ibv_context_extend *ext_context;
-    
+
     if (!ext_ops->alloc_context) {
         ibv_extend_warning("alloc_context is NULL for ops %s", ext_ops->name);
         return NULL;
     }
-    
+
     ext_context = ext_ops->alloc_context(context);
     if (!ext_context) {
         ibv_extend_warning("driver %s alloc ext context failed", ext_ops->name);
         return NULL;
     }
-    
+
     /* 版本有效性检查 */
     if (validate_driver_version(ext_context) != 0) {
         /* 版本检查失败，释放已分配的上下文 */
@@ -701,7 +691,7 @@ static struct ibv_context_extend *alloc_and_validate_context(
         }
         return NULL;
     }
-    
+
     return ext_context;
 }
 
@@ -736,7 +726,7 @@ API_EXPORT struct ibv_context_extend *ibv_open_extend(struct ibv_context *contex
 
     /* 第二次尝试：加载驱动程序后再查找 */
     load_extend_drivers();
-    
+
     ext_ops = try_extend_driver(device);
     if (ext_ops) {
         ext_context = alloc_and_validate_context(context, ext_ops);
@@ -790,8 +780,7 @@ API_EXPORT int ibv_close_extend(struct ibv_context_extend *context)
  * @param ext_dev_attr 扩展设备属性输出参数
  * @return 0-成功，其他值-失败
  */
-API_EXPORT int ibv_query_device_extend(struct ibv_context_extend *context,
-                                       struct ibv_device_attr_extend *ext_dev_attr)
+API_EXPORT int ibv_query_device_extend(struct ibv_context_extend *context, struct ibv_device_attr_extend *ext_dev_attr)
 {
     if (context == NULL || ext_dev_attr == NULL) {
         ibv_extend_warning("invalid parameter for query device extend");
@@ -951,8 +940,7 @@ API_EXPORT int ibv_destroy_srq_extend(struct ibv_context_extend *context, struct
  * @param attr_mask 属性掩码，指定需要修改的属性
  * @return 0-成功，其他值-失败
  */
-API_EXPORT int ibv_modify_qp_extend(struct ibv_context_extend *context,
-                                    struct ibv_qp_attr_extend *attr, int attr_mask)
+API_EXPORT int ibv_modify_qp_extend(struct ibv_context_extend *context, struct ibv_qp_attr_extend *attr, int attr_mask)
 {
     if (context == NULL || attr == NULL) {
         ibv_extend_warning("invalid parameter for modify qp extend");
@@ -966,11 +954,10 @@ API_EXPORT int ibv_modify_qp_extend(struct ibv_context_extend *context,
 
     /* 版本检查：modify_qp 是 V2 新增功能，驱动版本必须 >= V2 */
     if (context->ops->version < IBV_EXTEND_DRIVER_VERSION_V2) {
-        ibv_extend_warning("driver version %d does not support modify_qp (requires V2)",
-            context->ops->version);
+        ibv_extend_warning("driver version %d does not support modify_qp (requires V2)", context->ops->version);
         return -EOPNOTSUPP;
     }
-  
+
     if (attr_mask & ~(IBV_QP_ATTR_EXTEND_MAX - 1)) {
         ibv_extend_warning("attr_mask 0x%x is not supported", attr_mask);
         return -EOPNOTSUPP;
@@ -992,8 +979,7 @@ API_EXPORT int ibv_modify_qp_extend(struct ibv_context_extend *context,
  * @param attr_mask 属性掩码，指定需要查询的属性
  * @return 0-成功，其他值-失败
  */
-API_EXPORT int ibv_query_qp_extend(struct ibv_context_extend *context,
-                                   struct ibv_qp_attr_extend *attr, int attr_mask)
+API_EXPORT int ibv_query_qp_extend(struct ibv_context_extend *context, struct ibv_qp_attr_extend *attr, int attr_mask)
 {
     if (context == NULL || attr == NULL) {
         ibv_extend_warning("invalid parameter for query qp extend");
@@ -1007,8 +993,7 @@ API_EXPORT int ibv_query_qp_extend(struct ibv_context_extend *context,
 
     /* 版本检查：query_qp 是 V2 新增功能，驱动版本必须 >= V2 */
     if (context->ops->version < IBV_EXTEND_DRIVER_VERSION_V2) {
-        ibv_extend_warning("driver version %d does not support query_qp (requires V2)",
-            context->ops->version);
+        ibv_extend_warning("driver version %d does not support query_qp (requires V2)", context->ops->version);
         return -EOPNOTSUPP;
     }
 
@@ -1035,10 +1020,8 @@ API_EXPORT int ibv_query_qp_extend(struct ibv_context_extend *context,
  * @param feature 返回支持的高阶RoCE特性
  * @return 0-成功，其他值-失败
  */
-API_EXPORT int ibv_query_qp_supported_hyroce_feature(struct ibv_context_extend *context,
-                                                     struct ibv_qp *qp,
-                                                     uint32_t sl, uint32_t tc,
-                                                     struct ibv_hyroce_feature *feature)
+API_EXPORT int ibv_query_qp_supported_hyroce_feature(struct ibv_context_extend *context, struct ibv_qp *qp, uint32_t sl,
+                                                     uint32_t tc, struct ibv_hyroce_feature *feature)
 {
     if (context == NULL || qp == NULL || feature == NULL) {
         ibv_extend_warning("invalid parameter for query qp supported hyroce feature");
@@ -1053,7 +1036,7 @@ API_EXPORT int ibv_query_qp_supported_hyroce_feature(struct ibv_context_extend *
     /* 版本检查：高阶RoCE的qp_hyroce_feature 是 V3 新增功能，驱动版本必须 >= V3 */
     if (context->ops->version < IBV_EXTEND_DRIVER_VERSION_V3) {
         ibv_extend_warning("driver version %d does not support query qp hyroce feature (requires V3)",
-            context->ops->version);
+                           context->ops->version);
         return -EOPNOTSUPP;
     }
 
@@ -1065,7 +1048,7 @@ API_EXPORT int ibv_query_qp_supported_hyroce_feature(struct ibv_context_extend *
     return context->ops->query_qp_supported_hyroce_feature(context->context, qp, sl, tc, feature);
 }
 
- /**
+/**
  * @brief 网卡协商高阶RoCE特性
  * @param context 扩展上下文指针
  * @param qp QP指针
@@ -1074,14 +1057,11 @@ API_EXPORT int ibv_query_qp_supported_hyroce_feature(struct ibv_context_extend *
  * @param need_more_nego 是否需要再次协商
  * @return 0-成功，其他值-失败
  */
-API_EXPORT int ibv_nego_qp_hyroce_feature(struct ibv_context_extend *context,
-                                          struct ibv_qp *qp,
-                                          const struct ibv_hyroce_feature *input,
-                                          struct ibv_hyroce_feature *output,
+API_EXPORT int ibv_nego_qp_hyroce_feature(struct ibv_context_extend *context, struct ibv_qp *qp,
+                                          const struct ibv_hyroce_feature *input, struct ibv_hyroce_feature *output,
                                           uint32_t *need_more_nego)
 {
-    if (context == NULL || qp == NULL ||
-        input == NULL || output == NULL || need_more_nego == NULL) {
+    if (context == NULL || qp == NULL || input == NULL || output == NULL || need_more_nego == NULL) {
         ibv_extend_warning("invalid parameter for nego qp hyroce feature");
         return -EINVAL;
     }
@@ -1094,7 +1074,7 @@ API_EXPORT int ibv_nego_qp_hyroce_feature(struct ibv_context_extend *context,
     /* 版本检查：高阶RoCE的qp_hyroce_feature 是 V3 新增功能，驱动版本必须 >= V3 */
     if (context->ops->version < IBV_EXTEND_DRIVER_VERSION_V3) {
         ibv_extend_warning("driver version %d does not support nego qp hyroce feature (requires V3)",
-            context->ops->version);
+                           context->ops->version);
         return -EOPNOTSUPP;
     }
 
@@ -1124,7 +1104,7 @@ API_EXPORT const char *ibv_extend_get_version(uint32_t *major, uint32_t *minor, 
     if (patch) {
         *patch = IBV_EXTEND_VERSION_PATCH;
     }
-    
+
     return IBV_EXTEND_VERSION_STRING;
 }
 
@@ -1143,33 +1123,32 @@ API_EXPORT int ibv_extend_check_version(uint32_t driver_major, uint32_t driver_m
     /* 规则1: 主版本号必须完全一致 */
     if (driver_major != IBV_EXTEND_VERSION_MAJOR) {
         (void)fprintf(stderr,
-            OUTPFX "Error: Version check failed: major version mismatch "
-            "(driver: %u, library: %u)\n",
-            driver_major, IBV_EXTEND_VERSION_MAJOR);
+                      OUTPFX "Error: Version check failed: major version mismatch "
+                             "(driver: %u, library: %u)\n",
+                      driver_major, IBV_EXTEND_VERSION_MAJOR);
         return -1;
     }
-    
+
     /* 规则2: 驱动的次版本号必须 <= 库的次版本号 */
     if (driver_minor > IBV_EXTEND_VERSION_MINOR) {
         (void)fprintf(stderr,
-            OUTPFX "Error: Version check failed: driver minor version newer than library "
-            "(driver: %u.%u.%u, library: %u.%u.%u)\n",
-            driver_major, driver_minor, driver_patch,
-            IBV_EXTEND_VERSION_MAJOR, IBV_EXTEND_VERSION_MINOR, IBV_EXTEND_VERSION_PATCH);
+                      OUTPFX "Error: Version check failed: driver minor version newer than library "
+                             "(driver: %u.%u.%u, library: %u.%u.%u)\n",
+                      driver_major, driver_minor, driver_patch, IBV_EXTEND_VERSION_MAJOR, IBV_EXTEND_VERSION_MINOR,
+                      IBV_EXTEND_VERSION_PATCH);
         return -1;
     }
-    
+
     /* 规则3: 如果次版本号相同，驱动的修订号必须 <= 库的修订号 */
-    if (driver_minor == IBV_EXTEND_VERSION_MINOR &&
-        driver_patch > IBV_EXTEND_VERSION_PATCH) {
+    if (driver_minor == IBV_EXTEND_VERSION_MINOR && driver_patch > IBV_EXTEND_VERSION_PATCH) {
         (void)fprintf(stderr,
-            OUTPFX "Error: Version check failed: driver patch version newer than library "
-            "(driver: %u.%u.%u, library: %u.%u.%u)\n",
-            driver_major, driver_minor, driver_patch,
-            IBV_EXTEND_VERSION_MAJOR, IBV_EXTEND_VERSION_MINOR, IBV_EXTEND_VERSION_PATCH);
+                      OUTPFX "Error: Version check failed: driver patch version newer than library "
+                             "(driver: %u.%u.%u, library: %u.%u.%u)\n",
+                      driver_major, driver_minor, driver_patch, IBV_EXTEND_VERSION_MAJOR, IBV_EXTEND_VERSION_MINOR,
+                      IBV_EXTEND_VERSION_PATCH);
         return -1;
     }
-    
+
     /* 版本兼容 */
     return 0;
 }
@@ -1186,13 +1165,15 @@ static void ibv_extend_cleanup(void)
     struct ibv_extend_driver_name *name, *next_name;
 
     /* 释放扩展驱动列表 */
-    list_for_each_safe(&extend_driver_list, driver, next_driver, entry) {
+    list_for_each_safe(&extend_driver_list, driver, next_driver, entry)
+    {
         list_del(&driver->entry);
         free(driver);
     }
 
     /* 释放驱动名称列表（如果还有残留） */
-    list_for_each_safe(&extend_driver_name_list, name, next_name, entry) {
+    list_for_each_safe(&extend_driver_name_list, name, next_name, entry)
+    {
         list_del(&name->entry);
         free(name->ext_name);
         free(name);

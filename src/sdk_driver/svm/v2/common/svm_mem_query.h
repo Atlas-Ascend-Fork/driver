@@ -41,7 +41,7 @@ int devmm_svm_get_and_pin_pa_list(struct devmm_svm_process_id *process_id, u64 a
                                   u64 *pa_list, u32 pa_num);
 int devmm_shm_get_pa_list(struct devmm_svm_process_id *process_id, u64 addr, u64 size, u64 *pa_list, u32 pa_num);
 void devmm_shm_put_pa_list(struct devmm_svm_process_id *process_id, u64 va, u64 *pa_list, u32 pa_num);
-void devmm_svm_put_pa_list(struct devmm_svm_process_id *process_id, u64 va, u64 *pa_list, u32 pa_num);
+void devmm_svm_put_pa_list(struct devmm_svm_process_id *process_id, u64 va, u64 size, u64 *pa_list, u32 pa_num);
 void devmm_update_addr_flag(u64 va, u64 pa, u32 *addr_flag);
 u32 devmm_shm_get_page_size(struct devmm_svm_process_id *process_id, u64 va, u64 size);
 int devmm_get_mem_side(struct devmm_svm_process_id *process_id, u64 addr, u32 *side);

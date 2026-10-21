@@ -47,8 +47,8 @@ struct pcie_ops_stu {
     int (*get_pcie_id_info)(u32 devid, struct devdrv_pcie_id_info *pcie_id_info);
     int (*read_proc)(u32 dev_id, enum devdrv_addr_type type, u32 offset, unsigned char *value, u32 len);
     int (*get_addr_info)(u32 devid, enum devdrv_addr_type type, u32 index, u64 *addr, size_t *size);
-    int (*get_bbox_reservd_mem)(unsigned int devid, unsigned long long *dma_addr,
-        ka_page_t **dma_pages, unsigned int *len);
+    int (*get_bbox_reservd_mem)(unsigned int devid, unsigned long long *dma_addr, ka_page_t **dma_pages,
+                                unsigned int *len);
     int (*register_black_callback)(struct devdrv_black_callback *black_callback);
     void (*unregister_black_callback)(const struct devdrv_black_callback *black_callback);
     void (*notifier_unregister)(void);
@@ -56,9 +56,9 @@ struct pcie_ops_stu {
     int (*set_module_init_finish)(int dev_id, int module);
     void (*startup_register)(devdrv_dev_startup_notify startup_callback);
     unsigned int (*get_host_type)(void);
-    int (* get_master_devid_in_the_same_os)(u32 dev_id, u32 *master_dev_id);
-    int (* reinit)(u32 dev_id);
-    int (* get_pci_enabled_vf_num)(u32 dev_id, u32 *vf_num);
+    int (*get_master_devid_in_the_same_os)(u32 dev_id, u32 *master_dev_id);
+    int (*reinit)(u32 dev_id);
+    int (*get_pci_enabled_vf_num)(u32 dev_id, int *vf_num);
 };
 struct bus_adpater_stu {
     ka_rw_semaphore_t rw_lock;
@@ -78,8 +78,8 @@ struct bus_adpater_stu *get_adapter_by_dev_id(unsigned int dev_id);
 struct bus_adpater_stu *get_adapter_by_module(unsigned int index);
 void put_adapter(struct bus_adpater_stu *adap);
 
-void init_module_func(const ka_module_t *mod, const struct symbol_list *fun_name_list,
-    unsigned int count, struct bus_adpater_stu *adapt);
+void init_module_func(const ka_module_t *mod, const struct symbol_list *fun_name_list, unsigned int count,
+                      struct bus_adpater_stu *adapt);
 void uninit_module_func(const struct symbol_list *fun_name_list, unsigned int count, struct bus_adpater_stu *adapt);
 
 int ascend_adapter_init(void);
@@ -88,6 +88,5 @@ void ascend_adapter_exit(void);
 #ifdef __cplusplus
 }
 #endif
-
 
 #endif

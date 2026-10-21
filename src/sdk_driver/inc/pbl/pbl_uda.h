@@ -31,7 +31,6 @@
     devid: logical device id from the user view
 */
 
-
 /* Method of the device prober */
 
 static const char *uda_dev_hw_name[UDA_HW_MAX] = {"Davinci", "Kunpeng"};
@@ -57,9 +56,9 @@ struct uda_dev_para {
     u32 remote_udevid;
     u32 chip_type;
     ka_device_t *dev;
-    int pf_flag;  /* 1: pf; 0: vf */
+    int pf_flag; /* 1: pf; 0: vf */
     u32 master_id;
-    u32 add_id; /* ID added to the input during udevid reordering */
+    u32 add_id;    /* ID added to the input during udevid reordering */
     u32 char_flag; /* 1: use logic id numbering */
     u32 logic_id;
 };
@@ -74,20 +73,20 @@ struct uda_mia_dev_para {
 #define UB_PORT_NUM 36
 #define UDEVID_REORDER_RESV_NUM 3
 struct udevid_reorder_para {
-    u32 guid[GUID_NUM];   /* GUID of the current device */
+    u32 guid[GUID_NUM];  /* GUID of the current device */
     u32 guid1[GUID_NUM]; /* GUID of other devices1 in the same group */
     u32 guid2[GUID_NUM]; /* GUID of other devices2 in the same group */
     u32 guid3[GUID_NUM]; /* GUID of other devices3 in the same group */
     u32 ub_link_status;
     u8 ub_port_status[UB_PORT_NUM]; /* port num 36 */
-    u32 group_dev_num; /* 1p,2p,4p */
+    u32 group_dev_num;              /* 1p,2p,4p */
     u32 module_id;
     int slot_id;
     u32 resv[UDEVID_REORDER_RESV_NUM]; /* resv */
 };
 
-static inline void uda_dev_type_pack(struct uda_dev_type *type,
-    enum uda_dev_hw hw, enum uda_dev_object object, enum uda_dev_location location, enum uda_dev_prop prop)
+static inline void uda_dev_type_pack(struct uda_dev_type *type, enum uda_dev_hw hw, enum uda_dev_object object,
+                                     enum uda_dev_location location, enum uda_dev_prop prop)
 {
     type->hw = hw;
     type->object = object;
@@ -135,14 +134,14 @@ static inline void uda_davinci_remote_real_entity_type_pack(struct uda_dev_type 
     uda_dev_type_pack(type, UDA_DAVINCI, UDA_ENTITY, UDA_REMOTE, UDA_REAL);
 }
 
-static inline void uda_dev_para_pack(struct uda_dev_para *para,
-    u32 udevid, u32 remote_udevid, u32 chip_type, ka_device_t *dev)
+static inline void uda_dev_para_pack(struct uda_dev_para *para, u32 udevid, u32 remote_udevid, u32 chip_type,
+                                     ka_device_t *dev)
 {
     para->udevid = udevid;
     para->remote_udevid = remote_udevid;
     para->chip_type = chip_type;
     para->dev = dev;
-    para->pf_flag = 1;   /* default pf dev */
+    para->pf_flag = 1; /* default pf dev */
     para->add_id = udevid;
 }
 
@@ -153,17 +152,17 @@ static inline void uda_mia_dev_para_pack(struct uda_mia_dev_para *mia_para, u32 
 }
 
 int uda_add_dev(struct uda_dev_type *type, struct uda_dev_para *para, u32 *udevid); /* uda_dev_prop must be real */
-int uda_add_mia_dev(struct uda_dev_type *type, struct uda_dev_para *para,
-    struct uda_mia_dev_para *mia_para, u32 *udevid);
+int uda_add_mia_dev(struct uda_dev_type *type, struct uda_dev_para *para, struct uda_mia_dev_para *mia_para,
+                    u32 *udevid);
 int uda_remove_dev(struct uda_dev_type *type, u32 udevid);
 
 enum uda_dev_ctrl_cmd {
     UDA_CTRL_SUSPEND,
     UDA_CTRL_RESUME,
-    UDA_CTRL_TO_MIA, /* sia dev mode to mia mode */
-    UDA_CTRL_TO_SIA, /* mia dev mode to sia mode */
+    UDA_CTRL_TO_MIA,         /* sia dev mode to mia mode */
+    UDA_CTRL_TO_SIA,         /* mia dev mode to sia mode */
     UDA_CTRL_MIA_CHANGE = 4, /* The computing power changes. */
-    UDA_CTRL_REMOVE, /* sriov dev */
+    UDA_CTRL_REMOVE,         /* sriov dev */
     UDA_CTRL_HOTRESET = 6,
     UDA_CTRL_HOTRESET_CANCEL,
     UDA_CTRL_SHUTDOWN,
@@ -194,7 +193,7 @@ ka_device_t *uda_get_agent_device(u32 udevid);
 /* Some modules do not separate the drivers of real devices and virtual devices.
    Therefore, simples methods are provided here. */
 static inline int uda_real_virtual_notifier_register(const char *notifier, struct uda_dev_type *type,
-    enum uda_priority pri, uda_notify func)
+                                                     enum uda_priority pri, uda_notify func)
 {
     int ret = uda_notifier_register(notifier, type, pri, func);
     if (ret == 0) {
@@ -222,7 +221,7 @@ static inline int uda_real_virtual_notifier_unregister(const char *notifier, str
 
 /* Method of the device probe or notifier */
 bool uda_is_support_udev_mng(void); /* obp not support, milan support */
-bool uda_is_phy_dev(u32 udevid); /* Check whether the device is a physical device, not mia device. */
+bool uda_is_phy_dev(u32 udevid);    /* Check whether the device is a physical device, not mia device. */
 /* Check whether the device is a pf device , not vf device, applicable to physical env, virtual env */
 bool uda_is_pf_dev(u32 udevid);
 bool uda_is_udevid_exist(u32 udevid);
@@ -254,10 +253,10 @@ bool uda_task_can_access_udevid_inherit(ka_task_struct_t *task, u32 udevid);
 int uda_set_detected_phy_dev_num(u32 dev_num);
 u32 uda_get_detected_phy_dev_num(void);
 
-u32 uda_get_udev_max_num(void); /* System udeivce specifications */
+u32 uda_get_udev_max_num(void);        /* System udeivce specifications */
 u32 uda_get_remote_udev_max_num(void); /* System udeivce specifications */
 
-u32 uda_get_dev_num(void); /* online phy dev num */
+u32 uda_get_dev_num(void);     /* online phy dev num */
 u32 uda_get_mia_dev_num(void); /* online mia dev num */
 
 u32 uda_get_cur_ns_dev_num(void);

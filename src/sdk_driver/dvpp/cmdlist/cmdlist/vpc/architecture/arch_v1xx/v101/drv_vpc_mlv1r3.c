@@ -26,8 +26,7 @@ static void drv_vpc_config_cmdnode_dump_reg(dvpp_decoder *decoder, struct CmdNod
     const uint32_t CMDLST_HW_AXI_ADDR_DUMP_L = VPC_CMDLST_OFFSET_ADDR + 0x02c;
     const uint32_t VPC_FRM_CYCLE_CNT = VPC_TOP_OFFSET_ADDR + 0x0bc;
 
-    struct DumpReg *dump =
-        (struct DumpReg*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_DUMPREG));
+    struct DumpReg *dump = (struct DumpReg *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_DUMPREG));
     if ((dump == NULL) || (dump->en == 0)) {
         DVPP_CMDLIST_VPC_LOG_DEBUG("dump reg disable.");
         return;
@@ -42,7 +41,7 @@ static void drv_vpc_config_cmdnode_dump_reg(dvpp_decoder *decoder, struct CmdNod
     dvpp_ext_set_cmdnode_val(node, CMDLST_HW_AXI_ADDR_DUMP_H);
     dvpp_ext_set_cmdnode_val(node, node->wrBackValAddr >> NUM_39);
     dvpp_ext_set_cmdnode_val(node, CMDLST_HW_AXI_ADDR_DUMP_L);
-    dvpp_ext_set_cmdnode_val(node, (node->wrBackValAddr  >> NUM_7) & 0xFFFFFFFF);
+    dvpp_ext_set_cmdnode_val(node, (node->wrBackValAddr >> NUM_7) & 0xFFFFFFFF);
     DVPP_CMDLIST_VPC_LOG_DEBUG("dump reg size %u\n", dump->readSize);
 }
 
@@ -55,7 +54,7 @@ static void drv_vpc_config_cmdnode_mosaic(dvpp_decoder *decoder, struct CmdNode 
     uint32_t control = 0;
     uint32_t i = 0;
 
-    struct Mosaic *mosaic = (struct Mosaic*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_MOSAIC));
+    struct Mosaic *mosaic = (struct Mosaic *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_MOSAIC));
     if ((mosaic == NULL) || (mosaic_en(mosaic) == 0)) {
         DVPP_CMDLIST_VPC_LOG_DEBUG("mosaic disable.");
         dvpp_seq_set_cmdnode_val(node, REG_REGION_MOSAIC_CONCTRL);
@@ -102,7 +101,7 @@ static void drv_vpc_config_cmdnode_cover(dvpp_decoder *decoder, struct CmdNode *
     uint32_t i = 0;
     uint32_t value = 0;
 
-    struct Cover *cover = (struct Cover*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_COVER));
+    struct Cover *cover = (struct Cover *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_COVER));
     if ((cover == NULL) || (cover_en(cover) == 0)) {
         DVPP_CMDLIST_VPC_LOG_DEBUG("cover disable.");
         dvpp_seq_set_cmdnode_val(node, REG_REGION_COVER_CONCTRL);
@@ -193,7 +192,7 @@ static void drv_vpc_config_cmdnode_osd(dvpp_decoder *decoder, struct CmdNode *no
     uint32_t control = 0;
     uint32_t i = 0;
 
-    struct Osd *osd = (struct Osd*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_OSD));
+    struct Osd *osd = (struct Osd *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_OSD));
     if ((osd == NULL) || (osd_en(osd) == 0)) {
         DVPP_CMDLIST_VPC_LOG_DEBUG("osd disable.");
         dvpp_seq_set_cmdnode_val(node, REG_REGION_OSD_CONCTRL);
@@ -216,7 +215,7 @@ static void drv_vpc_config_cmdnode_osd(dvpp_decoder *decoder, struct CmdNode *no
             osdVpos.bits.osd_vmax = osd->osdRegion[i].osdVmax - 1;
             osdVpos.bits.osd_vmin = osd->osdRegion[i].osdVmin;
             osdCtrlMode.bits.osd_global_alpha = NUM_255;
-            osdCtrlMode.bits.osd_palpha_en = 1; // alpha 默认使能
+            osdCtrlMode.bits.osd_palpha_en = 1;    // alpha 默认使能
             osdCtrlMode.bits.osd_bit_ext_mode = 0; // 低位补0
             osdCtrlMode.bits.osd_alpha0 = osd->osdRegion[i].osdAlpha0;
             osdCtrlMode.bits.osd_alpha1 = osd->osdRegion[i].osdAlpha1;
@@ -259,7 +258,7 @@ static void drv_vpc_config_cmdnode_rotate(dvpp_decoder *decoder, struct CmdNode 
     uint32_t value = 0;
     uint32_t i = 0;
 
-    struct Rotate *rotate = (struct Rotate*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_ROTATE));
+    struct Rotate *rotate = (struct Rotate *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_ROTATE));
     if ((rotate == NULL) || (rotate->en == 0)) {
         DVPP_CMDLIST_VPC_LOG_DEBUG("rotate disable.");
         dvpp_seq_set_cmdnode_val(node, REG_ROTATE_MODE);
@@ -292,8 +291,8 @@ static void drv_vpc_config_cmdnode_rotate(dvpp_decoder *decoder, struct CmdNode 
     return;
 }
 
-static void drv_vpc_config_cmdnode_yuvscaler_4tap_coeff(
-    struct CmdNode *node, struct YuvScale *yuvScale, uint32_t regOffset)
+static void drv_vpc_config_cmdnode_yuvscaler_4tap_coeff(struct CmdNode *node, struct YuvScale *yuvScale,
+                                                        uint32_t regOffset)
 {
     U_COEFF_V_Y0 verticalY0;
     U_COEFF_V_Y1 verticalY1;
@@ -333,8 +332,8 @@ static void drv_vpc_config_cmdnode_yuvscaler_4tap_coeff(
     }
 }
 
-static void drv_vpc_config_cmdnode_yuvscaler_6tap_coeff(
-    struct CmdNode *node, struct YuvScale *yuvScale, uint32_t regOffset)
+static void drv_vpc_config_cmdnode_yuvscaler_6tap_coeff(struct CmdNode *node, struct YuvScale *yuvScale,
+                                                        uint32_t regOffset)
 {
     U_COEFF_V_UV0 verticalUv0;
     U_COEFF_V_UV1 verticalUv1;
@@ -422,8 +421,8 @@ static void drv_vpc_config_cmdnode_yuvscaler_coeff(struct CmdNode *node, struct 
         dvpp_seq_set_cmdnode_val(node, horizonUv1.u32);
     }
 
-    isHalfLineMode = drv_vpc_get_yuvscaler_half_line_mode(
-        yuvScale->ivinc >> SCALER_BIT_MOVE_TO_OLD_INC, yuvScale->outWidth);
+    isHalfLineMode = drv_vpc_get_yuvscaler_half_line_mode(yuvScale->ivinc >> SCALER_BIT_MOVE_TO_OLD_INC,
+                                                          yuvScale->outWidth);
     if (isHalfLineMode) { // 6 tap
         drv_vpc_config_cmdnode_yuvscaler_6tap_coeff(node, yuvScale, regOffset);
     } else { // 4tap
@@ -431,8 +430,8 @@ static void drv_vpc_config_cmdnode_yuvscaler_coeff(struct CmdNode *node, struct 
     }
 }
 
-static void drv_vpc_config_cmdnode_yuvscaler(
-    dvpp_decoder *decoder, struct CmdNode *node, uint32_t node_idx, uint32_t chn)
+static void drv_vpc_config_cmdnode_yuvscaler(dvpp_decoder *decoder, struct CmdNode *node, uint32_t node_idx,
+                                             uint32_t chn)
 {
     U_BYPASS regBypass;
     U_FORMAT uFormat;
@@ -443,9 +442,9 @@ static void drv_vpc_config_cmdnode_yuvscaler(
     regBypass.u32 = 0;
     uFormat.u32 = 0;
     if (chn == MAIN_CHN) {
-        yuvscale = (struct YuvScale*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_YUVSCALER_CHN0));
+        yuvscale = (struct YuvScale *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_YUVSCALER_CHN0));
     } else if (chn == SUB_CHN_1) {
-        yuvscale = (struct YuvScale*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_YUVSCALER_CHN1));
+        yuvscale = (struct YuvScale *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_PIPE_YUVSCALER_CHN1));
         regOffset = 0x1000; // yuvscale2与1的地址偏移
     }
     if ((yuvscale == NULL) || (yuvscaler_en(yuvscale) == 0)) {
@@ -516,7 +515,7 @@ static void drv_vpc_config_cmdnode_writeback_rear(struct CmdNode *node)
             node->len1 += sizeof(uint32_t);
         }
 
-        node->len1 = ALIGN_UP(node->len1, ADDR_ALIGN_SIZE);
+        node->len1 = DVPP_ALIGN_UP(node->len1, ADDR_ALIGN_SIZE);
         for (j = i; j < node->len1 / sizeof(uint32_t); ++j) {
             dvpp_seq_set_cmdnode_val(node, CMDLST_PADDING_DATA);
         }
@@ -575,7 +574,7 @@ void drv_vpc_cmdnode_config_interrupt(struct CmdNode *node)
 static void drv_vpc_config_cmdnode_rdma(dvpp_decoder *decoder, struct CmdNode *node, uint32_t node_idx)
 {
     struct Rdma *rdma = NULL;
-    rdma = (struct Rdma*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_CHNL_RDMA));
+    rdma = (struct Rdma *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_CHNL_RDMA));
     if (rdma == NULL) {
         DVPP_CMDLIST_VPC_LOG_DEBUG("rdma disable.");
         return;
@@ -613,7 +612,7 @@ static void drv_vpc_config_cmdnode_subchn_top(dvpp_decoder *decoder, struct CmdN
     U_VPC_OUTPUT_PIC_SIZE out2PicSize;
     U_VPC_OUTPUT_FORMAT out2Format;
     const uint32_t height_offset = 16;
-    struct Top *top = (struct Top*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_TOP));
+    struct Top *top = (struct Top *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_TOP));
 
     out2PicSize.u32 = (top->out1Width) | (top->out1Height << height_offset);
     dvpp_seq_set_cmdnode_val(node, REG_VPC_OUTPUT2_PIC_SIZE);
@@ -626,7 +625,7 @@ static void drv_vpc_config_cmdnode_subchn_top(dvpp_decoder *decoder, struct CmdN
 
 static void drv_vpc_config_cmdnode_subchn(dvpp_decoder *decoder, struct CmdNode *node, uint32_t node_idx)
 {
-    struct Top *top = (struct Top*)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_TOP));
+    struct Top *top = (struct Top *)(dvpp_get_vpu_mod_val(decoder, node_idx, VPU_VPC_TYPE_TOP));
     if (top->out1To3En == 0x3) {
         drv_vpc_config_cmdnode_subchn_top(decoder, node, node_idx);
         drv_vpc_config_cmdnode_out_swap(decoder, node, node_idx, SUB_CHN_1);
@@ -677,8 +676,8 @@ void drv_vpc_cmdnode_set_next_node(struct CmdBuf *cmd_buf, struct CmdNode *node)
     const uint32_t REG_CONNECT_HEAD_1 = VPC_CMDLST_OFFSET_ADDR + 0x008;
     const uint32_t REG_CONNECT_HEAD_2 = VPC_CMDLST_OFFSET_ADDR + 0x010;
     const uint32_t REG_CONNECT_HEAD_3 = VPC_CMDLST_OFFSET_ADDR + 0x014;
-    uint64_t baseAddr = (uint64_t)(uintptr_t)(node->next->startAddr) -
-                        (uint64_t)(uintptr_t)(cmd_buf->startAddr) + cmd_buf->ioStartAddr;
+    uint64_t baseAddr = (uint64_t)(uintptr_t)(node->next->startAddr) - (uint64_t)(uintptr_t)(cmd_buf->startAddr) +
+                        cmd_buf->ioStartAddr;
     uint32_t buf_len0 = node->next->dataSize - node->next->len1;
 
     dvpp_ext_set_cmdnode_val(node, REG_CONNECT_HEAD_2);
@@ -691,7 +690,7 @@ void drv_vpc_cmdnode_set_next_node(struct CmdBuf *cmd_buf, struct CmdNode *node)
 
 void drv_vpc_config_sqelist(struct CmdBuf *cmd_buf, uint32_t sqe_idx, uint32_t blkdim)
 {
-    uint32_t* cur_sqe_addr = (uint32_t*)(uintptr_t)(cmd_buf->bufAddr + sqe_idx * SQE_LEN);
+    uint32_t *cur_sqe_addr = (uint32_t *)(uintptr_t)(cmd_buf->bufAddr + sqe_idx * SQE_LEN);
     uint64_t offset = (uint64_t)(uintptr_t)(cmd_buf->cmdHeadNode->startAddr) -
                       (uint64_t)(uintptr_t)(cmd_buf->startAddr);
     uint64_t startAddr = cmd_buf->ioStartAddr + offset;
@@ -713,7 +712,8 @@ void drv_vpc_config_sqelist(struct CmdBuf *cmd_buf, uint32_t sqe_idx, uint32_t b
 void drv_vpc_config_sqe(struct CmdBuf *cmd_buf, enum dvpp_sqe_ptr_mode mode, uint32_t blkdim, struct dvpp_sqe *sqe)
 {
     if (mode == DVPP_SQE_FIRST_PTR_MODE) {
-        uint64_t offset = (uint64_t)(uintptr_t)(cmd_buf->cmdHeadNode->startAddr) - (uint64_t)(uintptr_t)(cmd_buf->startAddr);
+        uint64_t offset = (uint64_t)(uintptr_t)(cmd_buf->cmdHeadNode->startAddr) -
+                          (uint64_t)(uintptr_t)(cmd_buf->startAddr);
         uint64_t startAddr = cmd_buf->ioStartAddr + offset;
         uint32_t buf_len0 = cmd_buf->cmdHeadNode->dataSize - cmd_buf->cmdHeadNode->len1;
         uint32_t buf_len1 = cmd_buf->cmdHeadNode->len1;
@@ -741,7 +741,7 @@ void drv_vpc_config_sqe(struct CmdBuf *cmd_buf, enum dvpp_sqe_ptr_mode mode, uin
         sqe->filed[NUM_3] |= (0x1U << SQE_PTRMODE_OFFSET); // 第3个4字节的第24位表示链表模式，1表示二级
         sqe->filed[NUM_4] = GET_LOW_ADDR(cmd_buf->ioAddr); // 第4个4字节存放二级链表的低32位地址
         sqe->filed[NUM_5] = GET_HIGH_ADDR(cmd_buf->ioAddr); // 第5个4字节的低16位存放二级链表的高16位地址
-        sqe->filed[NUM_5] &= 0x1FFFF; // 第5个4字节的17~30bit是保留字段
+        sqe->filed[NUM_5] &= 0x1FFFF;                       // 第5个4字节的17~30bit是保留字段
         sqe->filed[NUM_5] |= (0x1U << SQE_ADDRTYPE_OFFSET); // 第5个4字节的最高位表示地址类型 1:虚拟地址 0:物理地址
     }
 }

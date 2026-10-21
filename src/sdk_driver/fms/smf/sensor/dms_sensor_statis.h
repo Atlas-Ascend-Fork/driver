@@ -15,7 +15,8 @@
 
 unsigned int dms_sensor_class_init_statis(struct dms_sensor_object_cb *psensor_obj);
 unsigned int dms_process_statis_result_report(struct dms_node_sensor_cb *node_sensor_cb,
-    struct dms_sensor_object_cb *psensor_obj_cb, struct dms_sensor_event_data *pevent_data);
+                                              struct dms_sensor_object_cb *psensor_obj_cb,
+                                              struct dms_sensor_event_data *pevent_data);
 unsigned int dms_process_stat_sensor_check_result(struct dms_sensor_object_cb *pobject, unsigned int *status,
-    unsigned char *event_type);
+                                                  unsigned char *event_type);
 #endif

@@ -112,12 +112,12 @@ STATIC bool trs_spod_sdid_status_check(u32 devid, u32 sdid)
 
 #ifdef CFG_FEATURE_SUPPORT_XCOM
 typedef int (*devdrv_register_p2p_msg_proc_ops)(enum devdrv_msg_client_type msg_type, devdrv_p2p_msg_recv func);
-#define DEVDRV_REGISTER_P2P_MSG_PROC_OPS "devdrv_register_p2p_msg_proc_func"
+#define DEVDRV_REGISTER_P2P_MSG_PROC_OPS "xcom_register_p2p_msg_proc_func"
 typedef int (*devdrv_unregister_p2p_msg_proc_ops)(enum devdrv_msg_client_type msg_type);
-#define DEVDRV_UNREGISTER_P2P_MSG_PROC_OPS "devdrv_unregister_p2p_msg_proc_func"
+#define DEVDRV_UNREGISTER_P2P_MSG_PROC_OPS "xcom_unregister_p2p_msg_proc_func"
 typedef int (*devdrv_p2p_msg_send_ops)(u32 local_devid, u32 sdid, enum devdrv_msg_client_type msg_type,
                                        struct data_input_info *data_info);
-#define DEVDRV_P2P_MSG_SEND_OPS "devdrv_p2p_msg_send"
+#define DEVDRV_P2P_MSG_SEND_OPS "xcom_p2p_msg_send"
 static devdrv_p2p_msg_send_ops devdrv_p2p_msg_send_func = NULL;
 #endif
 
@@ -211,12 +211,14 @@ STATIC int shr_id_create_shadow_node_msg_send(struct shr_id_node_op_attr *attr, 
     create_msg = (struct shr_id_pod_create_msg *)msg.payload;
     create_msg->attr = *attr;
     create_msg->attr.inst.devid = spod.sdid;
+    create_msg->attr.res_get = NULL;
+    create_msg->attr.res_put = NULL;
     create_msg->pid = pid;
     trs_debug("Create shadow info. (devid=%u; local_sdid=0x%x; sdid=0x%x;)\n", attr->inst.devid, spod.sdid, sdid);
 
     ret = trs_pod_msg_send(attr->inst.devid, sdid, &msg, sizeof(struct trs_pod_msg_data));
     if (ret != 0) {
-        trs_err("Send failed. (devid=%u; sdid=0x%x; ret=%d; result=%d)\n", attr->inst.devid, sdid, ret,
+        trs_err("Send fail. (devid=%u; sdid=0x%x; ret=%d; result=%d)\n", attr->inst.devid, sdid, ret,
                 msg.header.result);
         return ret;
     }
@@ -242,8 +244,7 @@ STATIC int shr_id_pod_set_pid_msg_send(struct shr_id_node_op_attr *attr, u32 sdi
 
     ret = trs_pod_msg_send(attr->inst.devid, sdid, &msg, sizeof(struct trs_pod_msg_data));
     if (ret != 0) {
-        trs_err("Send failed. (devid=%u; sdid=%u; ret=%d; result=%d)\n", attr->inst.devid, sdid, ret,
-                msg.header.result);
+        trs_err("Send fail. (devid=%u; sdid=%u; ret=%d; result=%d)\n", attr->inst.devid, sdid, ret, msg.header.result);
         return ret;
     }
     return 0;
@@ -672,7 +673,7 @@ static void shadow_node_loop_for_async_send_recv(struct shr_id_spod_info *spod_i
         current_time = ka_system_ktime_get_ns();
         time_cost = current_time - start_time;
         if (time_cost >= MAX_LOOP_TIME) {
-            trs_debug("The async collection loop has timed out.(devid=%u, pid=%u, name=%s, time_cost=%lluns)\n",
+            trs_debug("The async collection loop has timed out.(devid=%u, pid=%u, name=%s, time_cost=%llu ns)\n",
                       spod_info->attr.inst.devid, spod_info->attr.pid, spod_info->attr.name, time_cost);
             is_timeout = true;
         }
@@ -970,7 +971,7 @@ STATIC int shr_id_set_pod_pid(struct shr_id_proc_ctx *proc_ctx, unsigned long ar
     ret = dbl_parse_sdid(ioctl_info.sdid, &parse);
 #endif
     if ((ret != 0) || (parse.server_id >= SHR_ID_PID_SERVER_ID_MAX_NUM)) {
-        trs_err("Parse failed. (ret=%d; server_id=%u; server id range is [0, %u].)\n", ret, parse.server_id,
+        trs_err("Parse fail. (ret=%d; server_id=%u; server id range is [0, %u].)\n", ret, parse.server_id,
                 (SHR_ID_PID_SERVER_ID_MAX_NUM - 1));
         return -EINVAL;
     }

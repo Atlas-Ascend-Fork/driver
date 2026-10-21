@@ -10,7 +10,7 @@ struct dms_sensor_node_cfg {
     char name[CFG_NAME_MAX_LENGTH];
     unsigned short node_type; /* bit 15~8: 000-hardware 001-soft 111-product; bit 7~0: node_type */
     unsigned char sensor_type;
-    unsigned char resv;  /* used for byte alignment */
+    unsigned char resv; /* used for byte alignment */
     unsigned int assert_event_mask;
     unsigned int deassert_event_mask;
     unsigned char reserve[32]; /* 32: unused */

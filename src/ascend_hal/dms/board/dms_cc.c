@@ -29,8 +29,8 @@ drvError_t dms_set_cc_info(unsigned int device_id, void *buf, unsigned int buf_s
     struct dms_cc_mode mode = {0};
 
     if (device_id >= ASCEND_DEV_MAX_NUM || buf == NULL || buf_size != sizeof(struct dms_cc_mode)) {
-        DMS_ERR("Parameter is invalid. (device_id=%u; info_is_null=%d; buf_size=%u)\n",
-            device_id, (buf == NULL), buf_size);
+        DMS_ERR("Parameter is invalid. (device_id=%u; info_is_null=%d; buf_size=%u)\n", device_id, (buf == NULL),
+                buf_size);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -48,8 +48,8 @@ drvError_t dms_set_cc_info(unsigned int device_id, void *buf, unsigned int buf_s
         return ret;
     }
 
-    DMS_EVENT("Set cc mode success. (device_id=%u; cc_mode=%u; crypto_mode=%u)\n",
-        device_id, mode.cc_mode, mode.crypto_mode);
+    DMS_EVENT("Set cc mode success. (device_id=%u; cc_mode=%u; crypto_mode=%u)\n", device_id, mode.cc_mode,
+              mode.crypto_mode);
     return DRV_ERROR_NONE;
 #else
     (void)device_id;
@@ -68,19 +68,19 @@ drvError_t dms_get_cc_info(unsigned int device_id, void *buf, unsigned int *buf_
     struct dms_cc_info cc_info = {0};
 
     if (device_id >= ASCEND_DEV_MAX_NUM || buf == NULL || buf_size == NULL) {
-        DMS_ERR("Parameter is invalid. (device_id=%u; info_is_null=%d; buf_size_is_null=%d)\n",
-            device_id, (buf == NULL), (buf_size==NULL));
+        DMS_ERR("Parameter is invalid. (device_id=%u; info_is_null=%d; buf_size_is_null=%d)\n", device_id,
+                (buf == NULL), (buf_size == NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 
     if (*buf_size != sizeof(struct dms_cc_info)) {
-        DMS_ERR("The value of buf_size is invalid. (buf_size=%u; size=%u)\n",
-            *buf_size, sizeof(struct dms_cc_info));
+        DMS_ERR("The value of buf_size is invalid. (buf_size=%u; size=%u)\n", *buf_size, sizeof(struct dms_cc_info));
         return DRV_ERROR_PARA_ERROR;
     }
 
     urd_usr_cmd_fill(&cmd, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CC_INFO, NULL, 0);
-    urd_usr_cmd_para_fill(&cmd_para, NULL, 0, (void *)&cc_info, sizeof(struct dms_cc_info));
+    urd_usr_cmd_para_fill(&cmd_para, (void *)&device_id, sizeof(unsigned int), (void *)&cc_info,
+                          sizeof(struct dms_cc_info));
     ret = urd_dev_usr_cmd(device_id, &cmd, &cmd_para);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Ioctl failed. (ret=%d; device_id=%u)\n", ret, device_id);
@@ -94,8 +94,8 @@ drvError_t dms_get_cc_info(unsigned int device_id, void *buf, unsigned int *buf_
     }
 
     DMS_DEBUG("Get cc mode success. (device_id=%u; cc_running=%u; crypto_running=%u; cc_cfg=%u; crypto_cfg=%u)\n",
-        device_id, cc_info.cc_running_info.cc_mode, cc_info.cc_running_info.crypto_mode,
-        cc_info.cc_cfg_info.cc_mode, cc_info.cc_cfg_info.crypto_mode);
+              device_id, cc_info.cc_running_info.cc_mode, cc_info.cc_running_info.crypto_mode,
+              cc_info.cc_cfg_info.cc_mode, cc_info.cc_cfg_info.crypto_mode);
     return DRV_ERROR_NONE;
 #else
     (void)device_id;

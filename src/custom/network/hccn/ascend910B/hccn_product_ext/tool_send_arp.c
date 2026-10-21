@@ -142,8 +142,8 @@ static int tool_get_ip_mac_info_for_arp(int logic_id, struct gratuitous_arp_info
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 
-    ret = sprintf_s(arp_info->mac_addr, ARP_ADDR_LEN, "%02x:%02x:%02x:%02x:%02x:%02x", mac_addr[0x0],
-                    mac_addr[0x1], mac_addr[0x2], mac_addr[0x3], mac_addr[0x4], mac_addr[0x5]);
+    ret = sprintf_s(arp_info->mac_addr, ARP_ADDR_LEN, "%02x:%02x:%02x:%02x:%02x:%02x", mac_addr[0x0], mac_addr[0x1],
+                    mac_addr[0x2], mac_addr[0x3], mac_addr[0x4], mac_addr[0x5]);
     if (ret <= 0) {
         roce_err("Sprintf_s mac address fail. (ret=%d)", ret);
         return UDA_TOOL_NO_MEM_ERR;

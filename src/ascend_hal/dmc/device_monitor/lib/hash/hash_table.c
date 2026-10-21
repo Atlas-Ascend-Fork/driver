@@ -11,9 +11,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "ascend_inpackage_hal.h"
 #include "securec.h"
 #include "dev_mon_log.h"
-
 
 #define TABLE_SIZE 1024
 
@@ -98,10 +98,7 @@ hash_table *hash_table_new(void)
     }
 
     ret = memset_s(ht->table, sizeof(struct kv *) * TABLE_SIZE, 0, sizeof(struct kv *) * TABLE_SIZE);
-    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), NULL, free(ht->table);
-                                ht->table = NULL;
-                                free(ht);
-                                ht = NULL;
+    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), NULL, free(ht->table); ht->table = NULL; free(ht); ht = NULL;
                                 DEV_MON_ERR("memset_s error\n"));
     return ht;
 }
@@ -134,8 +131,8 @@ void hash_table_delete(hash_table *ht)
     ht = NULL;
 }
 
-STATIC void hash_table_put2_tag_stored(struct kv **p, struct kv **prep, const char *tag,
-     void *value, void (*free_value)(void *))
+STATIC void hash_table_put2_tag_stored(struct kv **p, struct kv **prep, const char *tag, void *value,
+                                       void (*free_value)(void *))
 {
     while ((*p) != NULL) { /* if tag is already stored, update its value */
         if (strcmp((*p)->tag, tag) == 0) {
@@ -154,8 +151,8 @@ STATIC void hash_table_put2_tag_stored(struct kv **p, struct kv **prep, const ch
 }
 
 /* if tag has not been stored, then add it */
-STATIC int hash_table_put2_tag_not_stored(hash_table *ht, struct kv **prep, const char *tag,
-    void *value, void (*free_value)(void *))
+STATIC int hash_table_put2_tag_not_stored(hash_table *ht, struct kv **prep, const char *tag, void *value,
+                                          void (*free_value)(void *))
 {
     char *kstr = NULL;
     struct kv *kv = NULL;
@@ -336,3 +333,27 @@ unsigned short get_hash_table_value(hash_table *ht, void **node_buff, unsigned s
     return count_tmp;
 }
 
+void *halHashTableNew(void)
+{
+    return (void *)hash_table_new();
+}
+
+void halHashTableDelete(void *ht)
+{
+    hash_table_delete((hash_table *)ht);
+}
+
+int halHashTablePut2(void *ht, const char *tag, void *value, void (*free_value)(void *))
+{
+    return hash_table_put2((hash_table *)ht, tag, value, free_value);
+}
+
+void *halHashTableGet(const void *ht, const char *tag)
+{
+    return hash_table_get((const hash_table *)ht, tag);
+}
+
+void halHashTableRm(void *ht, const char *tag)
+{
+    hash_table_rm((hash_table *)ht, tag);
+}

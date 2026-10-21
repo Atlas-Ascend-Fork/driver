@@ -210,6 +210,7 @@ int devdrv_dma_async_link_copy_plus_inner(u32 index_id, enum devdrv_dma_data_typ
     ret = devdrv_dma_node_check(index_id, dma_node, node_cnt, dma_dev);
     if (ret != 0) {
         devdrv_err("Dma node check failed. (index_id=%u; ret=%d)\n", index_id, ret);
+        return ret;
     }
 
     devdrv_dma_copy_type_info_init(&para, type, DEVDRV_DMA_WAIT_INTR, DEVDRV_DMA_ASYNC);

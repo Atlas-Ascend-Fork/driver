@@ -26,7 +26,7 @@
 #define UDA_DEV_MAX_NUM UDA_MAX_PHY_DEV_NUM
 #define UDA_DEV_NAME_LEN 32
 
-#if (defined (DRV_HOST)) || (defined (CFG_FEATURE_VFIO_SOC))
+#if (defined(DRV_HOST)) || (defined(CFG_FEATURE_VFIO_SOC))
 #define DEV_MODE_PERMISSION 0660
 #else
 #define DEV_MODE_PERMISSION 0600
@@ -90,4 +90,3 @@ void uda_access_uninit(void);
 ka_mnt_namespace_t *uda_get_current_ns(void);
 void uda_recycle_idle_ns_node_immediately(void);
 #endif
-

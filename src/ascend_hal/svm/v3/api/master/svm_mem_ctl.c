@@ -19,6 +19,7 @@
 #include "svm_addr_desc.h"
 #include "svm_mem_repair.h"
 #include "svm_dbi.h"
+#include "svm_pagefault_info.h"
 
 int mem_ctrl_mem_repair(void *param_value, size_t param_value_size, void *out_value, size_t *out_size_ret)
 {
@@ -36,9 +37,13 @@ int mem_ctrl_mem_repair(void *param_value, size_t param_value_size, void *out_va
 }
 
 #if !defined(CFG_SOC_PLATFORM_CLOUD_V5_ESL) && !defined(CFG_SOC_PLATFORM_CLOUD_V4_ESL)
-static bool mem_ctrl_is_pcie_bar_mem_support(u32 devid) /* todo: p2p support query. */
+static bool mem_ctrl_is_host_access_dev_mem_support(u32 devid) /* todo: p2p support query. */
 {
-    if (svm_dbi_is_support_pci_bar(devid)) {
+    if (svm_dbi_is_cc_vm()) {
+        return false;
+    }
+
+    if (svm_dbi_is_support_host_access_dev(devid)) {
         u64 page_size, host_page_size;
         int ret = svm_dbi_query_npage_size(devid, &page_size);
         if (ret != 0) {
@@ -56,9 +61,9 @@ static bool mem_ctrl_is_pcie_bar_mem_support(u32 devid) /* todo: p2p support que
     return false;
 }
 
-static bool mem_ctrl_is_pcie_bar_huge_mem_support(u32 devid)
+static bool mem_ctrl_is_host_access_dev_huge_mem_support(u32 devid)
 {
-    return svm_dbi_is_support_pci_bar(devid);
+    return !svm_dbi_is_cc_vm() && svm_dbi_is_support_host_access_dev(devid);
 }
 
 static bool mem_ctrl_is_giant_page_support(u32 devid)
@@ -74,8 +79,8 @@ int mem_ctrl_support_feature(void *param_value, size_t param_value_size, void *o
 {
 #if !defined(CFG_SOC_PLATFORM_CLOUD_V5_ESL) && !defined(CFG_SOC_PLATFORM_CLOUD_V4_ESL)
     static bool (*const mem_ctl_feature_is_support[SUPPORT_FEATURE_MAX_NUM])(u32 devid) = {
-        [CTRL_SUPPORT_PCIE_BAR_MEM_BIT] = mem_ctrl_is_pcie_bar_mem_support,
-        [CTRL_SUPPORT_PCIE_BAR_HUGE_MEM_BIT] = mem_ctrl_is_pcie_bar_huge_mem_support,
+        [CTRL_SUPPORT_PCIE_BAR_MEM_BIT] = mem_ctrl_is_host_access_dev_mem_support,
+        [CTRL_SUPPORT_PCIE_BAR_HUGE_MEM_BIT] = mem_ctrl_is_host_access_dev_huge_mem_support,
         [CTRL_SUPPORT_GIANT_PAGE_BIT] = mem_ctrl_is_giant_page_support,
     };
     struct supportFeaturePara *in_para = (struct supportFeaturePara *)param_value;
@@ -146,6 +151,8 @@ static int (*svm_mem_ctrl_handlers[CTRL_TYPE_MAX])(void *param, size_t param_siz
     [CTRL_TYPE_SUPPORT_FEATURE] = mem_ctrl_support_feature,
     [CTRL_TYPE_MEM_REPAIR] = mem_ctrl_mem_repair,
     [CTRL_TYPE_GET_ADDR_MODULE_ID] = mem_ctrl_get_addr_module_id,
+    [CTRL_TYPE_PAGEFAULT_INFO_QUERY] = mem_ctrl_pagefault_info_query,
+    [CTRL_TYPE_PAGEFAULT_INFO_CLEAR] = mem_ctrl_pagefault_info_clear,
 };
 
 drvError_t halMemCtl(int type, void *param_value, size_t param_value_size, void *out_value, size_t *out_size_ret)

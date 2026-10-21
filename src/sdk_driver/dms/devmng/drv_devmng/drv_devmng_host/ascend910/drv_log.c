@@ -24,7 +24,7 @@
 
 #define ASCEND_DRV_BASE_FILE_NAME "ascend_drv"
 #define ASCEND_DRV_LOG_LEVEL_FILE_NAME "log_level"
-int console_log_level = 3;   /* default log level */
+int console_log_level = 3; /* default log level */
 ka_proc_dir_entry_t *file_base_path = NULL;
 ka_proc_dir_entry_t *log_level_file = NULL;
 char console_log_level_info[LOG_LEVEL_FILE_INFO_LEN];
@@ -33,11 +33,13 @@ ka_mutex_t log_level_mutex;
 ssize_t log_level_file_read(ka_file_t *file, char __ka_user *data, size_t len, loff_t *off);
 ssize_t log_level_file_write(ka_file_t *file, const char __ka_user *data, size_t len, loff_t *off);
 
+// clang-format off
 ka_procfs_ops_t log_level_file_ops = {
     ka_fs_init_pf_owner(KA_THIS_MODULE)
     ka_fs_init_pf_read(log_level_file_read)
     ka_fs_init_pf_write(log_level_file_write)
 };
+// clang-format on
 
 char *module_str = "drv_log";
 void log_level_file_remove(void)
@@ -183,7 +185,7 @@ int log_level_file_init(void)
     }
 
     log_level_file = ka_fs_proc_create_data(ASCEND_DRV_LOG_LEVEL_FILE_NAME, DEVDRV_HOST_LOG_FILE_CREAT_AUTHORITY,
-        file_base_path, &log_level_file_ops, console_log_level_info);
+                                            file_base_path, &log_level_file_ops, console_log_level_info);
     if (log_level_file == NULL) {
         drv_err(module_str, "proc/ascend_drv/log_level create failed!\n");
         ka_fs_remove_proc_entry(ASCEND_DRV_BASE_FILE_NAME, NULL);

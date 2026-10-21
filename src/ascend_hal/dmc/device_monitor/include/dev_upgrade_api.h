@@ -39,17 +39,17 @@ int dev_upgrade_api_get_version(int dev_id, unsigned int component_type, unsigne
                                 unsigned int max_len);
 int dev_upgrade_api_init(void);
 int dev_upgrade_api_uninit(void);
-int dev_upgrade_api_soc_revocation(int dev_id, unsigned int type,
-    const unsigned char *file_data, unsigned int file_size);
+int dev_upgrade_api_soc_revocation(int dev_id, unsigned int type, const unsigned char *file_data,
+                                   unsigned int file_size);
 
 int dev_upgrade_soc_revocation(int dev_id, unsigned int type, const unsigned char *file_data, unsigned int file_size);
 int dev_upgrade_api_get_dev_info(unsigned int dev_id, unsigned int vfid, unsigned int cmd, void *buf,
-    unsigned int *size);
+                                 unsigned int *size);
 int dev_upgrade_api_set_dev_info(unsigned int dev_id, unsigned int cmd, void *buf, unsigned int size);
 int dev_upgrade_get_dev_info(int dev_id, unsigned int cmd, void *buf, unsigned int *size);
 int dev_upgrade_set_dev_info(int dev_id, unsigned int cmd, void *buf, unsigned int size);
 int dev_upgrade_api_get_recovery_info(unsigned int dev_id, unsigned int vfid, unsigned int cmd, void *buf,
-    unsigned int *size);
+                                      unsigned int *size);
 int dev_upgrade_api_set_recovery_info(unsigned int dev_id, unsigned int cmd, void *buf, unsigned int size);
 int dev_upgrade_load_patch(int dev_id, const char *file_name);
 int dev_upgrade_unload_patch(int dev_id);

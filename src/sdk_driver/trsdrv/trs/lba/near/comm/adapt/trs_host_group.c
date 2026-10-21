@@ -37,7 +37,7 @@ int trs_get_vfid_by_grp_id(u32 devid, u32 grp_id, u32 *vfid)
         return ret;
     }
     if (grp_info.vfid >= TRS_VF_MAX_NUM) {
-        trs_err("Invalid vfid. (udevid=%u; grp_id=%u; vfid=%u)\n", devid, grp_id, *vfid);
+        trs_err("Invalid vfid. (udevid=%u; grp_id=%u; vfid=%u)\n", devid, grp_id, grp_info.vfid);
         return -EINVAL;
     }
 
@@ -87,7 +87,7 @@ int trs_sqcq_change_flag_init(struct trs_id_inst *inst, u32 grp_id, u32 vfid)
         struct soc_mia_grp_info grp_info;
         ret = soc_resmng_dev_get_mia_grp_info(inst->devid, grp_id, &grp_info);
         if (ret != 0) {
-            trs_err("Failed to init flag. (udevid=%u; grp_id=%u)\n", inst->devid, grp_id);
+            trs_err("Failed to get mia group info. (udevid=%u; grp_id=%u)\n", inst->devid, grp_id);
             return ret;
         }
         trs_info("Set change flag. (devid=%u; vfid=%u; vnpu_vfid=%u; bitmap=0x%llx)\n", inst->devid, vfid, vnpu_vfid,
@@ -117,7 +117,7 @@ void trs_sqcq_change_flag_uninit(struct trs_id_inst *inst, u32 grp_id, u32 vfid)
         struct soc_mia_grp_info grp_info;
         ret = soc_resmng_dev_get_mia_grp_info(inst->devid, grp_id, &grp_info);
         if (ret != 0) {
-            trs_err("Failed to uninit flag. (udevid=%u; grp_id=%u)\n", inst->devid, grp_id);
+            trs_err("Failed to get mia group info. (udevid=%u; grp_id=%u)\n", inst->devid, grp_id);
             return;
         }
         for (bit = 0; bit < TRS_MAX_ID_BIT_NUM; bit++) {
@@ -141,7 +141,7 @@ static bool trs_get_sqcq_change_flag_with_id(u32 devid, u32 id)
     res_inst.sub_type = TS_SUBSYS;
     ret = soc_resmng_get_mia_res_ex(&res_inst, MIA_STARS_RTSQ, &info);
     if ((ret != 0) || (info.unit_per_bit == 0)) {
-        trs_err("Failed to change flag with id. (ret=%d; devid=%u)\n", ret, devid);
+        trs_err("Failed to get mia res ex. (ret=%d; devid=%u)\n", ret, devid);
         return false;
     }
     slice = id / info.unit_per_bit;

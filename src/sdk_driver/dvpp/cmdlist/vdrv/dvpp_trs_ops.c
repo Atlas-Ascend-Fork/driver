@@ -49,20 +49,20 @@ static int32_t get_svm_pa_list(ka_pid_t pid, dvpp_sqe_args *sqe_args, dvpp_share
     mem_list_size = sizeof(uint64_t) * pa_num;
     pa_info_size = sizeof(dvpp_svm_pa_info) + mem_list_size * 2; // 2 mem_list_size
     if (sqe_args->args_size + pa_info_size > blk->size) {
-        DVPP_CMDLIST_LOG_ERROR("args size:%llu and pa_info size %llu bigger than blk size %llu\n", sqe_args->args_size,
+        DVPP_CMDLIST_LOG_ERROR("args size:%u and painfo size %llu bigger than blk size %llu\n", sqe_args->args_size,
                                pa_info_size, blk->size);
         return -1;
     }
 
     pa_info = (dvpp_svm_pa_info *)(sqe_args->args_addr + sqe_args->args_size);
-    pa_info->pa_list = (uint64_t)(uintptr_t)(pa_info) + sizeof(dvpp_svm_pa_info);
-    pa_info->size_list = (uint64_t)(uintptr_t)(pa_info->pa_list) + mem_list_size;
+    pa_info->pa_list = (uint64_t *)((uint64_t)(uintptr_t)(pa_info) + sizeof(dvpp_svm_pa_info));
+    pa_info->size_list = (uint64_t *)((uint64_t)(uintptr_t)(pa_info->pa_list) + mem_list_size);
     pa_info->num = pa_num;
     pa_info->page_size = page_size;
     ret = dvpp_get_pa_list_from_svm_addr(pid, sqe_args->cmdbuf_uva, sqe_args->cmdbuf_size, pa_info);
     if (ret != 0) {
         DVPP_CMDLIST_LOG_ERROR("get phy addr list based on svm addr fail, uva:%pK, size:%u, ret:%d\n",
-                               sqe_args->cmdbuf_uva, sqe_args->cmdbuf_size, ret);
+                               (void *)(sqe_args->cmdbuf_uva), sqe_args->cmdbuf_size, ret);
         return -1;
     }
 
@@ -125,14 +125,14 @@ static int32_t dvpp_trs_sqe_update(uint32_t devid, uint32_t tsid, int32_t pid, v
     }
 
     if (sqe_args->args_size > blk->size) {
-        DVPP_CMDLIST_LOG_ERROR("args size %lu is bigger than blk size %llu.\n", sqe_args->args_size, blk->size);
+        DVPP_CMDLIST_LOG_ERROR("args size %u is bigger than blk size %llu.\n", sqe_args->args_size, blk->size);
         return -1;
     }
 
     // args内存拷贝到共享内存中
-    n = ka_base_copy_from_user((void *)blk->addr, sqe_args->args_addr, sqe_args->args_size);
+    n = ka_base_copy_from_user((void *)blk->addr, (void *)(sqe_args->args_addr), sqe_args->args_size);
     if (n != 0) {
-        DVPP_CMDLIST_LOG_ERROR("copy args from user fail, need copy size is %u, remain %u is not copied.\n",
+        DVPP_CMDLIST_LOG_ERROR("copy args from user fail, need copy size is %u, remain %llu is not copied.\n",
                                sqe_args->args_size, n);
         return -1;
     }
@@ -236,6 +236,7 @@ static int32_t dvpp_trs_sqe_update_ts(uint32_t devid, uint32_t tsid, int32_t pid
 
 void dvpp_trs_sqe_update_init(void)
 {
+    cmdlist_case cmd_case;
     int32_t ret = 0;
     // 挂接响应tsagent的sqe update请求钩子函数
     ts_agent_dvpp_ops_t dvpp_ops = {
@@ -244,7 +245,6 @@ void dvpp_trs_sqe_update_init(void)
     tsagent_dvpp_register(&dvpp_ops);
 
     // 挂接响应iotcl的sqe update请求钩子函数，虚拟机场景
-    cmdlist_case cmd_case;
     cmd_case.cmd = GEN_CMDLIST;
     cmd_case.handler = dvpp_gen_cmdlist_handler;
     ret = dvpp_set_gen_cmdlist_func(&cmd_case);

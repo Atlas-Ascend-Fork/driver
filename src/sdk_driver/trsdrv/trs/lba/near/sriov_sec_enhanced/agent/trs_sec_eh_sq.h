@@ -26,6 +26,7 @@ struct trs_sec_eh_sq_ctx_info {
     u16 sqdepth;
     u8 sqesize;
     u32 mem_type;
+    u16 sq_create_cmd_type;
 
     int pid;
 

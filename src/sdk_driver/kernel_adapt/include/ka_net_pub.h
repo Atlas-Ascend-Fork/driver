@@ -344,7 +344,11 @@ static inline void ka_net_netdev_set_features(ka_net_device_t *ndev, unsigned lo
 
 static inline void ka_net_netdev_set_max_mtu(ka_net_device_t *ndev, unsigned int max_mtu)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
     ndev->max_mtu = max_mtu;
+#else
+    // 4.10 below, max_mtu is not supported
+#endif
 }
 
 static inline size_t ka_net_copy_to_iter(void *addr, size_t bytes, ka_iov_iter_t *i)

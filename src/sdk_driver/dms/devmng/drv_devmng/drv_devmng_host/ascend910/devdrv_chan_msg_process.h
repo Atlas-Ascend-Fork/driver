@@ -30,5 +30,3 @@ int devdrv_manager_init_common_chan(u32 dev_id);
 struct devdrv_common_msg_client *devdrv_manager_get_common_chan(u32 dev_id);
 
 #endif
-
-

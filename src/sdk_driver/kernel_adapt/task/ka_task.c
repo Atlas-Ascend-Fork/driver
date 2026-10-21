@@ -337,7 +337,7 @@ ssize_t ka_task_kernel_read(ka_file_t *file, void *buf, size_t count)
     (void)file;
     ret = new_cpuset_read(buf, count);
 #else
-    ret = ka_fs_kernel_read(file, buf, count, pos);
+    ret = ka_fs_kernel_read(file, buf, count, &pos);
 #endif
     return ret;
 }

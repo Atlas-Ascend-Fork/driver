@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include "ascend_inpackage_hal.h"
 #include "dev_mon_dmp_client.h"
 #include "dm_smbus.h"
 #include "dsmi_common_interface.h"
@@ -22,7 +23,7 @@
 
 STATIC hash_table *g_client_rsp_hashtable = NULL;
 
-STATIC LIST_T *g_slice_msg_list = NULL;  /* slice msg register list */
+STATIC LIST_T *g_slice_msg_list = NULL; /* slice msg register list */
 
 static void free_client_resp_node(void *resp)
 {
@@ -39,34 +40,34 @@ static void free_client_resp_node(void *resp)
     resp = NULL;
 }
 
+#define SET_CTL_CB(ctl, ret, intf, addr, addr_len, rsp_hndl, user_data, data_len)                     \
+    do {                                                                                              \
+        (ctl)->intf = intf;                                                                           \
+        (ctl)->addr = *(addr);                                                                        \
+        (ctl)->addr_len = addr_len;                                                                   \
+        (ctl)->rsp_hndl = rsp_hndl;                                                                   \
+        (ctl)->user_data = NULL;                                                                      \
+        (ctl)->data_len = 0;                                                                          \
+        (ctl)->next = NULL;                                                                           \
+        if ((user_data) && ((data_len) > 0)) {                                                        \
+            (ctl)->user_data = malloc((size_t)(data_len));                                            \
+            if (!(ctl)->user_data) {                                                                  \
+                goto error_out;                                                                       \
+            }                                                                                         \
+            if (memset_s((void *)(ctl)->user_data, (size_t)(data_len), 0, (size_t)(data_len)) != 0) { \
+                goto error_out;                                                                       \
+            }                                                                                         \
+            (ret) = memcpy_s((ctl)->user_data, (size_t)(data_len), user_data, (size_t)(data_len));    \
+            (ctl)->data_len = data_len;                                                               \
+        }                                                                                             \
+    } while (0)
 
-#define SET_CTL_CB(ctl, ret, intf, addr, addr_len, rsp_hndl, user_data, data_len) do {                                                  \
-    (ctl)->intf = intf;                                                       \
-    (ctl)->addr = *addr;                                                      \
-    (ctl)->addr_len = addr_len;                                               \
-    (ctl)->rsp_hndl = rsp_hndl;                                               \
-    (ctl)->user_data = NULL;                                                  \
-    (ctl)->data_len = 0;                                                      \
-    (ctl)->next = NULL;                                                       \
-    if (user_data && (data_len > 0)) {                                        \
-        (ctl)->user_data = malloc((size_t)(data_len));                                  \
-        if (!(ctl)->user_data) {                                              \
-            goto error_out;                                                   \
-        }                                                                     \
-        if (memset_s((void *)(ctl)->user_data, (size_t)(data_len), 0, (size_t)(data_len)) != 0) { \
-            goto error_out;                                                   \
-        }                                                                     \
-        (ret) = memcpy_s((ctl)->user_data, (size_t)(data_len), user_data, (size_t)(data_len));      \
-        (ctl)->data_len = data_len;                                           \
-    }                                                                         \
-} while (0)
-
-#define SET_BIT(x, y) ((x) |= (1 << (y)))
+#define SET_BIT(x, y) ((x) |= (1U << (y)))
 #define CLR_BIT(x, y) ((x) &= (unsigned char)(~((unsigned char)(1U << (unsigned char)(y)))))
 
 STATIC void slice_msg_free(void *ctl_cb)
 {
-    SEND_CTL_CB *cb = (SEND_CTL_CB*)ctl_cb;
+    SEND_CTL_CB *cb = (SEND_CTL_CB *)ctl_cb;
     if (cb != NULL) {
         if (cb->user_data != NULL) {
             free(cb->user_data);
@@ -173,11 +174,12 @@ STATIC void clear_client_rsp_data(hash_table *hashtable, DM_INTF_S *intf, DM_REC
     DRV_CHECK_RET((tmp != NULL));
     ret = sprintf_s(property_tag, sizeof(property_tag), "tag.%u.%u", tmp->op_fun, tmp->op_cmd);
     DRV_CHECK_RET_DO_SOMETHING((ret >= 0), DEV_MON_ERR("sprintf_s call failed! ret = %d\n", ret));
-    hash_table_rm(hashtable, p_property_tag);
+    halHashTableRm(hashtable, p_property_tag);
 }
 
 STATIC DEV_MON_CLIENT_RESP_TAG_VALUE_ST *client_resp_hash_insert(hash_table *hashtable, DM_INTF_S *intf,
-    unsigned char op_fun, unsigned char op_cmd, unsigned short data_len, unsigned char *data)
+                                                                 unsigned char op_fun, unsigned char op_cmd,
+                                                                 unsigned short data_len, unsigned char *data)
 {
     char property_tag[DEV_PROPERTY_TAG_LEN] = {0};
     char *p_property_tag = property_tag;
@@ -194,7 +196,7 @@ STATIC DEV_MON_CLIENT_RESP_TAG_VALUE_ST *client_resp_hash_insert(hash_table *has
 
     ret = sprintf_s(property_tag, sizeof(property_tag), "tag.%u.%u", op_fun, op_cmd);
     DRV_CHECK_RETV_DO_SOMETHING((ret >= 0), NULL, DEV_MON_ERR("sprintf_s call failed! ret = %d\n", ret));
-    value = hash_table_get(hashtable, p_property_tag);
+    value = halHashTableGet(hashtable, p_property_tag);
     if (value != NULL) {
         /* if there is already data, refresh it */
         /* re-apply for space */
@@ -213,20 +215,18 @@ STATIC DEV_MON_CLIENT_RESP_TAG_VALUE_ST *client_resp_hash_insert(hash_table *has
         }
 
         ret = memcpy_s(tmp_buf, malloc_len, value->data, value->data_len);
-        DRV_CHECK_RETV_DO_SOMETHING(!ret, NULL, free(tmp_buf);
-                                    tmp_buf = NULL);
+        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), NULL, free(tmp_buf); tmp_buf = NULL);
         ret = memcpy_s(tmp_buf + value->data_len, (size_t)(malloc_len - value->data_len), data + DDMP_CMD_RESP_HEAD_LEN,
                        (size_t)(data_len - DDMP_CMD_RESP_HEAD_LEN));
-        DRV_CHECK_RETV_DO_SOMETHING(!ret, NULL, free(tmp_buf);
-                                    tmp_buf = NULL);
+        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), NULL, free(tmp_buf); tmp_buf = NULL);
         free(value->data);
         value->data = tmp_buf;
         value->data_len = malloc_len;
         /* refresh the message content */
         ob = (DM_REP_MSG *)value->data;
-        ob->data_length = ((value->data_len - DDMP_CMD_RESP_HEAD_LEN) >= ob->total_length)
-                                ? (ob->total_length)
-                                : (value->data_len - DDMP_CMD_RESP_HEAD_LEN);
+        ob->data_length = ((value->data_len - DDMP_CMD_RESP_HEAD_LEN) >= ob->total_length) ?
+                              (ob->total_length) :
+                              (value->data_len - DDMP_CMD_RESP_HEAD_LEN);
         return value;
     }
 
@@ -264,12 +264,9 @@ STATIC DEV_MON_CLIENT_RESP_TAG_VALUE_ST *client_resp_hash_insert(hash_table *has
     }
 
     ret = memcpy_s(value->data, data_len, data, data_len);
-    DRV_CHECK_RETV_DO_SOMETHING(!ret, NULL, free(value->data);
-                                value->data = NULL;
-                                free(value);
-                                value = NULL;
+    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), NULL, free(value->data); value->data = NULL; free(value); value = NULL;
                                 DEV_MON_ERR("memcpy_s call failed! ret:%d\n", ret));
-    ret = hash_table_put2(hashtable, p_property_tag, value, free_client_resp_node);
+    ret = halHashTablePut2(hashtable, p_property_tag, value, free_client_resp_node);
     if (ret != 0) {
         DEV_MON_ERR("hash_table_put2 fail: %d\n", ret);
 
@@ -301,7 +298,7 @@ STATIC void comm_msg_handle(DM_INTF_S *intf, DM_RECV_ST *recv, const void *user_
     DRV_CHECK_RET((recv != NULL));
     DRV_CHECK_RET((user_data != NULL));
     ret = memcpy_s(&p, sizeof(SEND_CTL_CB *), user_data, sizeof(SEND_CTL_CB *));
-    DRV_CHECK_RET_DO_SOMETHING(!ret, DEV_MON_ERR("memcpy_s call failed! ret:%d\n", ret));
+    DRV_CHECK_RET_DO_SOMETHING((ret == 0), DEV_MON_ERR("memcpy_s call failed! ret:%d\n", ret));
     DRV_CHECK_RET((p != NULL));
 
     list_iter_init(g_slice_msg_list, &iter);
@@ -348,8 +345,8 @@ STATIC void comm_msg_handle(DM_INTF_S *intf, DM_RECV_ST *recv, const void *user_
     } else {
         tmp_p = p->next;
         free_current_ctl_cb(p);
-        ret = dm_send_req(tmp_p->intf, &tmp_p->addr, tmp_p->addr_len, tmp_p->msg,
-                          (DM_MSG_CMD_HNDL_T)comm_msg_handle, &tmp_p, sizeof(SEND_CTL_CB *));
+        ret = dm_send_req(tmp_p->intf, &tmp_p->addr, tmp_p->addr_len, tmp_p->msg, (DM_MSG_CMD_HNDL_T)comm_msg_handle,
+                          &tmp_p, sizeof(SEND_CTL_CB *));
         if (ret != 0) {
             DEV_MON_ERR("send request failed\n");
             free_send_ctl_cb(tmp_p);
@@ -421,35 +418,36 @@ int dmp_msg_recv_resp(DM_INTF_S *intf, DM_RECV_ST *recv, SEND_CTL_CB *ctl)
         }
 
         ret = memcpy_s(recv->msg.data, value->data_len, value->data, value->data_len);
-        DRV_CHECK_RETV_DO_SOMETHING(!ret, FAILED, free(recv->msg.data);
-                                    recv->msg.data = tmp_recv;
+        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), FAILED, free(recv->msg.data); recv->msg.data = tmp_recv;
                                     clear_client_rsp_data(g_client_rsp_hashtable, intf, recv));
         recv->msg.data_len = (unsigned short)value->data_len;
         ob = (DM_REP_MSG *)recv->msg.data;
         ob->data_length = (value->data_len - DDMP_CMD_RESP_HEAD_LEN);
         clear_client_rsp_data(g_client_rsp_hashtable, intf, recv);
-        ctl->rsp_hndl(intf, recv, ctl->user_data, ctl->data_len);
+        if (ctl->rsp_hndl != NULL) {
+            ctl->rsp_hndl(intf, recv, ctl->user_data, ctl->data_len);
+        }
         free(recv->msg.data);
         recv->msg.data = NULL;
         free_current_ctl_cb(ctl);
         recv->msg.data = tmp_recv;
         return OK;
     } else if (value->data_len > (ob->total_length + DDMP_CMD_RESP_HEAD_LEN)) {
-        DEV_MON_ERR("value data_len illegal!data len:%u, total len:%u!\n", value->data_len, ob->total_length);
+        DEV_MON_ERR("value data_len is illegal! (data_len=%u; total_len=%u)\n", value->data_len, ob->total_length);
         clear_client_rsp_data(g_client_rsp_hashtable, intf, recv);
         return FAILED;
     } else {
         /* modify the request message offset and resend it */
         req = (DEV_MP_MSG_ST *)ctl->msg->data;
         DRV_CHECK_RETV_DO_SOMETHING((req != NULL), FAILED, clear_client_rsp_data(g_client_rsp_hashtable, intf, recv));
-        DRV_CHECK_RETV_DO_SOMETHING((value->data_len > DDMP_CMD_RESP_HEAD_LEN),
-            FAILED, clear_client_rsp_data(g_client_rsp_hashtable, intf, recv));
-        DRV_CHECK_RETV_DO_SOMETHING((intf->max_trans_len > DDMP_CMD_RESP_HEAD_LEN),
-            FAILED, clear_client_rsp_data(g_client_rsp_hashtable, intf, recv));
+        DRV_CHECK_RETV_DO_SOMETHING((value->data_len > DDMP_CMD_RESP_HEAD_LEN), FAILED,
+                                    clear_client_rsp_data(g_client_rsp_hashtable, intf, recv));
+        DRV_CHECK_RETV_DO_SOMETHING((intf->max_trans_len > DDMP_CMD_RESP_HEAD_LEN), FAILED,
+                                    clear_client_rsp_data(g_client_rsp_hashtable, intf, recv));
         req->offset = (value->data_len - DDMP_CMD_RESP_HEAD_LEN);
         req->length = (intf->max_trans_len - DDMP_CMD_RESP_HEAD_LEN);
-        ret = dm_send_req(ctl->intf, &ctl->addr, ctl->addr_len, ctl->msg,
-                          (DM_MSG_CMD_HNDL_T)comm_msg_handle, &ctl, sizeof(SEND_CTL_CB *));
+        ret = dm_send_req(ctl->intf, &ctl->addr, ctl->addr_len, ctl->msg, (DM_MSG_CMD_HNDL_T)comm_msg_handle, &ctl,
+                          sizeof(SEND_CTL_CB *));
         if (ret != 0) {
             DEV_MON_ERR("send request failed\n");
             clear_client_rsp_data(g_client_rsp_hashtable, intf, recv);
@@ -471,19 +469,19 @@ STATIC SEND_CTL_CB *malloc_new_slice_msg(DM_INTF_S *intf)
     }
 
     ret = memset_s((void *)cb_head, sizeof(SEND_CTL_CB), 0, sizeof(SEND_CTL_CB));
-    DRV_CHECK_GOTO((!ret), free_cb_head);
+    DRV_CHECK_GOTO((ret == 0), free_cb_head);
 
     cb_head->msg = (DM_MSG_ST *)malloc(sizeof(DM_MSG_ST));
     DRV_CHECK_GOTO((cb_head->msg != NULL), free_cb_head);
 
     ret = memset_s((void *)cb_head->msg, sizeof(DM_MSG_ST), 0, sizeof(DM_MSG_ST));
-    DRV_CHECK_GOTO(!ret, free_msg);
+    DRV_CHECK_GOTO((ret == 0), free_msg);
 
     cb_head->msg->data = (unsigned char *)malloc(intf->max_trans_len);
     DRV_CHECK_GOTO((cb_head->msg->data != NULL), free_msg);
 
     ret = memset_s((void *)cb_head->msg->data, intf->max_trans_len, 0, intf->max_trans_len);
-    DRV_CHECK_GOTO(!ret, free_data);
+    DRV_CHECK_GOTO((ret == 0), free_data);
 
     return cb_head;
 
@@ -497,7 +495,7 @@ free_cb_head:
 }
 
 STATIC SEND_CTL_CB *slice_msg(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigned int addr_len, const DM_MSG_ST *msg,
-    DM_MSG_CMD_HNDL_T rsp_hndl, const void *user_data, int data_len)
+                              DM_MSG_CMD_HNDL_T rsp_hndl, const void *user_data, int data_len)
 {
     int ret;
     unsigned int i;
@@ -533,14 +531,16 @@ STATIC SEND_CTL_CB *slice_msg(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigned 
     }
 
     SET_CTL_CB(cb_head, ret, intf, addr, addr_len, rsp_hndl, user_data, data_len);
-    DRV_CHECK_GOTO(!ret, error_out);
+    DRV_CHECK_GOTO((ret == 0), error_out);
 
     ret = memcpy_s(cb_head->msg->data, intf->max_trans_len, msg->data,
                    ((msg->data_len <= intf->max_trans_len) ? msg->data_len : intf->max_trans_len));
-    DRV_CHECK_GOTO(!ret, error_out);
+    DRV_CHECK_GOTO((ret == 0), error_out);
 
     cb_head->next = NULL;
-    cb_head->msg->data_len = (msg->data_len <= (unsigned short)intf->max_trans_len) ? msg->data_len : (unsigned short)intf->max_trans_len;
+    cb_head->msg->data_len = (msg->data_len <= (unsigned short)intf->max_trans_len) ?
+                                 msg->data_len :
+                                 (unsigned short)intf->max_trans_len;
     data = (DEV_MP_MSG_ST *)cb_head->msg->data;
 
     /* modify request data content */
@@ -565,18 +565,18 @@ STATIC SEND_CTL_CB *slice_msg(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigned 
 
         p->next = tmp_cb;
         SET_CTL_CB(tmp_cb, ret, intf, addr, addr_len, rsp_hndl, user_data, data_len);
-        DRV_CHECK_GOTO(!ret, error_out);
+        DRV_CHECK_GOTO((ret == 0), error_out);
 
         /* copy head */
         ret = memcpy_s(tmp_cb->msg->data, intf->max_trans_len, msg->data, DEV_MON_REQUEST_HEAD_LEN);
-        DRV_CHECK_GOTO(!ret, error_out);
+        DRV_CHECK_GOTO((ret == 0), error_out);
 
         if (i != (count - 1)) {
             ret = memcpy_s((unsigned char *)(tmp_cb->msg->data + DEV_MON_REQUEST_HEAD_LEN),
                            intf->max_trans_len - DEV_MON_REQUEST_HEAD_LEN,
                            (unsigned char *)(msg->data + DEV_MON_REQUEST_HEAD_LEN + (unsigned short)(i * new_data_len)),
                            new_data_len);
-            DRV_CHECK_GOTO(!ret, error_out);
+            DRV_CHECK_GOTO((ret == 0), error_out);
             tmp_cb->msg->data_len = (short unsigned int)intf->max_trans_len;
             data = (DEV_MP_MSG_ST *)tmp_cb->msg->data;
             /* modify request data content */
@@ -584,12 +584,12 @@ STATIC SEND_CTL_CB *slice_msg(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigned 
             data->offset = (i * new_data_len);
             data->length = new_data_len;
         } else {
-            ret =
-                memcpy_s(((unsigned char *)(tmp_cb->msg->data + DEV_MON_REQUEST_HEAD_LEN)),
-                         intf->max_trans_len - DEV_MON_REQUEST_HEAD_LEN,
-                         ((unsigned char *)(msg->data + DEV_MON_REQUEST_HEAD_LEN + (unsigned short)(i * new_data_len))),
-                         (msg->data_len - DEV_MON_REQUEST_HEAD_LEN - (unsigned short)(i * new_data_len)));
-            DRV_CHECK_GOTO(!ret, error_out);
+            ret = memcpy_s(
+                ((unsigned char *)(tmp_cb->msg->data + DEV_MON_REQUEST_HEAD_LEN)),
+                intf->max_trans_len - DEV_MON_REQUEST_HEAD_LEN,
+                ((unsigned char *)(msg->data + DEV_MON_REQUEST_HEAD_LEN + (unsigned short)(i * new_data_len))),
+                (msg->data_len - DEV_MON_REQUEST_HEAD_LEN - (unsigned short)(i * new_data_len)));
+            DRV_CHECK_GOTO((ret == 0), error_out);
             tmp_cb->msg->data_len = (unsigned short)(msg->data_len - (unsigned short)(i * new_data_len));
             data = (DEV_MP_MSG_ST *)tmp_cb->msg->data;
             /* modify request data content */
@@ -644,7 +644,7 @@ int client_rsp_hashtable_init(void)
         return 0;
     }
 
-    g_client_rsp_hashtable = hash_table_new();
+    g_client_rsp_hashtable = halHashTableNew();
     if (g_client_rsp_hashtable == NULL) {
         DEV_MON_ERR("create g_client_rsp_hashtable fail.");
         return FAILED;
@@ -655,7 +655,7 @@ int client_rsp_hashtable_init(void)
 void client_rsp_hashtable_uninit(void)
 {
     if (g_client_rsp_hashtable != NULL) {
-        hash_table_delete(g_client_rsp_hashtable);
+        halHashTableDelete(g_client_rsp_hashtable);
         g_client_rsp_hashtable = NULL;
     }
 }
@@ -668,14 +668,15 @@ int dev_mon_send_request(DM_INTF_S *intf, DM_ADDR_ST *addr, unsigned int addr_le
     DRV_CHECK_RETV((intf != NULL), DRV_ERROR_PARA_ERROR);
     DRV_CHECK_RETV((addr != NULL), DRV_ERROR_PARA_ERROR);
     DRV_CHECK_RETV((msg != NULL), DRV_ERROR_PARA_ERROR);
+    DRV_CHECK_RETV((addr_len <= sizeof(DM_ADDR_ST)), DRV_ERROR_PARA_ERROR);
     cb_head = slice_msg(intf, addr, addr_len, msg, rsp_hndl, user_data, data_len);
     if (cb_head == NULL) {
         DEV_MON_ERR("slice_msg return NULL pointer\n");
         return DRV_ERROR_PARA_ERROR;
     }
 
-    ret = dm_send_req(cb_head->intf, addr, cb_head->addr_len, cb_head->msg,
-        (DM_MSG_CMD_HNDL_T)comm_msg_handle, &cb_head, sizeof(SEND_CTL_CB *));
+    ret = dm_send_req(cb_head->intf, addr, cb_head->addr_len, cb_head->msg, (DM_MSG_CMD_HNDL_T)comm_msg_handle,
+                      &cb_head, sizeof(SEND_CTL_CB *));
     put_node_ctl_cb(g_slice_msg_list, cb_head);
     if (ret != 0) {
         free_send_ctl_cb(cb_head);

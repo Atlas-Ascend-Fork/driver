@@ -19,4 +19,6 @@ drvError_t halQuerySlaveProcMeminfo(int master_pid, uint32_t devid, processType_
 
 int halQueryMasterPidByDeviceSlave(unsigned int devid, int slave_pid, unsigned int *master_pid,
                                    unsigned int *proc_type);
+int halQueryMasterTgidByDeviceSlave(unsigned int devid, int slave_pid, unsigned int *master_tgid,
+                                    unsigned int *proc_type);
 #endif

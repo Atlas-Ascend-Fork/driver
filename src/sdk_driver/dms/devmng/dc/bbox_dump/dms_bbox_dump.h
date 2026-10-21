@@ -38,6 +38,7 @@
 #define VMCORE_STAT_OFFSET 0x9A0004U
 
 #define SRAM_BASE_ADDR 0xE8000000U
+#define SRAM_BASE_ADDR_V5 0x45EB000000ULL
 #define SRAM_TOTAL_SIZE 0x40000U // 256k
 
 #define BBOX_DONE 1
@@ -93,7 +94,7 @@ struct dev_mem_region {
     void *va;
     void *(*alloc_func)(unsigned long addr, unsigned int size);
     void (*free_func)(struct dev_mem_region *region);
-    unsigned int base_addr;
+    uint64_t base_addr;
     unsigned int size;
     bool reg_flag;
 };

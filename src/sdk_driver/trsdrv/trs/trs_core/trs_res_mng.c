@@ -46,6 +46,9 @@ int id_type_trans[TRS_CORE_MAX_ID_TYPE] = {
     [TRS_MAINT_SQ] = TRS_MAINT_SQ_ID,
     [TRS_MAINT_CQ] = TRS_MAINT_CQ_ID,
     [TRS_CDQ] = TRS_CDQM_ID,
+    [TRS_STARS_H2D_JETTY] = TRS_STARS_H2D_JETTY_ID,
+    [TRS_STARS_D2D_IN_BOARD_JETTY] = TRS_STARS_D2D_IN_BOARD_JETTY_ID,
+    [TRS_STARS_D2D_CROSS_BOARD_JETTY] = TRS_STARS_D2D_CROSS_BOARD_JETTY_ID,
 };
 
 int trs_res_get_id_type(struct trs_id_inst *id_inst, int res_type)
@@ -231,7 +234,7 @@ static void trs_res_mng_id_free(struct trs_core_ts_inst *ts_inst, int res_type, 
     int ret;
 
     if (ts_inst->ops.id_free != NULL) {
-        ret = ts_inst->ops.id_free(inst, trs_res_get_id_type(inst, res_type), res_id);
+        ret = ts_inst->ops.id_free(inst, trs_res_get_id_type(inst, res_type), flag, res_id);
     } else {
         ret = trs_id_free_ex(inst, trs_res_get_id_type(inst, res_type), flag, res_id);
     }
@@ -337,29 +340,16 @@ static inline void trs_pack_stream_mem_attr(struct trs_core_ts_inst *ts_inst, u6
     }
 }
 
-void trs_stream_put_mem_pa_list(struct trs_core_ts_inst *ts_inst, struct trs_proc_ctx *proc_ctx,
-                                struct trs_stream_ctx *stream_ctx)
+void trs_stream_put_sq_mem_handle(struct trs_core_ts_inst *ts_inst, struct trs_proc_ctx *proc_ctx,
+                                  struct trs_stream_ctx *stream_ctx)
 {
-    struct ka_pa_wraper pa_wraper = {.pa = stream_ctx->pa_list[0], .size = stream_ctx->size};
-    struct ka_mem_attr stream_mem_attr = {0};
-    int ret = 0;
-
-    trs_pack_stream_mem_attr(ts_inst, stream_ctx->stream_uva, stream_ctx->size, &stream_mem_attr);
-    ret = hal_kernel_put_mem_pa_list(proc_ctx->devid, proc_ctx->pid, &stream_mem_attr, 1, &pa_wraper);
-    if (ret != 0) {
-        trs_warn("Put pa list failed. (devid=%u; pid=%d)\n", proc_ctx->devid, proc_ctx->pid);
+    if (ts_inst->ops.put_sq_mem_handle != NULL) {
+        ts_inst->ops.put_sq_mem_handle(&ts_inst->inst, proc_ctx->pid, &stream_ctx->mem_attr);
     }
 
-    trs_vfree(stream_ctx->pa_list);
-    stream_ctx->pa_list = NULL;
-    stream_ctx->stream_uva = 0;
     stream_ctx->stream_base_addr = 0;
     stream_ctx->depth = 0;
-
-    if (stream_ctx->stream_kva != 0) {
-        ka_mm_iounmap((void *)(uintptr_t)stream_ctx->stream_kva);
-        stream_ctx->stream_kva = 0;
-    }
+    stream_ctx->mem_attr.pa_num = 0;
 }
 
 static int trs_stream_unbind_sq(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst, u32 res_id)
@@ -375,7 +365,7 @@ static int trs_stream_unbind_sq(struct trs_proc_ctx *proc_ctx, struct trs_core_t
             }
         }
 
-        trs_stream_put_mem_pa_list(ts_inst, proc_ctx, &ts_inst->stream_ctx[res_id]);
+        trs_stream_put_sq_mem_handle(ts_inst, proc_ctx, &ts_inst->stream_ctx[res_id]);
     }
     ts_inst->stream_ctx[res_id].sq = -1;
     ts_inst->stream_ctx[res_id].tail = 0;
@@ -420,20 +410,11 @@ int trs_res_id_free(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_i
     return _trs_res_id_free(proc_ctx, ts_inst, para->res_type, para->flag, para->id);
 }
 
-#define ALIGN_UP(len, pagesize) (((len) + (pagesize) - 1) & (~((pagesize) - 1)))
-
 #ifdef CFG_FEATURE_SUPPORT_STREAM_TASK
-#define TRS_STREAM_MEM_DEFAULT_PAGE_SIZE 0x200000U
-int trs_stream_get_mem_pa_list(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst,
-                               struct trs_stream_ctx *stream_ctx, void *stream_mem, u32 depth)
+int trs_stream_get_sq_mem_handle(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst,
+                                 struct trs_stream_ctx *stream_ctx, void *stream_mem, u32 depth)
 {
-    struct ka_pa_wraper pa_wraper = {0};
-    struct ka_mem_attr stream_mem_attr = {0};
     u32 size = depth * TRS_HW_SQE_SIZE;
-    u64 base_va, *pa_list = NULL;
-    void *vaddr = NULL;
-    u32 align_len;
-    u64 pa_num = 1;
     int ret;
 
     if (stream_mem == NULL) {
@@ -441,61 +422,24 @@ int trs_stream_get_mem_pa_list(struct trs_proc_ctx *proc_ctx, struct trs_core_ts
         return -EINVAL;
     }
 
-    align_len = ALIGN_UP(size, TRS_STREAM_MEM_DEFAULT_PAGE_SIZE);
-    base_va = KA_DRIVER_ALIGN_DOWN((u64)(uintptr_t)stream_mem, TRS_STREAM_MEM_DEFAULT_PAGE_SIZE);
-    if (((u64)(uintptr_t)stream_mem + depth * TRS_HW_SQE_SIZE) > (base_va + TRS_STREAM_MEM_DEFAULT_PAGE_SIZE)) {
-#ifndef EMU_ST
-        trs_err("The depth is invalid. (depth=%u, stream_mem_va=0x%llx, max_va=0x%llx)\n", depth,
-                (u64)(uintptr_t)stream_mem + depth * TRS_HW_SQE_SIZE, base_va + TRS_STREAM_MEM_DEFAULT_PAGE_SIZE);
+    if (ts_inst->ops.get_sq_mem_handle == NULL) {
+        trs_err("get_sq_mem_handle ops not registered. (devid=%u)\n", proc_ctx->devid);
         return -EINVAL;
-#endif
     }
 
-    pa_list = trs_vzalloc(sizeof(u64));
-    if (pa_list == NULL) {
-        trs_err("Vzalloc fail.\n");
-        return -ENOMEM;
-    }
+    trs_pack_stream_mem_attr(ts_inst, (u64)(uintptr_t)stream_mem, size, &stream_ctx->mem_attr.mem_attr);
 
-    trs_pack_stream_mem_attr(ts_inst, base_va, align_len, &stream_mem_attr);
-    ret = hal_kernel_get_mem_pa_list(proc_ctx->devid, proc_ctx->pid, &stream_mem_attr, &pa_num, &pa_wraper);
+    ret = ts_inst->ops.get_sq_mem_handle(&ts_inst->inst, proc_ctx->pid, &stream_ctx->mem_attr);
     if (ret != 0) {
-        trs_err("Failed to get pa list. (ret=%d; devid=%u; pid=%d; align_len=%u;)\n", ret, proc_ctx->devid,
-                proc_ctx->pid, align_len);
-        goto free_mem;
-    }
-
-    if (pa_wraper.size != align_len) {
-        trs_err("Mem size equal to align_len. (size=0x%llx; align_len=0x%x)\n", pa_wraper.size, align_len);
-        ret = -EINVAL;
-        goto free_mem;
-    }
-
-    pa_list[0] = pa_wraper.pa;
-    if (!stream_mem_attr.raw_pa_flag) { /* raw device pa not support ioremap */
-        vaddr = ka_mm_ioremap(pa_list[0], align_len);
-        if (vaddr == NULL) {
-            trs_err("Iomem remap fail. (devid=%u;  align_len=%u)\n", proc_ctx->devid, align_len);
-            ret = -ENOMEM;
-            goto put_mem;
-        }
+        trs_err("Get mem pa list failed. (devid=%u; pid=%d; ret=%d)\n", proc_ctx->devid, proc_ctx->pid, ret);
+        return ret;
     }
 
     stream_ctx->stream_base_addr = (u64)(uintptr_t)stream_mem;
-    stream_ctx->pa_num = 1;
-    stream_ctx->pa_list = pa_list;
-    stream_ctx->stream_uva = base_va;
-    stream_ctx->stream_kva = (u64)(uintptr_t)vaddr;
-    stream_ctx->size = align_len;
     stream_ctx->depth = depth;
-    trs_debug("Get and pin page success. (devid=%u; size=%u; align_len=%u)\n", proc_ctx->devid, size, align_len);
+    trs_debug("Get and pin page success. (devid=%u; size=%u; pa_num=%u)\n", proc_ctx->devid, size,
+              stream_ctx->mem_attr.pa_num);
     return 0;
-
-put_mem:
-    (void)hal_kernel_put_mem_pa_list(proc_ctx->devid, proc_ctx->pid, &stream_mem_attr, 1, &pa_wraper);
-free_mem:
-    trs_vfree(pa_list);
-    return ret;
 }
 
 static int trs_stream_task_fill_proc_mem_check(struct trs_core_ts_inst *ts_inst, struct trs_stream_task_para *para,
@@ -503,16 +447,16 @@ static int trs_stream_task_fill_proc_mem_check(struct trs_core_ts_inst *ts_inst,
 {
     if ((uda_get_chip_type(ts_inst->inst.devid) == HISI_CLOUD_V2)) {
         if (((para->stream_mem != NULL) && (stream_ctx->stream_base_addr != (u64)(uintptr_t)para->stream_mem)) ||
-            (stream_ctx->stream_kva == 0)) {
-            trs_err("Stream mem invalid or kva not inited. (base=0x%llx; mem=0x%llx)\n", stream_ctx->stream_base_addr,
-                    (u64)(uintptr_t)para->stream_mem);
+            (stream_ctx->mem_attr.vmap_pfn_handle == NULL)) {
+            trs_err("Stream mem invalid or vmap_pfn not inited. (base=0x%llx; mem=0x%llx)\n",
+                    stream_ctx->stream_base_addr, (u64)(uintptr_t)para->stream_mem);
             return -EINVAL;
         }
     } else {
         if ((stream_ctx->stream_base_addr > (u64)(uintptr_t)para->stream_mem) ||
             ((u64)(uintptr_t)para->stream_mem > (stream_ctx->stream_base_addr + stream_ctx->tail * TRS_HW_SQE_SIZE)) ||
-            (stream_ctx->stream_kva == 0)) {
-            trs_err("Stream mem invalid or kva not inited. (base=0x%llx; mem=0x%llx; tail=%u)\n",
+            (stream_ctx->mem_attr.vmap_pfn_handle == NULL)) {
+            trs_err("Stream mem invalid or vmap_pfn not inited. (base=0x%llx; mem=0x%llx; tail=%u)\n",
                     stream_ctx->stream_base_addr, (u64)(uintptr_t)para->stream_mem, stream_ctx->tail);
             return -EINVAL;
         }
@@ -521,15 +465,53 @@ static int trs_stream_task_fill_proc_mem_check(struct trs_core_ts_inst *ts_inst,
     return 0;
 }
 
+static int _trs_stream_task_fill(struct trs_core_ts_inst *ts_inst, struct trs_proc_ctx *proc_ctx,
+                                 struct trs_stream_ctx *stream_ctx, struct trs_stream_task_para *para)
+{
+    u64 stream_uva = stream_ctx->mem_attr.mem_attr.addr;
+    u64 stream_size = stream_ctx->mem_attr.mem_attr.size;
+    u64 task_offset;
+    u32 tail_tmp, i;
+    unsigned long cur_jiffies;
+    int ret;
+
+    if ((uda_get_chip_type(ts_inst->inst.devid) == HISI_CLOUD_V2)) {
+        task_offset = (stream_ctx->stream_base_addr - stream_uva) + stream_ctx->tail * TRS_HW_SQE_SIZE;
+        tail_tmp = stream_ctx->tail + para->task_cnt;
+    } else {
+        task_offset = (u64)(uintptr_t)para->stream_mem - stream_uva;
+        tail_tmp = ka_base_max((task_offset / TRS_HW_SQE_SIZE + para->task_cnt), (u64)stream_ctx->tail);
+    }
+
+    if ((task_offset + para->task_cnt * TRS_HW_SQE_SIZE) > stream_size) {
+        trs_err("Stream space insufficient. (devid=%u; stream=%u; tail=%u; task_cnt=%u)\n", proc_ctx->devid,
+                para->stream_id, stream_ctx->tail, para->task_cnt);
+        return -ENOSPC;
+    }
+
+    cur_jiffies = ka_jiffies;
+    for (i = 0; i < para->task_cnt; i++) {
+        ret = trs_chan_stream_task_update(&ts_inst->inst, proc_ctx->pid, (para->task_info + i * TRS_HW_SQE_SIZE),
+                                          &stream_ctx->long_task_cnt);
+        if (ret != 0) {
+            trs_err("Update stream task fail. (devid=%u; i=%u; task_cnt=%u; ret=%d)\n", proc_ctx->devid, i,
+                    para->task_cnt, ret);
+            return ret;
+        }
+        trs_try_resched(&cur_jiffies, 50); /* timeout is 50 ms */
+    }
+
+    ka_mm_vmap_pfn_memcpy_toio(stream_ctx->mem_attr.vmap_pfn_handle, task_offset, para->task_info,
+                               para->task_cnt * TRS_HW_SQE_SIZE);
+    stream_ctx->tail = tail_tmp;
+    return 0;
+}
+
 int trs_stream_task_fill_proc(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst,
                               struct trs_stream_task_para *para)
 {
     struct trs_stream_ctx *stream_ctx = NULL;
-    unsigned long cur_jiffies;
     int ret, get_mem_flag = 0;
-    u64 task_addr;
-    u32 tail_tmp;
-    u32 i;
 
     if (!trs_proc_has_res(proc_ctx, ts_inst, TRS_STREAM, para->stream_id)) {
         trs_err("Stream not alloced. (stream_id=%u; pid=%d)\n", para->stream_id, proc_ctx->pid);
@@ -537,8 +519,8 @@ int trs_stream_task_fill_proc(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_
     }
 
     stream_ctx = &ts_inst->stream_ctx[para->stream_id];
-    if (stream_ctx->pa_list == NULL) {
-        ret = trs_stream_get_mem_pa_list(proc_ctx, ts_inst, stream_ctx, para->stream_mem, para->task_cnt);
+    if (stream_ctx->mem_attr.pa_num == 0) {
+        ret = trs_stream_get_sq_mem_handle(proc_ctx, ts_inst, stream_ctx, para->stream_mem, para->task_cnt);
         if (ret != 0) {
             trs_err("Failed to get pa list. (ret=%d; devid=%u; stream=%u)\n", ret, proc_ctx->devid, para->stream_id);
             return ret;
@@ -551,46 +533,11 @@ int trs_stream_task_fill_proc(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_
         }
     }
 
-    if ((uda_get_chip_type(ts_inst->inst.devid) == HISI_CLOUD_V2)) {
-        task_addr = stream_ctx->stream_kva + (stream_ctx->stream_base_addr - stream_ctx->stream_uva) +
-                    stream_ctx->tail * TRS_HW_SQE_SIZE;
-        tail_tmp = stream_ctx->tail + para->task_cnt;
-    } else {
-        task_addr = stream_ctx->stream_kva + (u64)(uintptr_t)para->stream_mem - stream_ctx->stream_uva;
-        tail_tmp = ka_base_max((task_addr - stream_ctx->stream_kva) / TRS_HW_SQE_SIZE + para->task_cnt,
-                               (u64)stream_ctx->tail);
+    ret = _trs_stream_task_fill(ts_inst, proc_ctx, stream_ctx, para);
+    if ((ret != 0) && (get_mem_flag == 1)) {
+        trs_stream_put_sq_mem_handle(ts_inst, proc_ctx, stream_ctx);
     }
 
-    if ((task_addr + para->task_cnt * TRS_HW_SQE_SIZE) > (stream_ctx->stream_kva + stream_ctx->size)) {
-        trs_err("Failed to get pa list. (devid=%u; stream=%u; tail=%u; task_cnt=%u)\n", proc_ctx->devid,
-                para->stream_id, stream_ctx->tail, para->task_cnt);
-        ret = -ENOSPC;
-        goto put_mem;
-    }
-
-    cur_jiffies = ka_jiffies;
-    for (i = 0; i < para->task_cnt; i++) {
-        ret = trs_chan_stream_task_update(&ts_inst->inst, proc_ctx->pid, (para->task_info + i * TRS_HW_SQE_SIZE),
-                                          &stream_ctx->long_task_cnt);
-        if (ret != 0) {
-            trs_err("Update stream task fail. (devid=%u; i=%u; task_cnt=%u; ret=%d)\n", proc_ctx->devid, i,
-                    para->task_cnt, ret);
-            goto put_mem;
-        }
-        trs_try_resched(&cur_jiffies, 50); /* timeout is 50 ms */
-    }
-
-    ka_mm_memcpy_toio((void *)(uintptr_t)task_addr, para->task_info, para->task_cnt * TRS_HW_SQE_SIZE);
-
-    stream_ctx->tail = tail_tmp;
-    trs_debug("Fill stream task success. (devid=%u; stream_id=%u; task_cnt=%u; tail=%u)\n", proc_ctx->devid,
-              para->stream_id, para->task_cnt, stream_ctx->tail);
-    return 0;
-
-put_mem:
-    if (get_mem_flag == 1) {
-        trs_stream_put_mem_pa_list(ts_inst, proc_ctx, stream_ctx);
-    }
     return ret;
 }
 #endif
@@ -674,7 +621,7 @@ int trs_res_id_get(struct trs_id_inst *inst, int res_type, u32 res_id)
         return -EINVAL;
     }
 
-    ret = trs_res_get(ts_inst, ka_task_get_current_tgid(), res_type, res_id);
+    ret = trs_res_get(ts_inst, ka_task_get_current_tgid(), res_type, res_id, 0, 0);
 
     trs_core_inst_put(ts_inst);
     return ret;
@@ -695,7 +642,7 @@ int trs_res_id_put(struct trs_id_inst *inst, int res_type, u32 res_id)
         return -EINVAL;
     }
 
-    ret = trs_res_put(ts_inst, res_type, res_id);
+    ret = trs_res_put(ts_inst, res_type, res_id, 0, 0);
     if (ret == 0) {
         (void)trs_res_notice_ts(ts_inst, 1, res_type, res_id);
         trs_res_mng_id_free(ts_inst, res_type, 0, res_id);
@@ -705,6 +652,99 @@ int trs_res_id_put(struct trs_id_inst *inst, int res_type, u32 res_id)
     return (ret < 0) ? ret : 0;
 }
 KA_EXPORT_SYMBOL_GPL(trs_res_id_put);
+
+int _trs_res_id_remote_get(struct trs_id_inst *inst, int pid, int res_type, u32 res_id, u32 hpid, u32 seq)
+{
+    struct trs_core_ts_inst *ts_inst = NULL;
+    int ret = 0;
+
+    ret = trs_res_id_para_check(inst, res_type, res_id);
+    if (ret != 0) {
+        return ret;
+    }
+
+    ts_inst = trs_core_ts_inst_get(inst);
+    if (ts_inst == NULL) {
+        trs_err("Invalid inst. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        return -EINVAL;
+    }
+
+    ret = trs_res_get(ts_inst, pid, res_type, res_id, hpid, seq);
+    if (ret != 0) {
+        trs_err("Remote res get fail. (devid=%u; type=%d; id=%u; ret=%d)\n", inst->devid, res_type, res_id, ret);
+    }
+
+    trs_core_inst_put(ts_inst);
+    return ret;
+}
+KA_EXPORT_SYMBOL_GPL(_trs_res_id_remote_get);
+
+int _trs_res_id_remote_put(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq)
+{
+    struct trs_core_ts_inst *ts_inst = NULL;
+    int ret = 0;
+
+    ret = trs_res_id_para_check(inst, res_type, res_id);
+    if (ret != 0) {
+        return ret;
+    }
+
+    ts_inst = trs_core_ts_inst_get(inst);
+    if (ts_inst == NULL) {
+        trs_err("Invalid id inst. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        return -EINVAL;
+    }
+
+    ret = trs_res_put(ts_inst, res_type, res_id, hpid, seq);
+    if (ret == 0) {
+        (void)trs_res_notice_ts(ts_inst, 1, res_type, res_id);
+        trs_res_mng_id_free(ts_inst, res_type, 0, res_id);
+    }
+
+    trs_core_inst_put(ts_inst);
+    return (ret < 0) ? ret : 0;
+}
+KA_EXPORT_SYMBOL_GPL(_trs_res_id_remote_put);
+
+int trs_res_id_remote_get(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq)
+{
+    struct trs_core_ts_inst *ts_inst = NULL;
+    int ret = 0;
+
+    ts_inst = trs_core_ts_inst_get(inst);
+    if (ts_inst == NULL) {
+        trs_err("Invalid para. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        return -EINVAL;
+    }
+
+    if (ts_inst->ops.res_id_remote_get != NULL) {
+        ret = ts_inst->ops.res_id_remote_get(inst, res_type, res_id, hpid, seq);
+    }
+    trs_core_inst_put(ts_inst);
+
+    return ret;
+}
+KA_EXPORT_SYMBOL_GPL(trs_res_id_remote_get);
+
+int trs_res_id_remote_put(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq)
+{
+    struct trs_core_ts_inst *ts_inst = NULL;
+    int ret = 0;
+
+    ts_inst = trs_core_ts_inst_get(inst);
+    if (ts_inst == NULL) {
+        trs_err("Invalid para. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        return -EINVAL;
+    }
+
+    if (ts_inst->ops.res_id_remote_put != NULL) {
+        ret = ts_inst->ops.res_id_remote_put(inst, res_type, res_id, hpid, seq);
+    }
+    trs_core_inst_put(ts_inst);
+
+    return ret;
+}
+KA_EXPORT_SYMBOL_GPL(trs_res_id_remote_put);
 
 int trs_res_id_ctrl(struct trs_id_inst *inst, int res_type, u32 res_id, u32 cmd)
 {
@@ -877,8 +917,7 @@ static int trs_stream_cfg(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst
 
     ret = trs_res_id_get(inst, TRS_STREAM, stream_id);
     if (ret != 0) {
-        trs_err("Stream does not belong to proc. (devid=%u; tsid=%u; stream_id=%u)\n", inst->devid, inst->tsid,
-                stream_id);
+        trs_err("Stream not belong to proc. (devid=%u; tsid=%u; stream_id=%u)\n", inst->devid, inst->tsid, stream_id);
         return -EINVAL;
     }
 
@@ -1020,8 +1059,8 @@ static int trs_stream_id_ctrl(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_
 
     if (!trs_proc_has_res(proc_ctx, ts_inst, TRS_STREAM, stream_id)) {
         if (!trs_is_host_pid_match(proc_ctx->pid, stream_ctx->host_pid)) {
-            trs_err("Stream does not belong to proc. (devid=%u; tsid=%u; stream_id=%u; pid=%d)\n", inst->devid,
-                    inst->tsid, stream_id, stream_ctx->host_pid);
+            trs_err("Stream not belong to proc. (devid=%u; tsid=%u; stream_id=%u; pid=%d)\n", inst->devid, inst->tsid,
+                    stream_id, stream_ctx->host_pid);
             return -EINVAL;
         }
     }
@@ -1037,7 +1076,7 @@ int trs_res_id_enable(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts
     if (para->res_type == TRS_STREAM) {
         ret = trs_stream_id_ctrl(proc_ctx, ts_inst, para->id, TRS_RES_OP_ENABLE);
     } else {
-        trs_err("Not support. (devid=%u; tsid=%u; res_type=%d)\n", inst->devid, inst->tsid, para->res_type);
+        trs_debug("Not support. (devid=%u; tsid=%u; res_type=%d)\n", inst->devid, inst->tsid, para->res_type);
         ret = -EOPNOTSUPP;
     }
 
@@ -1135,7 +1174,7 @@ int trs_get_stream_ctx(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *t
     struct trs_stream_ctx *stream_ctx = NULL;
 
     if (trs_proc_has_res(proc_ctx, ts_inst, TRS_STREAM, stream_id) == false) {
-        trs_err("Stream does not belong to proc. (devid=%u; tsid=%u; stream_id=%u)\n", inst->devid, inst->tsid,
+        trs_err("Stream is not belong to proc. (devid=%u; tsid=%u; stream_id=%u)\n", inst->devid, inst->tsid,
                 stream_id);
         return -EINVAL;
     }

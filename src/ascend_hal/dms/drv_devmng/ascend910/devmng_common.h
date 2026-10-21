@@ -25,11 +25,11 @@
 #define DEV_DDR_HBM_UTILIZATION 2
 
 #ifndef REQ_D_INFO_DEV_TYPE_MEM
-#define REQ_D_INFO_DEV_TYPE_MEM 1   //lint !e652
+#define REQ_D_INFO_DEV_TYPE_MEM 1 // lint !e652
 #endif
 
 #ifndef REQ_D_INFO_DEV_TYPE_HBM
-#define REQ_D_INFO_DEV_TYPE_HBM 6  //lint !e652
+#define REQ_D_INFO_DEV_TYPE_HBM 6 // lint !e652
 #endif
 
 #ifndef REQ_D_INFO_DEV_TYPE_AI_CPU
@@ -54,12 +54,10 @@
 
 #define AICORE_SHOW_INFO_COUNT 100
 
-
 typedef unsigned long long u64;
 typedef unsigned int u32;
 typedef unsigned short u16;
-typedef unsigned char  u8;
-
+typedef unsigned char u8;
 
 #include "ascend_hal.h"
 #include "devdrv_user_common.h"
@@ -92,19 +90,21 @@ struct devdrv_statistic_info {
 #define DEVDRV_DRV_INFO(fmt, ...) DRV_INFO(HAL_MODULE_TYPE_DEV_MANAGER, fmt, ##__VA_ARGS__)
 #define DEVDRV_DRV_DEBUG(fmt, ...) DRV_DEBUG(HAL_MODULE_TYPE_DEV_MANAGER, fmt, ##__VA_ARGS__)
 
-#define DEVDRV_DRV_ERR_EXTEND(ret, no_error_code, fmt, ...) do {    \
-    if ((ret) != (no_error_code)) {                                 \
-        DEVDRV_DRV_ERR(fmt, ##__VA_ARGS__);                         \
-    } else {                                                        \
-        DEVDRV_DRV_WARN(fmt, ##__VA_ARGS__);                        \
-    }                                                               \
-} while (0)
+#define DEVDRV_DRV_ERR_EXTEND(ret, no_error_code, fmt, ...) \
+    do {                                                    \
+        if ((ret) != (no_error_code)) {                     \
+            DEVDRV_DRV_ERR(fmt, ##__VA_ARGS__);             \
+        } else {                                            \
+            DEVDRV_DRV_WARN(fmt, ##__VA_ARGS__);            \
+        }                                                   \
+    } while (0)
 
-#define DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, fmt, ...) do {             \
-    if (((ret) != DRV_ERROR_NOT_SUPPORT) && ((ret) != EOPNOTSUPP)) { \
-        DEVDRV_DRV_ERR(fmt, ##__VA_ARGS__);                          \
-    }                                                                \
-} while (0)
+#define DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, fmt, ...)                      \
+    do {                                                                 \
+        if (((ret) != DRV_ERROR_NOT_SUPPORT) && ((ret) != EOPNOTSUPP)) { \
+            DEVDRV_DRV_ERR(fmt, ##__VA_ARGS__);                          \
+        }                                                                \
+    } while (0)
 #endif /* end of DEVDRV_USER_UT_TEST */
 
 #ifdef DEVDRV_USER_UT_TEST
@@ -112,7 +112,6 @@ struct devdrv_statistic_info {
 #else
 #define STATIC static
 #endif
-
 
 #define DEVDRV_MANAGER_DEVICE_ENV 0
 #define DEVDRV_MANAGER_HOST_ENV 1
@@ -150,56 +149,64 @@ HANDLE devdrv_get_dev_manager_fd(void);
 
 #define OK 0
 
-#define DEVDRV_CHECK_INFO_PARA(info) do { \
-    if ((info) == NULL) { \
-        return DRV_ERROR_INVALID_VALUE; \
-    } \
-    if (((info)->sqeSize) != DEVDRV_CB_SQCQ_MAX_SIZE  ||   \
-        ((info)->cqeSize) > DEVDRV_CB_SQCQ_MAX_SIZE || ((info)->cqeSize) < DEVDRV_CB_SQCQ_MIN_SIZE) {   \
-        TSDRV_PRINT_ERR("invalid size, sq_size(%u) cq_size(%u).\n", ((info)->sqeSize), (info)->cqeSize); \
-        return DRV_ERROR_INVALID_VALUE; \
-    } \
-} while (0)
-
-#define DEVDRV_CHECK_ID_PARA(info, devId) do { \
-    if ((info) == NULL) { \
-        TSDRV_PRINT_ERR("param is null pointer\n"); \
-        return DRV_ERROR_INVALID_VALUE; \
-    } \
-    if (((info)->tsId) >= DEVDRV_MAX_TS_NUM || (devId) >= DEVDRV_MAX_DAVINCI_NUM) { \
-        TSDRV_PRINT_ERR("invalid tsid(%u) or invalid devid(%u).\n", ((info)->tsId), (devId)); \
-        return DRV_ERROR_INVALID_VALUE; \
-    } \
-} while (0)
-
-#define TSDRV_CHECK_RESOURCEID_PARA(in, out, devId) do { \
-        if ((in) == NULL) { \
-            TSDRV_PRINT_ERR("param input is null pointer\n"); \
-            return DRV_ERROR_INVALID_VALUE; \
-        } \
-        if ((out) == NULL) { \
-            TSDRV_PRINT_ERR("param output is null pointer\n"); \
-            return DRV_ERROR_INVALID_VALUE; \
-        } \
-        if (((in)->tsId) >= DEVDRV_MAX_TS_NUM || (devId) >= DEVDRV_MAX_DAVINCI_NUM) { \
-            TSDRV_PRINT_ERR("invalid tsid(%u) or invalid devid(%d).\n", ((in)->tsId), (devId)); \
-            return DRV_ERROR_INVALID_VALUE; \
-        } \
+#define DEVDRV_CHECK_INFO_PARA(info)                                                                           \
+    do {                                                                                                       \
+        if ((info) == NULL) {                                                                                  \
+            return DRV_ERROR_INVALID_VALUE;                                                                    \
+        }                                                                                                      \
+        if (((info)->sqeSize) != DEVDRV_CB_SQCQ_MAX_SIZE || ((info)->cqeSize) > DEVDRV_CB_SQCQ_MAX_SIZE ||     \
+            ((info)->cqeSize) < DEVDRV_CB_SQCQ_MIN_SIZE) {                                                     \
+            TSDRV_PRINT_ERR(                                                                                   \
+                "invalid size, sq_size(%u) cq_size(%u), expected sq_size=%u, valid cq_size range=[%u, %u].\n", \
+                ((info)->sqeSize), (info)->cqeSize, DEVDRV_CB_SQCQ_MAX_SIZE, DEVDRV_CB_SQCQ_MIN_SIZE,          \
+                DEVDRV_CB_SQCQ_MAX_SIZE);                                                                      \
+            return DRV_ERROR_INVALID_VALUE;                                                                    \
+        }                                                                                                      \
     } while (0)
 
-#define DEVDRV_CHECK_CB_SQ_ID_PARA(sq_id) do {         \
-    if ((sq_id) >= DEVDRV_CB_SQ_MAX_NUM) {               \
-        TSDRV_PRINT_ERR("invalid sqid(%u)\n", (sq_id)); \
-        return DRV_ERROR_INVALID_VALUE;                \
-    }                                                  \
-} while (0)
+#define DEVDRV_CHECK_ID_PARA(info, devId)                                                         \
+    do {                                                                                          \
+        if ((info) == NULL) {                                                                     \
+            TSDRV_PRINT_ERR("param is null pointer\n");                                           \
+            return DRV_ERROR_INVALID_VALUE;                                                       \
+        }                                                                                         \
+        if (((info)->tsId) >= DEVDRV_MAX_TS_NUM || (devId) >= DEVDRV_MAX_DAVINCI_NUM) {           \
+            TSDRV_PRINT_ERR("invalid tsid(%u) or invalid devid(%u).\n", ((info)->tsId), (devId)); \
+            return DRV_ERROR_INVALID_VALUE;                                                       \
+        }                                                                                         \
+    } while (0)
 
-#define DEVDRV_CHECK_CB_CQ_ID_PARA(cq_id) do {         \
-    if ((cq_id) >= DEVDRV_CB_CQ_MAX_NUM) {             \
-        TSDRV_PRINT_ERR("invalid cqid(%u)\n", (cq_id)); \
-        return DRV_ERROR_INVALID_VALUE;                \
-    }                                                  \
-} while (0)
+#define TSDRV_CHECK_RESOURCEID_PARA(in, out, devId)                                             \
+    do {                                                                                        \
+        if ((in) == NULL) {                                                                     \
+            TSDRV_PRINT_ERR("param input is null pointer\n");                                   \
+            return DRV_ERROR_INVALID_VALUE;                                                     \
+        }                                                                                       \
+        if ((out) == NULL) {                                                                    \
+            TSDRV_PRINT_ERR("param output is null pointer\n");                                  \
+            return DRV_ERROR_INVALID_VALUE;                                                     \
+        }                                                                                       \
+        if (((in)->tsId) >= DEVDRV_MAX_TS_NUM || (devId) >= DEVDRV_MAX_DAVINCI_NUM) {           \
+            TSDRV_PRINT_ERR("invalid tsid(%u) or invalid devid(%u).\n", ((in)->tsId), (devId)); \
+            return DRV_ERROR_INVALID_VALUE;                                                     \
+        }                                                                                       \
+    } while (0)
+
+#define DEVDRV_CHECK_CB_SQ_ID_PARA(sq_id)                   \
+    do {                                                    \
+        if ((sq_id) >= DEVDRV_CB_SQ_MAX_NUM) {              \
+            TSDRV_PRINT_ERR("invalid sqid(%u)\n", (sq_id)); \
+            return DRV_ERROR_INVALID_VALUE;                 \
+        }                                                   \
+    } while (0)
+
+#define DEVDRV_CHECK_CB_CQ_ID_PARA(cq_id)                   \
+    do {                                                    \
+        if ((cq_id) >= DEVDRV_CB_CQ_MAX_NUM) {              \
+            TSDRV_PRINT_ERR("invalid cqid(%u)\n", (cq_id)); \
+            return DRV_ERROR_INVALID_VALUE;                 \
+        }                                                   \
+    } while (0)
 
 int dmanage_run_proc(char **arg);
 drvError_t drv_get_info_from_dev_info(uint32_t devId, int32_t info_type, int64_t *value);

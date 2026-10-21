@@ -409,16 +409,12 @@ static void shr_id_del_from_proc(struct shr_id_proc_ctx *proc_ctx, struct shr_id
     ka_task_mutex_unlock(&proc_ctx->mutex);
 }
 
+#define SHR_ID_MAX_WAIT_PROC_EXIT_CNT 3U
 int shr_id_wait_for_proc_exit(ka_pid_t pid)
 {
     int loop = 0;
 
     do {
-        /*
-         * First 100 times, sleep 1 ms, then sleep 1000 ms
-         * The waiting time must be greater than or equal to the recycle time
-         */
-        unsigned long timeout = (loop < 100) ? 1 : 1000;
         struct shr_id_proc_ctx *proc_ctx = NULL;
 
         ka_task_read_lock(&proc_lock);
@@ -427,16 +423,10 @@ int shr_id_wait_for_proc_exit(ka_pid_t pid)
         if (proc_ctx == NULL) {
             return 0;
         }
-        if (timeout <= 1) {
-            ka_system_usleep_range(timeout * USEC_PER_MSEC, timeout * USEC_PER_MSEC + 100); /* range 100 us */
-        } else {
-            if (ka_system_msleep_interruptible(timeout) != 0) {
-                return -EINTR;
-            }
-        }
-    } while (++loop < 400); /* retry 400 times, 300 s */
+        ka_system_usleep_range(USEC_PER_MSEC - 100, USEC_PER_MSEC); /* 1ms, range 100 us */
+    } while (++loop < SHR_ID_MAX_WAIT_PROC_EXIT_CNT);
 
-    return -EEXIST;
+    return -EBUSY;
 }
 
 int shr_id_proc_add(struct shr_id_proc_ctx *proc_ctx)
@@ -499,19 +489,28 @@ bool shr_id_is_belong_to_proc(struct trs_id_inst *inst, int pid, int res_type, u
     return is_belong;
 }
 
-static int shr_id_res_get(struct trs_id_inst *inst, int res_type, u32 res_id)
+static int shr_id_res_get(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq)
 {
+    (void)hpid;
+    (void)seq;
     return trs_res_id_get(inst, res_type, res_id);
 }
 
-static int shr_id_res_put(struct trs_id_inst *inst, int res_type, u32 res_id)
+static int shr_id_res_put(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq)
 {
+    (void)hpid;
+    (void)seq;
     return trs_res_id_put(inst, res_type, res_id);
 }
 
-static int shr_id_reomote_res_check(struct trs_id_inst *inst, int res_type, u32 res_id)
+static int shr_id_reomote_res_get(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq)
 {
-    return trs_res_id_check(inst, res_type, res_id);
+    return trs_res_id_remote_get(inst, res_type, res_id, hpid, seq);
+}
+
+static int shr_id_reomote_res_put(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq)
+{
+    return trs_res_id_remote_put(inst, res_type, res_id, hpid, seq);
 }
 
 static int shr_id_set_stars_die_id(u32 devid, u32 tsid, struct shr_id_node_op_attr *attr)
@@ -541,8 +540,8 @@ static int shr_id_node_attr_pack(struct shr_id_node_op_attr *attr, ka_pid_t pid,
     attr->start_time = start_time;
 
     if ((attr->flag & TSDRV_FLAG_REMOTE_ID) != 0) {
-        attr->res_get = shr_id_reomote_res_check;
-        attr->res_put = NULL;
+        attr->res_get = shr_id_reomote_res_get;
+        attr->res_put = shr_id_reomote_res_put;
     } else {
         attr->res_get = shr_id_res_get;
         attr->res_put = shr_id_res_put;

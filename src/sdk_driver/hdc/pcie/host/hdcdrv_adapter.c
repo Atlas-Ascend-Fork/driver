@@ -231,7 +231,7 @@ STATIC void vhdch_set_vdev_status(u32 dev_id, u32 fid, u32 valid)
     struct vhdch_vdev *vdev = &hdc_ctrl->vdev[dev_id][fid];
 
     vdev->valid = valid;
-    hdcdrv_info("Set vdev status finished. (dev_id=%u; fid=%u; status=%d)\n", dev_id, fid, valid);
+    hdcdrv_info("Set vdev status finished. (dev_id=%u;fid=%u;status=%d)\n", dev_id, fid, valid);
 }
 
 STATIC int vhdch_check_vdev_ready(u32 dev_id, u32 fid)
@@ -276,7 +276,7 @@ int vhdch_alloc_mem_vm(struct hdccom_alloc_mem_para *para, struct hdcdrv_buf_des
 
     ret = vmngh_common_msg_send((u32)para->dev_id, para->fid, VMNG_MSG_COMMON_TYPE_HDC, &tx_info);
     if ((ret != 0) || (msg.error_code != HDCDRV_OK)) {
-        hdcdrv_err("Calling vmngh_common_msg_send failed. (dev_id=%u;fid=%u;ret=%d;error_code=%d)\n", para->dev_id,
+        hdcdrv_err("Calling vmngh_common_msg_send failed. (dev_id=%u; fid=%u; ret=%d; error_code=%d)\n", para->dev_id,
                    para->fid, ret, msg.error_code);
         return HDCDRV_ERR;
     }
@@ -607,7 +607,7 @@ STATIC void vhdch_reset_service(struct vhdch_vdev *vdev)
     for (i = 0; i < HDCDRV_SUPPORT_MAX_SERVICE; i++) {
         service = &vdev->service[i];
         if (service->listen_status == HDCDRV_VALID) {
-            hdcdrv_info("Service wakeup accept. (dev_id=%u; fid=%u; service=%d)\n", vdev->dev_id, vdev->fid, i);
+            hdcdrv_info("Service wakeup accept. (dev_id=%u;fid=%u;service=%d)\n", vdev->dev_id, vdev->fid, i);
             ret = hdcdrv_server_free(service, (int)vdev->dev_id, i);
             if (ret != HDCDRV_OK) {
                 hdcdrv_warn("Reset failed, service wakeup accept. (dev_id=%u; fid=%u; service=%d)\n", vdev->dev_id,
@@ -682,12 +682,12 @@ STATIC int vhdch_init_msgchan_pool(u32 dev_id, u32 fid, u32 alloc_core_num, u32 
     struct hdcdrv_dev *dev = &hdc_ctrl->devices[dev_id];
     int dev_fast_cnt, vdev_fast_cnt;
 
-    hdcdrv_info("Get the parameter information. (dev_id=%u; fid=%u; total_core_num=%u; alloc_core_num=%u; "
-                "msg_chan_cnt=%d; normal_chan_num=%u)\n",
+    hdcdrv_info("Get the parameter information. (dev_id=%u;fid=%u;total_core_num=%u;alloc_core_num=%u;"
+                "msg_chan_cnt=%d;normal_chan_num=%u)\n",
                 dev_id, fid, total_core_num, alloc_core_num, dev->msg_chan_cnt, dev->normal_chan_num);
     dev_fast_cnt = dev->msg_chan_cnt - (int)dev->normal_chan_num;
     if (dev_fast_cnt <= 0) {
-        hdcdrv_err("No enough fast message channel resource. (dev_id=%u; fid=%u; msg_chan_cnt=%d; "
+        hdcdrv_err("Not enough fast message channel resource. (dev_id=%u; fid=%u; msg_chan_cnt=%d; "
                    "normal_chan_num=%u; dev_fast_cnt=%d)\n",
                    dev_id, fid, dev->msg_chan_cnt, dev->normal_chan_num, dev_fast_cnt);
         return HDCDRV_ERR;
@@ -698,7 +698,7 @@ STATIC int vhdch_init_msgchan_pool(u32 dev_id, u32 fid, u32 alloc_core_num, u32 
     if (vhdch_alloc_chan_from_dev(vdev, dev, vdev_fast_cnt) != HDCDRV_OK) {
         ka_task_mutex_unlock(&dev->mutex);
         vhdch_uninit_msgchan_pool(dev_id, fid);
-        hdcdrv_err("No enough message channel resource. (dev_id=%u; fid=%u)\n", dev_id, fid);
+        hdcdrv_err("Not enough message channel resource. (dev_id=%u; fid=%u)\n", dev_id, fid);
         return HDCDRV_ERR;
     }
 
@@ -1117,7 +1117,7 @@ STATIC int vhdch_release_proxy(u32 dev_id, u32 fid, struct vhdc_ctrl_msg_release
     ctx = vhdch_ctx_get(vdev, vhdc_release->hash);
     if (ctx == NULL) {
         ka_task_mutex_unlock(&vdev->release_mutex);
-        hdcdrv_warn("Failed to find vhdch ctx. (dev_id=%u;fid=%u)\n", dev_id, fid);
+        hdcdrv_warn("Failed to find vhdch ctx. (dev_id=%u; fid=%u)\n", dev_id, fid);
         return HDCDRV_PARA_ERR;
     }
 
@@ -1267,14 +1267,18 @@ STATIC int vhdch_traffic_msg_para_check(u32 dev_id, u32 fid, const struct vmng_r
     if ((proc_info == NULL) || (proc_info->real_out_len == NULL) || (proc_info->data == NULL) ||
         (proc_info->in_data_len < sizeof(struct hdcdrv_ctrl_msg_sync_mem_info)) || (dev_id >= VMNG_PDEV_MAX) ||
         (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
-        hdcdrv_err("Input parameter is error. (dev_id=%u;fid=%u)\n", dev_id, fid);
+        hdcdrv_err("Input parameter is invalid. "
+                   "(proc_info_is_null=%d;real_out_len_is_null=%d;data_is_null=%d;dev_id=%u;fid=%u;)\n",
+                   (proc_info == NULL), (proc_info != NULL) ? (proc_info->real_out_len == NULL) : 1,
+                   (proc_info != NULL) ? (proc_info->data == NULL) : 1, dev_id, fid);
         return HDCDRV_PARA_ERR;
     }
 
     mem_info = (struct hdcdrv_ctrl_msg_sync_mem_info *)proc_info->data;
     if ((u32)mem_info->phy_addr_num > HDCDRV_MEM_MAX_PHY_NUM) {
-        hdcdrv_err("phy_addr_num is bigger than expected. (dev_id=%u; fid=%u; phy_addr_num=%d)\n", dev_id, fid,
-                   mem_info->phy_addr_num);
+        hdcdrv_err("phy_addr_num is bigger than expected. (dev_id=%u; fid=%u; phy_addr_num=%d; "
+                   "max_addr_num=%d)\n",
+                   dev_id, fid, mem_info->phy_addr_num, HDCDRV_MEM_MAX_PHY_NUM);
         return HDCDRV_PARA_ERR;
     }
 
@@ -1419,7 +1423,7 @@ STATIC int vhdch_init_instance(u32 dev_id, u32 fid, u32 aicore_num, u32 total_ai
     ka_base_atomic64_set(&vdev->busy, 0);
     vdev->valid = HDCDRV_INVALID;
 
-    hdcdrv_info("Init. (vm_id=%u; dev_id=%u; fid=%u; aicore_num=%u; total_aicore_num=%u)", vdev->vm_id, dev_id, fid,
+    hdcdrv_info("Init. (vm_id=%u;dev_id=%u;fid=%u;aicore_num=%u;total_aicore_num=%u)", vdev->vm_id, dev_id, fid,
                 aicore_num, total_aicore_num);
 
     ret = vhdch_init_service(dev_id, fid);
@@ -1429,7 +1433,7 @@ STATIC int vhdch_init_instance(u32 dev_id, u32 fid, u32 aicore_num, u32 total_ai
     }
 
     if (total_aicore_num == 0) {
-        hdcdrv_err("total_aicore_num error.\n");
+        hdcdrv_err("total_aicore_num error. (total_aicore_num=%u; valid range: >0)\n", total_aicore_num);
         return HDCDRV_ERR;
     }
 
@@ -1520,7 +1524,7 @@ STATIC int vhdch_init_container_instance(u32 dev_id, u32 fid, u32 aicore_num, u3
     ka_base_atomic64_set(&vdev->busy, 0);
     vdev->valid = HDCDRV_INVALID;
 
-    hdcdrv_info("Init. (dev_id=%u; fid=%u; aicore_num=%u; total_aicore_num=%u)", dev_id, fid, aicore_num,
+    hdcdrv_info("Init. (dev_id=%u;fid=%u;aicore_num=%u;total_aicore_num=%u)", dev_id, fid, aicore_num,
                 total_aicore_num);
 
     if (vhdch_init_service(dev_id, fid) != HDCDRV_OK) {
@@ -1529,7 +1533,7 @@ STATIC int vhdch_init_container_instance(u32 dev_id, u32 fid, u32 aicore_num, u3
     }
 
     if (total_aicore_num == 0) {
-        hdcdrv_err("total_aicore_num error.\n");
+        hdcdrv_err("total_aicore_num error. (total_aicore_num=%u; valid range: >0)\n", total_aicore_num);
         return HDCDRV_ERR;
     }
 
@@ -1614,7 +1618,7 @@ static int vhdcd_mia_dev_notifier_func(u32 udevid, enum uda_notified_action acti
     fid = mia_para.sub_devid + 1;
 
     if (vmng_get_device_split_mode(mia_para.phy_devid) != VMNG_CONTAINER_SPLIT_MODE) {
-        hdcdrv_info("Not container split. (udevid=%u; action=%d)\n", udevid, action);
+        hdcdrv_info("Not container split. (udevid=%u;action=%d)\n", udevid, action);
         return 0;
     }
 
@@ -1629,7 +1633,7 @@ static int vhdcd_mia_dev_notifier_func(u32 udevid, enum uda_notified_action acti
         ret = vhdch_uninit_container_instance(mia_para.phy_devid, fid);
     }
 
-    hdcdrv_info("notifier action. (udevid=%u; action=%d; ret=%d)\n", udevid, action, ret);
+    hdcdrv_info("notifier action. (udevid=%u;action=%d;ret=%d)\n", udevid, action, ret);
 #endif
 
     return ret;
@@ -1660,7 +1664,7 @@ static int vhdcd_mia_dev_agent_notifier_func(u32 udevid, enum uda_notified_actio
         ret = vhdch_uninit_instance(mia_para.phy_devid, fid);
     }
 
-    hdcdrv_info("notifier action. (udevid=%u; action=%d; ret=%d)\n", udevid, action, ret);
+    hdcdrv_info("notifier action. (udevid=%u;action=%d;ret=%d)\n", udevid, action, ret);
 
     return ret;
 }

@@ -7,7 +7,7 @@
 - msnpureport\_auto\_export.sh脚本不支持容器场景，部署容器时，禁止将msnpureport\_auto\_export.sh脚本映射到容器内。
 - msnpureport\_auto\_export.sh脚本会持续采集所有Device侧日志，由于并发执行会导致采集内容重复，浪费系统资源，因此不建议并发执行。
 - 在异常场景下，可能会出现连续导出Device侧日志和文件失败的情况。
-- 如果用户想要终止导出Device侧日志和文件或者模型推理/训练完成，需要使用“Ctrl+c”或`kill -15 pid`命令结束进程。
+- 如果用户想要终止导出Device侧日志和文件或者模型推理/训练完成，需要使用“Ctrl+C”或`kill -15 pid`命令结束进程。
 
   其中pid代表连续导出日志和文件的脚本进程ID，可以通过**ps -elf | grep msnpureport\_auto\_export.sh**命令进行查询。
 
@@ -30,7 +30,7 @@
     /usr/local/Ascend/driver/tools/msnpureport_auto_export.sh 2 10 /home/log/
     ```
 
-    在加锁的目录下（使用**lsattr**命令查看目录属性，有“i”选项的为加锁目录），用户没有权限运行msnpureport\_auto\_export.sh脚本。如果用户想在该目录下运行该脚本，可以通过`chattr -i <加锁的目录\>`命令，将目录的“i”选项撤销。脚本运行完后建议通过`chattr -i <加锁的目录\>`命令，将目录的“i”选项加上。为了安全起见，不建议在加锁目录中运行脚本。
+    在加锁的目录下（使用**lsattr**命令查看目录属性，有“i”选项的为加锁目录），用户没有权限运行msnpureport\_auto\_export.sh脚本。如果用户想在该目录下运行该脚本，可以通过`chattr -i <加锁的目录\>`命令，将目录的“i”选项撤销。脚本运行完后建议通过`chattr +i <加锁的目录\>`命令，将目录的“i”选项加上。为了安全起见，不建议在加锁目录中运行脚本。
 
     其中各参数解释如表1所示：
 
@@ -49,5 +49,5 @@
 
 |目录|说明|
 |--|--|
-|msnpureport_log_new|导出日志和文件的存储目录。该目录下包含如下子目录。<br>- hisi_logs<br>-messagesy <br>-stem_info<br>-slog<br>-stackcore<br>其中hisi_logs目录下的history.log文件和message目录下的message.log文件是在Device侧的同名文件中进行老化的，所以每次导出之后需要将导出内容追加到同一目录下的history_new.log和message_new.log文件中并进行去重，来获取所有日志文件。<br>其他目录的日志文件在Device侧是以时间戳命名的，是通过删除较早时间戳的日志文件进行老化的，所以每次导出之后只需将导出内容拷贝覆盖就可以获取所有日志文件。|
+|msnpureport_log_new|导出日志和文件的存储目录。该目录下包含如下子目录。<br>- hisi_logs<br>-message <br>-system_info<br>-slog<br>-stackcore<br>其中hisi_logs目录下的history.log文件和message目录下的messages/messages.0文件是在Device侧的同名文件中进行老化的，所以每次导出之后需要将导出内容追加到同一目录下的history_new.log和message_new.log文件中并进行去重，来获取所有日志文件。<br>其他目录的日志文件在Device侧是以时间戳命名的，是通过删除较早时间戳的日志文件进行老化的，所以每次导出之后只需将导出内容拷贝覆盖就可以获取所有日志文件。|
 |msnpureport_log_old|老化的日志和文件的存储目录。<br>如果msnpureport_log_new目录存储的日志容量超过运行脚本时指定的存储目录容量的一半（如10/2=5G），将自动清空msnpureport_log_old目录下的日志和文件，再将msnpureport_log_new目录下存储的日志和文件全部移动到msnpureport_log_old目录下。|

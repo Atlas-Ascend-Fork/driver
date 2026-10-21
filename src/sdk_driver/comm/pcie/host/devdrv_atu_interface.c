@@ -89,8 +89,14 @@ int devdrv_devmem_addr_d2h(u32 udevid, phys_addr_t device_phy_addr, phys_addr_t 
     struct devdrv_iob_atu *atu = NULL;
     u64 host_phy_base = 0;
     u32 index_id;
+    int ret;
 
-    (void)uda_udevid_to_add_id(udevid, &index_id);
+    ret = uda_udevid_to_add_id(udevid, &index_id);
+    if (ret != 0) {
+        devdrv_err("Udevid to index_id failed. (udevid=%u; index_id=%u)\n", udevid, index_id);
+        return -EINVAL;
+    }
+
     if (host_bar_addr == NULL) {
         devdrv_err("host_bar_addr is null. (udevid=%u; index_id=%u)\n", udevid, index_id);
         return -EINVAL;
@@ -131,8 +137,14 @@ int devdrv_devmem_addr_h2d(u32 udevid, phys_addr_t host_bar_addr, phys_addr_t *d
     struct devdrv_iob_atu *atu = NULL;
     u64 host_phy_base = 0;
     u32 index_id;
+    int ret;
 
-    (void)uda_udevid_to_add_id(udevid, &index_id);
+    ret = uda_udevid_to_add_id(udevid, &index_id);
+    if (ret != 0) {
+        devdrv_err("Udevid to index_id failed. (udevid=%u; index_id=%u)\n", udevid, index_id);
+        return -EINVAL;
+    }
+
     if (device_phy_addr == NULL) {
         devdrv_err("device_phy_addr is null. (udevid=%u; index_id=%u)\n", udevid, index_id);
         return -EINVAL;

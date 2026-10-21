@@ -17,9 +17,9 @@
 #include "ka_type.h"
 #include "ka_dfx_pub.h"
 
-#define URD_NOTIFIER_INIT    (0x1)
+#define URD_NOTIFIER_INIT (0x1)
 #define URD_NOTIFIER_RELEASE (0x2)
-#define URD_NOTIFIER_RELEASE_PREPARE  (0x3)
+#define URD_NOTIFIER_RELEASE_PREPARE (0x3)
 
 /*
  * URD interface notification chain, which is used to
@@ -28,11 +28,10 @@
  * @mode: URD_NOTIFIER_INIT or URD_NOTIFIER_RELEASE
  * @data: refer to struct @urd_file_private_stru
  */
-int urd_notifier_call(u64 mode, void* data);
+int urd_notifier_call(u64 mode, void *data);
 
-int urd_register_notifier(ka_notifier_block_t* nb);
+int urd_register_notifier(ka_notifier_block_t *nb);
 
-int urd_unregister_notifier(ka_notifier_block_t* nb);
+int urd_unregister_notifier(ka_notifier_block_t *nb);
 
 #endif /* URD_NOTIFIER_H */
-

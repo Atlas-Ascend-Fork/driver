@@ -122,10 +122,6 @@ struct xsm_check_va_arg {
 
 #define BUFF_FEATURE_DEV_NUM 1140
 
-struct xsm_feature_get_arg {
-    unsigned long long feature_bitmaps[BUFF_FEATURE_DEV_NUM];
-};
-
 /* buff feature ID definitions (shared between kernel and user-space) */
 enum buff_feature_id {
     BUFF_FEATURE_EXTERNAL_CDEV = 0,
@@ -137,6 +133,14 @@ enum buff_feature_id {
     BUFF_FEATURE_SUPPORT_HUGE_PAGE,
     BUFF_FEATURE_NO_SUPPORT_DVPP_MZ,
     BUFF_FEATURE_MAX
+};
+#define BUFF_FEATURE_MAX_LIMIT 10000
+
+struct xsm_feature_get_arg {
+    /* input: user-space's current feature count (covers both chip and version features) */
+    unsigned int user_feature_num;
+    /* output: feature support bitmap (only indices < user_feature_num are valid) */
+    unsigned char feature_bitmaps[BUFF_FEATURE_DEV_NUM][BUFF_FEATURE_MAX];
 };
 
 #define XSMEM_POOL_REGISTER _IOW('X', 1, struct xsm_reg_arg)

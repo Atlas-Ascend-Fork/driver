@@ -37,8 +37,21 @@ static void vmng_msg_cmn_test_rand_sleep(u32 dly_us)
 
 int vmng_msg_recv_common_verfiy_info(u32 dev_id, u32 fid, struct vmng_rx_msg_proc_info *proc_info)
 {
-    struct vmng_msg_common_pcie_txd_verify *test_data = proc_info->data;
+    struct vmng_msg_common_pcie_txd_verify *test_data = NULL;
     const u32 SLEEP_TIME = 100;
+
+    if ((proc_info == NULL) || (proc_info->data == NULL) || (proc_info->real_out_len == NULL)) {
+        vmng_err("Input parameter is invalid. (dev_id=%u; fid=%u)\n", dev_id, fid);
+        return -EINVAL;
+    }
+
+    if ((proc_info->in_data_len < sizeof(struct vmng_msg_common_pcie_txd_verify)) ||
+        (proc_info->out_data_len < sizeof(struct vmng_msg_common_pcie_txd_verify))) {
+        vmng_err("Data length check failed. (dev_id=%u; fid=%u; in_data_len=%u; out_data_len=%u)\n", dev_id, fid,
+                 proc_info->in_data_len, proc_info->out_data_len);
+        return -EINVAL;
+    }
+    test_data = (struct vmng_msg_common_pcie_txd_verify *)proc_info->data;
 
     vmng_debug("Get parameter value. (dev_id=%u; fid=%u; cnt=%u; d1=%u; d2=%u)\n", dev_id, fid, test_data->cnt,
                test_data->d1, test_data->d2);

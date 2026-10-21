@@ -223,7 +223,7 @@ static enum trs_mbox_mem_type trs_mbox_get_mem_type(struct trs_id_inst *inst)
     if (devdrv_get_connect_protocol(inst->devid) == CONNECT_PROTOCOL_HCCS) {
         if (!uda_is_phy_dev(inst->devid) || (devdrv_get_host_phy_mach_flag(inst->devid, &host_flag) != 0)) {
 #ifndef EMU_ST
-            trs_warn("Get host flag is not supported. (devid=%u)\n", inst->devid);
+            trs_warn("Get host flag not support. (devid=%u)\n", inst->devid);
             return mem_type;
 #endif
         }
@@ -362,7 +362,7 @@ DECLAER_FEATURE_AUTO_UNINIT_DEV(trs_mbox_uninit, FEATURE_LOADER_STAGE_2);
 int devdrv_send_rdmainfo_to_ts(u32 devid, const u8 *buf, u32 len, int *result)
 {
     struct trs_id_inst inst;
-    struct trs_rdma_info msg;
+    struct trs_rdma_info msg = {0};
     u32 tsid = 0;
     int ret;
 

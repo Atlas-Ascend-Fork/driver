@@ -33,8 +33,6 @@ EXIT_MODULE_FUNC(DMS_MODULE_BASIC_POWER_INFO);
 #define DEVDRV_RESET_ALL_DEVICE_ID 0xffffffff
 #endif
 
-#define DEVDRV_HOTRESET_INFORM_DELAY 500
-
 struct hotreset_task_info {
     unsigned long task_flag;
     unsigned long task_ref_cnt;
@@ -42,7 +40,7 @@ struct hotreset_task_info {
 };
 
 int dms_power_hotreset_init(void);
-void dms_power_hotreset_exit(void);
+void dms_power_hotreset_uninit(void);
 int dms_hotreset_task_init(unsigned int dev_id);
 #ifdef CFG_FEATURE_SRIOV
 void dms_hotreset_vf_task_exit(unsigned int dev_id);

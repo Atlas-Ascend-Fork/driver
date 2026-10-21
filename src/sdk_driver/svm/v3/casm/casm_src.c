@@ -132,7 +132,7 @@ void casm_src_ctx_show(struct casm_src_ctx *src_ctx, ka_seq_file_t *seq)
     }
     ka_task_read_unlock_bh(&src_ctx->lock);
 
-    ka_fs_seq_printf(seq, "casm src info:index    key    owner_tgid  udevid   tgid   va   size    updated_va\n");
+    ka_fs_seq_printf(seq, "casm src info: index    key    owner_tgid  udevid   tgid   va   size    updated_va\n");
     for (i = 0; i < dump_num; i++) {
         struct svm_global_va *src_va = &dump_info[i].src_va;
         ka_fs_seq_printf(seq, "    %llu   0x%llx    %d   %u  %d  0x%llx   0x%llx   0x%llx\n", i, dump_info[i].key,

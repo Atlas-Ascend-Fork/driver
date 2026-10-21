@@ -71,3 +71,7 @@ bbox_status bbox_parse_cdr_full_data(enum plain_text_table_type type, u8 *data, 
     return bbox_cdr_full_dump(type, (const char *)data, len, path);
 }
 
+bbox_status bbox_parse_cdr_clink_data(enum plain_text_table_type type, u8 *data, u32 len, const char *path)
+{
+    return bbox_cdr_clink_dump(type, (const char *)data, len, path);
+}

@@ -9,7 +9,9 @@
  */
 #include "rbtree.h"
 #include "bitmap.h"
-
+#ifdef CFG_FEATURE_SUPPORT_UB
+#include "comm_user_interface.h"
+#endif
 #include "svm_init_pri.h"
 #include "svm_criu.h"
 #include "svm_log.h"
@@ -21,6 +23,7 @@
 #include "svm_apbi.h"
 #include "va_reserve_uk_msg.h"
 #include "va_mng.h"
+#include "va_gap.h"
 #include "va_reserve.h"
 
 #define VA_RESERVE_HANDLE_MAX_NUM 4
@@ -293,7 +296,8 @@ static struct va_reserve_node *va_find_reserve_node(struct va_reserve_mng *reser
 static int va_reserve_op_agent_task(u32 devid, u64 *va, u64 size, u32 flag, int task_type, int op)
 {
     struct svm_umc_msg_head head;
-    struct svm_va_reserve_msg reserve_msg = {.op = op, .flag = flag, .va = *va, .size = size};
+    struct svm_va_reserve_msg reserve_msg = {
+        .op = op, .flag = flag, .va = *va, .size = size, .gap_size = svm_va_get_gap()};
     struct svm_umc_msg msg = {.msg_in = (char *)(uintptr_t)&reserve_msg,
                               .msg_in_len = sizeof(struct svm_va_reserve_msg),
                               .msg_out = (char *)(uintptr_t)&reserve_msg,
@@ -628,8 +632,7 @@ static int va_reserve_get_negotiate_va(struct va_reserve_mng *reserve_mng, u64 s
         return 0;
     }
 
-    svm_err("No valid device available.\n");
-    return DRV_ERROR_INVALID_VALUE;
+    return DRV_ERROR_OUT_OF_MEMORY;
 }
 
 static int va_reserve_non_fixed_va(struct va_reserve_mng *reserve_mng, u64 *va, u64 size, u32 flag)
@@ -895,6 +898,57 @@ int svm_check_reserve_range(u64 va, u64 size, bool *is_reserved)
 
     return ret;
 }
+
+#ifdef CFG_FEATURE_SUPPORT_UB
+static int svm_get_reserve_range(uint64_t va, uint64_t *range_start, uint64_t *range_size)
+{
+    struct va_reserve_mng *reserve_mng = va_reserve_get_mng();
+    struct va_reserve_node *node = NULL;
+
+    if ((range_start == NULL) || (range_size == NULL)) {
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    (void)pthread_rwlock_rdlock(&reserve_mng->lock);
+    node = va_reserve_search_node(reserve_mng, va, 1);
+    (void)pthread_rwlock_unlock(&reserve_mng->lock);
+    if (node == NULL) {
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    *range_start = node->va;
+    *range_size = node->size;
+    return DRV_ERROR_NONE;
+}
+
+void *svm_acquire_token(void *seg_mng, uint64_t start, uint64_t size)
+{
+    uint64_t reserve_start = 0;
+    uint64_t reserve_size = 0;
+    struct ascend_urma_seg_info_ex info;
+
+    (void)size;
+    if (svm_get_reserve_range(start, &reserve_start, &reserve_size) != 0) {
+        return NULL;
+    }
+
+    /* Check if the previous segment is within the reserve range. */
+    if (ascend_urma_seg_get_prev(seg_mng, start, &info) == 0) {
+        if ((info.start >= reserve_start) && (info.start < reserve_start + reserve_size)) {
+            return (void *)info.token;
+        }
+    }
+
+    /* Check if the next segment is within the reserve range. */
+    if (ascend_urma_seg_get_next(seg_mng, start, &info) == 0) {
+        if ((info.start >= reserve_start) && (info.start < reserve_start + reserve_size)) {
+            return (void *)info.token;
+        }
+    }
+
+    return NULL;
+}
+#endif
 
 static int va_reserve_dev_single_range(u32 devid, u64 va, u64 size, u32 flag)
 {

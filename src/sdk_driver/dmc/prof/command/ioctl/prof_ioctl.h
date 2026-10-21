@@ -9,7 +9,8 @@
 #define PROF_PERIOD_MIN 10U    /* 10ms */
 #define PROF_PERIOD_MAX 10000U /* 10s */
 
-#define PROF_HOST_SAMPLE_PERIOD_MIN 7U     /* 7ms */
+#define PROF_HOST_SAMPLE_PERIOD_DEFAULT 7U /* 7ms */
+#define PROF_HOST_SAMPLE_PERIOD_MIN 1U     /* 1ms */
 #define PROF_HOST_SAMPLE_PERIOD_MAX 10000U /* 10s */
 
 #ifndef PROF_UNIT_TEST

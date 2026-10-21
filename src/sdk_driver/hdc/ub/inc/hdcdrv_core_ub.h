@@ -45,6 +45,7 @@
 
 #define HDCDRV_SERVICE_SHORT_CONN 0
 #define HDCDRV_SERVICE_LONG_CONN 1
+#define HDCDRV_SERVICE_SHORT_CONN_EXTEND 2
 
 #define HDCDRV_SESSION_STATUS_IDLE 0
 #define HDCDRV_SESSION_STATUS_CONN 1
@@ -77,7 +78,7 @@
 #define HDCDRV_SESSION_REMOTE_CLOSED_TIMEOUT_MS 3000     /* 3s */
 #endif
 
-#define HDCDRV_WAKE_UP_WAIT_TIMEOUT 1000 /* 1s */
+#define HDCDRV_WAKE_UP_WAIT_TIMEOUT 10000 /* 10s */
 
 #define HDCDRV_SESSION_RECLAIM_TIMEOUT (60 * KA_HZ) /* 60s */
 
@@ -85,10 +86,17 @@
 
 struct hdcdrv_ctx;
 
+struct hdcdrv_notify_ts {
+    u64 entry_ns;
+    u64 search_end_ns;
+    u64 reserved[5];
+};
+
 struct hdcdrv_conn_info_list {
     struct hdcdrv_conn_info_list *next;
     struct hdcdrv_event_connect conn_info;
     u64 add_list_jiffies;
+    struct hdcdrv_notify_ts notify_ts;
 };
 
 struct hdcdrv_service {
@@ -112,6 +120,7 @@ struct hdcdrv_event_record {
     struct hdcdrv_event_msg msg;
     int wait_flag;
     int valid_flag;
+    u64 reply_wake_up_ns;
 };
 
 struct hdcdrv_session {
@@ -144,6 +153,7 @@ struct hdcdrv_session {
     ka_wait_queue_head_t wq_dfx;
     struct hdcdrv_event_record conn_reply;
     struct hdcdrv_event_record dfx_reply;
+    struct hdcdrv_notify_ts conn_notify_ts;
 };
 
 struct hdcdrv_ctx_mem_pool_info {
@@ -170,8 +180,9 @@ struct hdcdrv_dev {
     u32 dev_type; // Device type, which may require distinguishing between pf and vf
     struct hdcdrv_service service[HDCDRV_SUPPORT_MAX_SERVICE];
     struct hdcdrv_session *sessions;
-    int cur_alloc_session;       // The currently assigned long session location
-    int cur_alloc_short_session; // The currently assigned short session location
+    int cur_alloc_session;              // The currently assigned long session location
+    int cur_alloc_short_session;        // The currently assigned short session location
+    int cur_alloc_short_extend_session; // The currently assigned short extend session location (264-271)
     struct hdcdrv_mem_pool_list_node mem_pool_list[HDCDRV_MEM_POOL_NUM]; // idx of mem_pool for each dev
     ka_atomic_t ref;
     u32 host_pm_or_vm_flag;
@@ -214,8 +225,8 @@ static inline int hdcdrv_get_session_status(const struct hdcdrv_session *session
 int devdrv_manager_container_logical_id_to_physical_id(u32 logical_dev_id, u32 *physical_dev_id, u32 *vfid);
 
 struct hdcdrv_dev *hdcdrv_ub_get_dev(u32 dev_id);
-void *hdcdrv_ub_kvmalloc(size_t size);
-void hdcdrv_ub_kvfree(const void *addr);
+void *hdcdrv_ub_kvmalloc(size_t size, int level);
+void hdcdrv_ub_kvfree(void **addr, int level);
 void hdcdrv_put_dev(u32 dev_id);
 
 int hdcdrv_ub_init_module(void);

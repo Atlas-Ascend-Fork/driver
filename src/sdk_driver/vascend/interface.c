@@ -12,6 +12,7 @@
  */
 
 #include "ka_compiler_pub.h"
+#include "ka_task_pub.h"
 #include "ka_pci_pub.h"
 #include "dvt.h"
 #include "kvmdt.h"
@@ -27,6 +28,7 @@ int hw_dvt_hypervisor_inject_msix(void *__vdavinci, u32 vector, int irq)
 {
     struct hw_vdavinci *vdavinci = (struct hw_vdavinci *)__vdavinci;
     u16 command, control;
+    int ret = 0;
 
     if (ka_unlikely(vdavinci == NULL)) {
         return -EINVAL;
@@ -37,13 +39,17 @@ int hw_dvt_hypervisor_inject_msix(void *__vdavinci, u32 vector, int irq)
 
         if (!(command & KA_PCI_COMMAND_INTX_DISABLE) || !(control & KA_PCI_MSIX_FLAGS_ENABLE) ||
             (control & KA_PCI_MSIX_FLAGS_MASKALL)) {
-            vascend_info(vdavinci->dvt->vdavinci_priv->dev, "msix cap flag did't support\n");
+            vascend_info(vdavinci->dvt->vdavinci_priv->dev, "msix cap flag doesn't support\n");
             return -EPERM;
         }
         vdavinci->msix_injection_allowed = true;
     }
 
-    return g_hw_kvmdt_ops.inject_msix(vdavinci->handle, vector, irq);
+    ka_task_rcu_read_lock();
+    ret = g_hw_kvmdt_ops.inject_msix(vdavinci, vector, irq);
+    ka_task_rcu_read_unlock();
+
+    return ret;
 }
 
 /**
@@ -63,7 +69,7 @@ int hw_dvt_hypervisor_read_gpa(void *__vdavinci, unsigned long gpa, void *buf, u
     if (vdavinci == NULL || buf == NULL) {
         return -EINVAL;
     }
-    return g_hw_kvmdt_ops.read_gpa(vdavinci->handle, gpa, buf, len);
+    return g_hw_kvmdt_ops.read_gpa(vdavinci, gpa, buf, len);
 }
 
 /**
@@ -83,7 +89,7 @@ int hw_dvt_hypervisor_write_gpa(void *__vdavinci, unsigned long gpa, void *buf, 
     if (vdavinci == NULL || buf == NULL) {
         return -EINVAL;
     }
-    return g_hw_kvmdt_ops.write_gpa(vdavinci->handle, gpa, buf, len);
+    return g_hw_kvmdt_ops.write_gpa(vdavinci, gpa, buf, len);
 }
 
 /**
@@ -92,16 +98,40 @@ int hw_dvt_hypervisor_write_gpa(void *__vdavinci, unsigned long gpa, void *buf, 
  * @gpfn: guest pfn
  *
  * Returns:
- * MFN on success, hw_dvt_INVALID_ADDR if failed.
+ * MFN on success, KVMDT_ERROR_PFN if failed.
+ *
+ * The lookup walks vm_dom->ram_info_list, which is mutated under
+ * vm_dom->sem by the unplug/unpin paths: take the read side so a
+ * concurrent unplug cannot free the ram_info being read. Callers must
+ * be in a sleepable context (the kvmdt fallback already calls
+ * might_sleep). The in-module pin path calls g_hw_kvmdt_ops.gfn_to_mfn
+ * directly instead: it runs under the sem write side and must not take
+ * the read side here (rwsem is not recursive).
  */
 unsigned long hw_dvt_hypervisor_gfn_to_mfn(void *__vdavinci, unsigned long gfn)
 {
     struct hw_vdavinci *vdavinci = (struct hw_vdavinci *)__vdavinci;
+    struct vm_dom_info *vm_dom = NULL;
+    unsigned long mfn = KVMDT_ERROR_PFN;
 
     if (vdavinci == NULL) {
-        return ~0;
+        return KVMDT_ERROR_PFN;
     }
-    return g_hw_kvmdt_ops.gfn_to_mfn(vdavinci->handle, gfn);
+
+    ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
+    if (vdavinci->vdev.domain == NULL) {
+        ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
+        return KVMDT_ERROR_PFN;
+    }
+    vm_dom = (struct vm_dom_info *)vdavinci->vdev.domain;
+    ka_task_down_read(&vm_dom->sem);
+    /* unlock to support concurrent read */
+    ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
+
+    mfn = g_hw_kvmdt_ops.gfn_to_mfn(vdavinci, gfn);
+
+    ka_task_up_read(&vm_dom->sem);
+    return mfn;
 }
 
 /**
@@ -178,15 +208,40 @@ void hw_dvt_hypervisor_dma_unmap_guest_page(void *__vdavinci, ka_sg_table_t *dma
  * @__vdavinci: a vdavinci
  *
  * Returns:
- * true on active, false on inactive.
+ * true when this vdavinci's dev_dom is mapped and ready, false otherwise.
+ *
+ * The check mirrors hw_vdavinci_get_iova: take cache_lock to read vdev.domain
+ * safely, then the vm_dom->sem read side so a concurrent unplug/unmap cannot
+ * free the dev_dom being checked. Caller must be in a sleepable context.
  */
 bool hw_dvt_hypervisor_dma_pool_active(void *__vdavinci)
 {
+    struct hw_vdavinci *vdavinci = (struct hw_vdavinci *)__vdavinci;
+    struct vm_dom_info *vm_dom = NULL;
+    struct dev_dom_info *dev_dom = NULL;
+    bool active = false;
+
     if (__vdavinci == NULL) {
         return false;
     }
 
-    return true;
+    ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
+    if (vdavinci->vdev.domain == NULL) {
+        ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
+        return false;
+    }
+    vm_dom = (struct vm_dom_info *)vdavinci->vdev.domain;
+    ka_task_down_read(&vm_dom->sem);
+    /* unlock to support concurrent read */
+    ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
+
+    dev_dom = dev_dom_info_find(vm_dom, vdavinci);
+    if (dev_dom != NULL && dev_dom->status == DOMAIN_MAP_STATUS_READY) {
+        active = true;
+    }
+
+    ka_task_up_read(&vm_dom->sem);
+    return active;
 }
 
 /**
@@ -235,6 +290,7 @@ void hw_dvt_hypervisor_dma_unmap_guest_page_batch(void *__vdavinci, unsigned lon
 bool hw_dvt_hypervisor_is_valid_gfn(void *__vdavinci, unsigned long gfn)
 {
     struct hw_vdavinci *vdavinci = (struct hw_vdavinci *)__vdavinci;
+    bool ret = false;
 
     if (vdavinci == NULL) {
         return false;
@@ -242,8 +298,10 @@ bool hw_dvt_hypervisor_is_valid_gfn(void *__vdavinci, unsigned long gfn)
     if (g_hw_kvmdt_ops.is_valid_gfn == NULL) {
         return true;
     }
-
-    return g_hw_kvmdt_ops.is_valid_gfn(vdavinci->handle, gfn);
+    ka_task_rcu_read_lock();
+    ret = g_hw_kvmdt_ops.is_valid_gfn(vdavinci, gfn);
+    ka_task_rcu_read_unlock();
+    return ret;
 }
 
 int hw_dvt_hypervisor_mmio_get(void **dst, int *size, void *__vdavinci, int bar)

@@ -161,6 +161,7 @@ int svm_umc_send(struct svm_umc_msg_head *head, u32 flag, struct svm_umc_msg *ms
     }
 
     if (ret != DRV_ERROR_NONE) {
+        share_log_read_err(HAL_MODULE_TYPE_DEVMM);
         ret = (ret < 0) ? DRV_ERROR_INNER_ERR : ret; /* esched sometimes will return -ret. */
         goto clear_reply;
     }

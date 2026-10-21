@@ -23,8 +23,9 @@ int DmsGetCanStatus(u32 dev_id, const char *name, u32 name_len, struct dsmi_can_
     struct can_status_stru can_status = {0};
     struct dms_ioctl_arg ioarg = {0};
 
-    if ((dev_id != 0) || (name == NULL)) {
-        DMS_ERR("Invalid dev_id or name is NULL. (dev_id=%u)\n", dev_id);
+    if ((dev_id != 0) || (name == NULL) || (can_status_data == NULL)) {
+        DMS_ERR("Invalid dev_id or name is NULL. (dev_id=%u; name_is_null=%d; data_is_null=%d)\n", dev_id,
+                (name == NULL), (can_status_data == NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -38,7 +39,7 @@ int DmsGetCanStatus(u32 dev_id, const char *name, u32 name_len, struct dsmi_can_
 
     ret = DmsIoctl(DMS_IOCTL_CMD, &ioarg);
     if (ret != 0) {
-        DMS_ERR("DmsIoctl failed. (ret=%d; can_name=%s)\n", ret, ioarg.input);
+        DMS_ERR("DmsIoctl failed. (ret=%d; can_name=%.*s)\n", ret, (int)name_len, name);
         return errno_to_user_errno(ret);
     }
 

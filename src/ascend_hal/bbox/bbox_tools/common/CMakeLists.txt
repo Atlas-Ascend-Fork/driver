@@ -29,7 +29,7 @@ target_include_directories(${OBJ_TOOL_COMMON}
         ${PROJ_DIR}/${BBOX_HOST_DIR}/utils
         ${DRIVER_USER_DIR}/inc/mmpa
         ${C_SEC_INCLUDE}
-        ${DRIVER_USER_DIR}/msnpureport/inc/slog
+        ${DRIVER_USER_DIR}/inc/slog
         ${DRIVER_KERNEL_DIR}/pbl/dev_urd/command/ioctl/
         ${DRIVER_KERNEL_DIR}/dms/command/ioctl/
         ${DRIVER_KERNEL_DIR}/pbl/uda/command/ioctl/
@@ -38,7 +38,7 @@ target_include_directories(${OBJ_TOOL_COMMON}
         ${PROJ_DIR}/${BBOX_HOST_DIR}/../../../../pkg_inc/
 )
 
-target_compile_definitions(${OBJ_TOOL_COMMON} PUBLIC CFG_FEATURE_BBOX_HOST_LOG)
+target_compile_definitions(${OBJ_TOOL_COMMON} PUBLIC DRV_HOST)
 
 target_link_libraries(${OBJ_TOOL_COMMON} PUBLIC
     $<BUILD_INTERFACE:bbox_intf_pub>

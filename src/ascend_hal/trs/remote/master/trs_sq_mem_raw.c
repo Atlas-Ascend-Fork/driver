@@ -12,6 +12,7 @@
 #include "trs_user_interface.h"
 #include "trs_user_pub_def.h"
 #include "trs_sqcq.h"
+#include "trs_dev_drv.h"
 #include "trs_sq_mem_raw.h"
 
 static bool trs_sq_send_mode_is_high_performance(uint32_t devid)
@@ -35,6 +36,8 @@ int trs_sq_mem_raw_alloc(uint32_t devid, uint64_t *va, uint64_t size)
 
     ret = halMemAlloc((void **)&svm_va, size, flag | MEM_CONTIGUOUS_PHY); /* Max support 4M contiguous. */
     if (ret != DRV_ERROR_NONE) {
+        trs_warn_limit("Alloc contiguous memory failed. (ret=%d; devid=%u; size=%llu; flag=0x%llx)\n", ret, devid, size,
+                       flag);
         ret = halMemAlloc((void **)&svm_va, size, flag);
         if (ret != DRV_ERROR_NONE) {
             trs_err("Alloc svm mem failed. (ret=%d; devid=%u; size=%llu; flag=0x%llx)\n", ret, devid, size, flag);

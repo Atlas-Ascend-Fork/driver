@@ -72,7 +72,7 @@ static int devmm_ipc_pod_msg_sync_send(u32 devid, u32 sdid, void *msg, size_t si
 
     ret = devdrv_s2s_msg_send(devid, sdid, DEVDRV_S2S_MSG_DEVMM, DEVDRV_S2S_TO_HOST, &data);
     if (ret != 0) {
-        devmm_drv_err("Pod sync send failed. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
+        devmm_drv_err("Pod sync send fail. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
         return ret;
     }
 
@@ -101,7 +101,7 @@ static int devmm_ipc_pod_msg_async_send(u32 devid, u32 sdid, void *msg, size_t s
 
     ret = devdrv_s2s_msg_send(devid, sdid, DEVDRV_S2S_MSG_DEVMM, DEVDRV_S2S_TO_HOST, &data);
     if (ret != 0 && ret != -EBUSY) {
-        devmm_drv_err("Pod async send failed. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
+        devmm_drv_err("Pod async send fail. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
         return ret;
     }
 
@@ -119,7 +119,7 @@ static int devmm_ipc_pod_msg_async_recv(u32 devid, u32 sdid, void *msg, size_t s
     ret = devdrv_s2s_async_msg_recv(devid, sdid, DEVDRV_S2S_MSG_DEVMM, &data);
     if (ret != 0) {
         if ((ret != -EAGAIN) || last_recv) {
-            devmm_drv_err("Pod async recv failed. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
+            devmm_drv_err("Pod async recv fail. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
         }
         return ret;
     }
@@ -141,7 +141,7 @@ static bool devmm_ipc_pod_is_local_pod(u32 devid, u32 sdid)
 
     ret = dbl_parse_sdid(sdid, &parse);
     if (ret != 0) {
-        devmm_drv_err("Parse sdid failed. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
+        devmm_drv_err("Parse sdid fail. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
         return true;
     }
 
@@ -254,7 +254,7 @@ static int devmm_ioctl_ipc_pod_set_pid(struct devmm_svm_process *svm_pro, struct
     ret = devmm_ipc_node_set_pids(&attr);
     if (ret != 0) {
         /* The log cannot be modified, because in the failure mode library. */
-        devmm_drv_err("Sent sdpid msg failed. (ret=%d; name=%s; sdid=%u)\n", ret, karg->name, karg->sdid);
+        devmm_drv_err("Sent sdpid msg fail. (ret=%d; name=%s; sdid=%u)\n", ret, karg->name, karg->sdid);
         return ret;
     }
 
@@ -282,7 +282,7 @@ static int devmm_ipc_pod_msg_check(u32 devid, u32 sdid, struct data_input_info *
     }
     msg = (struct devmm_ipc_pod_msg_data *)data->data;
     if (ka_unlikely(msg->header.valid != DEVMM_IPC_POD_MSG_SEND_MAGIC)) {
-        devmm_drv_err("Invalid magic. (valid=0x%x; devid=%u; sdid=%u; cmdtype=%d)\n", msg->header.valid, devid, sdid,
+        devmm_drv_err("Invalid magic. (magic=0x%x; devid=%u; sdid=%u; cmdtype=%d)\n", msg->header.valid, devid, sdid,
                       msg->header.cmdtype);
         return -EINVAL;
     }
@@ -343,7 +343,7 @@ static int devmm_ipc_pod_shadow_set_pid(u32 devid, struct devmm_ipc_pod_msg_data
     ret = devmm_ipc_node_set_pids_ex(&attr, KA_UINT_MAX, set_pid_msg->creator_pid, set_pid_msg->pid,
                                      set_pid_msg->pid_num);
     if (ka_unlikely(ret != 0)) {
-        devmm_drv_err("Set pid failed. (ret=%d; name=%s; devid=%u; sdid=%u; pid=%d)\n", ret, attr.name, attr.inst.devid,
+        devmm_drv_err("Set pid fail. (ret=%d; name=%s; devid=%u; sdid=%u; pid=%d)\n", ret, attr.name, attr.inst.devid,
                       set_pid_msg->sdid, attr.pid);
         return ret;
     }
@@ -451,7 +451,7 @@ static int devmm_ipc_pod_destroy_sync_msg_send(const char *name, ka_pid_t pid, u
 
     ret = devmm_ipc_pod_msg_sync_send(devid, sdid, &msg, sizeof(struct devmm_ipc_pod_msg_data));
     if (ret != 0) {
-        devmm_drv_err("Send msg failed. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
+        devmm_drv_err("Send msg fail. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
         return ret;
     }
 
@@ -490,7 +490,7 @@ static int devmm_ipc_pod_destroy_msg_async_send(const char *name, ka_pid_t pid, 
 
     ret = devmm_ipc_pod_msg_async_send(devid, sdid, &msg, sizeof(struct devmm_ipc_pod_msg_data));
     if (ret != 0) {
-        devmm_drv_err_if((ret != -EBUSY), "Send msg failed. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
+        devmm_drv_err_if((ret != -EBUSY), "Send msg fail. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
         return ret;
     }
 
@@ -680,7 +680,7 @@ static int devmm_ipc_pod_mem_repair_sync_msg_send(const char *name, ka_pid_t pid
 
     ret = devmm_ipc_pod_msg_sync_send(devid, sdid, &msg, sizeof(struct devmm_ipc_pod_msg_data));
     if (ret != 0) {
-        devmm_drv_err("Send msg failed. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
+        devmm_drv_err("Send msg fail. (ret=%d; devid=%u; sdid=%u)\n", ret, devid, sdid);
         return ret;
     }
 
@@ -707,7 +707,7 @@ static int devmm_ipc_pod_mem_repair(struct devmm_ipc_node *node)
         ret = devmm_ipc_pod_mem_repair_sync_msg_send(node->attr.name, node->attr.pid, node->attr.inst.devid,
                                                      sdid_list[i].sdid);
         if (ret != 0) {
-            devmm_drv_err("Pod mem repair failed. (name=%s; pid=%u; devid=%u; va=0x%llx; len=%lu; i=%u; sdid=%u)\n",
+            devmm_drv_err("Pod mem repair fail. (name=%s; pid=%u; devid=%u; va=0x%llx; len=%lu; i=%u; sdid=%u)\n",
                           node->attr.name, node->attr.pid, node->attr.inst.devid, node->attr.vptr, node->attr.len, i,
                           sdid_list[i].sdid);
             break;

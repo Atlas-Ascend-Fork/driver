@@ -228,7 +228,12 @@ drvError_t drv_hdc_socket_server_create(int dev_id, signed int server_pid, PPC_S
 #endif
     }
 
-    (void)chmod(srv_addr.sun_path, PPC_FILE_PERMISSION_WRITE);
+    if (chmod(srv_addr.sun_path, PPC_FILE_PERMISSION_WRITE) != 0) {
+        rval = DRV_ERROR_SOCKET_SET;
+        HDC_LOG_ERR("Chmod ppc socket error. (strerror=\"%s\"; errno=%d; server_pid=%d)\n", strerror(errno), errno,
+                    server_pid);
+        goto errout;
+    }
 
     if (listen(fd, QLEN) < 0) { /* tell kernel we're a server */
         rval = DRV_ERROR_SOCKET_LISTEN;

@@ -28,16 +28,21 @@
 #include "soft_fault_config.h"
 
 #define MODULE_SOFT "drv_soft_fault"
-#define soft_drv_err(fmt, ...)                                                                                 \
-    drv_err(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define soft_drv_warn(fmt, ...)                                                                                \
-    drv_warn(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define soft_drv_info(fmt, ...)                                                                                \
-    drv_info(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define soft_drv_event(fmt, ...)                                                                               \
-    drv_event(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define soft_drv_debug(fmt, ...)                                                                               \
-    drv_debug(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
+#define soft_drv_err(fmt, ...)                                                                      \
+    drv_err(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+            ka_task_get_current_pid(), ##__VA_ARGS__)
+#define soft_drv_warn(fmt, ...)                                                                      \
+    drv_warn(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+             ka_task_get_current_pid(), ##__VA_ARGS__)
+#define soft_drv_info(fmt, ...)                                                                      \
+    drv_info(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+             ka_task_get_current_pid(), ##__VA_ARGS__)
+#define soft_drv_event(fmt, ...)                                                                      \
+    drv_event(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+              ka_task_get_current_pid(), ##__VA_ARGS__)
+#define soft_drv_debug(fmt, ...)                                                                         \
+    drv_pr_debug(MODULE_SOFT, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                 ka_task_get_current_pid(), ##__VA_ARGS__)
 
 #ifndef DRV_SOFT_UT
 #define STATIC static
@@ -51,42 +56,35 @@ INIT_MODULE_FUNC(soft_fault);
 EXIT_MODULE_FUNC(soft_fault);
 
 #define SOFT_NODE_DEF(type, name, devid, id, m_ops) \
-{ \
-    .list = { \
-        .next = NULL, \
-        .prev = NULL \
-    }, \
-    .node_type = (type), \
-    .node_id = (id), \
-    .pid = (ka_task_get_current_tgid()), \
-    .node_name = (name), \
-    .capacity = 0, \
-    .permission = 0, \
-    .owner_devid = (devid), \
-    .owner_device = NULL, \
-    .sub_node = {NULL}, \
-    .state = 0, \
-    .ops = (m_ops) \
-} \
+    {.list = {.next = NULL, .prev = NULL},          \
+     .node_type = (type),                           \
+     .node_id = (id),                               \
+     .pid = (ka_task_get_current_tgid()),           \
+     .node_name = (name),                           \
+     .capacity = 0,                                 \
+     .permission = 0,                               \
+     .owner_devid = (devid),                        \
+     .owner_device = NULL,                          \
+     .sub_node = {NULL},                            \
+     .state = 0,                                    \
+     .ops = (m_ops)}
 
 #define SOFT_SENSOR_DEF(type, name, devid, s_id, s_idx, assert_mask, deassert_mask, scan_inter, func, pid) \
-{ \
-    .sensor_type = (type), \
-    .sensor_name = (name), \
-    .sensor_class = DMS_DISCRETE_SENSOR_CLASS, \
-    .sensor_class_cfg = { \
-        .discrete_sensor = {DMS_SENSOR_ATTRIB_THRES_NONE, 0} \
-    }, \
-    .scan_module = DMS_SERSOR_SCAN_PERIOD, \
-    .scan_interval = (scan_inter), \
-    .proc_flag = DMS_SENSOR_PROC_ENABLE_FLAG, \
-    .enable_flag = DMS_SENSOR_ENABLE_FALG, \
-    .pf_scan_func = (func), \
-    .private_data = (0), \
-    .assert_event_mask = (assert_mask), \
-    .deassert_event_mask = (deassert_mask), \
-    .pid = (pid), \
-} \
+    {                                                                                                      \
+        .sensor_type = (type),                                                                             \
+        .sensor_name = (name),                                                                             \
+        .sensor_class = DMS_DISCRETE_SENSOR_CLASS,                                                         \
+        .sensor_class_cfg = {.discrete_sensor = {DMS_SENSOR_ATTRIB_THRES_NONE, 0}},                        \
+        .scan_module = DMS_SERSOR_SCAN_PERIOD,                                                             \
+        .scan_interval = (scan_inter),                                                                     \
+        .proc_flag = DMS_SENSOR_PROC_ENABLE_FLAG,                                                          \
+        .enable_flag = DMS_SENSOR_ENABLE_FALG,                                                             \
+        .pf_scan_func = (func),                                                                            \
+        .private_data = (0),                                                                               \
+        .assert_event_mask = (assert_mask),                                                                \
+        .deassert_event_mask = (deassert_mask),                                                            \
+        .pid = (pid),                                                                                      \
+    }
 
 #define SF_OFFSET_8BIT 8
 #define SF_OFFSET_16BIT 16
@@ -103,12 +101,12 @@ EXIT_MODULE_FUNC(soft_fault);
 #define SF_USER_NODE_OS 1
 #define SF_USER_NODE_DRV 2
 
-#define OS_INIT                  (0x09)
+#define OS_INIT (0x09)
 #define SOFT_FAIL_CANNOT_RECOVER (0x0C)
 
 enum {
-    GENERAL_EVENT_TYPE_RESUME   = 0, /* resume */
-    GENERAL_EVENT_TYPE_OCCUR    = 1, /* occur */
+    GENERAL_EVENT_TYPE_RESUME = 0,   /* resume */
+    GENERAL_EVENT_TYPE_OCCUR = 1,    /* occur */
     GENERAL_EVENT_TYPE_ONE_TIME = 2, /* one times */
     GENERAL_EVENT_TYPE_MAX
 };
@@ -150,9 +148,9 @@ struct soft_dev {
     unsigned int dev_id;
     int node_id;
     unsigned int registered;
-    unsigned int sensor_obj_num; /* max 8 sensor object */
+    unsigned int sensor_obj_num;                                  /* max 8 sensor object */
     struct dms_sensor_object_cfg sensor_obj_table[SF_SUB_ID_MAX]; /* sensor table */
-    struct soft_event sensor_event_queue[SF_SUB_ID_MAX]; /* sensor event queue */
+    struct soft_event sensor_event_queue[SF_SUB_ID_MAX];          /* sensor event queue */
     int sensor_obj_registered[SF_SUB_ID_MAX]; /* registered status of corresponding sensor obj and event */
     struct dms_node dev_node;
     ka_mutex_t mutex;
@@ -195,5 +193,5 @@ void soft_ops_exit(struct dms_node *device);
 void soft_client_release(int owner_pid);
 
 unsigned long long soft_combine_private_data(unsigned int dev_id, unsigned int user_id, unsigned int node_type,
-    unsigned int node_id, unsigned int sensor_id);
+                                             unsigned int node_id, unsigned int sensor_id);
 #endif /* SOFT_FAULT_DEFINE_H */

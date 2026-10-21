@@ -26,7 +26,7 @@ int dms_smf_init(void)
 
 void dms_smf_exit(void)
 {
+    (void)dms_sen_exit_sensor_event();
     (void)dms_sensor_exit();
     dms_event_exit();
-    (void)dms_sen_exit_sensor_event();
 }

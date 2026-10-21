@@ -121,6 +121,14 @@ void svm_proc_dev_add_feature(u32 udevid, ka_proc_dir_entry_t *dev_entry, u32 fe
     (void)ka_fs_proc_create_data(feature_name, SVM_PROC_FS_MODE, dev_entry, &svm_dev_feature, (void *)(uintptr_t)priv);
 }
 
+void svm_proc_fs_add_feature(const char *name, const ka_procfs_ops_t *ops, void *data)
+{
+    if (svm_top_entry == NULL) {
+        return;
+    }
+    (void)ka_fs_proc_create_data(name, SVM_PROC_FS_MODE, svm_top_entry, ops, data);
+}
+
 int svm_proc_fs_init(void)
 {
     svm_top_entry = ka_fs_proc_mkdir(SVM_PROC_TOP_NAME, NULL);

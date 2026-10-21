@@ -67,3 +67,37 @@ drvError_t halResUnmap(unsigned int devId, struct res_map_info *res_info)
 
     return dpa_res_unmap(devId, res_info);
 }
+
+drvError_t halResRead(unsigned int devId, struct res_map_info *res_info, void *data, unsigned int len)
+{
+    int ret;
+
+    if ((data == NULL) || (len == 0)) {
+        rmo_err("Null ptr or invalid len. (len=%u)\n", len);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ret = rmo_res_info_check(res_info);
+    if (ret != 0) {
+        return ret;
+    }
+
+    return dpa_res_read(devId, res_info, data, len);
+}
+
+drvError_t halResWrite(unsigned int devId, struct res_map_info *res_info, void *data, unsigned int len)
+{
+    int ret;
+
+    if ((data == NULL) || (len == 0)) {
+        rmo_err("Null ptr or invalid len. (len=%u)\n", len);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ret = rmo_res_info_check(res_info);
+    if (ret != 0) {
+        return ret;
+    }
+
+    return dpa_res_write(devId, res_info, data, len);
+}

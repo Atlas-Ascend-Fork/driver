@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ */
+#ifndef __UDMA_ADAPT_H__
+#define __UDMA_ADAPT_H__
+
+#include "udma_ctl.h"
+typedef enum udma_user_ctl_opcode uba_udma_user_ctl_opcode;
+#define UBA_UDMA_USER_CTL_CREATE_JFS_EX UDMA_USER_CTL_CREATE_JFS_EX
+#define UBA_UDMA_USER_CTL_DELETE_JFS_EX UDMA_USER_CTL_DELETE_JFS_EX
+#define UBA_UDMA_USER_CTL_CREATE_JFC_EX UDMA_USER_CTL_CREATE_JFC_EX
+#define UBA_UDMA_USER_CTL_DELETE_JFC_EX UDMA_USER_CTL_DELETE_JFC_EX
+#define UBA_UDMA_USER_CTL_SET_CQE_ADDR UDMA_USER_CTL_SET_CQE_ADDR
+#define UBA_UDMA_USER_CTL_QUERY_UE_INFO UDMA_USER_CTL_QUERY_UE_INFO
+#define UBA_UDMA_USER_CTL_GET_DEV_RES_RATIO UDMA_USER_CTL_GET_DEV_RES_RATIO
+#define UBA_UDMA_USER_CTL_NPU_REGISTER_INFO_CB UDMA_USER_CTL_NPU_REGISTER_INFO_CB
+#define UBA_UDMA_USER_CTL_NPU_UNREGISTER_INFO_CB UDMA_USER_CTL_NPU_UNREGISTER_INFO_CB
+#define UBA_UDMA_USER_CTL_QUERY_TP_SPORT UDMA_USER_CTL_QUERY_TP_SPORT
+#define UBA_UDMA_USER_CTL_QUERY_CQE_AUX_INFO UDMA_USER_CTL_QUERY_CQE_AUX_INFO
+#define UBA_UDMA_USER_CTL_QUERY_AE_AUX_INFO UDMA_USER_CTL_QUERY_AE_AUX_INFO
+#define UBA_UDMA_USER_CTL_QUERY_UBMEM_INFO UDMA_USER_CTL_QUERY_UBMEM_INFO
+#define UBA_UDMA_USER_CTL_QUERY_PAIR_DEVNUM UDMA_USER_CTL_QUERY_PAIR_DEVNUM
+#define UBA_UDMA_USER_CTL_QUERY_HOST_UBMEM_INFO UDMA_USER_CTL_QUERY_HOST_UBMEM_INFO
+#define UBA_UDMA_USER_CTL_CREATE_LOCK_BUFFER_JETTY_EX UDMA_USER_CTL_CREATE_LOCK_BUFFER_JETTY_EX
+#define UBA_UDMA_USER_CTL_DELETE_LOCK_BUFFER_JETTY_EX UDMA_USER_CTL_DELETE_LOCK_BUFFER_JETTY_EX
+#define UBA_UDMA_USER_CTL_MAX UDMA_USER_CTL_MAX
+
+typedef enum udma_ae_aux_info_type uba_udma_ae_aux_info_type;
+#define UBA_TP_RRP_FLUSH_TIMER_PKT_CNT TP_RRP_FLUSH_TIMER_PKT_CNT
+#define UBA_TPP_DFX5 TPP_DFX5
+#define UBA_TWP_AE_DFX_FOR_AE TWP_AE_DFX_FOR_AE
+#define UBA_TP_RRP_ERR_FLG_0_FOR_AE TP_RRP_ERR_FLG_0_FOR_AE
+#define UBA_TP_RRP_ERR_FLG_1 TP_RRP_ERR_FLG_1
+#define UBA_TP_RCP_INNER_ALM_FOR_AE TP_RCP_INNER_ALM_FOR_AE
+#define UBA_LQC_TA_TQEP_WQE_ERR LQC_TA_TQEP_WQE_ERR
+#define UBA_LQC_TA_CQM_CQE_INNER_ALARM LQC_TA_CQM_CQE_INNER_ALARM
+#define UBA_MAX_AE_AUX_INFO_TYPE_NUM MAX_AE_AUX_INFO_TYPE_NUM
+
+typedef struct udma_ue_info_ex uba_udma_ue_info_ex;
+typedef struct udma_ae_info_in uba_udma_ae_info_in;
+typedef struct udma_ae_aux_info_out uba_udma_ae_aux_info_out;
+
+#endif

@@ -42,11 +42,14 @@ static int trs_chan_get_sq_info_by_sqid(struct trs_id_inst *inst, int res_type, 
         return ret;
     }
 
-    if (sq_info->sq_vaddr == NULL) {
+    if (sq_info->addr_num == 0) {
         struct trs_res_info_query res_info = {0};
         ret = trs_get_sq_bind_stream_info(inst, res_id, &res_info);
         if (ret == 0) {
+            sq_info->addr_num = res_info.stream_info.addr_num;
             sq_info->sq_vaddr = res_info.stream_info.stream_base_kva;
+            sq_info->vmap_pfn_handle = res_info.stream_info.stream_vmap_pfn_handle;
+            sq_info->addr_offset = res_info.stream_info.addr_offset;
             sq_info->sq_para.sq_depth = res_info.stream_info.stream_depth;
             sq_info->sq_para.sqe_size = res_info.stream_info.task_size;
             sq_info->sq_para.sq_que_uva = res_info.stream_info.stream_base_uva;

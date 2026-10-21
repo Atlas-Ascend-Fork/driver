@@ -25,6 +25,7 @@
 #include "pbl/pbl_davinci_api.h"
 
 #include "queue_module.h"
+#include "queue_feature_check.h"
 #include "queue_fops.h"
 #include "queue_msg.h"
 #include "queue_channel.h"
@@ -48,6 +49,7 @@ STATIC const ka_pci_device_id_t g_queue_driver_tbl[] = {
     {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
     {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
@@ -103,18 +105,22 @@ STATIC long queue_drv_host_init(ka_file_t *filep, struct queue_ioctl_host_common
     long ret;
 
     ctx_private = (struct context_private_data *)context->private_data;
+    ka_task_mutex_lock(&ctx_private->hdc_session_mutex);
     if (ctx_private->hdc_session[para->devid] >= 0) {
         queue_err("Repeat hdc connect. (devid=%u)\n", para->devid);
+        ka_task_mutex_unlock(&ctx_private->hdc_session_mutex);
         return -EEXIST;
     }
     /* hdc init */
     ret = hdcdrv_kernel_connect((int)para->devid, QUEUE_HDC_SERVICE_TYPE, &hdc_session, NULL);
     if (ret != 0) {
         queue_err("Hdcdrv_kernel_connect failed. (ret=%ld; devid=%u)\n", ret, para->devid);
+        ka_task_mutex_unlock(&ctx_private->hdc_session_mutex);
         return ret;
     }
 
     ctx_private->hdc_session[para->devid] = hdc_session;
+    ka_task_mutex_unlock(&ctx_private->hdc_session_mutex);
     queue_run_info("Hdc channel init succ. (devid=%u; hdc_session=%d)\n", para->devid, hdc_session);
 
     return 0;
@@ -128,8 +134,10 @@ STATIC long queue_drv_host_uninit(ka_file_t *filep, struct queue_ioctl_host_comm
     long ret;
 
     ctx_private = (struct context_private_data *)context->private_data;
+    ka_task_mutex_lock(&ctx_private->hdc_session_mutex);
     if (ctx_private->hdc_session[para->devid] < 0) {
-        queue_run_info("Hdc session is not exist. (devid=%u)\n", para->devid);
+        queue_run_info("Hdc session does not exist. (devid=%u)\n", para->devid);
+        ka_task_mutex_unlock(&ctx_private->hdc_session_mutex);
         return 0;
     }
 
@@ -140,6 +148,7 @@ STATIC long queue_drv_host_uninit(ka_file_t *filep, struct queue_ioctl_host_comm
     }
     queue_run_info("Hdcdrv_kernel_close. (devid=%u; session=%d)\n", para->devid, ctx_private->hdc_session[para->devid]);
     ctx_private->hdc_session[para->devid] = -1;
+    ka_task_mutex_unlock(&ctx_private->hdc_session_mutex);
 
     return ret;
 #else
@@ -492,7 +501,7 @@ STATIC long (*g_queue_host_common_op[QUEUE_OP_MAX])(ka_file_t *filep, struct que
 
 STATIC long queue_fop_host_common_op(ka_file_t *filep, unsigned int cmd, unsigned long arg)
 {
-    struct queue_ioctl_host_common_op para;
+    struct queue_ioctl_host_common_op para = {0};
     u32 phy_devid, vfid;
     int ret;
 
@@ -524,7 +533,7 @@ STATIC long queue_fop_host_common_op(ka_file_t *filep, unsigned int cmd, unsigne
 
 STATIC long queue_fop_enqueue(ka_file_t *filep, unsigned int cmd, unsigned long arg)
 {
-    struct queue_ioctl_enqueue para;
+    struct queue_ioctl_enqueue para = {0};
     ka_device_t *dev = NULL;
     u32 phy_devid, vfid;
     long ret;
@@ -572,6 +581,7 @@ STATIC struct queue_chan_ctrl_msg_mng *queue_ctrl_msg_mng_create(struct queue_io
         queue_err("Kvalloc failed. (devid=%u)\n", para->devid);
         return NULL;
     }
+    (void)memset_s(ctrl_msg_mng, sizeof(struct queue_chan_ctrl_msg_mng), 0, sizeof(struct queue_chan_ctrl_msg_mng));
 
     ret = (long)ka_base_copy_from_user(ctrl_msg_mng->head.msg, para->event_info.msg, para->event_info.msg_len);
     if (ret != 0) {
@@ -633,7 +643,7 @@ STATIC long queue_ctrl_msg_send_by_hdc(ka_file_t *filep, struct queue_ioctl_ctrl
 
 STATIC long queue_ctrl_msg_send(ka_file_t *filep, unsigned int cmd, unsigned long arg)
 {
-    struct queue_ioctl_ctrl_msg_send para;
+    struct queue_ioctl_ctrl_msg_send para = {0};
     u32 phy_devid, vfid;
     long ret;
 
@@ -675,10 +685,82 @@ STATIC long queue_ctrl_msg_send(ka_file_t *filep, unsigned int cmd, unsigned lon
     return queue_ctrl_msg_send_by_hdc(filep, &para);
 }
 
+static void queue_fill_feature_bitmap(unsigned char *bitmaps, unsigned int ori_feature_num, unsigned int feature_num)
+{
+    unsigned int i, j;
+
+    for (i = 0; i < QUEUE_FEATURE_DEV_NUM; i++) {
+        const struct queue_chip_features *feat = queue_get_dev_features(i);
+        if (feat == NULL) {
+            continue;
+        }
+        for (j = 0; j < feat->feature_count; j++) {
+            if (feat->features[j] < feature_num) {
+                bitmaps[i * ori_feature_num + feat->features[j]] = 1;
+            }
+        }
+    }
+}
+
+static long queue_fop_get_all_feature(ka_file_t *filep, unsigned int cmd, unsigned long arg)
+{
+    struct queue_ioctl_feature *uarg = (struct queue_ioctl_feature *)(uintptr_t)arg;
+    unsigned char *bitmaps;
+    unsigned int ori_feature_num, feature_num, bitmap_size;
+    int ret;
+
+    (void)filep;
+    (void)cmd;
+
+    /* Read user-space's feature count */
+    ret = (int)ka_base_copy_from_user(&feature_num, (void *)(uintptr_t)&uarg->user_feature_num, sizeof(feature_num));
+    if (ret != 0) {
+        queue_err("Copy user_feature_num from user failed. (ret=%d)\n", ret);
+        return -EFAULT;
+    }
+    if ((feature_num == 0) || (feature_num > QUEUE_FEATURE_MAX_LIMIT)) {
+        queue_err("invalid param, feature_num is %u, valid range (0, %u].\n", feature_num, QUEUE_FEATURE_MAX_LIMIT);
+        return -EFAULT;
+    }
+
+    ori_feature_num = feature_num;
+    if (feature_num > QUEUE_FEATURE_MAX) {
+        feature_num = QUEUE_FEATURE_MAX;
+    }
+
+    /* Allocate flat bitmap: rows = QUEUE_FEATURE_DEV_NUM, columns = ori_feature_num (user-space size) */
+    bitmap_size = QUEUE_FEATURE_DEV_NUM * ori_feature_num;
+    bitmaps = (unsigned char *)queue_drv_kvzalloc(bitmap_size, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    if (bitmaps == NULL) {
+        queue_err("kvzalloc failed.\n");
+        return -ENOMEM;
+    }
+
+    queue_fill_feature_bitmap(bitmaps, ori_feature_num, feature_num);
+
+    ret = (int)ka_base_copy_to_user((void *)(uintptr_t)&uarg->user_feature_num, &feature_num, sizeof(feature_num));
+    if (ret != 0) {
+        queue_err("Copy user_feature_num to user failed. (ret=%d)\n", ret);
+        queue_drv_kvfree(bitmaps);
+        return -EFAULT;
+    }
+
+    ret = (int)ka_base_copy_to_user((void *)(uintptr_t)uarg->feature_bitmaps, bitmaps, bitmap_size);
+    queue_drv_kvfree(bitmaps);
+    if (ret != 0) {
+        queue_err("Copy feature_bitmaps to user failed. (ret=%d)\n", ret);
+        return -EFAULT;
+    }
+
+    queue_run_info("Get all feature bitmaps. (count=%u)\n", (unsigned int)QUEUE_FEATURE_DEV_NUM);
+    return 0;
+}
+
 long (*const drv_queue_ioctl_handlers[QUEUE_CMD_MAX])(ka_file_t *filep, unsigned int cmd, unsigned long arg) = {
     [_KA_IOC_NR(QUEUE_HOST_COMMON_OP_CMD)] = queue_fop_host_common_op,
     [_KA_IOC_NR(QUEUE_ENQUEUE_CMD)] = queue_fop_enqueue,
     [_KA_IOC_NR(QUEUE_CTRL_MSG_SEND_CMD)] = queue_ctrl_msg_send,
+    [_KA_IOC_NR(QUEUE_GET_ALL_FEATURE_CMD)] = queue_fop_get_all_feature,
 };
 
 static int queue_event_try_mcast(unsigned int devid, struct sched_published_event_info *event_info,
@@ -722,8 +804,8 @@ static int queue_event_try_mcast(unsigned int devid, struct sched_published_even
     ret = hal_kernel_sched_submit_event(devid, &event);
     if (ret != 0) {
         /* Multicast failure does not affect the original process. */
-        queue_warn("Mcast event failed. (ret=%d; devid=%u; subevent_id=%u; qid=%u; gid=%u; event_sn=%u)\n", ret, devid,
-                   event_info->subevent_id, msg_head->comm.qid, msg_head->comm.mcast_para.gid,
+        queue_warn("Mcast event not successful. (ret=%d; devid=%u; subevent_id=%u; qid=%u; gid=%u; event_sn=%u)\n", ret,
+                   devid, event_info->subevent_id, msg_head->comm.qid, msg_head->comm.mcast_para.gid,
                    msg_head->comm.mcast_para.event_sn);
     }
 
@@ -753,7 +835,7 @@ int queue_drv_module_init(const ka_file_operations_t *ops)
     if (ret != 0) {
         queue_drv_msg_chan_uninit();
         (void)drv_ascend_unregister_sub_module(DAVINCI_QUEUE_SUB_MODULE_NAME);
-        queue_err("msg chan init failed, ret=%d.\n", ret);
+        queue_err("register event pre proc handle failed, ret=%d.\n", ret);
         return ret;
     }
 

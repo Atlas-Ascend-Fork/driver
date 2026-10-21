@@ -146,17 +146,18 @@ static void trs_chan_ops_hw_create_mbox_fill_ext_info(struct trs_id_inst *inst, 
         }
 
         trs_chan_ops_hw_create_mbox_pack_host_streamid(inst, &header->host_ssid);
-        if (chan_info->types.sub_type == CHAN_SUB_TYPE_HW_RTS) {
-            trs_debug(
-                "Mailbox info. (cmd_type=%u; sq_index=%u; cq0_index=%u; "
-                "app_type=%u; sw_reg_flag=%u; fid=%u; sq_cq_side=%u; master_pid_flag=%u; sq_addr_is_virtual=%u; "
-                "cq_addr_is_virtual=%u; is_convert_pid=%u; sqesize=%u; cqesize=%u; cqdepth=%u; sqdepth=%u; pid=%d; "
-                "cq_irq=%u; ssid=%u; info[0]=%u; ext_msg_len=%u)\n",
-                mbox_data->header.cmd_type, mbox_data->sq_index, mbox_data->cq0_index, mbox_data->app_type,
-                mbox_data->sw_reg_flag, mbox_data->fid, mbox_data->sq_cq_side, mbox_data->master_pid_flag,
-                mbox_data->sq_addr_is_virtual, mbox_data->cq_addr_is_virtual, mbox_data->is_convert_pid,
-                mbox_data->sqesize, mbox_data->cqesize, mbox_data->cqdepth, mbox_data->sqdepth, mbox_data->pid,
-                mbox_data->cq_irq, mbox_data->ssid, mbox_data->ts_info.info[0], mbox_data->ts_info.ext_msg_len);
+        if ((chan_info->types.sub_type == CHAN_SUB_TYPE_HW_RTS) ||
+            (chan_info->types.sub_type == CHAN_SUB_TYPE_HW_TOPIC_SCHED)) {
+            trs_debug("Mailbox info. (devid=%u; cmd_type=%u; sq_index=%u; cq0_index=%u; app_type=%u; sw_reg_flag=%u; "
+                      "fid=%u; sq_cq_side=%u; master_pid_flag=%u; sq_addr_is_virtual=%u; cq_addr_is_virtual=%u; "
+                      "is_convert_pid=%u; sqesize=%u; cqesize=%u; cqdepth=%u; sqdepth=%u; pid=%d; "
+                      "cq_irq=%u; ssid=%u; info[0]=%u; ext_msg_len=%u; sub_type=%u)\n",
+                      inst->devid, mbox_data->header.cmd_type, mbox_data->sq_index, mbox_data->cq0_index,
+                      mbox_data->app_type, mbox_data->sw_reg_flag, mbox_data->fid, mbox_data->sq_cq_side,
+                      mbox_data->master_pid_flag, mbox_data->sq_addr_is_virtual, mbox_data->cq_addr_is_virtual,
+                      mbox_data->is_convert_pid, mbox_data->sqesize, mbox_data->cqesize, mbox_data->cqdepth,
+                      mbox_data->sqdepth, mbox_data->pid, mbox_data->cq_irq, mbox_data->ssid,
+                      mbox_data->ts_info.info[0], mbox_data->ts_info.ext_msg_len, chan_info->types.sub_type);
         }
 
         trs_debug("Mailbox msg. (pid=%d; device_pid=%u; is_convert_pid=%u; host_ssid=%u; ext_msg_len=%u)\n",
@@ -192,16 +193,16 @@ static int trs_chan_ops_hw_create_mbox_send(struct trs_id_inst *inst, struct trs
     mbox_data.pid = chan_info->pid;
     mbox_data.master_pid_flag = (chan_info->master_pid_flag == 1) ? (adapt->cq_side == 0) : 0;
     mbox_data.sq_index = chan_info->sq_info.sqid;
-    mbox_data.sq_addr = chan_info->sq_info.sq_phy_addr;
+    mbox_data.sq_addr_is_virtual = chan_info->sq_addr_is_virtual;
+    mbox_data.sq_addr = chan_info->sq_addr_is_virtual ? (u64)(uintptr_t)chan_info->sq_info.sq_para.sq_que_uva :
+                                                        chan_info->sq_info.sq_phy_addr;
     mbox_data.sqesize = chan_info->sq_info.sq_para.sqe_size;
     mbox_data.sqdepth = chan_info->sq_info.sq_para.sq_depth;
-
     mbox_data.cq0_index = chan_info->cq_info.cqid;
     mbox_data.cq0_addr = chan_info->cq_info.cq_phy_addr;
     mbox_data.cqdepth = chan_info->cq_info.cq_para.cq_depth;
     mbox_data.cqesize = chan_info->cq_info.cq_para.cqe_size;
     mbox_data.sq_cq_side = ((adapt->sq_side << TRS_CHAN_SQ_MEM_OFFSET) | (adapt->cq_side << TRS_CHAN_CQ_MEM_OFFSET));
-    mbox_data.sq_addr_is_virtual = 0;
     mbox_data.cq_addr_is_virtual = 0;
     mbox_data.is_convert_pid = (chan_info->remote_id_flag == 1) ? 0 : 1;
     if (chan_info->types.sub_type == CHAN_SUB_TYPE_HW_TOPIC_SCHED) {
@@ -211,7 +212,6 @@ static int trs_chan_ops_hw_create_mbox_send(struct trs_id_inst *inst, struct trs
 
     ret = memcpy_s(mbox_data.info, TRS_SQCQ_INFO_LEN, chan_info->msg, TRS_SQCQ_INFO_LEN);
     if (ret != EOK) {
-        trs_err("Memcpy fail. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
         return ret;
     }
 
@@ -397,7 +397,7 @@ static int trs_chan_ops_task_sched_create_mbox_send(struct trs_id_inst *inst, st
 
     ret = trs_chan_ops_get_hw_irq(inst, chan_info->irq_type, chan_info->cq_info.irq, &mbox_data.cq_irq);
     if (ret != 0) {
-        trs_err("Get hwirq failed. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
+        trs_err("Get hwirq fail. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
         return ret;
     }
 

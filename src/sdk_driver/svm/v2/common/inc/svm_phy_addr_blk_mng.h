@@ -14,6 +14,7 @@
 #define SVM_PHY_ADDR_BLK_MNG_H
 
 #include "devmm_proc_info.h"
+#include "svm_pa_seg.h"
 #include "svm_dma_map.h"
 #include "svm_gfp.h"
 
@@ -60,6 +61,7 @@ struct devmm_phy_addr_blk {
     struct devmm_page_info pg_info;
     struct devmm_dma_blk_info dma_blk_info;
     struct devmm_target_addr_info addr_info;
+    u64 pa_pg_size;
 };
 
 struct devmm_blk_pg_range {
@@ -96,6 +98,9 @@ void devmm_phy_addr_blk_occupy_dec(struct devmm_phy_addr_blk *blk);
 
 ka_page_t **devmm_phy_addr_blk_get_pages(struct devmm_phy_addr_blk *blk, u64 offset, u64 pg_num);
 u64 *devmm_phy_addr_blk_get_target_addr(struct devmm_phy_addr_blk *blk, u64 offset, u64 pg_num);
+/* seg_num specifies the maximum segment count on input and returns the actual segment count. */
+int devmm_phy_addr_blk_query_pa(struct devmm_phy_addr_blk_mng *mng, int id, u64 offset, struct svm_pa_seg pa_seg[],
+                                u32 *seg_num);
 void _devmm_phy_addr_blks_destroy(struct devmm_svm_process *svm_proc, struct devmm_phy_addr_blk_mng *mng);
 
 void devmm_master_free_huge_pages(struct devmm_phy_addr_attr *attr, ka_page_t **pages, u64 pg_num);

@@ -47,6 +47,12 @@ static bool svm_is_need_task_group_sync(u32 devid)
     return (svm_task_grp_bitmap[devid] != 0);
 }
 
+static bool svm_is_need_vmm_task_group_sync(u64 svm_flag, u64 start, u64 size)
+{
+    return !svm_flag_cap_is_support_vmm_ipc_unmap(svm_flag) && !svm_flag_is_dev_cp_only(svm_flag) &&
+           !svm_flag_is_vmm_map_owner_no_access(svm_flag) && !svm_is_in_dcache_va_range(start, size);
+}
+
 static int svm_task_grp_map(u32 devid, u64 start, struct svm_global_va *src_info, u32 *task_bitmap)
 {
     struct svm_dst_va dst_info;
@@ -94,15 +100,11 @@ static void svm_task_grp_unmap(u32 devid, u64 start, struct svm_global_va *src_i
     }
 }
 
-static int svm_task_grp_post_malloc(void *va_handle, u64 start, struct svm_prop *prop)
+static int _svm_task_grp_post_malloc(void *va_handle, u64 start, struct svm_prop *prop)
 {
     struct svm_global_va src_info;
     u32 task_bitmap;
     int ret;
-
-    if (svm_handle_mem_is_cache(va_handle)) {
-        return 0;
-    }
 
     if (!svm_is_need_task_group_sync(prop->devid)) {
         return 0;
@@ -138,15 +140,19 @@ static int svm_task_grp_post_malloc(void *va_handle, u64 start, struct svm_prop 
     return ret;
 }
 
-static void svm_task_grp_pre_free(void *va_handle, u64 start, struct svm_prop *prop)
+static int svm_task_grp_post_malloc(void *va_handle, u64 start, struct svm_prop *prop)
+{
+    if (svm_handle_mem_is_cache(va_handle)) {
+        return 0;
+    }
+
+    return _svm_task_grp_post_malloc(va_handle, start, prop);
+}
+
+static void _svm_task_grp_pre_free(void *va_handle, u64 start, struct svm_prop *prop, u32 task_bitmap)
 {
     struct svm_global_va src_info;
-    u32 task_bitmap;
     int ret;
-
-    if (svm_handle_mem_is_cache(va_handle)) {
-        return;
-    }
 
     if (!svm_is_need_task_group_sync(prop->devid)) {
         return;
@@ -171,9 +177,17 @@ static void svm_task_grp_pre_free(void *va_handle, u64 start, struct svm_prop *p
         return;
     }
 
-    task_bitmap = svm_get_task_bitmap(va_handle);
     svm_task_grp_unmap(prop->devid, start, &src_info, task_bitmap);
     svm_set_task_bitmap(va_handle, task_bitmap & (0x1U << PROCESS_CP1));
+}
+
+static void svm_task_grp_pre_free(void *va_handle, u64 start, struct svm_prop *prop)
+{
+    if (svm_handle_mem_is_cache(va_handle)) {
+        return;
+    }
+
+    _svm_task_grp_pre_free(va_handle, start, prop, svm_get_task_bitmap(va_handle));
 }
 
 static struct svm_mng_ops task_grp_mng_ops = {.post_malloc = svm_task_grp_post_malloc,
@@ -234,11 +248,13 @@ static void svm_task_grp_pre_shrink(u32 devid, u64 start, u64 size)
 static struct svm_cache_ops task_grp_cache_ops = {.post_expand = svm_task_grp_post_expand,
                                                   .pre_shrink = svm_task_grp_pre_shrink};
 
-static int svm_task_grp_register_map(struct svm_global_va *src_info, u32 devid, u64 dst_va)
+static int svm_task_grp_register_map(struct svm_global_va *src_info, u32 devid, u64 dst_va, u32 register_to_peer_flag)
 {
     struct svm_dst_va dst_info;
+    struct svm_global_va aligned_src_info;
+    u64 npage_size, aligned_size;
     u32 task_type = PROCESS_HCCP;
-    u32 smm_flag = 0;
+    u32 smm_flag = ((register_to_peer_flag & SVM_REGISTER_TO_PEER_FLAG_READ_ONLY) != 0) ? SVM_SMM_FLAG_PG_RDONLY : 0;
     int ret;
 
     if (devid >= SVM_MAX_DEV_AGENT_NUM) {
@@ -254,8 +270,15 @@ static int svm_task_grp_register_map(struct svm_global_va *src_info, u32 devid, 
         return 0;
     }
 
-    svm_dst_va_pack(devid, task_type, dst_va, src_info->size, &dst_info);
-    ret = svm_smm_client_map(&dst_info, src_info, smm_flag);
+    ret = svm_dbi_query_npage_size(devid, &npage_size);
+    if (ret != 0) {
+        svm_err("Get npage size failed. (devid=%u; ret=%d)\n", devid, ret);
+        return ret;
+    }
+    svm_register_compute_aligned(src_info, npage_size, &aligned_src_info, &aligned_size);
+
+    svm_dst_va_pack(devid, task_type, dst_va, aligned_size, &dst_info);
+    ret = svm_smm_client_map(&dst_info, &aligned_src_info, smm_flag);
     if (ret == DRV_ERROR_NO_PROCESS) {
         svm_task_grp_bitmap[devid] &= (~(0x1U << task_type));
     } else if (ret != 0) {
@@ -295,37 +318,32 @@ static void svm_task_grp_register_unmap(struct svm_global_va *src_info, u32 devi
 static struct svm_register_ops task_grp_register_ops = {.post_map = svm_task_grp_register_map,
                                                         .pre_unmap = svm_task_grp_register_unmap};
 
-static int svm_task_grp_post_map(void *seg_handle, u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
+static int svm_task_grp_post_map(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
 {
-    u32 task_bitmap;
-    int ret;
+    u32 task_bitmap = 0;
 
     if (!svm_is_need_task_group_sync(devid)) {
         return 0;
     }
 
-    if (((svm_flag_is_dev_cp_only(svm_flag)) || (svm_is_in_dcache_va_range(start, src_info->size)))) {
+    if (!svm_is_need_vmm_task_group_sync(svm_flag, start, src_info->size)) {
         return 0;
     }
 
-    task_bitmap = svm_svmm_get_seg_task_bitmap(seg_handle);
-    ret = svm_task_grp_map(devid, start, src_info, &task_bitmap);
-    svm_svmm_set_seg_task_bitmap(seg_handle, task_bitmap);
-
-    return ret;
+    return svm_task_grp_map(devid, start, src_info, &task_bitmap);
 }
 
-static int svm_task_grp_pre_unmap(u32 task_bitmap, u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
+static int svm_task_grp_pre_unmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
 {
     if (!svm_is_need_task_group_sync(devid)) {
         return 0;
     }
 
-    if ((svm_flag_is_dev_cp_only(svm_flag)) || (svm_is_in_dcache_va_range(start, src_info->size))) {
+    if (!svm_is_need_vmm_task_group_sync(svm_flag, start, src_info->size)) {
         return 0;
     }
 
-    svm_task_grp_unmap(devid, start, src_info, task_bitmap);
+    svm_task_grp_unmap(devid, start, src_info, svm_task_grp_bitmap[devid]);
     return 0;
 }
 
@@ -340,7 +358,7 @@ int svm_task_grp_map_normal_pa(u64 va, struct svm_prop *prop)
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    ret = svm_task_grp_post_malloc(handle, va, prop);
+    ret = _svm_task_grp_post_malloc(handle, prop->start, prop);
     svm_handle_put(handle);
     return ret;
 }
@@ -351,38 +369,38 @@ void svm_task_grp_unmap_normal_pa(u64 va, struct svm_prop *prop)
     if (handle == NULL) {
         return;
     }
-
-    svm_task_grp_pre_free(handle, va, prop);
+    if (prop->devid < SVM_MAX_DEV_AGENT_NUM) {
+        _svm_task_grp_pre_free(handle, prop->start, prop, svm_task_grp_bitmap[prop->devid]);
+    }
     svm_handle_put(handle);
 }
 
-void svm_task_grp_unmap_vmm_pa(void *seg_handle, u32 devid, u64 va, struct svm_global_va *src_info)
+void svm_task_grp_unmap_vmm_pa(u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info)
 {
-    u32 task_bitmap;
-
     if (!svm_is_need_task_group_sync(devid)) {
         return;
     }
 
-    task_bitmap = svm_svmm_get_seg_task_bitmap(seg_handle);
-    svm_task_grp_unmap(devid, va, src_info, task_bitmap);
-    svm_svmm_set_seg_task_bitmap(seg_handle, task_bitmap & (0x1U << PROCESS_CP1));
+    if (!svm_is_need_vmm_task_group_sync(svm_flag, va, src_info->size)) {
+        return;
+    }
+
+    svm_task_grp_unmap(devid, va, src_info, svm_task_grp_bitmap[devid]);
 }
 
-int svm_task_grp_map_vmm_pa(void *seg_handle, u32 devid, u64 va, struct svm_global_va *src_info)
+int svm_task_grp_map_vmm_pa(u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info)
 {
-    u32 task_bitmap;
-    int ret;
+    u32 task_bitmap = 0;
 
     if (!svm_is_need_task_group_sync(devid)) {
         return 0;
     }
 
-    task_bitmap = svm_svmm_get_seg_task_bitmap(seg_handle);
-    ret = svm_task_grp_map(devid, va, src_info, &task_bitmap);
-    svm_svmm_set_seg_task_bitmap(seg_handle, task_bitmap);
+    if (!svm_is_need_vmm_task_group_sync(svm_flag, va, src_info->size)) {
+        return 0;
+    }
 
-    return ret;
+    return svm_task_grp_map(devid, va, src_info, &task_bitmap);
 }
 
 static struct svm_mem_repair_ops task_grp_repair_ops = {.normal_map = svm_task_grp_map_normal_pa,
@@ -438,11 +456,11 @@ static int svm_sync_vmm_map_addr_to_task(void *seg_handle, u64 start, struct svm
     struct svm_global_va real_src_info = *src_info;
     u32 devid = task_info->devid;
     struct svm_dst_va dst_info;
-    u32 task_bitmap, smm_flag;
+    u32 smm_flag;
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
     int ret;
 
-    if ((svm_flag_is_dev_cp_only(svm_svmm_get_seg_svm_flag(seg_handle))) ||
-        (svm_is_in_dcache_va_range(start, src_info->size))) {
+    if (!svm_is_need_vmm_task_group_sync(svm_flag, start, src_info->size)) {
         return 0;
     }
 
@@ -459,10 +477,6 @@ static int svm_sync_vmm_map_addr_to_task(void *seg_handle, u64 start, struct svm
         svm_err("Smm map failed. (devid=%u; va=0x%llx; task_type=%u)\n", devid, start, task_info->task_type);
         return ret;
     }
-
-    task_bitmap = svm_svmm_get_seg_task_bitmap(seg_handle);
-    task_bitmap |= 0x1U << (u32)task_info->task_type;
-    svm_svmm_set_seg_task_bitmap(seg_handle, task_bitmap);
 
     return 0;
 }
@@ -529,12 +543,13 @@ static int svm_sync_cache_to_task(u32 devid, u64 start, u64 size, u32 flag, void
     return 0;
 }
 
-static int svm_sync_register_to_task(void *va_handle, u64 start, struct svm_global_va *src_info, void *priv)
+static int svm_sync_register_to_task(void *seg_handle, u64 start, struct svm_global_va *src_info, void *priv)
 {
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
+    u32 register_to_peer_flag = svm_flag_attr_is_pg_rdonly(svm_flag) ? SVM_REGISTER_TO_PEER_FLAG_READ_ONLY : 0;
     u32 devid = ((struct svm_sync_task_info *)priv)->devid;
 
-    SVM_UNUSED(va_handle);
-    return svm_task_grp_register_map(src_info, devid, start);
+    return svm_task_grp_register_map(src_info, devid, start, register_to_peer_flag);
 }
 
 static int svm_sync_svm_addr_to_task(u32 devid, u32 task_type)
@@ -581,14 +596,20 @@ static int svm_task_grp_add_task(u32 devid, u32 task_type)
         return ret;
     }
 
+    /* Set bitmap before sync so that svm_task_grp_register_map can see the bit and
+     * actually execute HCCP page table mapping. If bitmap is set after sync (as before),
+     * svm_task_grp_register_map checks the bit, finds it 0, and silently skips the map,
+     * leaving HCCP page table never built. */
+    svm_task_grp_bitmap[devid] |= (0x1U << (u32)task_type);
+
     if (!svm_criu_is_device_reopen(devid)) { /* Task grp add task before criu restore. */
         ret = svm_sync_svm_addr_to_task(devid, task_type);
         if (ret != 0) {
+            svm_task_grp_bitmap[devid] &= (~(0x1U << (u32)task_type));
             return ret;
         }
     }
 
-    svm_task_grp_bitmap[devid] |= (0x1U << (u32)task_type);
     return 0;
 }
 

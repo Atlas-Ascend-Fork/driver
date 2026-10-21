@@ -18,6 +18,7 @@
 #include "ka_memory_pub.h"
 #include "ka_kernel_def_pub.h"
 #include "vmng_kernel_interface.h"
+#include "virtmnghost_feature.h"
 #include "ascend_dev_num.h"
 #include "hw_vdavinci.h"
 
@@ -115,6 +116,7 @@ struct vmngh_pci_dev {
     void *ctrl_msg_chan;
     struct vmng_bandwith_ctrl bw_ctrl;
     u32 vm_full_spec_enable;
+    vmng_feature_bitmap_t features;
 };
 
 struct vmngh_unit {
@@ -124,7 +126,6 @@ struct vmngh_unit {
 
 int vmngh_dev_id_check(u32 dev_id, u32 fid);
 int vmngh_vm_id_check(u32 vm_id, u32 vm_devid);
-struct vmng_msg_dev *vmngh_get_msg_dev_by_id(u32 dev_id, u32 fid);
 struct vmngh_vd_dev *vmngh_get_vddev_by_id(u32 dev_id, u32 fid);
 ka_mutex_t *vmngh_get_vdev_lock_from_unit(u32 dev_id, u32 fid);
 struct vmngh_vd_dev *vmngh_get_vdev_from_unit(u32 dev_id, u32 fid);

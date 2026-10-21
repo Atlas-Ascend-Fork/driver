@@ -13,6 +13,8 @@
 
 #ifndef _PCIVNIC_HOST_H_
 #define _PCIVNIC_HOST_H_
+#include "pbl/pbl_uda.h"
+#include "pcivnic_main.h"
 
 #define PCIVNIC_INIT_NETDEV_RETRY_TIMES 3
 
@@ -21,4 +23,13 @@ void pcivnic_free_vnic_dev(void);
 int pcivnic_register_client(void);
 int pcivnic_unregister_client(void);
 int pcivnic_init_netdev(struct pcivnic_netdev *vnic_dev);
+int pcivnic_init_msg_instance(struct pcivnic_pcidev *pcidev);
+struct pcivnic_netdev *pcivnic_get_vnic_dev(void);
+unsigned char *pcivnic_get_vnic_mac(void);
+int pcivnic_init_instance(u32 dev_id, ka_device_t *dev);
+int pcivnic_uninit_instance(u32 dev_id);
+int pcivnic_init_msg_chan(struct pcivnic_pcidev *pcidev);
+void pcivnic_uninit_msg_chan(struct pcivnic_pcidev *pcidev);
+int pcivnic_register_common_client(void);
+int pcivnic_unregister_common_client(u32 dev_id);
 #endif

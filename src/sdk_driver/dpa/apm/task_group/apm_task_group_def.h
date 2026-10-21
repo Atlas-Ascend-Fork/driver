@@ -57,13 +57,20 @@ static inline bool apm_is_surport_multi_slave(int proc_type)
 
 static inline int apm_devid_to_udevid(u32 devid, u32 *udevid)
 {
-    if (devid < APM_LOGIC_DEV_MAX_NUM) {
-        int ret = uda_devid_to_udevid(devid, udevid);
-        if (ret != 0) {
-            return -ENODEV;
-        }
-    } else {
+    int ret;
+
+    if (devid == UDA_INVALID_UDEVID) {
         *udevid = UDA_INVALID_UDEVID;
+        return 0;
+    }
+
+    if (devid >= APM_LOGIC_DEV_MAX_NUM) {
+        return -ENODEV;
+    }
+
+    ret = uda_devid_to_udevid(devid, udevid);
+    if (ret != 0) {
+        return -ENODEV;
     }
 
     return 0;

@@ -21,5 +21,6 @@ bbox_status bbox_parse_hdr_data(enum plain_text_table_type type, u8 *data, u32 l
 bbox_status bbox_parse_cdr_min_data(enum plain_text_table_type type, u8 *data, u32 len, const char *path);
 bbox_status bbox_parse_cdr_full_data(enum plain_text_table_type type, u8 *data, u32 len, const char *path);
 bbox_status bbox_parse_slog_data(enum plain_text_table_type type, u8 *data, u32 len, const char *path);
+bbox_status bbox_parse_cdr_clink_data(enum plain_text_table_type type, u8 *data, u32 len, const char *path);
 
 #endif

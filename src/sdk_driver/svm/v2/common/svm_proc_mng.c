@@ -147,53 +147,82 @@ static void devmm_init_svm_proc_heaps(struct devmm_svm_process *svm_proc)
     ka_task_init_rwsem(&svm_proc->heap_sem);
 }
 
-static int devmm_create_svm_proc_soma_heap(struct devmm_svm_process *svm_proc)
+static void devmm_init_soma_heap_common(struct devmm_svm_heap *soma_heap)
 {
-    int ret;
-    struct devmm_svm_heap *soma_heap = NULL;
-
-    /*  Allocate heap structure */
-    soma_heap = devmm_kvzalloc(sizeof(*soma_heap));
-    if (!soma_heap) {
-        devmm_drv_err("Alloc soma_heap fail.\n");
-        return -ENOMEM;
-    }
-
-    svm_proc->soma_heap = soma_heap;
-    svm_proc->soma_start_addr = DEVMM_SOMA_MEM_START;
-    svm_proc->soma_end_addr = DEVMM_SOMA_MEM_START + DEVMM_SOMA_MEM_SIZE;
-
     soma_heap->start = DEVMM_SOMA_MEM_START;
     soma_heap->heap_size = DEVMM_SOMA_MEM_SIZE;
     soma_heap->chunk_page_size = DEVMM_HUGE_PAGE_SIZE;
-
     soma_heap->used_mask = (unsigned long *)(void *)(soma_heap + 1);
-
-    /* Initialize virtual memory management */
-    ret = devmm_vmma_mng_init(&soma_heap->vmma_mng, soma_heap->start, soma_heap->heap_size);
-    if (ret) {
-        devmm_drv_err("vmma_mng init fail.\n");
-        goto fail;
-    }
-
-    ret = devmm_alloc_new_heap_pagebitmap(soma_heap);
-    if (ret) {
-        devmm_drv_err("devmm_alloc_new_heap_pagebitmap fail.\n");
-        goto fail;
-    }
-
-    /* Initialize counter and flag */
     atomic64_set(&soma_heap->occupy_cnt, 0);
     soma_heap->is_invalid = false;
     soma_heap->heap_type = DEVMM_HEAP_HUGE_PAGE;
     soma_heap->heap_sub_type = SUB_SOMA_TYPE;
+}
+
+static int devmm_alloc_and_init_soma_heap(struct devmm_svm_process *svm_proc)
+{
+    struct devmm_svm_heap *soma_heap = NULL;
+    int ret;
+
+    soma_heap = devmm_kvzalloc(sizeof(*soma_heap));
+    if (soma_heap == NULL) {
+#ifndef EMU_ST
+        devmm_drv_err("Alloc soma_heap fail. (heap_struct_size=%zu; hostpid=%d; devid=%d; vfid=%d)\n",
+                      sizeof(*soma_heap), svm_proc->process_id.hostpid, svm_proc->process_id.devid,
+                      svm_proc->process_id.vfid);
+#endif
+        return -ENOMEM;
+    }
+
+    svm_proc->soma_heap = soma_heap;
+    devmm_init_soma_heap_common(soma_heap);
+
+    ret = devmm_vmma_mng_init(&soma_heap->vmma_mng, soma_heap->start, soma_heap->heap_size);
+    if (ret != 0) {
+#ifndef EMU_ST
+        devmm_drv_err("vmma_mng init fail.\n");
+        devmm_kvfree(soma_heap);
+        svm_proc->soma_heap = NULL;
+#endif
+        return ret;
+    }
 
     return 0;
+}
 
-fail:
-    devmm_kvfree(soma_heap);
-    svm_proc->soma_heap = NULL;
-    return ret;
+static int devmm_create_svm_proc_soma_heap(struct devmm_svm_process *svm_proc)
+{
+    struct devmm_svm_heap *soma_heap = NULL;
+    int ret;
+
+    svm_proc->soma_start_addr = DEVMM_SOMA_MEM_START;
+    svm_proc->soma_end_addr = DEVMM_SOMA_MEM_START + DEVMM_SOMA_MEM_SIZE;
+
+    ret = devmm_alloc_and_init_soma_heap(svm_proc);
+    if (ret != 0) {
+        return ret;
+    }
+
+    /* Device does not require page bitmap allocation */
+    if (devmm_get_end_type() == DEVMM_END_DEVICE) {
+        return 0;
+    }
+
+    soma_heap = svm_proc->soma_heap;
+    ret = devmm_alloc_new_heap_pagebitmap(soma_heap);
+    if (ret != 0) {
+#ifndef EMU_ST
+        devmm_drv_err("devmm_alloc_new_heap_pagebitmap fail. (soma_start=0x%llx; soma_size=%llu; chunk_size=%u; "
+                      "hostpid=%d; devid=%d; vfid=%d)\n",
+                      soma_heap->start, soma_heap->heap_size, soma_heap->chunk_page_size, svm_proc->process_id.hostpid,
+                      svm_proc->process_id.devid, svm_proc->process_id.vfid);
+        devmm_kvfree(soma_heap);
+        svm_proc->soma_heap = NULL;
+#endif
+        return ret;
+    }
+
+    return 0;
 }
 
 static void devmm_destroy_svm_proc_soma_heap(struct devmm_svm_process *svm_proc)
@@ -219,6 +248,11 @@ static int devmm_create_svm_proc_uvm_heap(struct devmm_svm_process *svm_proc)
     // Device does not require uvm heap
     if (devmm_get_end_type() == DEVMM_END_DEVICE) {
         svm_proc->uvm_heap = NULL;
+        svm_proc->uvm_exiting = false;
+        INIT_LIST_HEAD(&svm_proc->uvm_scan_list_node);
+        svm_proc->uvm_next_scan_addr = DEVMM_UVM_MEM_START;
+        ka_hash_init(svm_proc->uvm_trans_page_hashtable);
+        ka_task_mutex_init(&svm_proc->uvm_ht_lock);
         return 0;
     }
 
@@ -431,7 +465,9 @@ static int devmm_init_svm_proc_host_pin_heap(struct devmm_svm_process *svm_proc)
         if (devmm_alloc_new_heap_pagebitmap(heap) != 0) {
             devmm_drv_err("Devmm_alloc_new_heap_pagebitmap for host pin error.\n");
             devmm_kvfree(heap);
-            return ret;
+#ifndef EMU_ST
+            return -ENOMEM;
+#endif
         }
     }
 
@@ -1252,7 +1288,7 @@ static struct devmm_proc_states_info *devmm_get_proc_states_info(struct devmm_sv
         mia_para.sub_devid = vfid - 1;
         ret = uda_mia_devid_to_udevid(&mia_para, &udevid);
         if (ret != 0) {
-            devmm_drv_err("UDA devid to udevid failed (ret=%d; devid=%u; vfid=%u)\n", ret, devid, vfid);
+            devmm_drv_err("UDA mia devid to udevid failed. (ret=%d; devid=%u; vfid=%u)\n", ret, devid, vfid);
             return NULL;
         }
     } else {

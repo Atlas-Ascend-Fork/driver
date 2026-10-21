@@ -29,6 +29,7 @@
 #include "dsmi_product_user_config.h"
 #include "pbl_uda_user.h"
 #include "udis_user.h"
+// clang-format off
 
 #ifdef CFG_SOC_PLATFORM_CLOUD
 #include "dms_user_interface.h"
@@ -1513,3 +1514,4 @@ DLLEXPORT int dsmi_set_device_offline_nic_down_flag(int logic_id, int enable_fla
     (void)enable_flag;
     return DRV_ERROR_NOT_SUPPORT;
 }
+// clang-format on

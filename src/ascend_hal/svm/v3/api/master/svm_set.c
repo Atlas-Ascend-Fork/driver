@@ -57,7 +57,7 @@ static int svm_memset_check_addr_prop_cap(u64 va, u64 size, u64 cap_mask)
         }
 
         if ((prop.flag & cap_mask) == 0) {
-            svm_err("Va does not support cur cap. (va=0x%llx; prop.flag=0x%llx)\n", va, prop.flag);
+            svm_err("Va not support cur cap. (va=0x%llx; prop.flag=0x%llx)\n", va, prop.flag);
             return DRV_ERROR_PARA_ERROR;
         }
 
@@ -134,7 +134,7 @@ static int svm_mem_clear_fast(u32 host_devid, DVdeviceptr dst, size_t destMax, s
 
 static bool svm_can_go_fast_mem_clear(u32 devid, u32 host_devid, u8 value, size_t num)
 {
-    return (value == 0) && (devid != host_devid) && (num < SVM_MEMSET_FAST_LIMIT_SIZE);
+    return !svm_dbi_is_cc_vm() && (value == 0) && (devid != host_devid) && (num < SVM_MEMSET_FAST_LIMIT_SIZE);
 }
 
 drvError_t drvMemsetD8Inner(DVdeviceptr dst, size_t destMax, UINT8 value, size_t num);
@@ -143,11 +143,11 @@ drvError_t drvMemsetD8Inner(DVdeviceptr dst, size_t destMax, UINT8 value, size_t
     struct svm_prop prop;
     u32 host_devid, devid;
     int ret;
-
     svm_debug("Memset info. (va=0x%llx; value=%u; num=%lu)\n", dst, value, num);
 
     ret = svm_memset_para_check(dst, destMax, value, num);
     if (ret != DRV_ERROR_NONE) {
+        svm_err("check failed (ret=%d; va=0x%llx)\n", ret, dst);
         return ret;
     }
 

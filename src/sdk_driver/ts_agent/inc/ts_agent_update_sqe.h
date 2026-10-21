@@ -29,12 +29,16 @@ struct trs_sqcq_agent_para {
 
 struct trs_sqe_update_info {
     int pid;
-    void *sq_base;
+    union {
+        void *sq_base; /* contiguous kva base (pa_num == 1), ts_agent uses sq_base + sqeid */
+        void *dst_sqe; /* pre-computed destination sqe addr (pa_num > 1), host driver calculates */
+    };
     u32 sqid;
     u32 sqeid;
     void *sqe;
     u32 size;
     u32 *long_sqe_cnt;
+    bool addr_non_continuous;
 };
 #endif
 
@@ -62,8 +66,15 @@ struct tsagent_sq_base_info {
 #define TSAGENT_MAX_DEV_ID 64 /*devid: 0 ： 63*/
 #endif
 
+enum tsagent_sq_send_mode {
+    TSAGENT_SQ_SEND_MODE_HIGH_SECURITY = 0,
+    TSAGENT_SQ_SEND_MODE_HIGH_PERFORMANCE,
+    TSAGENT_SQ_SEND_MODE_MAX
+};
+
 int tsagent_device_init(u32 devid, u32 tsid, struct trs_sqcq_agent_para *para);
 int tsagent_device_uninit(u32 devid, u32 tsid);
+int tsagent_sq_send_mode_update(u32 devid, int mode);
 int tsagent_sqe_update(u32 devid, u32 tsid, struct trs_sqe_update_info *update_info);
 int tsagent_cqe_update(u32 devid, u32 tsid, int pid, u32 cqid, void *cqe);
 int tsagent_mailbox_update(u32 devid, u32 tsid, int pid, void *data, u32 size);

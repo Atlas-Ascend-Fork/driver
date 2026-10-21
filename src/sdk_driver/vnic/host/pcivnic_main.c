@@ -31,12 +31,19 @@
 #include "ka_memory_pub.h"
 #include "pcivnic_mem_alloc.h"
 #include "pbl/pbl_spod_info.h"
+#ifdef CFG_FEATURE_OVER_XCOM
+#include "pcivnic_host_adapt.h"
+#endif
 #include "pcivnic_main.h"
 
 #define PCIVNIC_COUNT 64
 #define CHAR_ARRAY_MAX_LEN 20
 
+#ifdef CFG_FEATURE_OVER_XCOM
+const char g_pcivnic_name[CHAR_ARRAY_MAX_LEN] = "vnic_driver";
+#else
 const char g_pcivnic_name[CHAR_ARRAY_MAX_LEN] = "pcivnic_driver";
+#endif
 
 static struct {
     const char str[KA_ETH_GSTRING_LEN];
@@ -52,8 +59,13 @@ static struct {
 
 STATIC void pcivnic_net_get_drvinfo(ka_net_device_t *net_dev, ka_ethtool_drvinfo_t *info)
 {
+#ifdef CFG_FEATURE_OVER_XCOM
+    char version[CHAR_ARRAY_MAX_LEN] = "vnic v1.0";
+    char bus_info[CHAR_ARRAY_MAX_LEN] = "vnic";
+#else
     char version[CHAR_ARRAY_MAX_LEN] = "pcivnic v1.0";
     char bus_info[CHAR_ARRAY_MAX_LEN] = "pcivnic";
+#endif
 
     if (strncpy_s(info->driver, CHAR_ARRAY_MAX_LEN, g_pcivnic_name, CHAR_ARRAY_MAX_LEN - 1) == EOK &&
         strncpy_s(info->version, CHAR_ARRAY_MAX_LEN, version, CHAR_ARRAY_MAX_LEN - 1) == EOK &&
@@ -84,7 +96,7 @@ STATIC int pcivnic_get_sset_count(ka_net_device_t *net_dev, int sset)
 STATIC void pcivnic_get_strings(ka_net_device_t *net_dev, u32 strset, u8 *buf)
 {
     if (strset == KA_ETH_SS_TEST) {
-        devdrv_warn("strset equal with KA_ETH_SS_TEST\n");
+        devdrv_warn("strset equal to KA_ETH_SS_TEST\n");
         return;
     }
     if (memcpy_s(buf, sizeof(pcivnic_ethtool_stats), pcivnic_ethtool_stats, sizeof(pcivnic_ethtool_stats)) != 0) {
@@ -169,7 +181,7 @@ STATIC int pcivnic_net_close(ka_net_device_t *ndev)
     return 0;
 }
 
-STATIC int pcivnic_get_next_valid_pcidev(struct pcivnic_netdev *vnic_dev, int begin)
+int pcivnic_get_next_valid_pcidev(struct pcivnic_netdev *vnic_dev, int begin)
 {
     struct pcivnic_pcidev *pcidev = NULL;
     int i;
@@ -386,7 +398,7 @@ STATIC void pcivnic_s2s_send_work(ka_work_struct_t *p_work)
 
         if (skb->len > PCIVNIC_MAX_PKT_SIZE) {
             ka_net_dev_kfree_skb_any(skb);
-            devdrv_err("Len is too big. (len=%u;max=%u;devid=%u)\n", skb->len, PCIVNIC_MAX_PKT_SIZE, pcidev->dev_id);
+            devdrv_err("Len is too big.(len=%u, devid=%u)\n", skb->len, pcidev->dev_id);
             continue;
         }
 
@@ -418,7 +430,7 @@ STATIC void pcivnic_s2s_send_work(ka_work_struct_t *p_work)
     pcivnic_netdev_completed_queue(pcidev, &bytes_compl, &pkts_compl);
 }
 
-STATIC int pcivnic_pciedev_s2s_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, ka_net_device_t *ndev)
+int pcivnic_pciedev_s2s_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, ka_net_device_t *ndev)
 {
     struct sdid_parse_info sdid_info = {0};
     u32 chan_idx;
@@ -426,11 +438,13 @@ STATIC int pcivnic_pciedev_s2s_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pc
 
     if ((pcidev == NULL) || ((pcidev->status & BIT_STATUS_LINK) == 0)) {
         devdrv_warn("pcidev is not available\n");
+        ka_net_dev_kfree_skb_any(skb);
         return KA_NETDEV_TX_OK;
     }
 
     if ((skb == NULL) || (ndev == NULL)) {
         devdrv_warn("skb or dev is null.(devid=%u)\n", pcidev->dev_id);
+        ka_net_dev_kfree_skb_any(skb);
         return KA_NETDEV_TX_OK;
     }
 
@@ -439,6 +453,7 @@ STATIC int pcivnic_pciedev_s2s_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pc
         (sdid_info.die_id >= PCIVNIC_S2S_DIE_NUM) || (sdid_info.udevid >= PCIVNIC_S2S_ONE_SERVER_DEV_NUM)) {
         devdrv_warn("skb mac is invalid. (devid=%u, server_id=%u, chip_id=%u, die_id=%u)\n", pcidev->dev_id,
                     sdid_info.server_id, sdid_info.chip_id, sdid_info.die_id);
+        ka_net_dev_kfree_skb_any(skb);
         return KA_NETDEV_TX_OK;
     }
 
@@ -510,7 +525,7 @@ STATIC int pcidev_s2s_send_queue_init(struct pcivnic_pcidev *pcidev)
 }
 #endif
 
-STATIC int pcivnic_pciedev_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, ka_net_device_t *ndev)
+int pcivnic_pciedev_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, ka_net_device_t *ndev)
 {
     struct pcivnic_netdev *vnic_dev = (struct pcivnic_netdev *)pcidev->netdev;
     struct pcivnic_sq_desc *sq_desc = NULL;
@@ -519,7 +534,7 @@ STATIC int pcivnic_pciedev_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev
     int ret;
 
     if (pcivnic_device_status_abnormal(pcidev->msg_chan) != 0) {
-        devdrv_warn("device %d maybe offline\n", pcidev->dev_id);
+        devdrv_warn("device %d may be offline\n", pcidev->dev_id);
         ret = KA_NETDEV_TX_OK;
         goto error;
     }
@@ -550,16 +565,6 @@ STATIC int pcivnic_pciedev_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev
         return KA_NETDEV_TX_BUSY;
     }
 
-    /* update netdev */
-    if (ndev != NULL) {
-        ka_task_spin_lock_bh(&vnic_dev->lock);
-        ka_net_netdev_set_trans_start(ndev);
-        ka_net_netdev_tx_packets_add(ndev);
-        ka_net_netdev_tx_bytes_add(ndev, skb->len);
-        ka_net_netdev_sent_queue(ndev, skb->len);
-        ka_task_spin_unlock_bh(&vnic_dev->lock);
-    }
-
     sq_desc = pcivnic_get_w_sq_desc(pcidev->msg_chan, &tail);
     if (sq_desc == NULL || tail >= PCIVNIC_DESC_QUEUE_DEPTH) {
         ka_task_spin_unlock_bh(&pcidev->lock);
@@ -576,9 +581,29 @@ STATIC int pcivnic_pciedev_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev
         ret = KA_NETDEV_TX_OK;
         goto error;
     }
+#elif defined(CFG_FEATURE_OVER_XCOM)
+    ret = pcivnic_tx_block_proc(skb, pcidev, &addr);
+    if (ret != 0) {
+        ka_task_spin_unlock_bh(&pcidev->lock);
+        devdrv_err("device %d tx block proc fail\n", pcidev->dev_id);
+        ret = KA_NETDEV_TX_OK;
+        goto error;
+    }
 #else
     addr = ka_mm_virt_to_phys(skb->data);
 #endif
+
+    /* update netdev */
+    if (ndev != NULL) {
+#ifndef DRV_UT
+        ka_task_spin_lock_bh(&vnic_dev->lock);
+        ka_net_netdev_set_trans_start(ndev);
+        ka_net_netdev_tx_packets_add(ndev);
+        ka_net_netdev_tx_bytes_add(ndev, skb->len);
+        ka_net_netdev_sent_queue(ndev, skb->len);
+        ka_task_spin_unlock_bh(&vnic_dev->lock);
+#endif
+    }
 
     sq_desc->data_buf_addr = addr;
     sq_desc->data_len = skb->len;
@@ -602,7 +627,8 @@ STATIC int pcivnic_pciedev_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev
     pcidev->stat.tx_pkt++;
     pcidev->stat.tx_bytes += skb->len;
 
-    pcivnic_copy_sq_desc_to_remote(pcidev, sq_desc);
+    // even if copy fail, the async callback still can ensure to be called by under layer
+    (void)pcivnic_copy_sq_desc_to_remote(pcidev, sq_desc);
 
     if (pcivnic_w_sq_full_check(pcidev->msg_chan)) {
         pcidev->status |= BIT_STATUS_TQ_FULL;
@@ -642,9 +668,6 @@ STATIC ka_netdev_tx_t pcivnic_net_xmit(ka_sk_buff_t *skb, ka_net_device_t *ndev)
     if (next_hop == PCIVNIC_NEXT_HOP_S2S) {
 #ifdef CFG_FEATURE_S2S
         ret = pcivnic_pciedev_s2s_send(skb, vnic_dev->pcidev[0], ndev);
-        if (ret != 0) {
-            goto free_skb;
-        }
 #endif
     } else if (next_hop != PCIVNIC_NEXT_HOP_BROADCAST) {
         if (vnic_dev->pcidev[next_hop] == NULL) {
@@ -739,6 +762,8 @@ STATIC void pcivnic_tx_free_and_cqsq_update(struct pcivnic_pcidev *pcidev, struc
 
 #ifdef USE_DMA_ADDR
     pcivnic_dma_unmap_single(pcidev, skb, PCIVNIC_DESC_QUEUE_TX, tx_head, pcidev->tx[tx_head].len);
+#elif defined(CFG_FEATURE_OVER_XCOM)
+    pcivnic_free_block(pcidev, pcidev->tx[tx_head].addr);
 #endif
     ka_net_dev_consume_skb_any(skb);
 
@@ -877,7 +902,7 @@ void pcivnic_rx_packet(ka_sk_buff_t *skb, struct pcivnic_netdev *vnic_dev, u32 d
         ka_task_spin_unlock_bh(&vnic_dev->lock);
         if ((ka_net_netdev_get_stats_rx_dropped(ndev) % PCIVNIC_LINKDOWN_NUM == 0) &&
             (pcivnic_is_register_netdev(dev_id) == true)) {
-            devdrv_info("rx drop packet.(len=%d, dev_id=%u)\n", skb->len, dev_id);
+            devdrv_info("rx drop packet. (len=%d;dev_id=%u)\n", skb->len, dev_id);
         }
         ka_net_dev_consume_skb_any(skb);
         return;
@@ -905,7 +930,7 @@ void pcivnic_rx_packet(ka_sk_buff_t *skb, struct pcivnic_netdev *vnic_dev, u32 d
     ka_net_netdev_set_last_rx(ndev);
 }
 
-STATIC int pcivnic_forward_flow_ctrl(struct pcivnic_netdev *vnic_dev, int forward_dev, int next_hop)
+int pcivnic_forward_flow_ctrl(struct pcivnic_netdev *vnic_dev, int forward_dev, int next_hop)
 {
     struct pcivnic_flow_ctrl *flow_ctrl = NULL;
     struct pcivnic_fwd_stat *fwd_stat = NULL;
@@ -945,51 +970,14 @@ STATIC int pcivnic_forward_flow_ctrl(struct pcivnic_netdev *vnic_dev, int forwar
     return PCIVNIC_INVALID;
 }
 
-STATIC void pcivnic_forward_packet(ka_sk_buff_t *skb, struct pcivnic_netdev *vnic_dev, int forward_dev)
+STATIC void pcivnic_pcidev_rx_buff_init(struct pcivnic_skb_addr *rx, ka_sk_buff_t *skb, u64 addr, int len)
 {
-    ka_sk_buff_t *skb_cp = NULL;
-    int next_hop;
-    int begin = 0;
-
-    next_hop = pcivnic_up_get_next_hop((unsigned char *)skb->data);
-    if (next_hop == PCIVNIC_NEXT_HOP_LOCAL_NETDEV) {
-        pcivnic_rx_packet(skb, vnic_dev, (u32)forward_dev);
-    } else if (next_hop != PCIVNIC_NEXT_HOP_BROADCAST) {
-        if ((forward_dev == next_hop) || (vnic_dev->pcidev[next_hop] == NULL)) {
-            ka_net_dev_consume_skb_any(skb);
-        } else {
-            if (pcivnic_forward_flow_ctrl(vnic_dev, forward_dev, next_hop) == PCIVNIC_VALID) {
-                ka_net_dev_consume_skb_any(skb);
-                return;
-            }
-
-            (void)pcivnic_pciedev_send(skb, vnic_dev->pcidev[next_hop], NULL);
-        }
-    } else {
-        while (1) {
-            next_hop = pcivnic_get_next_valid_pcidev(vnic_dev, begin);
-            if (next_hop < 0) {
-                break;
-            }
-            begin = next_hop + 1;
-            if (forward_dev == next_hop) {
-                continue;
-            }
-
-            if (pcivnic_forward_flow_ctrl(vnic_dev, forward_dev, next_hop) == PCIVNIC_VALID) {
-                continue;
-            }
-
-            skb_cp = ka_net_skb_copy(skb, KA_GFP_ATOMIC);
-            if (skb_cp != NULL) {
-                (void)pcivnic_pciedev_send(skb_cp, vnic_dev->pcidev[next_hop], NULL);
-            }
-        }
-
-        pcivnic_rx_packet(skb, vnic_dev, (u32)forward_dev);
-    }
+    ka_task_spin_lock_bh(&rx->skb_lock);
+    rx->skb = skb;
+    rx->addr = addr;
+    rx->len = len;
+    ka_task_spin_unlock_bh(&rx->skb_lock);
 }
-
 STATIC void pcivnic_rx_msg_callback(void *data, u32 trans_id, u32 status)
 {
     struct pcivnic_pcidev *pcidev = (struct pcivnic_pcidev *)data;
@@ -1011,6 +999,8 @@ STATIC void pcivnic_rx_msg_callback(void *data, u32 trans_id, u32 status)
 
 #ifdef USE_DMA_ADDR
     pcivnic_dma_unmap_single(pcidev, skb, PCIVNIC_DESC_QUEUE_RX, trans_id, pcidev->rx[trans_id].len);
+#elif defined(CFG_FEATURE_OVER_XCOM)
+    pcivnic_rx_block_finish_proc(skb, pcidev, pcidev->rx[trans_id].addr, pcidev->rx[trans_id].len);
 #endif
 
     pcidev->stat.rx_pkt++;
@@ -1027,11 +1017,7 @@ STATIC void pcivnic_rx_msg_callback(void *data, u32 trans_id, u32 status)
         pcivnic_response_cq(pcidev, trans_id, status);
     }
 
-    ka_task_spin_lock_bh(&pcidev->rx[trans_id].skb_lock);
-    pcidev->rx[trans_id].skb = NULL;
-    pcidev->rx[trans_id].addr = (~(ka_dma_addr_t)0);
-    pcidev->rx[trans_id].len = 0;
-    ka_task_spin_unlock_bh(&pcidev->rx[trans_id].skb_lock);
+    pcivnic_pcidev_rx_buff_init(&pcidev->rx[trans_id], NULL, (~(ka_dma_addr_t)0), 0);
 }
 
 /* only [vfio] and [mdev+sriov's vm] use workqueue, others use tasklet */
@@ -1052,9 +1038,9 @@ STATIC void pcivnic_rx_msg_notify_handle(struct pcivnic_pcidev *pcidev)
     struct devdrv_asyn_dma_para_info dma_para_info;
     u32 head = PCIVNIC_DESC_QUEUE_DEPTH;
     static u32 log_printk_limit = 0;
-    u64 addr;
-    int cnt = 0;
-    int ret = 0;
+    int cnt = 0, ret = 0;
+    u64 addr, src_addr;
+    u32 skb_data_len;
 
     dma_para_info.interrupt_and_attr_flag = DEVDRV_LOCAL_IRQ_FLAG;
     dma_para_info.priv = (void *)pcidev;
@@ -1062,8 +1048,14 @@ STATIC void pcivnic_rx_msg_notify_handle(struct pcivnic_pcidev *pcidev)
 
     do {
         sq_desc = pcivnic_get_r_sq_desc(msg_chan, &head);
-        if ((sq_desc == NULL) || (sq_desc->valid != PCIVNIC_VALID) || (sq_desc->data_len > PCIVNIC_MAX_PKT_SIZE) ||
-            (head >= PCIVNIC_DESC_QUEUE_DEPTH)) {
+        if ((sq_desc == NULL) || (sq_desc->valid != PCIVNIC_VALID) || (head >= PCIVNIC_DESC_QUEUE_DEPTH)) {
+            break;
+        }
+
+        skb_data_len = sq_desc->data_len;
+        if ((skb_data_len > PCIVNIC_MAX_PKT_SIZE) || (skb_data_len == 0)) {
+            sq_desc->valid = PCIVNIC_INVALID;
+            pcivnic_move_r_sq_desc(msg_chan);
             break;
         }
 
@@ -1081,7 +1073,7 @@ STATIC void pcivnic_rx_msg_notify_handle(struct pcivnic_pcidev *pcidev)
          * buffers, and waits for the upper layer to receive packets.
          * Block live send.
          */
-        skb = ka_net_dev_alloc_skb(sq_desc->data_len);
+        skb = ka_net_dev_alloc_skb(skb_data_len);
         if (ka_unlikely(skb == NULL)) {
             if (log_printk_limit % 1000 == 0) { // Print once every 1000 cycles
                 devdrv_err("dev %d rx alloc skb failed, cnt=%u.\n", pcidev->dev_id, log_printk_limit);
@@ -1089,9 +1081,9 @@ STATIC void pcivnic_rx_msg_notify_handle(struct pcivnic_pcidev *pcidev)
             log_printk_limit++;
             break;
         }
-
+        src_addr = sq_desc->data_buf_addr;
 #ifdef USE_DMA_ADDR
-        addr = pcivnic_dma_map_single(pcidev, skb, PCIVNIC_DESC_QUEUE_RX, head, sq_desc->data_len);
+        addr = pcivnic_dma_map_single(pcidev, skb, PCIVNIC_DESC_QUEUE_RX, head, skb_data_len);
         if (addr == (~(ka_dma_addr_t)0)) {
             ka_net_dev_kfree_skb_any(skb);
             if (log_printk_limit % 1000 == 0) { // Print once every 1000 cycles
@@ -1100,23 +1092,32 @@ STATIC void pcivnic_rx_msg_notify_handle(struct pcivnic_pcidev *pcidev)
             log_printk_limit++;
             break;
         }
+#elif defined(CFG_FEATURE_OVER_XCOM)
+        ret = pcivnic_rx_block_proc(pcidev, sq_desc->data_buf_addr, &src_addr, &addr);
+        if (ret != 0) {
+            ka_net_dev_kfree_skb_any(skb);
+            break;
+        }
 #else
         addr = ka_mm_virt_to_phys(skb->data);
 #endif
 
-        ka_task_spin_lock_bh(&pcidev->rx[head].skb_lock);
-        pcidev->rx[head].skb = skb;
-        pcidev->rx[head].addr = addr;
-        pcidev->rx[head].len = (int)sq_desc->data_len;
-        ka_task_spin_unlock_bh(&pcidev->rx[head].skb_lock);
+        pcivnic_pcidev_rx_buff_init(&pcidev->rx[head], skb, addr, (int)skb_data_len);
 
-        /* copy the packet */
-        ret = pcivnic_dma_copy(pcidev, sq_desc->data_buf_addr, addr, sq_desc->data_len, &dma_para_info);
-        if (ret != 0) {
-            devdrv_warn("devid %d pcivnic_dma_copy is fail\n", pcidev->dev_id);
-            pcidev->stat.rx_dma_fail++;
-        }
         sq_desc->valid = PCIVNIC_INVALID;
+        /* copy the packet */
+        ret = pcivnic_dma_copy(pcidev, src_addr, addr, skb_data_len, &dma_para_info);
+        if (ret != 0) {
+            devdrv_warn("devid %d pcivnic_dma_copy unsuccessful\n", pcidev->dev_id);
+            pcidev->stat.rx_dma_fail++;
+#ifdef USE_DMA_ADDR
+            pcivnic_dma_unmap_single(pcidev, skb, PCIVNIC_DESC_QUEUE_RX, head, skb_data_len);
+#elif defined(CFG_FEATURE_OVER_XCOM)
+            pcivnic_rx_block_free(pcidev, addr);
+#endif
+            ka_net_dev_kfree_skb_any(skb);
+            pcivnic_pcidev_rx_buff_init(&pcidev->rx[head], NULL, (~(ka_dma_addr_t)0), 0);
+        }
 
         pcivnic_move_r_sq_desc(msg_chan);
         cnt++;
@@ -1238,6 +1239,8 @@ STATIC void pcivnic_pause_free_queue(struct pcivnic_netdev *vnic_dev, struct pci
 #ifdef USE_DMA_ADDR
         hal_kernel_devdrv_dma_unmap_single(pcidev->dev, pcidev->tx[sq_id].addr, pcidev->tx[sq_id].skb->len,
                                            KA_DMA_TO_DEVICE);
+#elif defined(CFG_FEATURE_OVER_XCOM)
+        pcivnic_free_block(pcidev, pcidev->tx[sq_id].addr);
 #endif
         ka_net_dev_consume_skb_any(pcidev->tx[sq_id].skb);
 
@@ -1308,7 +1311,7 @@ find_next:
         goto find_next;
     }
 
-    devdrv_info("net dev %s watchdog, timeout_num=%d, timeout_cnt=%u, cur_timestamp=%lu, tx_head=%d.\n",
+    devdrv_info("net dev %s watchdog. (timeout_num=%d;timeout_cnt=%u;cur_timestamp=%lu;tx_head=%d)\n",
                 ka_net_netdev_get_name(ndev), timeout_num, pcidev->timeout_cnt, cur_timestamp, tx_head);
 }
 
@@ -1372,7 +1375,7 @@ void pcivnic_net_timeout_new(ka_net_device_t *ndev, unsigned int txqueue)
 STATIC int pcivnic_net_change_mtu(ka_net_device_t *ndev, int new_mtu)
 {
     if ((new_mtu < PCIVNIC_MTU_LOW) || (new_mtu > PCIVNIC_MTU_HIGH)) {
-        devdrv_err("mtu value is invalid. (mtu=%d;min=%d;max=%d)\n", new_mtu, PCIVNIC_MTU_LOW, PCIVNIC_MTU_HIGH);
+        devdrv_err("mtu value %d is invalid, valid range is [%d, %d]\n", new_mtu, PCIVNIC_MTU_LOW, PCIVNIC_MTU_HIGH);
         return -EINVAL;
     }
     ka_net_netdev_set_mtu(ndev, (unsigned int)new_mtu);
@@ -1403,148 +1406,6 @@ ka_net_device_ops_t g_pcivnic_netdev_ops = {
 #endif
     ka_net_n_ndo_tx_timeout(pcivnic_net_timeout_new, pcivnic_net_timeout).ndo_get_stats = pcivnic_net_get_stats,
 };
-
-STATIC ssize_t pcivnic_read_file(ka_file_t *file, loff_t *pos, char *addr, size_t count)
-{
-    return ka_fs_read_file(file, pos, addr, count);
-}
-
-STATIC char *pcivnic_skip_blank_space(const char *ptr)
-{
-    while ((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\n')) {
-        ptr++;
-    }
-
-    return (char *)ptr;
-}
-
-STATIC char *pcivnic_skip_line(const char *ptr)
-{
-    while ((*ptr != '\n') && (*ptr != '\0')) {
-        ptr++;
-    }
-
-    if (*ptr == '\n') {
-        ptr++;
-    }
-
-    return pcivnic_skip_blank_space(ptr);
-}
-
-STATIC char *pcivnic_skip_notes(const char *ptr)
-{
-    /* skip blank space  */
-    ptr = pcivnic_skip_blank_space(ptr);
-
-    /* skip notes with # */
-    while (*ptr == '#') {
-        ptr = pcivnic_skip_line(ptr);
-    }
-
-    return (char *)ptr;
-}
-
-STATIC int pcivnic_is_valid_mac(const unsigned char *mac, int len)
-{
-    (void)len;
-
-    return ka_net_is_valid_ether_addr(mac);
-}
-
-void pcivnic_get_mac(unsigned char last_byte, unsigned char *mac)
-{
-    unsigned int tmpmac[KA_ETH_ALEN];
-    ka_file_t *file = NULL;
-    char *tmpbuf = NULL;
-    char *pmac = NULL;
-    loff_t offset = 0;
-    int tmp_id = -1;
-    ssize_t len;
-    const int dev_id = 0;
-    int ret = 0;
-
-    file = ka_fs_filp_open(PCIVNIC_MAC_FILE, KA_O_RDONLY, 0);
-    if (KA_IS_ERR(file)) {
-        devdrv_warn("pcivnic mac config file(%s) not existed\n", PCIVNIC_MAC_FILE);
-        goto random_mac;
-    }
-
-    tmpbuf = (char *)pcivnic_kvzalloc(PCIVNIC_CONF_FILE_SIZE, KA_GFP_KERNEL);
-    if (tmpbuf == NULL) {
-        devdrv_err("pcivnic mac buffer malloc failed, size %d\n", PCIVNIC_CONF_FILE_SIZE);
-        goto close_file;
-    }
-
-    len = pcivnic_read_file(file, &offset, tmpbuf, PCIVNIC_CONF_FILE_SIZE - 1);
-    if (len <= 0) {
-        devdrv_warn("read file(%s) failed\n", PCIVNIC_MAC_FILE);
-        goto free_buf;
-    }
-
-    tmpbuf[len] = '\0';
-    pmac = &tmpbuf[0];
-    pmac = pcivnic_skip_notes(pmac);
-
-    /* find the mac address by device id */
-    while (*pmac != '\0') {
-        tmp_id = -1;
-        ret = sscanf_s(pmac, "%d %x:%x:%x:%x:%x:%x", &tmp_id, &tmpmac[PCIVNIC_MAC_0], &tmpmac[PCIVNIC_MAC_1],
-                       &tmpmac[PCIVNIC_MAC_2], &tmpmac[PCIVNIC_MAC_3], &tmpmac[PCIVNIC_MAC_4], &tmpmac[PCIVNIC_MAC_5]);
-        if (ret != (KA_ETH_ALEN + 1)) {
-            devdrv_warn("sscanf_s failed! ret = %d\n", ret);
-            goto free_buf;
-        }
-
-        if ((ret == PCIVNIC_CONF_SSCANF_OK) && (tmp_id == dev_id)) {
-            break;
-        }
-
-        pmac = pcivnic_skip_line(pmac);
-    }
-
-    if (tmp_id != dev_id) {
-        devdrv_warn("can't find device %d fixed mac address\n", dev_id);
-        goto free_buf;
-    }
-
-    /* mac[4] and mac[5] will be changed in device */
-    mac[PCIVNIC_MAC_0] = tmpmac[PCIVNIC_MAC_0] & 0xFF;
-    mac[PCIVNIC_MAC_1] = tmpmac[PCIVNIC_MAC_1] & 0xFF;
-    mac[PCIVNIC_MAC_2] = tmpmac[PCIVNIC_MAC_2] & 0xFF;
-    mac[PCIVNIC_MAC_3] = last_byte;
-    mac[PCIVNIC_MAC_4] = tmpmac[PCIVNIC_MAC_4] & 0xFF;
-    mac[PCIVNIC_MAC_5] = last_byte;
-
-    if (pcivnic_is_valid_mac(mac, KA_ETH_ALEN) == 0) {
-        devdrv_warn("The MAC is invalid from file %s\n", PCIVNIC_MAC_FILE);
-        goto free_buf;
-    }
-
-    pcivnic_kvfree(tmpbuf);
-    tmpbuf = NULL;
-    (void)ka_fs_filp_close(file, NULL);
-    file = NULL;
-
-    devdrv_info("pcivnic device %d, get mac success\n", dev_id);
-    return;
-
-free_buf:
-    pcivnic_kvfree(tmpbuf);
-    tmpbuf = NULL;
-close_file:
-    (void)ka_fs_filp_close(file, NULL);
-    file = NULL;
-random_mac:
-    mac[PCIVNIC_MAC_0] = PCIVNIC_MAC_VAL_0;
-    mac[PCIVNIC_MAC_1] = PCIVNIC_MAC_VAL_1;
-    mac[PCIVNIC_MAC_2] = PCIVNIC_MAC_VAL_2;
-    mac[PCIVNIC_MAC_3] = PCIVNIC_MAC_VAL_3;
-    mac[PCIVNIC_MAC_4] = PCIVNIC_MAC_VAL_4;
-    mac[PCIVNIC_MAC_5] = last_byte;
-    devdrv_info("pcivnic using default MAC. (dev_id=%d)\n", dev_id);
-
-    return;
-}
 
 void pcivnic_set_netdev_mac(struct pcivnic_netdev *vnic_dev, const unsigned char *mac)
 {
@@ -1597,7 +1458,9 @@ ssize_t pcivnic_get_dev_stat_inner(ka_device_t *dev, char *buf)
 
     pcidev = pcivnic_get_pciedev(dev);
     if (pcidev == NULL) {
-        devdrv_err("not find pcidev\n");
+#ifndef DRV_UT
+        devdrv_err("cannot find pcidev\n");
+#endif
         return offset;
     }
 
@@ -1691,27 +1554,27 @@ STATIC void pcivnic_init_pcidev(struct pcivnic_pcidev *pcidev)
 {
     pcidev->timeout_cnt = 0;
     if (memset_s((void *)&pcidev->stat, sizeof(struct pcivnic_dev_stat), 0, sizeof(struct pcivnic_dev_stat)) != 0) {
-        devdrv_warn("pcidev clear stat failed!\n");
+        devdrv_warn("pcidev clear stat unsuccessful!\n");
     }
 
     if (memset_s((void *)&pcidev->tx_finish_sched_stat, sizeof(struct pcivnic_sched_stat), 0,
                  sizeof(struct pcivnic_sched_stat)) != 0) {
-        devdrv_warn("pcidev clear tx_finish_sched_stat failed!\n");
+        devdrv_warn("pcidev clear tx_finish_sched_stat unsuccessful!\n");
     }
 
     if (memset_s((void *)&pcidev->fwd_stat[0], sizeof(struct pcivnic_fwd_stat) * NETDEV_PCIDEV_NUM, 0,
                  sizeof(struct pcivnic_fwd_stat) * NETDEV_PCIDEV_NUM) != 0) {
-        devdrv_warn("pcidev clear fwd_stat failed!\n");
+        devdrv_warn("pcidev clear fwd_stat unsuccessful!\n");
     }
 
     if (memset_s((void *)&pcidev->tx[0], sizeof(struct pcivnic_skb_addr) * PCIVNIC_DESC_QUEUE_DEPTH, 0,
                  sizeof(struct pcivnic_skb_addr) * PCIVNIC_DESC_QUEUE_DEPTH) != 0) {
-        devdrv_warn("pcidev tx buffer clear failed!\n");
+        devdrv_warn("pcidev tx buffer clear unsuccessful!\n");
     }
 
     if (memset_s((void *)&pcidev->rx[0], sizeof(struct pcivnic_skb_addr) * PCIVNIC_DESC_QUEUE_DEPTH, 0,
                  sizeof(struct pcivnic_skb_addr) * PCIVNIC_DESC_QUEUE_DEPTH) != 0) {
-        devdrv_warn("pcidev rx buffer clear failed!\n");
+        devdrv_warn("pcidev rx buffer clear unsuccessful!\n");
     }
 }
 
@@ -1757,7 +1620,8 @@ struct pcivnic_pcidev *pcivnic_add_dev(struct pcivnic_netdev *vnic_dev, ka_devic
     }
 
     ka_system_tasklet_init(&pcidev->tx_finish_task, pcivnic_tx_finish_notify_task, (uintptr_t)pcidev);
-
+    ka_system_tasklet_init(&pcidev->tx_sq_task, pcivnic_tx_sq_task, (uintptr_t)pcidev);
+    ka_system_tasklet_init(&pcidev->tx_cq_task, pcivnic_tx_cq_task, (uintptr_t)pcidev);
     /* only [vfio] and [mdev+sriov's vm] use workqueue, others use tasklet */
     if (pcidev->is_mdev_vm_boot_mode == true) {
         pcidev->rx_workqueue = ka_task_create_singlethread_workqueue(PCIVNIC_RX_MSG_NORIFY_WORK_NAME);
@@ -1816,7 +1680,9 @@ void pcivnic_del_dev(struct pcivnic_netdev *vnic_dev, int dev_id)
     }
 
     vnic_dev->pciedev_num--;
+#ifndef CFG_FEATURE_OVER_XCOM
     ka_system_msleep(PCIVNIC_SLEEP_CNT);
+#endif
 #ifdef CFG_FEATURE_S2S
     (void)ka_task_cancel_delayed_work_sync(&pcidev->s2s_recycle);
     pcidev_s2s_send_queue_uninit(pcidev);
@@ -1838,6 +1704,8 @@ void pcivnic_del_dev(struct pcivnic_netdev *vnic_dev, int dev_id)
 #ifdef USE_DMA_ADDR
             hal_kernel_devdrv_dma_unmap_single(pcidev->dev, pcidev->tx[i].addr, pcidev->tx[i].skb->len,
                                                KA_DMA_TO_DEVICE);
+#elif defined(CFG_FEATURE_OVER_XCOM)
+            pcivnic_free_block(pcidev, pcidev->tx[i].addr);
 #endif
             ka_net_dev_consume_skb_any(pcidev->tx[i].skb);
         }
@@ -1846,6 +1714,8 @@ void pcivnic_del_dev(struct pcivnic_netdev *vnic_dev, int dev_id)
 #ifdef USE_DMA_ADDR
             hal_kernel_devdrv_dma_unmap_single(pcidev->dev, pcidev->rx[i].addr, PCIVNIC_MAX_PKT_SIZE,
                                                KA_DMA_FROM_DEVICE);
+#elif defined(CFG_FEATURE_OVER_XCOM)
+            pcivnic_rx_block_free(pcidev, pcidev->rx[i].addr);
 #endif
             ka_net_dev_consume_skb_any(pcidev->rx[i].skb);
         }
@@ -1913,6 +1783,8 @@ struct pcivnic_netdev *pcivnic_alloc_netdev(const char *ndev_name, int ndev_name
     if (pcivnic_get_addr_mode() == AGENTDRV_ADMODE_FULL_MATCH) {
         ka_net_netdev_set_max_mtu(ndev, PCIVNIC_MTU_HIGH);
     }
+#elif defined(CFG_FEATURE_OVER_XCOM)
+    ka_net_netdev_set_max_mtu(ndev, PCIVNIC_MTU_HIGH);
 #endif
     vnic_dev->status &= ~BIT_STATUS_LINK;
     vnic_dev->status &= ~BIT_STATUS_TQ_FULL;
@@ -1932,6 +1804,9 @@ struct pcivnic_netdev *pcivnic_alloc_netdev(const char *ndev_name, int ndev_name
             ka_task_spin_lock_init(&(vnic_dev->pcidev[i]->tx[j].skb_lock));
             ka_task_spin_lock_init(&(vnic_dev->pcidev[i]->rx[j].skb_lock));
         }
+#ifdef CFG_FEATURE_OVER_XCOM
+        ka_base_atomic_set(&vnic_dev->process_state[i], PCIVNIC_DEV_UNINIT);
+#endif
     }
 
     /* init napi */

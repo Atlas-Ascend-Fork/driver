@@ -101,14 +101,15 @@ static urma_target_seg_t *_ascend_urma_register_segment(void *urma_ctx, u64 star
     seg_cfg.flag.bs.reserved = 0;
 
     tseg = urma_register_seg(ascend_to_urma_ctx(urma_ctx), &seg_cfg);
-    if (tseg == NULL) {
+    if ((tseg == NULL) && (errno != ERANGE)) {
         ascend_urma_err("Urma register seg failed.\n");
     }
 
     return tseg;
 }
 
-static urma_target_seg_t *ascend_urma_register_segment(u32 devid, u64 start, u64 size, u32 seg_flag, void *token)
+urma_target_seg_t *ascend_urma_register_segment(uint32_t devid, uint64_t start, uint64_t size, uint32_t seg_flag,
+                                                void *token)
 {
     void *urma_ctx = NULL;
     urma_target_seg_t *tseg = NULL;
@@ -124,7 +125,7 @@ static urma_target_seg_t *ascend_urma_register_segment(u32 devid, u64 start, u64
     return tseg;
 }
 
-static void ascend_urma_unregister_segment(urma_target_seg_t *tseg)
+void ascend_urma_unregister_segment(urma_target_seg_t *tseg)
 {
     (void)urma_unregister_seg(tseg);
 }
@@ -196,14 +197,122 @@ static bool ascend_urma_exist_registered_seg_in_range(struct ascend_urma_seg_mng
     return (rbtree_can_insert_range(&seg_mng->rb_root, &range_handle, rb_range_handle_of_ascend_urma_seg) == false);
 }
 
+static void ascend_urma_seg_to_info_ex(struct ascend_urma_seg *seg, struct ascend_urma_seg_info_ex *info)
+{
+    info->start = seg->start;
+    info->size = seg->size;
+    info->seg_flag = seg->seg_flag;
+    info->token = seg->token;
+    info->tseg = seg->tseg;
+}
+
+/* Get the segment immediately before va (the one with the largest start < va). */
+int ascend_urma_seg_get_prev(void *seg_mng, uint64_t va, struct ascend_urma_seg_info_ex *info)
+{
+    struct ascend_urma_seg_mng *mng = (struct ascend_urma_seg_mng *)seg_mng;
+    struct rbtree_node *node = NULL;
+    struct rbtree_node *best = NULL;
+
+    for (node = rbtree_first(&mng->rb_root); node != NULL; node = rbtree_next(node)) {
+        struct ascend_urma_seg *seg = rb_entry(node, struct ascend_urma_seg, node);
+        if (seg->start < va) {
+            best = node;
+        } else {
+            break;
+        }
+    }
+    if (best != NULL) {
+        ascend_urma_seg_to_info_ex(rb_entry(best, struct ascend_urma_seg, node), info);
+    }
+    return (best != NULL) ? 0 : -1;
+}
+
+/* Get the segment immediately after va (the one with the smallest start > va). */
+int ascend_urma_seg_get_next(void *seg_mng, uint64_t va, struct ascend_urma_seg_info_ex *info)
+{
+    struct ascend_urma_seg_mng *mng = (struct ascend_urma_seg_mng *)seg_mng;
+    struct rbtree_node *node = NULL;
+
+    for (node = rbtree_first(&mng->rb_root); node != NULL; node = rbtree_next(node)) {
+        struct ascend_urma_seg *seg = rb_entry(node, struct ascend_urma_seg, node);
+        if (seg->start > va) {
+            ascend_urma_seg_to_info_ex(seg, info);
+            return 0;
+        }
+    }
+    return -1;
+}
+
+/* Reuse token from adjacent segment in the same reserved VA range; allocate new token if none found.
+ * Overlapping ranges use a unique token (UB does not support overlapping registration).
+ * On ERANGE (token segment limit reached): retry with a new unique token, unless already unique. */
+static struct ascend_urma_seg *_ascend_urma_seg_register(struct ascend_urma_seg_mng *seg_mng, u64 start, u64 size,
+                                                         u32 seg_flag)
+{
+    u64 aligned_va = ascend_urma_adapt_align_down(start, (u64)getpagesize());
+    u64 aligned_size = ascend_urma_adapt_align_up(start + size, (u64)getpagesize()) - aligned_va;
+    struct ascend_urma_seg *seg = NULL;
+    u32 devid = seg_mng->devid;
+    void *token = NULL;
+    u32 token_flag = 0;
+
+    /* Overlapping ranges must use a unique token (UB does not support overlapping registration). */
+    if (ascend_urma_exist_registered_seg_in_range(seg_mng, aligned_va, aligned_size)) {
+        token_flag |= ASCEND_URMA_TOKEN_FLAG_UNIQUE;
+    } else if (seg_mng->attr.acquire_token != NULL) {
+        /* Try to reuse token from an existing segment in the same reserve range. */
+        token = seg_mng->attr.acquire_token(seg_mng, aligned_va, aligned_size);
+        if (token != NULL) {
+            ascend_urma_token_acquire_existing(token);
+        }
+    }
+
+    if (token == NULL) {
+        token = ascend_urma_token_acquire(seg_mng->token_pool, token_flag);
+    }
+    if (token == NULL) {
+        ascend_urma_err("Acquire token failed. (token_flag=0x%x)\n", token_flag);
+        return NULL;
+    }
+
+    seg = ascend_urma_seg_alloc(devid, start, size, seg_flag, token);
+    if (seg == NULL) {
+        int saved_errno = errno;
+
+        ascend_urma_token_release(token);
+        /* Retry with a new unique token on ERANGE, unless already unique. */
+        if ((saved_errno == ERANGE) && ((token_flag & ASCEND_URMA_TOKEN_FLAG_UNIQUE) == 0)) {
+            token_flag |= ASCEND_URMA_TOKEN_FLAG_UNIQUE;
+            token = ascend_urma_token_acquire(seg_mng->token_pool, token_flag);
+            if (token == NULL) {
+                ascend_urma_err("Acquire new token failed on retry. (token_flag=0x%x)\n", token_flag);
+                return NULL;
+            }
+            seg = ascend_urma_seg_alloc(devid, start, size, seg_flag, token);
+        }
+    }
+    if (seg == NULL) {
+        ascend_urma_token_release(token);
+        ascend_urma_err("Alloc seg failed. (devid=%u; start=0x%llx; size=%llu; seg_flag=0x%x)\n", devid, start, size,
+                        seg_flag);
+        return NULL;
+    }
+
+    return seg;
+}
+
+static void _ascend_urma_seg_unregister(struct ascend_urma_seg_mng *seg_mng, struct ascend_urma_seg *seg)
+{
+    void *token = seg->token;
+
+    ascend_urma_seg_free(seg);
+    ascend_urma_token_release(token);
+}
+
 static int ascend_urma_seg_register(struct ascend_urma_seg_mng *seg_mng, u64 start, u64 size, u32 seg_flag)
 {
     struct ascend_urma_seg *seg = NULL, *tmp_seg = NULL;
-    void *token = NULL;
-    u64 aligned_va = ascend_urma_adapt_align_down(start, (u64)getpagesize());
-    u64 aligned_size = ascend_urma_adapt_align_up(start + size, (u64)getpagesize()) - aligned_va;
     u32 devid = seg_mng->devid;
-    u32 token_flag = 0;
     int ret;
 
     tmp_seg = ascend_urma_get_seg(seg_mng, start, size);
@@ -217,44 +326,23 @@ static int ascend_urma_seg_register(struct ascend_urma_seg_mng *seg_mng, u64 sta
         return 0;
     }
 
-    token_flag |= ascend_urma_exist_registered_seg_in_range(seg_mng, aligned_va, aligned_size) ?
-                      ASCEND_URMA_TOKEN_FLAG_UNIQUE :
-                      0;
-
-    token = ascend_urma_token_acquire(seg_mng->token_pool, token_flag);
-    if (token == NULL) {
-        ascend_urma_err("Acquire token failed. (token_flag=0x%x)\n", token_flag);
-        return DRV_ERROR_INNER_ERR;
-    }
-
-    seg = ascend_urma_seg_alloc(devid, start, size, seg_flag, token);
+    seg = _ascend_urma_seg_register(seg_mng, start, size, seg_flag);
     if (seg == NULL) {
         ascend_urma_err("Alloc seg failed. (devid=%u; start=0x%llx; size=%llu; flag=0x%x)\n", devid, start, size,
                         seg_flag);
-        ascend_urma_token_release(token);
-        return DRV_ERROR_PARA_ERROR;
+        return DRV_ERROR_INNER_ERR;
     }
 
     ret = ascend_urma_seg_insert(seg_mng, seg);
     if (ret != DRV_ERROR_NONE) {
         ascend_urma_debug("Insert seg check. (devid=%u; start=0x%llx; size=%llu; flag=0x%x)\n", devid, start, size,
                           seg_flag);
-        ascend_urma_seg_free(seg);
-        ascend_urma_token_release(token);
+        _ascend_urma_seg_unregister(seg_mng, seg);
         return ret;
     }
 
     atomic_fetch_add(&seg->ref, 1);
     return DRV_ERROR_NONE;
-}
-
-static void _ascend_urma_seg_unregister(struct ascend_urma_seg_mng *seg_mng, struct ascend_urma_seg *seg)
-{
-    void *token = seg->token;
-
-    ascend_urma_seg_erase(seg_mng, seg);
-    ascend_urma_seg_free(seg);
-    ascend_urma_token_release(token);
 }
 
 static int ascend_urma_seg_unregister(struct ascend_urma_seg_mng *seg_mng, u64 start, u64 size)
@@ -276,6 +364,7 @@ static int ascend_urma_seg_unregister(struct ascend_urma_seg_mng *seg_mng, u64 s
         atomic_fetch_sub(&seg->ref, 1);
         return DRV_ERROR_NONE;
     }
+    ascend_urma_seg_erase(seg_mng, seg);
     _ascend_urma_seg_unregister(seg_mng, seg);
     return DRV_ERROR_NONE;
 }
@@ -321,6 +410,7 @@ static void ascend_urma_seg_mng_uninit(struct ascend_urma_seg_mng *seg_mng)
     rbtree_node_for_each_prev_safe(cur, n, &seg_mng->rb_root)
     {
         seg = rb_entry(cur, struct ascend_urma_seg, node);
+        ascend_urma_seg_erase(seg_mng, seg);
         _ascend_urma_seg_unregister(seg_mng, seg);
     }
     (void)pthread_rwlock_unlock(&seg_mng->rwlock);

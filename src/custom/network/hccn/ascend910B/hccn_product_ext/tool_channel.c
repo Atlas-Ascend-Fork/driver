@@ -121,10 +121,7 @@ int goto_sub_command(int argc, char **argv, struct sub_command_t *list)
 
 int tool_debug_tool(int argc, char **argv, struct tool_param *param)
 {
-    struct sub_command_t sub_command_list[] = {
-        {"huyang", tool_huyang_reg_operate, param},
-        {0}
-    };
+    struct sub_command_t sub_command_list[] = {{"huyang", tool_huyang_reg_operate, param}, {0}};
     return goto_sub_command(argc, argv, sub_command_list);
 }
 // #endif

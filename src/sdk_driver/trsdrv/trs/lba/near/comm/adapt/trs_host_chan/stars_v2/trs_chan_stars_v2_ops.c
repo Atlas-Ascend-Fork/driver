@@ -206,7 +206,7 @@ void trs_chan_stars_v2_update_ssid(struct trs_id_inst *inst, struct trs_chan_inf
 {
     if (chan_info->op == 1) {
 #ifdef CFG_FEATURE_SUPPORT_APM
-        u32 ssid;
+        u32 ssid = 0;
         int ret;
         ret = hal_kernel_apm_query_slave_ssid_by_master(inst->devid, ka_task_get_current_tgid(), PROCESS_CP1, &ssid);
         if (ret != 0) {
@@ -346,8 +346,8 @@ static struct trs_chan_adapt_ops g_trs_chan_stars_v2_ops = {
     .get_cq_affinity_irq = trs_stars_v2_chan_get_cq_affinity_irq,
     .request_irq = trs_stars_v2_chan_ops_request_irq,
     .free_irq = trs_stars_v2_chan_ops_free_irq,
-    .sq_mem_map = trs_chan_ops_sq_rsvmem_map,
-    .sq_mem_unmap = trs_chan_ops_sq_rsvmem_unmap,
+    .sq_mem_map = NULL,
+    .sq_mem_unmap = NULL,
     .cq_need_resched = trs_chan_ops_cq_need_resched,
     .sq_dma_desc_create = trs_chan_stars_v2_ops_sq_dma_desc_create,
     .sq_dma_desc_destroy = trs_chan_stars_v2_ops_sq_dma_desc_destroy,

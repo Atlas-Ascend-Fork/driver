@@ -11,6 +11,7 @@ add_library(urd_obj OBJECT)
 
 target_sources(urd_obj PRIVATE
     ${MODULE_SRC_DIR}/urd_user.c
+    urd_user_adapt.c
 )
 target_include_directories(urd_obj PRIVATE
     ${DRIVER_HAL_INC_DIR}/

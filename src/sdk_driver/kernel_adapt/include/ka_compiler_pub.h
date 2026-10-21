@@ -14,6 +14,9 @@
 #ifndef _KA_COMPILER_H
 #define _KA_COMPILER_H
 
+#ifdef __ka_user
+#undef __ka_user
+#endif
 #define __ka_user __user
 #define __ka_init __init
 #define __ka_exit __exit

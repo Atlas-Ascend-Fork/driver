@@ -535,7 +535,7 @@ static drvError_t trs_sq_cq_alloc_sync(uint32_t dev_id, struct halSqCqInputInfo 
             memcpy_ret = memcpy_s((char *)sync_msg + sizeof(struct halSqCqInputInfo),
                                   sync_msg_len - sizeof(struct halSqCqInputInfo), in->ext_info, in->ext_info_len);
             if (memcpy_ret != 0) {
-                trs_err("Failed to memcpy_s. (ret=%d)\n", memcpy_ret);
+                trs_err("Failed to memcpy_s ext_info. (ret=%d)\n", memcpy_ret);
                 free(sync_msg);
                 return DRV_ERROR_PARA_ERROR;
             }

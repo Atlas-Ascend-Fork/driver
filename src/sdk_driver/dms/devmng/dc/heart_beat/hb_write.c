@@ -100,10 +100,9 @@ static ka_hrtimer_restart_t heart_beat_write_count(ka_hrtimer_t *htr)
     ka_timespec64_t current_time;
 
     if (htr == NULL) {
-        ka_system_hrtimer_forward_now(htr, ka_system_ktime_set(HEART_BEAT_TIMER_EXPIRE_SEC, 0));
-        return KA_HRTIMER_RESTART;
+        soft_drv_err("htr is NULL.\n");
+        return KA_HRTIMER_NORESTART;
     }
-
     info = ka_container_of(htr, struct hb_write_timer, timer);
     ret = hb_update_heartbeat_count();
     if (ret != 0) {
@@ -139,7 +138,7 @@ STATIC void heart_beart_write_dfx_handler(ka_work_struct_t *work)
     timer_info = ka_container_of(work, struct hb_write_timer, work);
     soft_drv_warn(
         "Don't write heartbeat for a long time."
-        "(write heartbeat ret=%d; total forget count=%llu; last_normal_write_time=%llds; last_write_time=%llds)\n",
+        "(write heartbeat ret=%d; total forget count=%llu; last normal write time =%llds; last write time=%llds)\n",
         timer_info->write_ret, timer_info->forget_count, timer_info->last_normal_time.tv_sec,
         timer_info->last_write_time.tv_sec);
 }
@@ -180,11 +179,20 @@ int heart_beat_write_timer_init(void)
         g_hb_write_block[i].count = 0;
         g_hb_write_block[i].device_status = HEART_BEAT_NOT_INIT;
     }
+#if defined(CFG_HOST_ENV)
     ka_system_hrtimer_init(&g_hb_write_timer.timer, KA_CLOCK_MONOTONIC, KA_HRTIMER_MODE_REL_TYPE);
+#else
+    ka_system_hrtimer_init(&g_hb_write_timer.timer, KA_CLOCK_MONOTONIC, KA_HRTIMER_MODE_REL_PINNED);
+#endif
     g_hb_write_timer.timer.function = heart_beat_write_count;
     KA_TASK_INIT_WORK(&g_hb_write_timer.work, heart_beart_write_dfx_handler);
+#if defined(CFG_HOST_ENV)
     ka_system_hrtimer_start(&g_hb_write_timer.timer, ka_system_ktime_set(HEART_BEAT_TIMER_EXPIRE_SEC, 0),
                             KA_HRTIMER_MODE_REL_TYPE);
+#else
+    ka_system_hrtimer_start(&g_hb_write_timer.timer, ka_system_ktime_set(HEART_BEAT_TIMER_EXPIRE_SEC, 0),
+                            KA_HRTIMER_MODE_REL_PINNED);
+#endif
     return DRV_ERROR_NONE;
 #else
     return 0;

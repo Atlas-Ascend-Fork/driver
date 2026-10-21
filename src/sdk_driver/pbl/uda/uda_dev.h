@@ -35,9 +35,9 @@
 #define UDA_ALL_DEV_UP_WORK_FINISH 1
 #define UDA_ENABLE_CHAR_NUMBERING 1
 #ifdef CFG_FEATURE_CHAR_NUMBERING_BY_LOGIC_ID
-#   define UDA_WAIT_ALL_DEV_UP_FLAG true
+#define UDA_WAIT_ALL_DEV_UP_FLAG true
 #else
-#   define UDA_WAIT_ALL_DEV_UP_FLAG false
+#define UDA_WAIT_ALL_DEV_UP_FLAG false
 #endif
 
 struct uda_dev_inst {
@@ -97,39 +97,39 @@ static inline bool uda_is_removed_status(u32 status)
 
 static inline bool uda_is_init_status_conflict(u32 status, enum uda_notified_action action)
 {
-    return ((uda_is_init_status(status) && (action == UDA_INIT))
-        || (!uda_is_init_status(status) && (action == UDA_UNINIT)));
+    return ((uda_is_init_status(status) && (action == UDA_INIT)) ||
+            (!uda_is_init_status(status) && (action == UDA_UNINIT)));
 }
 
 static inline bool uda_is_suspend_status_conflict(u32 status, enum uda_notified_action action)
 {
-    return ((uda_is_suspend_status(status) && (action == UDA_SUSPEND))
-        || (!uda_is_suspend_status(status) && (action == UDA_RESUME)));
+    return ((uda_is_suspend_status(status) && (action == UDA_SUSPEND)) ||
+            (!uda_is_suspend_status(status) && (action == UDA_RESUME)));
 }
 
 static inline bool uda_is_mia_status_conflict(u32 status, enum uda_notified_action action)
 {
-    return ((uda_is_mia_status(status) && (action == UDA_TO_MIA))
-        || (!uda_is_mia_status(status) && (action == UDA_TO_SIA)));
+    return ((uda_is_mia_status(status) && (action == UDA_TO_MIA)) ||
+            (!uda_is_mia_status(status) && (action == UDA_TO_SIA)));
 }
 
 static inline bool uda_is_hotreset_status_conflict(u32 status, enum uda_notified_action action)
 {
-    return ((uda_is_hotreset_status(status) && (action == UDA_HOTRESET))
-        || (!uda_is_hotreset_status(status) && (action == UDA_HOTRESET_CANCEL)));
+    return ((uda_is_hotreset_status(status) && (action == UDA_HOTRESET)) ||
+            (!uda_is_hotreset_status(status) && (action == UDA_HOTRESET_CANCEL)));
 }
 
 static inline bool uda_is_pre_hotreset_status_conflict(u32 status, enum uda_notified_action action)
 {
-    return ((uda_is_pre_hotreset_status(status) && (action == UDA_PRE_HOTRESET))
-        || (!uda_is_pre_hotreset_status(status) && (action == UDA_PRE_HOTRESET_CANCEL)));
+    return ((uda_is_pre_hotreset_status(status) && (action == UDA_PRE_HOTRESET)) ||
+            (!uda_is_pre_hotreset_status(status) && (action == UDA_PRE_HOTRESET_CANCEL)));
 }
 
 static inline bool uda_is_action_conflict(u32 status, enum uda_notified_action action)
 {
-    return (uda_is_init_status_conflict(status, action) || uda_is_suspend_status_conflict(status, action)
-        || uda_is_mia_status_conflict(status, action) || uda_is_hotreset_status_conflict(status, action)
-        || uda_is_pre_hotreset_status_conflict(status, action));
+    return (uda_is_init_status_conflict(status, action) || uda_is_suspend_status_conflict(status, action) ||
+            uda_is_mia_status_conflict(status, action) || uda_is_hotreset_status_conflict(status, action) ||
+            uda_is_pre_hotreset_status_conflict(status, action));
 }
 
 static inline void uda_update_status_by_action(u32 *status, enum uda_notified_action action)
@@ -161,11 +161,11 @@ static inline void uda_update_status_by_action(u32 *status, enum uda_notified_ac
 
 static inline int uda_dev_type_valid_check(struct uda_dev_type *type)
 {
-    if ((type->hw < 0) || (type->hw >= UDA_HW_MAX) || (type->object < 0) || (type->object >= UDA_OBJECT_MAX)
-        || (type->location < 0) || (type->location >= UDA_LOCATION_MAX)
-        || (type->prop < 0) || (type->prop >= UDA_PROP_MAX)) {
-        uda_err("Invalid value. (hw=%d; object=%d; location=%d; prop=%d)\n",
-            type->hw, type->object, type->location, type->prop);
+    if ((type->hw < 0) || (type->hw >= UDA_HW_MAX) || (type->object < 0) || (type->object >= UDA_OBJECT_MAX) ||
+        (type->location < 0) || (type->location >= UDA_LOCATION_MAX) || (type->prop < 0) ||
+        (type->prop >= UDA_PROP_MAX)) {
+        uda_err("Invalid value. (hw=%d; object=%d; location=%d; prop=%d)\n", type->hw, type->object, type->location,
+                type->prop);
         return -EINVAL;
     }
 
@@ -174,8 +174,8 @@ static inline int uda_dev_type_valid_check(struct uda_dev_type *type)
 
 static inline bool uda_dev_type_is_match(struct uda_dev_type *type1, struct uda_dev_type *type2)
 {
-    return ((type1->hw == type2->hw) && (type1->object == type2->object)
-        && (type1->location == type2->location) && (type1->prop == type2->prop));
+    return ((type1->hw == type2->hw) && (type1->object == type2->object) && (type1->location == type2->location) &&
+            (type1->prop == type2->prop));
 }
 
 #define TYPE_BUF_LEN 64
@@ -200,4 +200,3 @@ void uda_dev_uninit(void);
 u32 uda_get_dev_num_all(void);
 u32 uda_get_dev_num_local(void);
 #endif
-

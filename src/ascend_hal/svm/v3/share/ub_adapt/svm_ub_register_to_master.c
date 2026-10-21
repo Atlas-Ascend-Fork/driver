@@ -29,24 +29,7 @@ static u32 svm_register_to_master_flag_to_seg_flag(u32 user_devid, u32 devid, u3
 
 static int svm_urma_register_seg_try(u32 user_devid, struct svm_dst_va *register_va, u32 seg_flag)
 {
-    u64 cnt = 0;
-    int ret;
-    bool retry = false;
-    bool need_retry = (register_va->devid == svm_get_host_devid());
-
-    /*
-     * In the ub scenario, if copy the same host user addr concurrently,
-     * will register seg repeatedly, need retry.
-     */
-    do {
-        ret = svm_urma_register_seg(user_devid, register_va, seg_flag);
-        cnt++;
-        retry = (need_retry && (ret == DRV_ERROR_BUSY) && (cnt < 10000ULL)); /* 10000 retry cnt */
-        if (retry) {
-            usleep(100000); /* 100000us(100ms) */
-        }
-    } while (retry);
-
+    int ret = svm_urma_register_seg(user_devid, register_va, seg_flag);
     return (ret == DRV_ERROR_NOT_SUPPORT) ? DRV_ERROR_NONE : ret;
 }
 

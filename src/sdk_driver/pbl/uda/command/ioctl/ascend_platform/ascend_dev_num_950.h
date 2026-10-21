@@ -7,28 +7,28 @@
 /* Host side */
 
 /* Maximum number of devices */
-#define ASCEND_DEV_MAX_NUM           1140
+#define ASCEND_DEV_MAX_NUM 1140
 /* Maximum number of physical devices */
-#define ASCEND_PDEV_MAX_NUM          65
+#define ASCEND_PDEV_MAX_NUM 65
 /* maximum number of host physical devices */
-#define ASCEND_HOST_PDEV_MAX_NUM     ASCEND_PDEV_MAX_NUM
+#define ASCEND_HOST_PDEV_MAX_NUM ASCEND_PDEV_MAX_NUM
 /* Maximum number of virtual devices */
-#define ASCEND_VDEV_MAX_NUM          1040
-#define ASCEND_VDEV_ID_START         100
+#define ASCEND_VDEV_MAX_NUM 1040
+#define ASCEND_VDEV_ID_START 100
 
 #else
 /* Device side */
 
 /* Maximum number of devices */
-#define ASCEND_DEV_MAX_NUM           64
+#define ASCEND_DEV_MAX_NUM 64
 /* Maximum number of physical devices */
-#define ASCEND_PDEV_MAX_NUM          1
+#define ASCEND_PDEV_MAX_NUM 1
 /* Maximum number of virtual devices */
-#define ASCEND_VDEV_MAX_NUM          16
-#define ASCEND_VDEV_ID_START         32
+#define ASCEND_VDEV_MAX_NUM 16
+#define ASCEND_VDEV_ID_START 32
 
 /* maximum number of host physical devices */
-#define ASCEND_HOST_PDEV_MAX_NUM     65
+#define ASCEND_HOST_PDEV_MAX_NUM 65
 
 #endif
 

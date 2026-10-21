@@ -78,11 +78,13 @@ STATIC int tool_upgrade_lane_exec(struct command_context *ctx)
     int ret;
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     ret = tool_double_check("Running this command will attempt to upgrade the lane, but success is not guaranteed.\n"
-        "Are you sure you want to continue?");
+                            "Are you sure you want to continue?");
     CHK_PRT_RETURN(ret != 0, hccn_info("User aborts command"), ret);
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, NULL, &size);
@@ -100,7 +102,7 @@ STATIC void tool_upgrade_lane_print_help(struct command_context *ctx, unsigned i
             tool_upgrade_lane_print_help(ctx, MODE_SET);
             break;
         case MODE_SET:
-            TOOL_PRINT_CMD("-s", "-upgrade_lane", "try to upgrade lane, but does not guarantee successful");
+            TOOL_PRINT_CMD("-s", "-upgrade_lane", "try to upgrade lane, but does not guarantee success");
             tool_print_npu_info(DEV_PORT_TYPE);
             break;
         default:
@@ -146,7 +148,7 @@ STATIC int tool_cur_tc_buf_exec(struct command_context *ctx)
     CHECK_BOND_DEV_RETURN(ctx->dev_name, ctx->slot_id);
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)cur_tc_buf_args,
-        sizeof(struct cur_tc_buf_info), (char *)result, &size_out);
+                   sizeof(struct cur_tc_buf_info), (char *)result, &size_out);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_CUR_TC_BUF, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("dsmi get cur_tc_buf failed, ret:%d", ret), ret);
@@ -291,13 +293,13 @@ STATIC int tc_str_to_value(char *str, unsigned int *tc_value, unsigned int tc_nu
     unsigned int tc_i = 0;
 
     CHK_PRT_RETURN(*str == ',' || str[strlen(str) - 1] == ',',
-        TOOL_PRINT_ERR("invalid TC config: string starts or ends with comma"), TOOL_PRIVATE_ARGS_VALUE_ERR);
+                   TOOL_PRINT_ERR("invalid TC config: string starts or ends with comma"), TOOL_PRIVATE_ARGS_VALUE_ERR);
     for (i = 0; i < len; i++) {
         if (str[i] == ',') {
             CHK_PRT_RETURN(i == 0 || !isdigit((unsigned char)str[i - 1]),
-                hccn_err("before ',' is [%c], not a valid digit", str[i - 1]), TOOL_PRIVATE_ARGS_PARSE_ERR);
-            CHK_PRT_RETURN(i == len - 1 || str[i + 1] == '\0',
-                hccn_err("last letter is ','"), TOOL_PRIVATE_ARGS_PARSE_ERR);
+                           hccn_err("before ',' is [%c], not a valid digit", str[i - 1]), TOOL_PRIVATE_ARGS_PARSE_ERR);
+            CHK_PRT_RETURN(i == len - 1 || str[i + 1] == '\0', hccn_err("last letter is ','"),
+                           TOOL_PRIVATE_ARGS_PARSE_ERR);
         }
     }
 
@@ -307,7 +309,7 @@ STATIC int tc_str_to_value(char *str, unsigned int *tc_value, unsigned int tc_nu
 
         tmp_value = (unsigned int)strtoul(tc_size_str, &end_tc_str_p, 0);
         CHK_PRT_RETURN((end_tc_str_p == tc_size_str) || (*end_tc_str_p != '\0') || (errno == ERANGE),
-            TOOL_PRINT_ERR("transfer TC cfg value %s failed", tc_size_str), TOOL_PRIVATE_ARGS_VALUE_ERR);
+                       TOOL_PRINT_ERR("transfer TC cfg value %s failed", tc_size_str), TOOL_PRIVATE_ARGS_VALUE_ERR);
 
         tc_value[tc_i] = tmp_value;
         tc_size_str = strtok(NULL, ",");
@@ -326,15 +328,17 @@ int tool_tc_cfg_get_size(char *str_tc_buf, struct tc_cfg_info *tc_cfg)
     CHK_PRT_RETURN(ret != 0, hccn_err("No valid TC size information"), ret);
 
     for (tc_i = 0; tc_i < REAL_USED_TC_NUM; tc_i++) {
-        CHK_PRT_RETURN(((tmp_value[tc_i] != 0) && (tmp_value[tc_i] < MIN_RX_TC_SIZE)) ||
-            (tmp_value[tc_i] > MAX_TOTAL_RX_TC_SIZE),
-            TOOL_PRINT_ERR("TC size is invalid, tc_i:%d tc_size:%u out of range [%d, %d]",
-            tc_i, tmp_value[tc_i], MIN_RX_TC_SIZE, MAX_TOTAL_RX_TC_SIZE), TOOL_PRIVATE_ARGS_VALUE_ERR);
+        CHK_PRT_RETURN(
+            ((tmp_value[tc_i] != 0) && (tmp_value[tc_i] < MIN_RX_TC_SIZE)) || (tmp_value[tc_i] > MAX_TOTAL_RX_TC_SIZE),
+            TOOL_PRINT_ERR("TC size is invalid, tc_i:%d tc_size:%u out of range [%d, %d]", tc_i, tmp_value[tc_i],
+                           MIN_RX_TC_SIZE, MAX_TOTAL_RX_TC_SIZE),
+            TOOL_PRIVATE_ARGS_VALUE_ERR);
 
         tc_cfg->tc_buffer_size[tc_i] = tmp_value[tc_i];
         total_rx_tc_size += tmp_value[tc_i];
         CHK_PRT_RETURN(total_rx_tc_size > MAX_TOTAL_RX_TC_SIZE,
-            TOOL_PRINT_ERR("total tc size out of range %d", MAX_TOTAL_RX_TC_SIZE), TOOL_PRIVATE_ARGS_VALUE_ERR);
+                       TOOL_PRINT_ERR("total tc size %u out of range [0, %d]", total_rx_tc_size, MAX_TOTAL_RX_TC_SIZE),
+                       TOOL_PRIVATE_ARGS_VALUE_ERR);
     }
 
     return 0;
@@ -350,8 +354,9 @@ int tool_tc_cfg_get_waterline(char *str_waterline, struct tc_cfg_info *tc_cfg)
 
     for (tc_i = 0; tc_i < REAL_USED_TC_NUM; tc_i++) {
         CHK_PRT_RETURN(tmp_value[tc_i] > tc_cfg->tc_buffer_size[tc_i],
-            TOOL_PRINT_ERR("Invalid water line size, tc_i:%d waterline:%u", tc_i, tmp_value[tc_i]),
-            TOOL_PRIVATE_ARGS_VALUE_ERR);
+                       TOOL_PRINT_ERR("Invalid water line size, tc_i:%d waterline:%u exceeds tc_buff size %u", tc_i,
+                                      tmp_value[tc_i], tc_cfg->tc_buffer_size[tc_i]),
+                       TOOL_PRIVATE_ARGS_VALUE_ERR);
 
         tc_cfg->high_waterline[tc_i] = tmp_value[tc_i];
     }
@@ -367,8 +372,10 @@ STATIC int tool_set_tc_cfg_exec(struct command_context *ctx, struct tc_cfg_info 
     int ret;
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     ret = tool_tc_cfg_get_size(tc_cfg_args->tc_buff, tc_cfg);
     CHK_PRT_RETURN(ret != 0, hccn_err("tool_tc_cfg_get_size failed"), ret);
@@ -376,11 +383,11 @@ STATIC int tool_set_tc_cfg_exec(struct command_context *ctx, struct tc_cfg_info 
     ret = tool_tc_cfg_get_waterline(tc_cfg_args->waterline, tc_cfg);
     CHK_PRT_RETURN(ret != 0, hccn_err("tool_tc_cfg_get_waterline failed"), ret);
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context),
-        (char *)tc_cfg, sizeof(struct tc_cfg_info), NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)tc_cfg, sizeof(struct tc_cfg_info), NULL,
+                   &size);
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_TC_CFG_INFO, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set tc_cfg info failed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set tc_cfg info failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     return 0;
 }
@@ -393,12 +400,12 @@ STATIC int tool_save_tc_cfg(struct command_context *ctx, struct tc_cfg_info *tc_
     int ret = 0;
 
     ret = sprintf_s(match_list[0], CONFLINE_LENGTH, "tc_cfg_%d=", ctx->slot_id);
-    CHK_PRT_RETURN(ret <= 0, hccn_err("set tc_cfg sprintf match list failed, ret:%d)", ret), -EIO);
+    CHK_PRT_RETURN(ret <= 0, hccn_err("set tc_cfg sprintf match list failed, ret:%d", ret), -EIO);
 
-    ret = sprintf_s(cmd_buf, CONFLINE_LENGTH, "tc_cfg_%d=%s " FORMAT_8_UINTS " %s " FORMAT_8_UINTS,
-        ctx->slot_id, "size", PRIORITY_ARGS(tc_cfg->tc_buffer_size), "waterline", PRIORITY_ARGS(tc_cfg->high_waterline));
-    CHK_PRT_RETURN(ret <= 0,
-        hccn_err("sprintf TC cfg size failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), -EIO);
+    ret = sprintf_s(cmd_buf, CONFLINE_LENGTH, "tc_cfg_%d=%s " FORMAT_8_UINTS " %s " FORMAT_8_UINTS, ctx->slot_id,
+                    "size", PRIORITY_ARGS(tc_cfg->tc_buffer_size), "waterline", PRIORITY_ARGS(tc_cfg->high_waterline));
+    CHK_PRT_RETURN(ret <= 0, hccn_err("sprintf TC cfg size failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                   -EIO);
 
     cmd_buf[strlen(cmd_buf)] = '\n';
     ret = tool_update_conf(cmd_buf, FILE_OPT_TYPE_MATCH_REPLACES, match_list, 1);
@@ -443,11 +450,9 @@ STATIC void tool_tc_cfg_print_help(struct command_context *ctx, unsigned int mod
             TOOL_PRINT_CMD("-s", "-tc_cfg", "set traffic class cfg");
             tool_print_npu_info(DEV_DEV_ATTR);
             tool_print_dev_info(DEV_BOND_DEV);
-            TOOL_PRINT_OPT("-size <tc_buff_size_arr>",
-                "set tc buffer size of tc [0, 7], such as x,x,x,x,x,x,x,x");
+            TOOL_PRINT_OPT("-size <tc_buff_size_arr>", "set tc buffer size of tc [0, 7], such as x,x,x,x,x,x,x,x");
             TOOL_PRINT_OPT(" ", "size range {0, [4480, 849600]} and total size must be smaller than 849600");
-            TOOL_PRINT_OPT("-waterline <waterline_arr>",
-                "set waterline of tc [0, 7], such as x,x,x,x,x,x,x,x");
+            TOOL_PRINT_OPT("-waterline <waterline_arr>", "set waterline of tc [0, 7], such as x,x,x,x,x,x,x,x");
             TOOL_PRINT_OPT(" ", "waterline must not be larger than tc_buff size");
             break;
         default:
@@ -469,7 +474,8 @@ STATIC int tool_shaping_exec(struct command_context *ctx)
     CHK_PRT_RETURN(ret != 0, hccn_err("dsmi get shaping info failed, ret:%d", ret), ret);
 
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
-        TOOL_PRINT_INFO("[dev_name: %s] bw_cur:%u Mbps, bw_max:%u Mbps", result.info[i].slave_name,
+        TOOL_PRINT_INFO(
+            "[dev_name: %s] bw_cur:%u Mbps, bw_max:%u Mbps", result.info[i].slave_name,
             (result.info[i].bw_limit > result.info[i].bw_max) ? result.info[i].bw_max : result.info[i].bw_limit,
             result.info[i].bw_max);
     }
@@ -565,7 +571,7 @@ STATIC int tool_get_qos_dscp_exec(struct command_context *ctx)
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, (char *)qos_cfg, &size_out);
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_QOS_DSCP_INFO, &info);
     CHK_PRT_RETURN(ret != 0 && ret != FILE_OPT_SYS_RD_FILE_NOT_FOUND,
-        hccn_err("dsmi get qos_to_dscp failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
+                   hccn_err("dsmi get qos_to_dscp failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     TOOL_PRINT_INFO("qos\tdscp");
     if (qos_args == NULL) { // get all qos_dscp_map
@@ -603,17 +609,17 @@ int tool_set_qos_dscp_exec(struct command_context *ctx)
     int ret = 0;
 
     CHK_PRT_RETURN(qos_args->op == OP_UNMAP && (ctx->sub_opt_mask & DSCP_OPT_BIT) != 0,
-        TOOL_PRINT_ERR("Option -unmap and -dscp conflict with each other."), TOOL_PRIVATE_ARGS_CONFLICT_ERR);
+                   TOOL_PRINT_ERR("Option -unmap and -dscp conflict with each other."), TOOL_PRIVATE_ARGS_CONFLICT_ERR);
     CHK_PRT_RETURN(qos_args->op == OP_MAP && (ctx->sub_opt_mask & DSCP_OPT_BIT) == 0,
-        hccn_err("option -dscp must be specified in the map mode"), TOOL_PRIVATE_ARGS_NUM_ERR);
-    CHK_PRT_RETURN(qos_args->op == OP_NONE,
-        hccn_err("option -unmap or -map must be specified"), TOOL_PRIVATE_ARGS_NUM_ERR);
+                   hccn_err("option -dscp must be specified in the map mode"), TOOL_PRIVATE_ARGS_NUM_ERR);
+    CHK_PRT_RETURN(qos_args->op == OP_NONE, hccn_err("option -unmap or -map must be specified"),
+                   TOOL_PRIVATE_ARGS_NUM_ERR);
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context),
-        (char *)qos_args, sizeof(struct qos_dscp_args), NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)qos_args, sizeof(struct qos_dscp_args),
+                   NULL, &size);
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_QOS_DSCP_INFO, &info);
     CHK_PRT_RETURN(check_print_qos_ret(ctx, qos_args, ret) != 0,
-        hccn_err("dsmi set qos_to_dscp failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
+                   hccn_err("dsmi set qos_to_dscp failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     return 0;
 }
@@ -629,10 +635,11 @@ int parse_qos_cfg(struct qos_map_info *qos_cfg, int qos_cnt, char *string)
     token = strtok_r(string, ",", &save_ptr);
     while (token != NULL && count < qos_cnt) {
         CHK_PRT_RETURN(sscanf_s(token, "%d:%d", &qos_idx, &dscp_idx) != MAP_CNT_TWO,
-            hccn_err("Invalid format in token:%s", token), -EINVAL);
+                       hccn_err("Invalid format in token:%s", token), -EINVAL);
         CHK_PRT_RETURN(dscp_idx < 0 || dscp_idx > DSCP_MAX_IDX || qos_idx < 0 || qos_idx > HCCL_QOS_MAX_IDX,
-            hccn_err("dscp_idx or qos_idx is invalid, dscp_idx:%d, range[0, %d], qos_idx:%d, range[0, %d]",
-            dscp_idx, DSCP_MAX_IDX, qos_idx, HCCL_QOS_MAX_IDX), -EINVAL);
+                       hccn_err("dscp_idx or qos_idx is invalid, dscp_idx:%d, range[0, %d], qos_idx:%d, range[0, %d]",
+                                dscp_idx, DSCP_MAX_IDX, qos_idx, HCCL_QOS_MAX_IDX),
+                       -EINVAL);
 
         count++;
         qos_cfg[qos_idx].dscp_idx = dscp_idx;
@@ -652,13 +659,17 @@ STATIC int tool_save_qos_dscp(struct command_context *ctx)
     int ret, i;
 
     ret = tool_read_conf(ctx->slot_id, "qos_dscp", qos_dscp_cfg_string, QOS_DSCP_CFG_LEN);
-    CHK_PRT_GOTO(ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND, hccn_warn("not save qos_map before"), update);
-    CHK_PRT_RETURN(ret != 0, hccn_err("read %s for qos_dscp_cfg failed! ret:%d logic_id:%d slot_id:%d",
-        CFGFILE_NAME, ret, ctx->npu_info.logic_id, ctx->slot_id), ret);
+    CHK_PRT_GOTO(ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND, hccn_warn("qos_map not saved before"), update);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("read %s for qos_dscp_cfg failed! ret:%d logic_id:%d slot_id:%d", CFGFILE_NAME, ret,
+                            ctx->npu_info.logic_id, ctx->slot_id),
+                   ret);
 
     ret = parse_qos_cfg(qos_cfg, HCCL_QOS_LEVEL_CNT, qos_dscp_cfg_string);
-    CHK_PRT_RETURN(ret != 0,
-        hccn_err("parse_qos_cfg failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id, ctx->slot_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("parse_qos_cfg failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id, ctx->slot_id),
+        ret);
 
 update:
     qos_cfg[qos_args->qos_idx].dscp_idx = qos_args->dscp_idx;
@@ -678,12 +689,13 @@ update:
     }
 
     if (strlen(qos_dscp_cfg_string) > 0) {
-        qos_dscp_cfg_string[strlen(qos_dscp_cfg_string) - 1] = '\0';    // delete last ','
+        qos_dscp_cfg_string[strlen(qos_dscp_cfg_string) - 1] = '\0'; // delete last ','
     }
 
     ret = tool_write_conf(ctx->slot_id, "qos_dscp", qos_dscp_cfg_string);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     return 0;
 }
@@ -696,8 +708,10 @@ STATIC int tool_qos_dscp_exec(struct command_context *ctx)
         return tool_get_qos_dscp_exec(ctx);
     } else {
         ret = hccn_check_usr_identify();
-        CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-            ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+            TOOL_PUBLIC_ROOT_UNSUPPORT);
 
         ret = tool_set_qos_dscp_exec(ctx);
         CHK_PRT_RETURN(ret != 0, hccn_err("tool_set_qos_dscp_exec failed, ret:%d", ret), ret);
@@ -717,18 +731,18 @@ STATIC void tool_qos_dscp_print_help(struct command_context *ctx, unsigned int m
             tool_qos_dscp_print_help(ctx, MODE_SET);
             break;
         case MODE_GET:
-            TOOL_PRINT_CMD("-g", "-qos_to_dscp", "get the all qos to dscp map info");
+            TOOL_PRINT_CMD("-g", "-qos_to_dscp", "get all qos to dscp map info");
             tool_print_npu_info(DEV_NPU_ATTR);
-            TOOL_PRINT_OPT("[-qos <qos_level>]", "get the specify qos of dscp map info, range [0, 7]");
+            TOOL_PRINT_OPT("[-qos <qos_level>]", "get the specified qos of dscp map info, range [0, 7]");
             break;
         case MODE_SET:
-            TOOL_PRINT_CMD("-s", "-qos_to_dscp", "set the specify qos of dscp map info");
+            TOOL_PRINT_CMD("-s", "-qos_to_dscp", "set the specified qos of dscp map info");
             tool_print_npu_info(DEV_NPU_ATTR);
             TOOL_PRINT_OPT("-map", "map mode");
             TOOL_PRINT_OPT("-qos <qos_level>", "set qos level, range [0, 7]");
             TOOL_PRINT_OPT("-dscp <dscp_id>", "set dscp value, range [0, 63]");
 
-            TOOL_PRINT_CMD("-s", "-qos_to_dscp", "unmap the specify qos of dscp");
+            TOOL_PRINT_CMD("-s", "-qos_to_dscp", "unmap the specified qos of dscp");
             tool_print_npu_info(DEV_NPU_ATTR);
             TOOL_PRINT_OPT("-unmap", "unmap mode");
             TOOL_PRINT_OPT("-qos <qos_level>", "set qos level, range [0, 7]");
@@ -740,46 +754,88 @@ STATIC void tool_qos_dscp_print_help(struct command_context *ctx, unsigned int m
 
 STATIC struct cmd_entry g_ubase_cmds[] = {
     {
-        "-credit", NULL, MODE_GET,
-        NULL, NULL, tool_credit_exec,
-        {DEV_PORT_TYPE}, tool_credit_print_help,
-        NULL, 0,
+        "-credit",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_credit_exec,
+        {DEV_PORT_TYPE},
+        tool_credit_print_help,
+        NULL,
+        0,
     },
     {
-        "-upgrade_lane", NULL, MODE_SET,
-        NULL, NULL, tool_upgrade_lane_exec,
-        {DEV_PORT_TYPE}, tool_upgrade_lane_print_help,
-        NULL, 0,
+        "-upgrade_lane",
+        NULL,
+        MODE_SET,
+        NULL,
+        NULL,
+        tool_upgrade_lane_exec,
+        {DEV_PORT_TYPE},
+        tool_upgrade_lane_print_help,
+        NULL,
+        0,
     },
     {
-        "-cur_tc_buf", get_cur_tc_buf_sub_opts, MODE_GET,
-        alloc_cur_tc_buf_init, cur_tc_buf_assign, tool_cur_tc_buf_exec,
-        {DEV_DEV_ATTR}, tool_cur_tc_buf_print_help,
-        NULL, 0,
+        "-cur_tc_buf",
+        get_cur_tc_buf_sub_opts,
+        MODE_GET,
+        alloc_cur_tc_buf_init,
+        cur_tc_buf_assign,
+        tool_cur_tc_buf_exec,
+        {DEV_DEV_ATTR},
+        tool_cur_tc_buf_print_help,
+        NULL,
+        0,
     },
     {
-        "-tc_cfg", get_tc_cfg_sub_opts, MODE_BOTH,
-        alloc_tc_cfg_args_init, set_tc_cfg_assign, tool_tc_cfg_exec,
-        {DEV_DEV_ATTR}, tool_tc_cfg_print_help,
-        NULL, 0,
+        "-tc_cfg",
+        get_tc_cfg_sub_opts,
+        MODE_BOTH,
+        alloc_tc_cfg_args_init,
+        set_tc_cfg_assign,
+        tool_tc_cfg_exec,
+        {DEV_DEV_ATTR},
+        tool_tc_cfg_print_help,
+        NULL,
+        0,
     },
     {
-        "-bandwidth", get_bandwidth_sub_opts, MODE_GET,
-        alloc_bandwidth_args_init, bandwidth_assign, tool_bandwidth_exec,
-        {DEV_PORT_TYPE, DEV_DEV_ATTR}, tool_bandwidth_print_help,
-        NULL, 0,
+        "-bandwidth",
+        get_bandwidth_sub_opts,
+        MODE_GET,
+        alloc_bandwidth_args_init,
+        bandwidth_assign,
+        tool_bandwidth_exec,
+        {DEV_PORT_TYPE, DEV_DEV_ATTR},
+        tool_bandwidth_print_help,
+        NULL,
+        0,
     },
     {
-        "-shaping", NULL, MODE_GET,
-        NULL, NULL, tool_shaping_exec,
-        {DEV_DEV_ATTR}, tool_shaping_print_help,
-        NULL, 0,
+        "-shaping",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_shaping_exec,
+        {DEV_DEV_ATTR},
+        tool_shaping_print_help,
+        NULL,
+        0,
     },
     {
-        "-qos_to_dscp", get_qos_dscp_sub_opts, MODE_BOTH,
-        alloc_qos_dscp_args_init, qos_dscp_assign, tool_qos_dscp_exec,
-        {DEV_NPU_ATTR}, tool_qos_dscp_print_help,
-        NULL, 0,
+        "-qos_to_dscp",
+        get_qos_dscp_sub_opts,
+        MODE_BOTH,
+        alloc_qos_dscp_args_init,
+        qos_dscp_assign,
+        tool_qos_dscp_exec,
+        {DEV_NPU_ATTR},
+        tool_qos_dscp_print_help,
+        NULL,
+        0,
     },
 };
 

@@ -93,4 +93,5 @@ ascend_kernel_open_adapt-objs := ka_module_init.o  \
                                  pci/ka_pci.o \
                                  net/ka_net.o \
                                  dfx/ka_dfx.o \
+                                 dfx/event_notify_proc.o \
                                  sched/ka_sched.o

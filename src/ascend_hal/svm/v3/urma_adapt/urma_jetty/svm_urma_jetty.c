@@ -248,34 +248,45 @@ int svm_urma_jetty_alloc(struct svm_urma_jetty_pool *pool, struct svm_urma_jetty
 
 void svm_urma_jetty_free(struct svm_urma_jetty_pool *pool, struct svm_urma_jetty *jetty)
 {
+    (void)pthread_rwlock_wrlock(&pool->rwlock);
     jetty->ack_wr_id = 0;
     jetty->post_wr_id = 0;
+    jetty->user_ctx = NULL;
     jetty->state = SVM_URMA_JETTY_IDLE;
+    (void)pthread_rwlock_unlock(&pool->rwlock);
+
     (void)sem_post(&pool->sem);
 }
 
+static u32 svm_urma_jetty_get_post_wr_id_within_depth(struct svm_urma_jetty *jetty)
+{
+    return (u32)(jetty->post_wr_id % jetty->depth);
+}
+
+/* post_wr_id and ack_wr_id are monotonic counters; their diff tracks posted-but-not-acked WRs
+ * and can span the full [0, depth] range.
+ * Since it is synchronous copy, post_wr_id and ack_wr_id will not be flipped.
+ * If asynchronous scenarios are provided later, adaptation is required */
 static u32 svm_urma_jetty_get_jfs_wrs_post_num(struct svm_urma_jetty *jetty)
 {
-    return (jetty->post_wr_id + jetty->depth - jetty->ack_wr_id) % jetty->depth;
+    return (u32)(jetty->post_wr_id - jetty->ack_wr_id);
 }
 
-/* -1 to makesure only post_id = ack_id = 0 when init. this oper will cause fill_max_depth = jetty->depth -1 */
 static bool svm_urma_jetty_is_no_enough_idle_wrs(struct svm_urma_jetty *jetty, u32 need_fill_num)
 {
-    return need_fill_num > (jetty->depth - svm_urma_jetty_get_jfs_wrs_post_num(jetty) - 1);
+    return need_fill_num > (jetty->depth - svm_urma_jetty_get_jfs_wrs_post_num(jetty));
 }
 
-#define SVM_URMA_JETTY_WRITE_READ_MAX_SIZE 0x10000000ULL /* 256MB */
 static int svm_urma_jetty_fill_jfs_wrs(struct svm_urma_jetty *jetty, struct svm_urma_jetty_post_para *para,
                                        u32 *out_wr_num)
 {
     u32 wr_num = (u32)(svm_align_up(para->size, SVM_URMA_JETTY_WRITE_READ_MAX_SIZE) /
                        SVM_URMA_JETTY_WRITE_READ_MAX_SIZE);
-    u32 start_wrs_id = jetty->post_wr_id;
+    u32 start_wrs_id = svm_urma_jetty_get_post_wr_id_within_depth(jetty);
     u32 i, j, next_wrs_id;
 
-    svm_debug("Svm_fill_jfs_info. (src=0x%llx; dst=0x%llx; post_id=%u; ack_id=%u; depth=%u)\n", para->src, para->dst,
-              jetty->post_wr_id, jetty->ack_wr_id, jetty->depth);
+    svm_debug("Svm_fill_jfs_info. (src=0x%llx; dst=0x%llx; post_id=%llu; ack_id=%llu; depth=%u)\n", para->src,
+              para->dst, jetty->post_wr_id, jetty->ack_wr_id, jetty->depth);
 
     if (wr_num > jetty->depth) {
         svm_err("Size out of jetty depth. (depth=%u; size=%llu; wr_num=%u)\n", jetty->depth, para->size, wr_num);
@@ -328,13 +339,14 @@ int svm_urma_jetty_post(struct svm_urma_jetty *jetty, struct svm_urma_jetty_post
         return ret;
     }
 
-    urma_ret = urma_post_jfs_wr(jetty->jfs, &jetty->jfs_wrs[jetty->post_wr_id], &bad_wr);
+    urma_ret = urma_post_jfs_wr(jetty->jfs, &jetty->jfs_wrs[svm_urma_jetty_get_post_wr_id_within_depth(jetty)],
+                                &bad_wr);
     if (urma_ret != URMA_SUCCESS) {
         svm_err("Urma post failed. (ret=%d; opcode=%d)\n", urma_ret, para->opcode);
         return DRV_ERROR_INNER_ERR;
     }
 
-    jetty->post_wr_id = (jetty->post_wr_id + *out_wr_num) % jetty->depth;
+    jetty->post_wr_id += *out_wr_num;
 
     return DRV_ERROR_NONE;
 }
@@ -358,6 +370,8 @@ int svm_urma_jetty_wait(struct svm_urma_jetty *jetty, int wr_num, int timeout_ms
     bool poll_failed = false;
     urma_jfc_t *jfc = NULL;
     urma_status_t urma_ret;
+    u64 post_id = jetty->post_wr_id;
+    u64 ack_id = jetty->ack_wr_id;
     int cnt;
 
     wait_num = (wr_num >= 0) ? (u32)wr_num : svm_urma_jetty_get_jfs_wrs_post_num(jetty);
@@ -366,7 +380,10 @@ int svm_urma_jetty_wait(struct svm_urma_jetty *jetty, int wr_num, int timeout_ms
 #ifndef EMU_ST /* to be delete */
         cnt = ascend_urma_wait_jfc(jetty->jfce, 1, timeout_ms, &jfc);
         if ((cnt != 1) || (jetty->jfc != jfc)) {
-            svm_err("Urma wait jfc failed. (i=%u; jfs=%u; jfc=%u)\n", i, jetty->jfs->jfs_id.id, jetty->jfc->jfc_id.id);
+            svm_err("Urma wait jfc failed. (i=%u; cnt=%d; jfs=%u; jfc=%u; wait_num=%u; jetty_post_id=%llu; "
+                    "jetty_ack_id=%llu; post_id=%llu; ack_id=%llu)\n",
+                    i, cnt, jetty->jfs->jfs_id.id, jetty->jfc->jfc_id.id, wait_num, jetty->post_wr_id, jetty->ack_wr_id,
+                    post_id, ack_id);
             return DRV_ERROR_INNER_ERR;
         }
 
@@ -384,7 +401,7 @@ int svm_urma_jetty_wait(struct svm_urma_jetty *jetty, int wr_num, int timeout_ms
             return DRV_ERROR_INNER_ERR;
         }
 
-        jetty->ack_wr_id = ((jetty->ack_wr_id + 1) % jetty->depth);
+        jetty->ack_wr_id++;
 
 #ifndef EMU_ST /* to be delete */
         if (poll_failed) {

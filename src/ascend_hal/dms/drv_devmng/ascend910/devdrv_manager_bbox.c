@@ -16,13 +16,15 @@
 #include "devmng_user_common.h"
 #include "dms_user_common.h"
 #include "ascend_hal.h"
+#ifdef CFG_FEATURE_SUPPORT_DEVMNG_BBOX
 #include "dms_cmd_def.h"
+#endif
 #include "drv_user_common.h"
 #include "ascend_dev_num.h"
 #include "drv_devmng_adapt.h"
 
 #ifdef __linux
-    #include <sys/prctl.h>
+#include <sys/prctl.h>
 #endif
 
 #ifdef STATIC_SKIP
@@ -55,7 +57,7 @@ STATIC mmThread devdrv_black_box_thread;
 STATIC u8 devdrv_black_box_thread_work = 0;
 
 STATIC void devdrv_black_box_exception_process(const struct devdrv_black_box_user *black_box_user,
-                                                 drvBlackBoxCallbackFunc_t *callback)
+                                               drvBlackBoxCallbackFunc_t *callback)
 {
     drvDeviceExceptionReporFunc exp_rep_func = callback->exp_report_func;
     struct timespec stamp;
@@ -71,7 +73,7 @@ STATIC void devdrv_black_box_exception_process(const struct devdrv_black_box_use
 }
 
 STATIC void devdrv_black_box_dev_id_notify_process(struct devdrv_black_box_user *black_box_user,
-                                                     drvBlackBoxCallbackFunc_t *callback)
+                                                   drvBlackBoxCallbackFunc_t *callback)
 {
     drvDeviceStartupNotify start_noti_func = callback->start_notifunc;
 
@@ -85,7 +87,7 @@ STATIC void devdrv_black_box_dev_id_notify_process(struct devdrv_black_box_user 
 
 #ifdef __linux
 STATIC void devdrv_black_box_dev_state_notify_process(const struct devdrv_black_box_user *black_box_user,
-                                                       drvBlackBoxCallbackFunc_t *callback)
+                                                      drvBlackBoxCallbackFunc_t *callback)
 {
     drvDeviceStateNotify state_noti_func = callback->state_notifunc;
     devdrv_state_info_t state_info = {0};
@@ -97,13 +99,13 @@ STATIC void devdrv_black_box_dev_state_notify_process(const struct devdrv_black_
     state_info.state = (devdrv_state_t)black_box_user->priv_data.bbox_state.state;
     state_info.devId = black_box_user->priv_data.bbox_state.devId;
     DEVDRV_DRV_INFO("state_notifunc called(devId:%d, state(%d), code(0x%x)).\n", state_info.devId, state_info.state,
-                     black_box_user->exception_code);
+                    black_box_user->exception_code);
     state_noti_func(&state_info);
 }
 #endif
 
 STATIC void devdrv_black_box_notify_process(struct devdrv_black_box_user *black_box_user,
-                                              drvBlackBoxCallbackFunc_t *callback)
+                                            drvBlackBoxCallbackFunc_t *callback)
 {
     if (black_box_user->exception_code == 0) {
         return;
@@ -411,7 +413,7 @@ drvError_t drv_ts_log_dump(uint32_t devid, uint64_t bbox_addr_offset, uint32_t s
     }
 
     if (devid >= ASCEND_DEV_MAX_NUM) {
-        DEVDRV_DRV_ERR("Invalid device id. (device id=%u).\n", devid);
+        DEVDRV_DRV_ERR("Invalid device id. (device id=%u; max_dev_num=%u)\n", devid, ASCEND_DEV_MAX_NUM);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -429,11 +431,11 @@ drvError_t drv_ts_log_dump(uint32_t devid, uint64_t bbox_addr_offset, uint32_t s
 
     return DRV_ERROR_NONE;
 }
-
+#ifdef CFG_FEATURE_SUPPORT_DEVMNG_BBOX
 int drv_dev_log_dump(uint32_t devid, uint64_t bbox_addr_offset, uint32_t size, void *buffer, uint32_t log_type)
 {
     int ret;
-    struct dms_ioctl_arg ioarg = { 0 };
+    struct dms_ioctl_arg ioarg = {0};
     struct devdrv_bbox_logdump bbox_log_dump = {0};
 
     if (buffer == NULL) {
@@ -468,7 +470,7 @@ int drv_dev_log_dump(uint32_t devid, uint64_t bbox_addr_offset, uint32_t size, v
     ioarg.output = NULL;
     ioarg.output_len = 0;
 
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl(DMS_GET_BBOX_LOG_DUMP_INFO, &ioarg));
     if (ret != 0) {
         DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "drv_dev_log_dump failed. (devid=%u, ret=%d)", devid, ret);
     }
@@ -477,7 +479,7 @@ int drv_dev_log_dump(uint32_t devid, uint64_t bbox_addr_offset, uint32_t size, v
     bbox_log_dump.bbox_user = NULL;
     return ret;
 }
-
+#endif
 drvError_t drv_reg_ddr_read(uint32_t devId, uint64_t reg_addr_offset, uint32_t size, void *buffer)
 {
     struct devdrv_black_box_user black_box_user = {0};
@@ -490,7 +492,7 @@ drvError_t drv_reg_ddr_read(uint32_t devId, uint64_t reg_addr_offset, uint32_t s
     }
 
     if (devId >= ASCEND_DEV_MAX_NUM) {
-        DEVDRV_DRV_ERR("invalid devid = %u.\n", devId);
+        DEVDRV_DRV_ERR("invalid devid. (devid=%u, max=%u)\n", devId, ASCEND_DEV_MAX_NUM);
         return DRV_ERROR_INVALID_VALUE;
     }
 

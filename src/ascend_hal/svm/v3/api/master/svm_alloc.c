@@ -22,6 +22,8 @@
 #include "svm_master_init.h"
 #include "mms.h"
 #include "svm_mem_stats_show.h"
+#include "svm_addr_desc.h"
+#include "svm_soma.h"
 
 static inline u32 svm_flag_to_mms_type(u64 flag)
 {
@@ -129,7 +131,7 @@ static int svm_parse_alloc_module_id(u64 flag, u32 *module_id)
     return 0;
 }
 
-static int svm_parse_alloc_svm_flag(u64 flag, u64 *svm_flag)
+static int svm_parse_alloc_svm_flag(u64 flag, u32 devid, u64 *svm_flag)
 {
     u32 virt_mem_type = (flag >> MEM_VIRT_BIT) & ((1UL << MEM_VIRT_WIDTH) - 1);
     *svm_flag = 0;
@@ -169,7 +171,7 @@ static int svm_parse_alloc_svm_flag(u64 flag, u64 *svm_flag)
         }
 
         if ((flag & MEM_PAGE_HUGE) || (flag & MEM_PAGE_GIANT)) {
-            svm_run_info("Dev cp only does not support huge/giant page. (flag=0x%llx)\n", flag);
+            svm_run_info("Dev cp only not support huge/giant page. (flag=0x%llx)\n", flag);
             return DRV_ERROR_NOT_SUPPORT;
         }
     }
@@ -177,6 +179,13 @@ static int svm_parse_alloc_svm_flag(u64 flag, u64 *svm_flag)
     if (flag & MEM_HOST_RW_DEV_RO) {
         if (!(flag & MEM_DEV) || (flag & MEM_PAGE_GIANT) || (flag & MEM_DEV_CP_ONLY)) {
             svm_run_info("Not support MEM_HOST_RW_DEV_RO. (flag=0x%llx)\n", flag);
+            return DRV_ERROR_NOT_SUPPORT;
+        }
+    }
+
+    if (flag & MEM_DEV_PRIVATE) {
+        if ((devid == svm_get_host_devid()) || !svm_dbi_is_cc_vm()) {
+            svm_run_info("MEM_DEV_PRIVATE only supports device memory in confidential VM. (devid=%u)\n", devid);
             return DRV_ERROR_NOT_SUPPORT;
         }
     }
@@ -201,8 +210,18 @@ static int svm_parse_alloc_svm_flag(u64 flag, u64 *svm_flag)
         *svm_flag |= SVM_FLAG_DEV_CP_ONLY;
     }
 
+    if (flag & MEM_DEV_PRIVATE) {
+        *svm_flag |= SVM_FLAG_DEV_PRIVATE;
+    }
+
     if (virt_mem_type == MEM_HOST_UVA_VAL) {
         *svm_flag |= SVM_FLAG_ATTR_MASTER_UVA;
+    }
+
+    if ((flag & MEM_SNAPSHOT_REQUIRED) != 0) {
+        *svm_flag |= SVM_FLAG_SNAPSHOT_REQUIRED;
+    } else if ((flag & MEM_SNAPSHOT_OPTIONAL) != 0) {
+        *svm_flag |= SVM_FLAG_SNAPSHOT_OPTIONAL;
     }
 
     return 0;
@@ -224,13 +243,12 @@ int svm_mem_malloc(void **va, u64 size, u64 flag)
         return ret;
     }
 
-    ret = svm_parse_alloc_svm_flag(flag, &svm_flag);
+    ret = svm_parse_alloc_svm_flag(flag, devid, &svm_flag);
     if (ret != 0) {
         return ret;
     }
 
     svm_flag |= SVM_FLAG_CAP_NORMAL_FREE;
-
     if ((svm_flag & SVM_FLAG_DEV_CP_ONLY) == 0) {
         svm_flag |= SVM_FLAG_CAP_REGISTER | SVM_FLAG_CAP_UNREGISTER | SVM_FLAG_CAP_REGISTER_ACCESS;
         if (devid < SVM_MAX_DEV_AGENT_NUM) { /* host mem not support prefetch, ipc */
@@ -239,12 +257,15 @@ int svm_mem_malloc(void **va, u64 size, u64 flag)
         } else {
             svm_flag |= SVM_FLAG_CAP_LDST;
         }
-        svm_flag |= SVM_FLAG_CAP_SYNC_COPY | SVM_FLAG_CAP_SYNC_COPY_BATCH;
-        svm_flag |= SVM_FLAG_CAP_DMA_DESC_CONVERT | SVM_FLAG_CAP_DMA_DESC_DESTROY | SVM_FLAG_CAP_DMA_DESC_SUBMIT |
-                    SVM_FLAG_CAP_DMA_DESC_WAIT;
-        svm_flag |= SVM_FLAG_CAP_ASYNC_COPY_SUBMIT | SVM_FLAG_CAP_ASYNC_COPY_WAIT;
-        svm_flag |= SVM_FLAG_CAP_SYNC_COPY_2D | SVM_FLAG_CAP_DMA_DESC_CONVERT_2D;
-        svm_flag |= SVM_FLAG_CAP_SYNC_COPY_EX;
+        if (!svm_flag_is_dev_private(svm_flag)) {
+            svm_flag |= SVM_FLAG_CAP_SYNC_COPY | SVM_FLAG_CAP_SYNC_COPY_BATCH;
+            svm_flag |= SVM_FLAG_CAP_DMA_DESC_CONVERT | SVM_FLAG_CAP_DMA_DESC_DESTROY | SVM_FLAG_CAP_DMA_DESC_SUBMIT |
+                        SVM_FLAG_CAP_DMA_DESC_WAIT;
+            svm_flag |= SVM_FLAG_CAP_ASYNC_COPY_SUBMIT | SVM_FLAG_CAP_ASYNC_COPY_WAIT;
+            svm_flag |= SVM_FLAG_CAP_SYNC_COPY_2D | SVM_FLAG_CAP_DMA_DESC_CONVERT_2D;
+            svm_flag |= SVM_FLAG_CAP_SYNC_COPY_EX;
+            svm_flag |= svm_dbi_is_cc_vm() ? SVM_FLAG_BY_PASS_CACHE : 0;
+        }
         svm_flag |= SVM_FLAG_CAP_MEMSET;
         svm_flag |= SVM_FLAG_CAP_GET_ATTR | SVM_FLAG_CAP_GET_ADDR_CHECK_INFO | SVM_FLAG_CAP_GET_MEM_TOKEN_INFO;
         svm_flag |= SVM_FLAG_CAP_GET_D2D_TRANS_WAY;
@@ -255,6 +276,7 @@ int svm_mem_malloc(void **va, u64 size, u64 flag)
     } else {
         svm_flag |= SVM_FLAG_BY_PASS_CACHE;
         svm_flag |= SVM_FLAG_ATTR_VA_WITHOUT_MASTER;
+        svm_flag |= SVM_FLAG_CAP_GET_ATTR;
     }
 
     start = 0;
@@ -276,12 +298,12 @@ int svm_mem_free(void *va)
     if (ret != 0) {
         /* The log cannot be modified, because in the failure mode library. */
         svm_err("Addr is not alloced or free repeatedly. (start=0x%llx)\n", start);
-        svm_report_addr_not_allocated("halMemFree", "pp", start);
+        svm_report_addr_not_allocated("pp", start);
         return ret;
     }
 
     if (!svm_flag_cap_is_support_normal_free(prop.flag)) {
-        svm_err("Addr cap does not support normal free. (va=0x%llx)\n", start);
+        svm_err("Addr cap is not support normal free. (va=0x%llx)\n", start);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -291,8 +313,6 @@ int svm_mem_free(void *va)
 drvError_t halMemAllocInner(void **pp, unsigned long long size, unsigned long long flag);
 drvError_t halMemAllocInner(void **pp, unsigned long long size, unsigned long long flag)
 {
-    u32 devid = 0;
-    u32 module_id = UNKNOWN_MODULE_ID;
     int ret;
 
     if ((pp == NULL) || (size == 0)) {
@@ -311,22 +331,35 @@ drvError_t halMemAllocInner(void **pp, unsigned long long size, unsigned long lo
     svm_use_pipeline();
     ret = svm_mem_malloc(pp, size, flag);
     svm_unuse_pipeline();
-    if ((ret == DRV_ERROR_OUT_OF_MEMORY) && (svm_parse_alloc_devid(flag, &devid) == 0)) {
-        (void)svm_parse_alloc_module_id(flag, &module_id);
-        svm_report_oom(size, halGetMemModuleName(module_id), devid);
-    }
     if (ret == DRV_ERROR_NOT_SUPPORT) {
-        svm_run_info("Not support. (ptr=0x%llx; size=%llu; flag=0x%llx)\n", (u64)(uintptr_t)*pp, size, flag);
+        svm_run_info("Not support. (size=%llu; flag=0x%llx)\n", size, flag);
     }
 
-    svm_debug("Alloc exit. (ret=%d; ptr=0x%llx; size=%llu; flag=0x%llx)\n", ret, (u64)(uintptr_t)*pp, size, flag);
+    svm_debug("Alloc exit. (ret=%d; ptr=0x%llx; size=%llu; flag=0x%llx)\n", ret, (ret == 0) ? (u64)(uintptr_t)*pp : 0,
+              size, flag);
 
     return (drvError_t)ret;
 }
 
 drvError_t halMemAlloc(void **pp, unsigned long long size, unsigned long long flag)
 {
+    DRV_CURRENT_API_SCOPE();
+
     return halMemAllocInner(pp, size, flag);
+}
+
+static bool svm_va_is_soma(void *va)
+{
+    void *va_handle = NULL;
+    va_handle = svm_handle_get((u64)(uintptr_t)va);
+    if (va_handle == NULL) {
+        svm_err("Get va handle failed. (va=0x%llx)\n", va);
+        return false;
+    }
+
+    u32 mem_source = svm_get_mem_source(va_handle);
+    svm_handle_put(va_handle);
+    return (mem_source == SVM_POOL_MEM);
 }
 
 drvError_t halMemFreeInner(void *pp);
@@ -341,17 +374,28 @@ drvError_t halMemFreeInner(void *pp)
         return DRV_ERROR_INVALID_VALUE;
     }
 
+    if (svm_va_is_soma(pp)) {
+        u64 va = (u64)(uintptr_t)pp;
+        ret = soma_mem_sync_free(va);
+        return (drvError_t)ret;
+    }
+
     svm_use_pipeline();
     ret = svm_mem_free(pp);
     svm_unuse_pipeline();
 
     svm_debug("Free exit. (ret=%d; ptr=0x%llx)\n", ret, (u64)(uintptr_t)pp);
 
+    if (ret == DRV_ERROR_BUSY) {
+        svm_report_mem_in_use((u64)(uintptr_t)pp);
+    }
     return (drvError_t)ret;
 }
 
 drvError_t halMemFree(void *pp)
 {
+    DRV_CURRENT_API_SCOPE();
+
     return halMemFreeInner(pp);
 }
 

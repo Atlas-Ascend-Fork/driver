@@ -12,6 +12,9 @@
  */
 #include "ka_kernel_def_pub.h"
 #include "ka_driver_pub.h"
+#if defined(CONFIG_X86_64) && defined(CONFIG_ARCH_HAS_CC_PLATFORM)
+#include "cc_platform.h"
+#endif
 
 #include "runenv_config_module.h"
 #include "vm_query.h"
@@ -28,3 +31,13 @@ bool run_in_virtual_mach(void)
     return false;
 }
 KA_EXPORT_SYMBOL_GPL(run_in_virtual_mach);
+
+bool run_in_confidential_virtual_mach(void)
+{
+#if defined(CONFIG_X86_64) && defined(CONFIG_ARCH_HAS_CC_PLATFORM)
+    return cc_platform_has(CC_ATTR_GUEST_MEM_ENCRYPT);
+#else
+    return false;
+#endif
+}
+KA_EXPORT_SYMBOL_GPL(run_in_confidential_virtual_mach);

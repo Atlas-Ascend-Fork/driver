@@ -455,7 +455,7 @@ bool devmm_find_pages_cache(struct devmm_svm_process *svm_process, struct devmm_
             search_para.start_addr += fill_size;
             offset += fill_size;
             blks_start += search_para.blks_num;
-            search_para.blks_num = *num - search_para.blks_num;
+            search_para.blks_num = *num - blks_start;
         }
         if (fill_size == 0) {
             success = false;

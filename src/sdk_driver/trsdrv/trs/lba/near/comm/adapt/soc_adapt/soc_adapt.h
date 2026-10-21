@@ -48,6 +48,7 @@ struct trs_chan_adapt_ops *trs_soc_chan_get_stars_adapt_ops(struct trs_id_inst *
 int trs_soc_sq_send_trigger_db_init(struct trs_id_inst *inst);
 void trs_soc_sq_send_trigger_db_uninit(struct trs_id_inst *inst);
 bool trs_soc_is_support_soft_mbox(struct trs_id_inst *inst);
+bool trs_soc_is_support_virt(struct trs_id_inst *inst);
 bool trs_soc_support_sq_rsvmem_map(struct trs_id_inst *inst);
 bool trs_soc_support_hw_ts_mbox(struct trs_id_inst *inst);
 #endif /* SOC_ADAPT_H__ */

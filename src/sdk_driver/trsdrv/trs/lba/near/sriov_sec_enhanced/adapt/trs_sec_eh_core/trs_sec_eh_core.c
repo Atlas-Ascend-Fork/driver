@@ -23,7 +23,7 @@
 
 static int trs_sec_eh_core_stars_soc_res_ctrl(struct trs_id_inst *inst, u32 id_type, u32 id, u32 cmd)
 {
-    struct trs_sec_eh_res_ctrl_info res_ctrl;
+    struct trs_sec_eh_res_ctrl_info res_ctrl = {0};
     int ret;
 
     res_ctrl.head.cmd_type = TRS_SEC_EH_RES_CTRL;

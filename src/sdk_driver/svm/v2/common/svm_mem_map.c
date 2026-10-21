@@ -15,7 +15,36 @@
 #include "svm_vmma_mng.h"
 #include "devmm_common.h"
 #include "svm_mem_map.h"
+#include "svm_mem_mng.h"
+#include "svm_vmm_access_comm.h"
 #include "ka_compiler_pub.h"
+
+int devmm_mem_map_occupy_inc(struct devmm_svm_process *svm_proc, const struct devmm_vmma_info *info)
+{
+#ifdef DRV_HOST
+    struct svm_vmm_pa_owner_desc pa_owner_desc;
+
+    if (info->side != MEM_HOST_SIDE) {
+        svm_vmm_pa_owner_desc_pack(svm_proc->process_id.hostpid, info->devid, info->phy_addr_blk_id, &pa_owner_desc);
+        return svm_vmm_pa_ref_op_remote(svm_proc, &pa_owner_desc, SVM_VMM_PA_REF_OP_INC);
+    }
+#endif
+    return svm_vmm_pa_ref_inc_local(svm_proc, info->phy_addr_blk_id);
+}
+
+void devmm_mem_map_occupy_dec(struct devmm_svm_process *svm_proc, const struct devmm_vmma_info *info)
+{
+#ifdef DRV_HOST
+    struct svm_vmm_pa_owner_desc pa_owner_desc;
+
+    if (info->side != MEM_HOST_SIDE) {
+        svm_vmm_pa_owner_desc_pack(svm_proc->process_id.hostpid, info->devid, info->phy_addr_blk_id, &pa_owner_desc);
+        (void)svm_vmm_pa_ref_op_remote(svm_proc, &pa_owner_desc, SVM_VMM_PA_REF_OP_DEC);
+        return;
+    }
+#endif
+    svm_vmm_pa_ref_dec_local(svm_proc, info->phy_addr_blk_id);
+}
 
 void devmm_mem_unmap(struct devmm_svm_process *svm_proc, struct devmm_vmma_info *info)
 {
@@ -167,14 +196,14 @@ static int devmm_mem_map_info_check(struct devmm_phy_addr_blk *blk, struct devmm
 
     /* check handle's pg_num */
     if (info->phy_addr_blk_pg_num != blk->pg_num) {
-        devmm_drv_err("Handle's pg_num does not match. (handle->pg_num=%llu; blk->pg_num=%llu)\n",
+        devmm_drv_err("Handle's pg_num is not match. (handle->pg_num=%llu; blk->pg_num=%llu)\n",
                       info->phy_addr_blk_pg_num, blk->pg_num);
         return -EINVAL;
     }
 
     /* check handle's module_id */
     if (info->module_id != blk->attr.module_id) {
-        devmm_drv_err("Handle's module_id does not match. (handle->module_id=%u; blk->module_id=%u)\n", info->module_id,
+        devmm_drv_err("Handle's module_id is not match. (handle->module_id=%u; blk->module_id=%u)\n", info->module_id,
                       blk->attr.module_id);
         return -EINVAL;
     }

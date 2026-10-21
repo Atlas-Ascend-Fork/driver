@@ -110,6 +110,8 @@ static struct trs_core_adapt_ops trs_core_stars_v2_ops = {
     .cq_mem_free = trs_core_ops_cq_mem_free,
     .ssid_query = trs_host_get_ssid,
     .res_id_check = trs_host_res_id_check,
+    .res_id_remote_get = trs_host_res_id_get,
+    .res_id_remote_put = trs_host_res_id_put,
     .get_res_support_proc_num = trs_core_ops_get_proc_num,
     .get_sq_id_head_from_hw_cqe = trs_core_stars_v2_ops_get_sq_id_head_from_hw_cqe,
     .get_stream_id_from_hw_cqe = trs_core_stars_v2_ops_get_stream_from_cqe,
@@ -135,6 +137,8 @@ static struct trs_core_adapt_ops trs_core_stars_v2_ops = {
     .notice_proc_release = trs_core_stars_v2_ops_notice_proc_release,
     .mem_update = trs_core_ops_mem_update,
     .res_num_query = trs_host_res_num_query,
+    .get_sq_mem_handle = trs_host_get_sq_mem_handle,
+    .put_sq_mem_handle = trs_host_put_sq_mem_handle,
 };
 
 struct trs_core_adapt_ops *trs_core_get_stars_v2_adapt_ops(void)

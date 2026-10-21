@@ -22,8 +22,10 @@
 #include "comm_kernel_interface.h"
 #include "svm_kernel_interface.h"
 
+#include "svm_ub_mem.h"
 #include "svm_kern_log.h"
 #include "svm_addr_desc.h"
+#include "svm_dev_topology.h"
 #include "svm_pgtable.h"
 #include "svm_slab.h"
 #include "smm_kernel.h"
@@ -39,6 +41,7 @@ int svm_pmq_client_cp_pa_query(u32 udevid, u64 va, u64 size, svm_pa_seg_wraper_t
     struct svm_global_va src_info;
     struct svm_pa_seg *pa_seg = NULL;
     u64 pa_seg_wraper_num = *seg_num;
+    u64 tmp_seg_num;
     u64 npage_size;
     u64 i;
     int ret;
@@ -68,7 +71,8 @@ int svm_pmq_client_cp_pa_query(u32 udevid, u64 va, u64 size, svm_pa_seg_wraper_t
         return -ENOMEM;
     }
 
-    ret = svm_smp_query_mem_pa(udevid, ka_task_get_current_tgid(), va, size, pa_seg, seg_num);
+    tmp_seg_num = *seg_num;
+    ret = svm_smp_query_mem_pa(udevid, ka_task_get_current_tgid(), va, size, pa_seg, &tmp_seg_num);
     if (ret != 0) {
         ret = svm_pmq_client_pa_query(uda_get_host_id(), &src_info, pa_seg, seg_num);
         if (ret != 0) {
@@ -76,9 +80,10 @@ int svm_pmq_client_cp_pa_query(u32 udevid, u64 va, u64 size, svm_pa_seg_wraper_t
             svm_err("Query failed. (udevid=%u; ret=%d)\n", udevid, ret);
             return ret;
         }
+        tmp_seg_num = *seg_num;
     }
 
-    *seg_num = svm_make_pa_continues(pa_seg, *seg_num);
+    *seg_num = svm_make_pa_continues(pa_seg, tmp_seg_num);
     *seg_num = (*seg_num <= pa_seg_wraper_num) ? *seg_num : pa_seg_wraper_num;
     for (i = 0; i < *seg_num; i++) {
         pa_seg_wraper[i].pa = pa_seg[i].pa;
@@ -158,8 +163,8 @@ static int pmq_trans_pa_d2h(u32 udevid, struct svm_pa_seg pa_seg[], u64 seg_num)
     return 0;
 }
 
-static int pmq_d2h_pa_get(u32 udevid, struct svm_global_va *src_info, struct svm_pa_seg pa_seg[], u64 *seg_num,
-                          u64 flag)
+static int pmq_d2h_pci_pa_get(u32 udevid, struct svm_global_va *src_info, struct svm_pa_seg pa_seg[], u64 *seg_num,
+                              u64 flag)
 {
     int ret;
 
@@ -171,6 +176,30 @@ static int pmq_d2h_pa_get(u32 udevid, struct svm_global_va *src_info, struct svm
     }
 
     return pmq_trans_pa_d2h(src_info->udevid, pa_seg, *seg_num);
+}
+
+static int pmq_d2h_ub_pa_get(u32 udevid, struct svm_global_va *src_info, struct svm_pa_seg pa_seg[], u64 *seg_num,
+                             u64 flag)
+{
+    struct devdrv_addr_desc addr_desc = {0};
+    u64 trans_addr;
+    int ret;
+
+    svm_ub_va_to_mem_id_and_offset(src_info->va, &addr_desc.peer_ub.mem_id, &addr_desc.peer_ub.offset);
+    addr_desc.peer_ub.cross_server = svm_is_cross_server(udevid, src_info->server_id);
+    ret = devdrv_addr_trans_local_to_peer(udevid, &addr_desc, &trans_addr);
+    if (ret != 0) {
+        svm_err("Check whether the LingQu package is correctly installed, and use gmsysview in the control node to "
+                "check whether the UB Decoder is correctly configured. "
+                "(ret=%d; udevid=%u; src_udevid=%u; mem_id=%d; offset=0x%llx)\n",
+                ret, udevid, src_info->udevid, addr_desc.peer_ub.mem_id, addr_desc.peer_ub.offset);
+        return -ENOSPC;
+    }
+
+    *seg_num = 1;
+    pa_seg[0].pa = trans_addr;
+    pa_seg[0].size = src_info->size;
+    return 0;
 }
 
 static int pmq_d2h_pa_put(u32 udevid, struct svm_global_va *src_info, struct svm_pa_seg pa_seg[], u64 seg_num)
@@ -187,40 +216,50 @@ static const struct smm_ops pmq_local_ops = {
     .pa_location = SMM_LOCAL_PA,
 };
 
-static const struct smm_ops pmq_d2h_ops = {
-    .pa_get = pmq_d2h_pa_get,
+static const struct smm_ops pmq_d2h_pci_ops = {
+    .pa_get = pmq_d2h_pci_pa_get,
     .pa_put = pmq_d2h_pa_put,
     .pa_location = SMM_PEER_DEVICE_PA,
 };
 
-static int pmq_register_smm_pa_ops(void)
+static const struct smm_ops pmq_d2h_ub_ops = {
+    .pa_get = pmq_d2h_ub_pa_get,
+    .pa_put = pmq_d2h_pa_put,
+    .pa_location = SMM_PEER_DEVICE_PA,
+};
+
+static const struct smm_ops pmq_cs_ops = {
+    .pa_get = pmq_d2h_ub_pa_get,
+    .pa_put = pmq_d2h_pa_put,
+    .pa_location = SMM_PEER_DEVICE_PA,
+};
+
+static int pmq_register_smm_pa_ops(u32 udevid)
 {
-    const struct smm_ops *ops = NULL;
-    u32 max_udev_num = uda_get_udev_max_num();
-    u32 udevid;
+    const struct smm_ops *ops = (udevid == uda_get_host_id()) ?
+                                    &pmq_local_ops :
+                                    ((devdrv_get_connect_protocol(udevid) == CONNECT_PROTOCOL_PCIE) ? &pmq_d2h_pci_ops :
+                                                                                                      &pmq_d2h_ub_ops);
     int ret;
 
-    for (udevid = 0; udevid < max_udev_num; udevid++) {
-        ops = (udevid == uda_get_host_id()) ? &pmq_local_ops : &pmq_d2h_ops;
-        ret = svm_smm_register_ops(uda_get_host_id(), udevid, ops);
+    if (udevid == uda_get_host_id()) {
+        ret = svm_smm_register_cs_ops(udevid, &pmq_cs_ops);
         if (ret != 0) {
+            svm_err("Register smm pa cs ops failed. (ret=%d)\n", ret);
             return ret;
         }
     }
-
-    return 0;
+    return svm_smm_register_ops(uda_get_host_id(), udevid, ops);
 }
 
 int pmq_client_host_init_dev(u32 udevid)
 {
     int ret;
 
-    if (udevid == uda_get_host_id()) {
-        ret = pmq_register_smm_pa_ops();
-        if (ret != 0) {
-            svm_err("Register smm pa ops failed. (ret=%d; udevid=%u)\n", ret, udevid);
-            return ret;
-        }
+    ret = pmq_register_smm_pa_ops(udevid);
+    if (ret != 0) {
+        svm_err("Register smm pa ops failed. (ret=%d; udevid=%u)\n", ret, udevid);
+        return ret;
     }
 
     if (udevid != uda_get_host_id()) {
@@ -287,14 +326,13 @@ static int pmq_client_get_mem_pa_list_proc(u32 devid, int tgid, struct ka_mem_at
     }
 
     if ((devid != uda_get_host_id()) && (!mem->raw_pa_flag)) {
-        int i;
-        for (i = 0; i < *pa_num; i++) {
-            ret = devdrv_devmem_addr_d2h(devid, pa_list[i].pa, &pa_list[i].pa);
-            if (ret != 0) {
-                (void)pmq_client_smp_unpin_mem(devid, tgid, mem->addr, mem->size, mem->cp_only_flag);
-                svm_err("Failed to get bar. (ret=%d; devid=%u)\n", ret, devid);
-                return ret;
-            }
+        /* struct ka_pa_wraper is the same as struct svm_pa_seg */
+        struct svm_pa_seg *pa_seg = (struct svm_pa_seg *)pa_list;
+        ret = pmq_trans_pa_d2h(devid, pa_seg, *pa_num);
+        if (ret != 0) {
+            (void)pmq_client_smp_unpin_mem(devid, tgid, mem->addr, mem->size, mem->cp_only_flag);
+            svm_err("Failed to get bar. (ret=%d; devid=%u)\n", ret, devid);
+            return ret;
         }
     }
 
@@ -319,12 +357,25 @@ static int pmq_client_put_mem_pa_list_proc(u32 devid, int tgid, struct ka_mem_at
     return 0;
 }
 
+static u32 pmq_client_get_mem_page_size_proc(u32 devid, int tgid, struct ka_mem_attr *mem)
+{
+    u64 page_size;
+    int ret;
+    (void)mem;
+    (void)tgid;
+    ret = svm_dbi_kern_query_npage_size(devid, &page_size);
+    if (ret != 0) {
+        return 0;
+    }
+    return (u32)page_size;
+}
+
 int pmq_client_host_init(void)
 {
     struct svm_mem_query_ops ops = {
         .get_svm_mem_pa = pmq_client_get_mem_pa_list_proc,
         .put_svm_mem_pa = pmq_client_put_mem_pa_list_proc,
-        .get_svm_mem_page_size = NULL,
+        .get_svm_mem_page_size = pmq_client_get_mem_page_size_proc,
     };
 
     return hal_kernel_register_mem_query_ops(&ops);

@@ -24,6 +24,7 @@ struct urd_vender_id_info {
     unsigned int bus;
     unsigned int device;
     unsigned int fn;
+    unsigned int domain;
 };
 
 #endif

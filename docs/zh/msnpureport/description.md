@@ -28,4 +28,4 @@ msnpureport工具主要用于导出Device侧系统类日志以及其他维测信
 
     在加锁的目录下（使用**lsattr**命令查看目录属性，有“i”选项的为加锁目录），用户没有权限执行msnpureport命令。如果用户想在该目录下运行该脚本，可以通过**chattr** **-i** **<加锁的目录\>**命令，将目录的“i”选项撤销。命令执行完后建议通过**chattr** **+i** <加锁的目录\>命令，将目录的“i”选项加上。
 
-- 如果非root用户需要使用msnpureport，安装驱动的时候需携带--install-for-all参数，确保非root用户拥有Device侧权限。
+- 如果非root用户需要使用msnpureport，安装驱动时需携带--install-for-all参数，确保非root用户拥有Device侧权限。

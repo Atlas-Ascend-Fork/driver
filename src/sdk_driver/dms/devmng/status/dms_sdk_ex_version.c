@@ -16,7 +16,6 @@
 #include "pbl/pbl_feature_loader.h"
 #include "dms/dms_cmd_def.h"
 #include "dms_define.h"
-#include "ascend_platform.h"
 #include "ascend_dev_num.h"
 #include "devdrv_user_common.h"
 
@@ -32,9 +31,9 @@
 
 #define DMS_SDK_EX_VER_NOTIFIER "sdk_ex_ver"
 
-#define DMS_OP_GET_SDK_EX_VERSION       0
-#define DMS_OP_SET_SDK_EX_VERSION       1
-#define DMS_OP_CLEAR_SDK_EX_VERSION     2
+#define DMS_OP_GET_SDK_EX_VERSION 0
+#define DMS_OP_SET_SDK_EX_VERSION 1
+#define DMS_OP_CLEAR_SDK_EX_VERSION 2
 
 static ka_rwlock_t g_sdk_ex_ver_lock;
 char sdk_pf_ex_version[ASCEND_PDEV_MAX_NUM][DMS_SDK_EX_VERSION_LEN_MAX + 1];
@@ -120,12 +119,11 @@ int dms_get_sdk_ex_version(void *feature, char *in, u32 in_len, char *out, u32 o
     struct dms_hal_device_info_stru *cfg_in = NULL;
     struct dms_hal_device_info_stru *cfg_out = NULL;
 
-    if ((feature == NULL) ||
-        (in == NULL) || (in_len != (DMS_HAL_DEV_INFO_HEAD_LEN + DMS_SDK_EX_VERSION_LEN_MAX)) ||
+    if ((feature == NULL) || (in == NULL) || (in_len != (DMS_HAL_DEV_INFO_HEAD_LEN + DMS_SDK_EX_VERSION_LEN_MAX)) ||
         (out == NULL) || (out_len != (DMS_HAL_DEV_INFO_HEAD_LEN + DMS_SDK_EX_VERSION_LEN_MAX))) {
         dms_err("Invalid parameter. (feature=%s; in=%s; in_len=%u; out=%s; out_len=%u)\n",
-            (feature == NULL) ? "NULL" : "OK",
-            (in == NULL) ? "NULL" : "OK", in_len, (out == NULL) ? "NULL" : "OK", out_len);
+                (feature == NULL) ? "NULL" : "OK", (in == NULL) ? "NULL" : "OK", in_len, (out == NULL) ? "NULL" : "OK",
+                out_len);
         return -EINVAL;
     }
 
@@ -163,12 +161,11 @@ int dms_set_sdk_ex_version(void *feature, char *in, u32 in_len, char *out, u32 o
     unsigned int udevid, vf_id, soc_type;
     struct dms_hal_device_info_stru *cfg_in = NULL;
 
-    if ((feature == NULL) ||
-        (in == NULL) || (in_len < DMS_HAL_DEV_INFO_HEAD_LEN) ||
-        (out == NULL) || (out_len < DMS_HAL_DEV_INFO_HEAD_LEN)) {
+    if ((feature == NULL) || (in == NULL) || (in_len < DMS_HAL_DEV_INFO_HEAD_LEN) || (out == NULL) ||
+        (out_len < DMS_HAL_DEV_INFO_HEAD_LEN)) {
         dms_err("Invalid parameter. (feature=%s; in=%s; in_len=%u; out=%s; out_len=%u)\n",
-            (feature == NULL) ? "NULL" : "OK",
-            (in == NULL) ? "NULL" : "OK", in_len, (out == NULL) ? "NULL" : "OK", out_len);
+                (feature == NULL) ? "NULL" : "OK", (in == NULL) ? "NULL" : "OK", in_len, (out == NULL) ? "NULL" : "OK",
+                out_len);
         return -EINVAL;
     }
 
@@ -213,13 +210,13 @@ STATIC int dms_sdk_ex_ver_uda_notifier_func(u32 udevid, enum uda_notified_action
 int dms_sdK_ex_ver_init(void)
 {
     int ret;
-    struct uda_dev_type type = { 0 };
+    struct uda_dev_type type = {0};
 
     ka_task_rwlock_init(&g_sdk_ex_ver_lock);
 
     uda_davinci_local_real_entity_type_pack(&type);
     ret = uda_real_virtual_notifier_register(DMS_SDK_EX_VER_NOTIFIER, &type, UDA_PRI2,
-        dms_sdk_ex_ver_uda_notifier_func);
+                                             dms_sdk_ex_ver_uda_notifier_func);
     if (ret != 0) {
         dms_err("Device register local real virtual type failed. (ret=%d)\n", ret);
         return ret;
@@ -230,12 +227,12 @@ int dms_sdK_ex_ver_init(void)
 }
 DECLAER_FEATURE_AUTO_INIT(dms_sdK_ex_ver_init, FEATURE_LOADER_STAGE_5);
 
-void dms_sdK_ex_ver_exit(void)
+void dms_sdK_ex_ver_uninit(void)
 {
-    struct uda_dev_type type = { 0 };
+    struct uda_dev_type type = {0};
 
     uda_davinci_local_real_entity_type_pack(&type);
     (void)uda_real_virtual_notifier_unregister(DMS_SDK_EX_VER_NOTIFIER, &type);
     dms_info("dms sdk ex ver exit.\n");
 }
-DECLAER_FEATURE_AUTO_UNINIT(dms_sdK_ex_ver_exit, FEATURE_LOADER_STAGE_5);
+DECLAER_FEATURE_AUTO_UNINIT(dms_sdK_ex_ver_uninit, FEATURE_LOADER_STAGE_5);

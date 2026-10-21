@@ -30,6 +30,7 @@ struct trs_sec_eh_sq_ctx {
     u32 sq_depth;
     u32 mem_type;
     u32 long_sqe_cnt;
+    u32 sq_create_cmd_type;
 };
 
 struct trs_sec_eh_id_info {

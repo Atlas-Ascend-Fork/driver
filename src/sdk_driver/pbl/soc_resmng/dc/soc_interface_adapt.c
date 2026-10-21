@@ -26,12 +26,20 @@
 #endif
 
 #ifdef CFG_FEATURE_PG
-STATIC int soc_get_pg_res_max_num(HAL_PG_INFO_TYPE info_type, enum soc_mia_res_type *soc_res_type,
+STATIC int soc_get_pg_res_max_num(unsigned int dev_id, HAL_PG_INFO_TYPE info_type, enum soc_mia_res_type *soc_res_type,
                                   unsigned int *max_num)
 {
+    int ret;
+    u64 max_aic_num_per_die = 0;
+
     switch (info_type) {
         case PG_INFO_TYPE_AIC:
-            *max_num = SOC_MAX_AICORE_NUM_PER_DIE;
+            ret = soc_resmng_dev_get_key_value(dev_id, "soc_max_aic_num_per_die", &max_aic_num_per_die);
+            if (ret != 0) {
+                soc_err("Get max aic num per die failed. (devid=%u; ret=%d)\n", dev_id, ret);
+                return ret;
+            }
+            *max_num = (u32)max_aic_num_per_die;
             *soc_res_type = MIA_AC_AIC;
             return 0;
         case PG_INFO_TYPE_HBM:
@@ -61,7 +69,7 @@ STATIC int soc_get_pg_res(unsigned int dev_id, HAL_PG_INFO_TYPE info_type, hal_p
         return ret;
     }
 
-    ret = soc_get_pg_res_max_num(info_type, &soc_res_type, &max_num);
+    ret = soc_get_pg_res_max_num(dev_id, info_type, &soc_res_type, &max_num);
     if (ret != 0) {
         soc_err("Get max num failed. (dev_id=%u; info_type=%u; ret=%d)\n", dev_id, info_type, ret);
         return ret;

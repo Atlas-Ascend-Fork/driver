@@ -12,6 +12,7 @@ struct dmanage_pcie_id_info {
     unsigned int device;
     unsigned int fn;
     unsigned int davinci_id;
+    unsigned int domain;
 };
 
 #endif

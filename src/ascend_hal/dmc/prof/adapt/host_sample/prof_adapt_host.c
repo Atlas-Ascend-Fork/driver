@@ -26,16 +26,16 @@ STATIC drvError_t prof_host_sample_start_para_check(uint32_t dev_id, uint32_t ch
                                                     struct prof_user_chan_priv *chan_priv)
 {
     if ((chan_id == CHANNEL_STARS_SOC_LOG_BUFFER) || (chan_id == CHANNEL_FFTS_PROFILE_BUFFER_TASK)) {
-        para->sample_period = PROF_HOST_SAMPLE_PERIOD_MIN;
+        para->sample_period = PROF_HOST_SAMPLE_PERIOD_DEFAULT;
     }
 
     if (para->sample_period == 0) {
-        PROF_ERR("Host sample mode only support period sample. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
+        PROF_ERR("Host sample mode only supports period sample. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
     if ((para->sample_period < PROF_HOST_SAMPLE_PERIOD_MIN) || (para->sample_period > PROF_HOST_SAMPLE_PERIOD_MAX)) {
-        PROF_ERR("Invalid sample period. (dev_id=%u, chan_id=%u, sample_period=%ums, valid range=[%u, %u])\n", dev_id,
+        PROF_ERR("Invalid sample period. (dev_id=%u, chan_id=%u, sample_period=%ums, min=%ums, max=%ums)\n", dev_id,
                  chan_id, para->sample_period, PROF_HOST_SAMPLE_PERIOD_MIN, PROF_HOST_SAMPLE_PERIOD_MAX);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -176,31 +176,31 @@ STATIC drvError_t prof_user_chan_proactive_sample(uint32_t dev_id, uint32_t chan
 STATIC drvError_t prof_user_chan_host_sample_stop(uint32_t dev_id, uint32_t chan_id, struct prof_user_stop_para *para,
                                                   char *priv)
 {
-    int ret;
+    int ret, result = 0;
     (void)para;
     struct prof_user_chan_priv *chan_priv = (struct prof_user_chan_priv *)priv;
 
     ret = prof_user_host_sample_event_stop(dev_id, chan_id, para, PROF_STOP_STAGE_PAUSE);
     if (ret != 0) {
-        PROF_ERR("Failed to send stop msg. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
-        return ret;
+        PROF_ERR("Failed to send stop msg. (dev_id=%u, chan_id=%u, ret=%d)\n", dev_id, chan_id, ret);
+        result |= ret;
     }
     prof_user_sample_timer_uninit(chan_priv);
     ret = prof_user_chan_proactive_sample(dev_id, chan_id, priv);
     if (ret != 0) {
         PROF_ERR("Failed to sample. (dev_id=%u, chan_id=%u, ret=%d)\n", dev_id, chan_id, ret);
-        return ret;
+        result |= ret;
     }
     prof_user_sample_thread_disable(chan_priv);
     ret = prof_user_host_sample_event_stop(dev_id, chan_id, para, PROF_STOP_STAGE_RELEASE);
     if (ret != 0) {
         PROF_ERR("Failed to send stop msg. (dev_id=%u, chan_id=%u, ret=%d)\n", dev_id, chan_id, ret);
-        return ret;
+        result |= ret;
     }
     prof_user_sample_stop(chan_priv, PROF_STOP_STAGE_DEFAULT);
 
     prof_buff_wait_read_empty(chan_priv->buff, dev_id, chan_id);
-    return DRV_ERROR_NONE;
+    return (result == 0) ? (DRV_ERROR_NONE) : (DRV_ERROR_INNER_ERR);
 }
 
 STATIC drvError_t prof_user_chan_host_sample_flush(uint32_t dev_id, uint32_t chan_id, uint32_t *data_len, char *priv)

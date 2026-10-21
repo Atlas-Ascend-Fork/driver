@@ -15,7 +15,9 @@
 #define TRS_CHAN_H
 
 #include "ka_task_pub.h"
+#include "ka_memory_pub.h"
 
+#include "pbl_ka_mem_query.h"
 #include "trs_pub_def.h"
 #include "ascend_kernel_hal.h"
 #include "trs_abnormal_info.h"
@@ -67,13 +69,19 @@ int trs_chan_query(struct trs_id_inst *inst, int chan_id, u32 cmd, u32 *value);
 
 struct trs_chan_sq_info {
     u32 sqid;
-    void *sq_vaddr;
-    u64 sq_phy_addr;
+    void *sq_vaddr;                             /* contiguous kva */
+    struct ka_vmap_pfn_handle *vmap_pfn_handle; /* vmap_pfn handle for (< 5.10 fallback) */
+    union {
+        u64 sq_phy_addr;
+        struct ka_pa_wraper *sq_pa_wraper_list;
+    };
     void *sq_dev_vaddr;
     u64 head_addr;
     u64 tail_addr;
     u64 db_addr;
     u32 mem_type;
+    u32 addr_num;
+    u32 addr_offset;
     struct trs_chan_sq_para sq_para;
 };
 
@@ -82,9 +90,11 @@ struct trs_chan_cq_info {
     int irq;
     void *cq_vaddr;
     u64 cq_phy_addr;
+    u32 addr_num;
     struct trs_chan_cq_para cq_para;
 };
 
+bool trs_chan_get_virt_flag_test(struct trs_id_inst *inst); /* used for simulation with virtual address */
 int trs_chan_get_chan_id(struct trs_id_inst *inst, int res_type, u32 res_id, int *chan_id);
 int trs_chan_get_sq_info(struct trs_id_inst *inst, int chan_id, struct trs_chan_sq_info *info);
 int trs_chan_get_cq_info(struct trs_id_inst *inst, int chan_id, struct trs_chan_cq_info *info);
@@ -99,7 +109,8 @@ struct trs_chan_info {
     u8 no_cq_mem_flag : 1;
     u8 remote_id_flag : 1;
     u8 agent_id_flag : 1;
-    u8 rsv : 4;
+    u8 sq_addr_is_virtual : 1;
+    u8 rsv : 3;
     ka_pid_t pid;
     int irq_type;
     struct trs_chan_type types;
@@ -127,7 +138,7 @@ struct trs_sq_mem_map_para {
 #define CTRL_CMD_CQ_PAUSE 6             /* para: cqid */
 #define CTRL_CMD_CQ_RESUME 7            /* para: cqid */
 #define CTRL_CMD_SQ_RESET 8             /* no para */
-#define CTRL_CMD_MAX 9
+#define CTRL_CMD_SQCQ_MAX 9
 
 #define QUERY_CMD_SQ_HEAD 0       /* value: head */
 #define QUERY_CMD_SQ_TAIL 1       /* value: tail */
@@ -139,7 +150,7 @@ struct trs_sq_mem_map_para {
 #define QUERY_CMD_SQ_DB_PADDR 7   /* value: sq db phy addr, for uio */
 #define QUERY_CMD_STARS_SQ_HEAD 8 /* value: head */
 #define QUERY_CMD_STARS_SQ_TAIL 9 /* value: tail */
-#define QUERY_CMD_MAX 10
+#define QUERY_CMD_SQCQ_MAX 10
 
 #define TRS_CHAN_DEV_RSV_MEM 0U /* dev rsv mem */
 #define TRS_CHAN_HOST_MEM 1U
@@ -151,11 +162,16 @@ struct trs_sq_mem_map_para {
 #define TRS_CHAN_MEM_TYPE_SIDE_MASK 0x7FFFFFFFU
 
 struct trs_chan_mem_attr {
-    u64 phy_addr;
     u64 size;
     u32 mem_type;
-    int tgid; /* mem alloced by which process */
+    int tgid;
     void *specified_uva;
+    u64 phy_addr;                               /* physical addr (used when pa_num == 1) */
+    struct ka_vmap_pfn_handle *vmap_pfn_handle; /* mapping handle (SVM: vmap_pfn_create; device DDR: ka_mm_vmap via
+                                                   handle->kva; others: NULL) */
+    struct ka_pa_wraper *pa_wraper_list;        /* valid for SVM/ device DDR (vzalloc) */
+    u32 pa_num;
+    struct ka_mem_attr ka_attr;
 };
 
 static inline bool trs_chan_mem_is_local_mem(u32 mem_type)

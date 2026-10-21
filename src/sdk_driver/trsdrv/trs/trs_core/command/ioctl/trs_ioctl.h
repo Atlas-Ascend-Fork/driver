@@ -8,6 +8,7 @@
 #include "drv_type.h"
 #include "hal_pkg/trs_pkg.h"
 #include "trs_res_id_def.h"
+#include "trs_feature_ioctl.h"
 #include "trs_stl_comm.h"
 
 #define TRS_MODULE_NAME "TSDRV"
@@ -47,6 +48,8 @@ struct trs_sq_shr_info {
     uint8_t rsv[1020]; /* 1020 for reduce cache miss, kernel write cqe status, user write stat */
     unsigned long long send_full;
     unsigned long long send_ok;
+    uint32_t jfs_id;
+    uint32_t jfc_id;
 };
 
 struct trs_res_id_usr_para {
@@ -83,7 +86,8 @@ struct trs_hw_info_query_para {
     int tsnum;
     int connection_type;
     int sq_send_mode;
-    uint32_t rsv[4];
+    int die_id;
+    uint32_t rsv[3];
 };
 
 struct trs_set_close_para {
@@ -143,6 +147,12 @@ struct trs_stream_task_para {
 struct trs_sq_switch_stream_para {
     struct sq_switch_stream_info *info;
     uint32_t num;
+};
+
+struct trs_feature_query_para {
+    u32 dev_id;
+    u32 bitmap_size;
+    trs_feat_bitmap_t bitmap;
 };
 
 #define TRS_RES_ID_ALLOC _IOWR('X', 0, struct trs_res_id_para)

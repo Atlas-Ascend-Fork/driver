@@ -29,32 +29,31 @@
 #define CMD_LENGTH_INVALID 0XFFFF
 #define INVALID_OPCODE 0xFF
 
-#define FLASH_CONTENT_SIZE_MAX 1024
+#define FLASH_CONTENT_SIZE_MAX 32768
 #define DSMI_SET_ALL_DEVICE 0xFFFFFFFFU
 
-#define DSMI_CMD_DEF_COMMON_INSTANCE(op_cmd, in_len, rsp_len, optype)  \
+#define DSMI_CMD_DEF_COMMON_INSTANCE(op_cmd, in_len, rsp_len, optype) \
     static DMP_CMD_DEF g_dmp_cmd_def_##op_cmd = {                     \
-        .name = (const unsigned char *)#op_cmd,                                       \
-        .opcode = (DEV_MON_SMB_FUN_CODE_COMMON << 8 | (op_cmd)), \
-        .length = (in_len),                                      \
-        .resp_len = (rsp_len),                                   \
-        .op_type = (optype),                                    \
+        .name = (const unsigned char *)#op_cmd,                       \
+        .opcode = (DEV_MON_SMB_FUN_CODE_COMMON << 8 | (op_cmd)),      \
+        .length = (in_len),                                           \
+        .resp_len = (rsp_len),                                        \
+        .op_type = (optype),                                          \
     };
 
-
-#define DSMI_CMD_DEF_DAVINCI_INSTANCE(op_cmd, in_len, rsp_len, optype)  \
+#define DSMI_CMD_DEF_DAVINCI_INSTANCE(op_cmd, in_len, rsp_len, optype) \
     static const DMP_CMD_DEF g_dmp_cmd_def_##op_cmd = {                \
-        .name = (const unsigned char *)#op_cmd,                                        \
-        .opcode = (DEV_MON_SMB_FUN_CODE_DAVINCI << 8 | (op_cmd)), \
-        .length = (in_len),                                       \
-        .resp_len = (rsp_len),                                    \
-        .op_type = (optype),                                     \
+        .name = (const unsigned char *)#op_cmd,                        \
+        .opcode = (DEV_MON_SMB_FUN_CODE_DAVINCI << 8 | (op_cmd)),      \
+        .length = (in_len),                                            \
+        .resp_len = (rsp_len),                                         \
+        .op_type = (optype),                                           \
     };
 
 #define MAX_PATH_LEN (PATH_MAX - NAME_MAX)
 #define COPY_LEN 10
 
-#define MAX_INPUT_LEN 0X7FFFU
+#define MAX_INPUT_LEN 0XC000U
 
 #ifdef DEV_MON_UT
 #define STATIC
@@ -64,16 +63,19 @@
 #define STATIC static
 
 #if defined(__AARCH64_CMODEL_SMALL__) && __AARCH64_CMODEL_SMALL__
-#define dsb(opt)    { asm volatile("dsb " #opt : : : "memory"); }
+#define dsb(opt)                                  \
+    {                                             \
+        asm volatile("dsb " #opt : : : "memory"); \
+    }
 #else
 #define dsb(opt)
 #endif
 
 #endif
 
-#define rmb()       dsb(ld) /* read fence */
-#define wmb()       dsb(st) /* write fence */
-#define mb()        dsb(sy) /* rw fence */
+#define rmb() dsb(ld) /* read fence */
+#define wmb() dsb(st) /* write fence */
+#define mb() dsb(sy)  /* rw fence */
 
 #define P2P_ENABLE_RANGE 1
 #define ECC_ENABLE_RANGE 1
@@ -91,7 +93,7 @@
 #define CONFIG_FIND 1
 
 #define DSMI_UPGRADE_LOCK_TAG 0X1ABC2
-#define DSMI_FLASH_LOCK_TAG   0X72D4F
+#define DSMI_FLASH_LOCK_TAG 0X72D4F
 #define DSMI_DFT_UDP_PORT 0
 #define DSMI_DFT_DEST_PORT 8087
 
@@ -232,7 +234,7 @@ typedef struct dsmi_flash_basic_info {
 } DSMI_FLASH_BASIC_INFO;
 
 typedef struct dsmi_die_id {
-    unsigned char dir_id[32];   // 32 dir_id size
+    unsigned char dir_id[32]; // 32 dir_id size
 } DSMI_DIE_ID;
 
 typedef struct dsmi_ecc_statics_result {
@@ -298,7 +300,6 @@ typedef struct dsmi_upgrade_state {
 typedef struct dsmi_davinci_version {
     unsigned char component_type;
 } DSMI_DAVINCI_VERSION;
-
 
 typedef struct dsmi_user_data {
     DSMI_DFT_RES_CMD *dsmi_dft_res;
@@ -376,9 +377,9 @@ struct dsmi_udis_ecc_count_info {
     DSMI_ECC_STATICS_RESULT ecc_result;
     unsigned int is_vaild;
 };
-struct ecc_double_data_info{
+struct ecc_double_data_info {
     unsigned long int physical_addr;
-    unsigned char resv[4];  /* 4 is resv length */
+    unsigned char resv[4]; /* 4 is resv length */
     unsigned short rank;
     unsigned short module_id;
     unsigned char type;
@@ -388,7 +389,7 @@ struct ecc_double_data_info{
     unsigned short column;
     int timer_stamp;
 };
-struct ecc_single_data_info{
+struct ecc_single_data_info {
     unsigned int hbmc_id;
     unsigned int single_bit_count;
     unsigned int single_bit_low_addr;
@@ -405,158 +406,158 @@ struct ecc_common_data {
     int timestamp;
 };
 #pragma pack()
-#define SINGLE_ECC_INFO_BLOCK_NUMS               8
-#define SINGLE_ECC_INFO_BLOCK_SIZE               8
-#define DOUBLE_ECC_INFO_BLOCK_NUMS               16
-#define DOUBLE_ECC_INFO_BLOCK_SIZE               4
-#define DOUBLE_ECC_TIME_INFO_BLOCK_NUMS          2
-#define DOUBLE_ECC_TIME_INFO_BLOCK_SIZE          32
-#define HBM_ECC_RECORD_MAX_NUMS                  64
+#define SINGLE_ECC_INFO_BLOCK_NUMS 8
+#define SINGLE_ECC_INFO_BLOCK_SIZE 8
+#define DOUBLE_ECC_INFO_BLOCK_NUMS 16
+#define DOUBLE_ECC_INFO_BLOCK_SIZE 4
+#define DOUBLE_ECC_TIME_INFO_BLOCK_NUMS 2
+#define DOUBLE_ECC_TIME_INFO_BLOCK_SIZE 32
+#define HBM_ECC_RECORD_MAX_NUMS 64
 struct udis_multi_ecc_time_data {
     unsigned int multi_record_count;
     unsigned int multi_ecc_times[HBM_ECC_RECORD_MAX_NUMS];
 };
 #if defined CFG_FEATURE_HBM_FLASH || defined CFG_FEATURE_DDR_FLASH
-#define HIGH_ADDR_SID_BITS_COUNT        4
-#define LOW_ADDR_ROW_BITS_OFFSET        8
+#define HIGH_ADDR_SID_BITS_COUNT 4
+#define LOW_ADDR_ROW_BITS_OFFSET 8
 #else
-#define HIGH_ADDR_COLUMN_BITS_COUNT     14
-#define LOW_ADDR_RANK_BITS_OFFSET       4
+#define HIGH_ADDR_COLUMN_BITS_COUNT 14
+#define LOW_ADDR_RANK_BITS_OFFSET 4
 #endif
 
-#define DM_COMMAND_BIGIN(cmd_name, device_index, input_len, out_len)                              \
-    DSMI_DMP_COMMAND_ST *dm_dmp = NULL;                                                           \
-    DSMI_CMD_CODE *dm_request = NULL;                                                             \
-    DSMI_DFT_RES_CMD *dm_resp = NULL;                                                             \
-    unsigned char *dm_fill_in = NULL;                                                             \
-    unsigned char *dm_fill_out = NULL;                                                            \
-    unsigned int cpy_len = 0;                                                                     \
-    unsigned int out_current = 0;                                                                 \
-    unsigned int in_current = 0;                                                                  \
-    int local_devid = (int)(device_index);                                                               \
-    int ret = -1;                                                                                 \
-    struct devdrv_device_info dev_info = {0};                                                     \
-    struct timespec tv_start = {0};                                                               \
-    struct timespec tv_end = {0};                                                                 \
-    long during;                                                                                  \
-    (void)clock_gettime(CLOCK_MONOTONIC, &tv_start);                                               \
-    DRV_CHECK_RETV((((unsigned int)(input_len)) <= ((unsigned int)USHORT_MAX)), DRV_ERROR_PARA_ERROR);   \
-    DRV_CHECK_RETV((((unsigned int)(out_len)) <= (MAX_OUTPUT_LEN)), DRV_ERROR_PARA_ERROR);        \
-    ret = dsmi_check_device_id((int)(device_index));                                                     \
-    if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED) {                                                     \
-        return DRV_ERROR_RESOURCE_OCCUPIED;                                                       \
-    }                                                                                             \
-    DRV_CHECK_RETV((ret == 0), DRV_ERROR_INVALID_DEVICE);                                         \
-    /* The dsmi interface cannot be called when device is offline or in the virtual machine */    \
-    ret = (int)drvGetDevInfo((unsigned int)(device_index), &dev_info);                                     \
-    if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED) {                                                     \
-        return DRV_ERROR_RESOURCE_OCCUPIED;                                                       \
-    }                                                                                             \
-    dm_dmp = dmp_command_init((unsigned int)(device_index), g_dmp_cmd_def_##cmd_name.opcode,               \
-            (unsigned char)g_dmp_cmd_def_##cmd_name.op_type, (unsigned short)(input_len), (unsigned short)(out_len));                                \
-    if (dm_dmp == NULL) {                                                                         \
-        DEV_MON_ERR("dev(%d) dmp_command_init failed\n", local_devid);                            \
-        return DRV_ERROR_INNER_ERR;                                                               \
-    }                                                                                             \
-    dm_request = (DSMI_CMD_CODE *)dm_dmp->send_msg.data;                                          \
-    dm_fill_in = (unsigned char *)dm_request->send_data;                                          \
-    dm_resp = (DSMI_DFT_RES_CMD *)dm_dmp->recv_msg.data;                                          \
-    dm_fill_out = (unsigned char *)dm_resp->response_data;                                        \
-    (void)dm_fill_out;                                                                            \
-    (void)dm_fill_in;                                                                             \
-    (void)out_current;                                                                            \
-    (void)in_current;                                                                             \
-    (void)cpy_len;                                                                                \
+#define DM_COMMAND_BIGIN(cmd_name, device_index, input_len, out_len)                                        \
+    DSMI_DMP_COMMAND_ST *dm_dmp = NULL;                                                                     \
+    DSMI_CMD_CODE *dm_request = NULL;                                                                       \
+    DSMI_DFT_RES_CMD *dm_resp = NULL;                                                                       \
+    unsigned char *dm_fill_in = NULL;                                                                       \
+    unsigned char *dm_fill_out = NULL;                                                                      \
+    unsigned int cpy_len = 0;                                                                               \
+    unsigned int out_current = 0;                                                                           \
+    unsigned int in_current = 0;                                                                            \
+    int local_devid = (int)(device_index);                                                                  \
+    int ret = -1;                                                                                           \
+    struct devdrv_device_info dev_info = {0};                                                               \
+    struct timespec tv_start = {0};                                                                         \
+    struct timespec tv_end = {0};                                                                           \
+    long during;                                                                                            \
+    (void)clock_gettime(CLOCK_MONOTONIC, &tv_start);                                                        \
+    DRV_CHECK_RETV((((unsigned int)(input_len)) <= ((unsigned int)USHORT_MAX)), DRV_ERROR_PARA_ERROR);      \
+    DRV_CHECK_RETV((((unsigned int)(out_len)) <= (MAX_OUTPUT_LEN)), DRV_ERROR_PARA_ERROR);                  \
+    ret = dsmi_check_device_id((int)(device_index));                                                        \
+    if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED) {                                                          \
+        return DRV_ERROR_RESOURCE_OCCUPIED;                                                                 \
+    }                                                                                                       \
+    DRV_CHECK_RETV((ret == 0), DRV_ERROR_INVALID_DEVICE);                                                   \
+    /* The dsmi interface cannot be called when device is offline or in the virtual machine */              \
+    ret = (int)drvGetDevInfo((unsigned int)(device_index), &dev_info);                                      \
+    if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED) {                                                          \
+        return DRV_ERROR_RESOURCE_OCCUPIED;                                                                 \
+    }                                                                                                       \
+    dm_dmp = dmp_command_init((unsigned int)(device_index), g_dmp_cmd_def_##cmd_name.opcode,                \
+                              (unsigned char)g_dmp_cmd_def_##cmd_name.op_type, (unsigned short)(input_len), \
+                              (unsigned short)(out_len));                                                   \
+    if (dm_dmp == NULL) {                                                                                   \
+        DEV_MON_ERR("dev(%d) dmp_command_init failed\n", local_devid);                                      \
+        return DRV_ERROR_INNER_ERR;                                                                         \
+    }                                                                                                       \
+    dm_request = (DSMI_CMD_CODE *)dm_dmp->send_msg.data;                                                    \
+    dm_fill_in = (unsigned char *)dm_request->send_data;                                                    \
+    dm_resp = (DSMI_DFT_RES_CMD *)dm_dmp->recv_msg.data;                                                    \
+    dm_fill_out = (unsigned char *)dm_resp->response_data;                                                  \
+    (void)dm_fill_out;                                                                                      \
+    (void)dm_fill_in;                                                                                       \
+    (void)out_current;                                                                                      \
+    (void)in_current;                                                                                       \
+    (void)cpy_len;                                                                                          \
     (void)ret;
 
-#define DM_COMMAND_ADD_REQ(in_data, in_len)                                                       \
-    if (dsmi_is_null_check((const char *)(in_data)) != 0) {                                                  \
-        dsmi_cmd_req_free(dm_dmp);                                                                \
-        DEV_MON_ERR("dev(%d) input para %s is null\n", local_devid, #in_data);                    \
-        return DRV_ERROR_PARA_ERROR;                                                              \
-    }                                                                                             \
-    if ((in_current + (in_len)) > (dm_request->length)) {                                         \
+#define DM_COMMAND_ADD_REQ(in_data, in_len)                                                                          \
+    if (dsmi_is_null_check((const char *)(in_data)) != 0) {                                                          \
+        dsmi_cmd_req_free(dm_dmp);                                                                                   \
+        DEV_MON_ERR("dev(%d) input para %s is null\n", local_devid, #in_data);                                       \
+        return DRV_ERROR_PARA_ERROR;                                                                                 \
+    }                                                                                                                \
+    if ((in_current + (in_len)) > (dm_request->length)) {                                                            \
         DEV_MON_ERR("dev(%d) add para %s, in_current:%d,len=%d error\n", local_devid, #in_data, in_current, in_len); \
-        DEV_MON_ERR("dev(%d) dm_request length=%d error\n", local_devid, dm_request->length);     \
-        dsmi_cmd_req_free(dm_dmp);                                                                  \
-        return DRV_ERROR_PARA_ERROR;                                              \
-    }                                                                                           \
-    if (memmove_s(dm_fill_in, (in_len), (const unsigned char *)(in_data), (in_len)) != 0) {                 \
-        dsmi_cmd_req_free(dm_dmp);                                                                  \
-        DEV_MON_ERR("dev(%d) memmove_s error\n", local_devid);                                  \
-        return DRV_ERROR_PARA_ERROR;                                              \
-    }                                                                                           \
-    dm_fill_in += (in_len);                                                                     \
+        DEV_MON_ERR("dev(%d) dm_request length=%d error\n", local_devid, dm_request->length);                        \
+        dsmi_cmd_req_free(dm_dmp);                                                                                   \
+        return DRV_ERROR_PARA_ERROR;                                                                                 \
+    }                                                                                                                \
+    if (memmove_s(dm_fill_in, (in_len), (const unsigned char *)(in_data), (in_len)) != 0) {                          \
+        dsmi_cmd_req_free(dm_dmp);                                                                                   \
+        DEV_MON_ERR("dev(%d) memmove_s error\n", local_devid);                                                       \
+        return DRV_ERROR_PARA_ERROR;                                                                                 \
+    }                                                                                                                \
+    dm_fill_in += (in_len);                                                                                          \
     in_current += (unsigned int)(in_len);
 
-#define DM_COMMAND_SEND()                                                                       \
-    ret = dsmi_send_msg_rec_res(dm_dmp);                                                        \
-    if (ret != 0) {                                                                             \
-        dsmi_cmd_req_free(dm_dmp);                                                              \
-        if (ret != (int)DRV_ERROR_NOT_EXIST) {                                                       \
+#define DM_COMMAND_SEND()                                                                                          \
+    ret = dsmi_send_msg_rec_res(dm_dmp);                                                                           \
+    if (ret != 0) {                                                                                                \
+        dsmi_cmd_req_free(dm_dmp);                                                                                 \
+        if (ret != (int)DRV_ERROR_NOT_EXIST) {                                                                     \
             DEV_MON_EX_NOTSUPPORT_ERR(ret, "dev(%d) dsmi_send_msg_rec_res failed, ret = %d.\n", local_devid, ret); \
-        }                                                                                       \
-        return ret;                                                                             \
+        }                                                                                                          \
+        return ret;                                                                                                \
     }
 
-#define DM_COMMAND_PUSH_OUT(out_buff, out_len)                                       \
-    if ((char *)(out_buff) == NULL) {                                         \
-        dsmi_cmd_req_free(dm_dmp);                                                       \
-        DEV_MON_ERR("dev(%d) output para %s is null\n", local_devid, #out_buff);     \
-        return DRV_ERROR_PARA_ERROR;                                   \
-    }                                                                                \
-    cpy_len = (unsigned int)(out_len);                                                             \
-    if ((out_current + (unsigned int)(out_len)) > (dm_resp->length)) {                             \
-        cpy_len = (dm_resp->length) - (out_current);                                 \
-    }                                                                                \
-    if (cpy_len == 0) {                                                              \
-        dsmi_cmd_req_free(dm_dmp);                                                       \
-        DEV_MON_INFO("dev(%d) cpy_len len null\n", local_devid);                     \
-        return OK;                                                                   \
-    }                                                                                \
-    if (memmove_s((unsigned char *)(out_buff), (size_t)(out_len), dm_fill_out, (size_t)cpy_len) != 0) {  \
-        dsmi_cmd_req_free(dm_dmp);                                                       \
-        DEV_MON_ERR("dev(%d) memmove_s error\n", local_devid);                       \
-        return DRV_ERROR_PARA_ERROR;                                   \
-    }                                                                                \
-    dm_fill_out += cpy_len;                                                          \
+#define DM_COMMAND_PUSH_OUT(out_buff, out_len)                                                          \
+    if ((char *)(out_buff) == NULL) {                                                                   \
+        dsmi_cmd_req_free(dm_dmp);                                                                      \
+        DEV_MON_ERR("dev(%d) output para %s is null\n", local_devid, #out_buff);                        \
+        return DRV_ERROR_PARA_ERROR;                                                                    \
+    }                                                                                                   \
+    cpy_len = (unsigned int)(out_len);                                                                  \
+    if ((out_current + (unsigned int)(out_len)) > (dm_resp->length)) {                                  \
+        cpy_len = (dm_resp->length) - (out_current);                                                    \
+    }                                                                                                   \
+    if (cpy_len == 0) {                                                                                 \
+        dsmi_cmd_req_free(dm_dmp);                                                                      \
+        DEV_MON_INFO("dev(%d) cpy_len len null\n", local_devid);                                        \
+        return OK;                                                                                      \
+    }                                                                                                   \
+    if (memmove_s((unsigned char *)(out_buff), (size_t)(out_len), dm_fill_out, (size_t)cpy_len) != 0) { \
+        dsmi_cmd_req_free(dm_dmp);                                                                      \
+        DEV_MON_ERR("dev(%d) memmove_s error\n", local_devid);                                          \
+        return DRV_ERROR_PARA_ERROR;                                                                    \
+    }                                                                                                   \
+    dm_fill_out += cpy_len;                                                                             \
     out_current += cpy_len;
 
 #define DM_COMMAND_GET_RSP_LEN(a)                               \
-    if ((char *)(a) == NULL) {                           \
-        dsmi_cmd_req_free(dm_dmp);                                  \
+    if ((char *)(a) == NULL) {                                  \
+        dsmi_cmd_req_free(dm_dmp);                              \
         DEV_MON_ERR("dev(%d) out msg len null\n", local_devid); \
-        return DRV_ERROR_PARA_ERROR;              \
+        return DRV_ERROR_PARA_ERROR;                            \
     }                                                           \
     *(unsigned int *)(a) = (dm_resp->length);
 
 #define DM_COMMAND_PROC_RSP_DATA(a) a;
 
 #ifdef DRV_HOST
-#define DM_COMMAND_END()                                                             \
-    dsmi_cmd_req_free(dm_dmp);                                                       \
+#define DM_COMMAND_END()                                                                               \
+    dsmi_cmd_req_free(dm_dmp);                                                                         \
     (void)clock_gettime(CLOCK_MONOTONIC, &tv_end);                                                     \
     during = (tv_end.tv_sec - tv_start.tv_sec) * 1000 + (tv_end.tv_nsec - tv_start.tv_nsec) / 1000000; \
-    if (during >= WARN_COST_TIME) {                                                  \
-        DEV_MON_DEBUG("dsmi send and receive dmp cmd time ms. (time=%ldms)\n", during); \
-    }                                                                                \
+    if (during >= WARN_COST_TIME) {                                                                    \
+        DEV_MON_DEBUG("dsmi send and receive dmp cmd time ms. (time=%ldms)\n", during);                \
+    }                                                                                                  \
     return OK;
 #else
-#define DM_COMMAND_END()                                                             \
-    dsmi_cmd_req_free(dm_dmp);                                                       \
+#define DM_COMMAND_END()                                                                               \
+    dsmi_cmd_req_free(dm_dmp);                                                                         \
     (void)clock_gettime(CLOCK_MONOTONIC, &tv_end);                                                     \
     during = (tv_end.tv_sec - tv_start.tv_sec) * 1000 + (tv_end.tv_nsec - tv_start.tv_nsec) / 1000000; \
-    if (during >= WARN_COST_TIME) {                                                  \
-        DEV_MON_EVENT("dsmi send and receive dmp cmd time ms. (time=%ldms)\n", during); \
-    }                                                                                \
+    if (during >= WARN_COST_TIME) {                                                                    \
+        DEV_MON_EVENT("dsmi send and receive dmp cmd time ms. (time=%ldms)\n", during);                \
+    }                                                                                                  \
     return OK;
 #endif
 
-
-#define DSMI_FREE(p)        \
-    do {                    \
-        free(p);            \
-        p = NULL;           \
+#define DSMI_FREE(p) \
+    do {             \
+        free(p);     \
+        p = NULL;    \
     } while (0)
 
 #define DSMI_SAFE_FUN_FAIL 0X20
@@ -565,17 +566,17 @@ struct udis_multi_ecc_time_data {
 int dsmi_raise_script(const char *path, char **argv);
 int dsmi_invoke_os_cmd(DSMI_POWER_STATE cmd_type);
 #endif
-#define DSMI_MUTEX_NO_WAIT  0
-#define DSMI_MUTEX_WAIT_FOR_EVER  (0XFFFFFFFFU)
-DSMI_DMP_COMMAND_ST *dmp_command_init(unsigned int device_index, unsigned short opcode,
-    unsigned char optype, unsigned short input_len, unsigned short output_len);
+#define DSMI_MUTEX_NO_WAIT 0
+#define DSMI_MUTEX_WAIT_FOR_EVER (0XFFFFFFFFU)
+DSMI_DMP_COMMAND_ST *dmp_command_init(unsigned int device_index, unsigned short opcode, unsigned char optype,
+                                      unsigned short input_len, unsigned short output_len);
 
 int dsmi_send_msg_rec_res(struct dsmi_dmp_command_st *dmp);
 
 void clear_all_blank(char *str);
 
-int split_by_char(const char *src, char *path, unsigned int path_len_max,
-                  char *value, unsigned int value_len_max, char split_char);
+int split_by_char(const char *src, char *path, unsigned int path_len_max, char *value, unsigned int value_len_max,
+                  char split_char);
 
 int local_copy_file(int device_id, const char *src_file, const char *dst_file);
 int local_copy_file_to_mem(int device_id, const char *src_file, char *dest_addr, long length);
@@ -595,38 +596,38 @@ DLLEXPORT int drv_get_phy_mach_flag(int device_id);
 DLLEXPORT int dsmi_config_enable(int device_id, CONFIG_ITEM config_item, DSMI_DEVICE_TYPE device_type, int enable_flag);
 DLLEXPORT int dsmi_get_enable(int device_id, CONFIG_ITEM config_item, DSMI_DEVICE_TYPE device_type, int *enable_flag);
 int check_upgrade_component_type_and_state(int device_id, unsigned char *upgrade_schedule,
-    unsigned char *upgrade_status, DSMI_COMPONENT_TYPE component_type);
+                                           unsigned char *upgrade_status, DSMI_COMPONENT_TYPE component_type);
 void dsmi_cmd_req_free(const void *item);
 int dsmi_check_device_id(int device_id);
 int dsmi_is_null_check(const char *ptr);
 void dsmi_stop_fault_event_thread(void);
 
-DEV_INFO_MAIN_CMD_TYPE dsmi_get_dev_info_main_cmd_type(unsigned int main_cmd, unsigned int sub_cmd);
+DEV_INFO_MAIN_CMD_TYPE dsmi_get_dev_info_main_cmd_type(DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd);
 int parse_cfg_file(int devices_id, CFG_FILE_DES *component_des, const char *file_name,
-    DSMI_COMPONENT_TYPE component_type);
+                   DSMI_COMPONENT_TYPE component_type);
 int upgrade_ufs_component(int device_id, const char *file_name, DSMI_COMPONENT_TYPE component_type);
 int check_component_type(DSMI_COMPONENT_TYPE component_type, int device_id);
 int check_component_type_validity(DSMI_COMPONENT_TYPE *component_list, DSMI_COMPONENT_TYPE component_type,
-    unsigned int component_num);
+                                  unsigned int component_num);
 int check_dst_file_path(int device_id, const char *src_path);
 int dsmi_get_davinchi_info(int device_id, int device_type, int info_type, unsigned int *result_data);
 int dsmi_update_no_response_data(int device_id, unsigned char control_cmd);
-int dsmi_cmd_set_device_info_method(unsigned int dev_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
-    const void *buf, unsigned int buf_size);
-int dsmi_get_muti_device_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size);
+int dsmi_cmd_set_device_info_method(unsigned int dev_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, const void *buf,
+                                    unsigned int buf_size);
+int dsmi_get_muti_device_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, void *buf,
+                              unsigned int *size);
 int dsmi_udis_get_hbm_isolated_pages_info(int dev_id, unsigned char module_type,
-    struct dsmi_ecc_pages_stru *pdevice_ecc_pages_statistics);
-int dsmi_cmd_get_sec_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, 
-    void *buf, unsigned int *size);
- int dsmi_cmd_get_custom_sign_flag(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size);
-drvError_t dsmi_cmd_set_custom_sign_flag(
-    unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, const void *buf, unsigned int size);
-drvError_t dsmi_cmd_set_custom_sign_cert(
-    unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, const void *buf, unsigned int size);
-int dsmi_cmd_get_sign_cert(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size);
+                                          struct dsmi_ecc_pages_stru *pdevice_ecc_pages_statistics);
+int dsmi_cmd_get_sec_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, void *buf,
+                          unsigned int *size);
+int dsmi_cmd_get_custom_sign_flag(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, void *buf,
+                                  unsigned int *size);
+drvError_t dsmi_cmd_set_custom_sign_flag(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
+                                         const void *buf, unsigned int size);
+drvError_t dsmi_cmd_set_custom_sign_cert(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
+                                         const void *buf, unsigned int size);
+int dsmi_cmd_get_sign_cert(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, void *buf,
+                           unsigned int *size);
 int dsmi_udis_get_multi_ecc_info(int dev_id, struct ecc_common_data *dsmi_ecc_common_data_s);
 int dsmi_udis_get_single_ecc_info(int dev_id, struct ecc_common_data *dsmi_ecc_common_data_s);
 int dsmi_udis_multi_ecc_time_info(int dev_id, struct udis_multi_ecc_time_data *multi_ecc_time_data);

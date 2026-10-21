@@ -25,5 +25,4 @@ drvError_t drv_get_hcom_cpu_info(uint32_t dev_id, int32_t info_type, int64_t *va
 drvError_t drv_get_ai_core_info_by_buff(uint32_t devId, int32_t info_type, void *buf, unsigned int *size);
 drvError_t drv_get_ai_cpu_info(uint32_t devId, int32_t info_type, int64_t *value);
 
-
 #endif /* DEVDRV_MANAGER_CPU_H */

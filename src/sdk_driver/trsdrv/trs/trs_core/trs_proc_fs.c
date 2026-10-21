@@ -39,9 +39,27 @@ static ka_proc_dir_entry_t *top_entry = NULL;
 static ka_proc_dir_entry_t *ts_inst_entry = NULL;
 static ka_proc_dir_entry_t *proc_entry = NULL;
 
-static char *res_name[TRS_CORE_MAX_ID_TYPE] = {"stream",   "event",    "notify",   "model", "cmo",   "cnt_notify",
-                                               "hw_sq",    "hw_cq",    "sw_sq",    "sw_cq", "cb_sq", "cb_cq",
-                                               "logic_cq", "maint_sq", "maint_cq", "cdq"};
+static char *res_name[TRS_CORE_MAX_ID_TYPE] = {
+    "stream",
+    "event",
+    "notify",
+    "model",
+    "cmo",
+    "cnt_notify",
+    "hw_sq",
+    "hw_cq",
+    "sw_sq",
+    "sw_cq",
+    "cb_sq",
+    "cb_cq",
+    "logic_cq",
+    "maint_sq",
+    "maint_cq",
+    "cdq",
+    "stars_h2d_jetty",
+    "stars_d2d_in_board_jetty",
+    "stars_d2d_cross_board_jetty",
+};
 
 #ifdef CFG_FEATURE_TRACE_EVENT_FUNC
 static int proc_trace_show(ka_seq_file_t *seq, void *offset)
@@ -84,10 +102,16 @@ STATIC ssize_t proc_trace_ops_write(ka_file_t *filp, const char __ka_user *ubuf,
     return (ssize_t)count;
 }
 
+// clang-format off
 static const ka_procfs_ops_t proc_trace_ops = {
-    ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(proc_trace_ops_open) ka_fs_init_pf_read(ka_fs_seq_read)
-        ka_fs_init_pf_write(proc_trace_ops_write) ka_fs_init_pf_lseek(ka_fs_seq_lseek)
-            ka_fs_init_pf_release(ka_fs_single_release)};
+    ka_fs_init_pf_owner(KA_THIS_MODULE) \
+    ka_fs_init_pf_open(proc_trace_ops_open) \
+    ka_fs_init_pf_read(ka_fs_seq_read) \
+    ka_fs_init_pf_write(proc_trace_ops_write) \
+    ka_fs_init_pf_lseek(ka_fs_seq_lseek) \
+    ka_fs_init_pf_release(ka_fs_single_release) \
+};
+// clang-format on
 #endif
 
 static void trs_proc_show(struct trs_proc_ctx *proc_ctx, ka_seq_file_t *seq)
@@ -233,6 +257,12 @@ static int trs_hw_sq_to_string(struct trs_core_ts_inst *ts_inst, u32 id, char *b
         len += ret;
         ret = sprintf_s(buff + len, buff_len - len, "    uio send ok %llu send full %llu send invalid in kernel %llu\n",
                         shr_info->send_ok, shr_info->send_full, sq_ctx->send_fail);
+        if ((ts_inst->ops.get_connect_protocol != NULL) &&
+            (ts_inst->ops.get_connect_protocol(&ts_inst->inst) == TRS_CONNECT_PROTOCOL_UB)) {
+            len += ret;
+            ret = sprintf_s(buff + len, buff_len - len, "    urma info: jfs_id %u jfc_id %u\n", shr_info->jfs_id,
+                            shr_info->jfc_id);
+        }
     }
     ka_task_spin_unlock_bh(&sq_ctx->shr_info_lock);
 
@@ -265,6 +295,9 @@ static int trs_hw_cq_stat_to_string(struct trs_cq_ctx *cq_ctx, char *buff, u32 b
     int len = 0;
 
     len = sprintf_s(buff, buff_len, "    chan %d, logic_cqid %d\n", cq_ctx->chan_id, cq_ctx->logic_cqid);
+    if (len < 0) {
+        return len;
+    }
     len += sprintf_s(buff + len, buff_len - len, "    stat: rx %llu rx_enque %llu drop %llu logic_enque_invalid %llu\n",
                      cq_ctx->stat.rx, cq_ctx->stat.rx_enque, cq_ctx->stat.rx_drop, cq_ctx->stat.rx_enque_fail);
     return len;
@@ -474,17 +507,31 @@ STATIC int proc_sum_open(ka_inode_t *inode, ka_file_t *file)
     return ka_fs_single_open(file, proc_sum_show, ka_base_pde_data(inode));
 }
 
+// clang-format off
 static const ka_procfs_ops_t ts_inst_sum_ops = {
-    ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(ts_inst_sum_open) ka_fs_init_pf_read(ka_fs_seq_read)
-        ka_fs_init_pf_lseek(ka_fs_seq_lseek) ka_fs_init_pf_release(ka_fs_single_release)};
+    ka_fs_init_pf_owner(KA_THIS_MODULE) \
+    ka_fs_init_pf_open(ts_inst_sum_open) \
+    ka_fs_init_pf_read(ka_fs_seq_read) \
+    ka_fs_init_pf_lseek(ka_fs_seq_lseek) \
+    ka_fs_init_pf_release(ka_fs_single_release) \
+};
 
 static const ka_procfs_ops_t ts_inst_res_detail_ops = {
-    ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(ts_inst_res_detail_open) ka_fs_init_pf_read(ka_fs_seq_read)
-        ka_fs_init_pf_lseek(ka_fs_seq_lseek) ka_fs_init_pf_release(ka_fs_single_release)};
+    ka_fs_init_pf_owner(KA_THIS_MODULE) \
+    ka_fs_init_pf_open(ts_inst_res_detail_open) \
+    ka_fs_init_pf_read(ka_fs_seq_read) \
+    ka_fs_init_pf_lseek(ka_fs_seq_lseek) \
+    ka_fs_init_pf_release(ka_fs_single_release) \
+};
 
-static const ka_procfs_ops_t proc_sum_ops = {ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(proc_sum_open)
-                                                 ka_fs_init_pf_read(ka_fs_seq_read) ka_fs_init_pf_lseek(ka_fs_seq_lseek)
-                                                     ka_fs_init_pf_release(ka_fs_single_release)};
+static const ka_procfs_ops_t proc_sum_ops = {
+    ka_fs_init_pf_owner(KA_THIS_MODULE) \
+    ka_fs_init_pf_open(proc_sum_open) \
+    ka_fs_init_pf_read(ka_fs_seq_read) \
+    ka_fs_init_pf_lseek(ka_fs_seq_lseek) \
+    ka_fs_init_pf_release(ka_fs_single_release) \
+};
+// clang-format on
 
 static void proc_fs_format_ts_inst_dir_name(struct trs_core_ts_inst *ts_inst, char *name, int len)
 {

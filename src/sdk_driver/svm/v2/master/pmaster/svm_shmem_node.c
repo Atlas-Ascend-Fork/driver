@@ -252,7 +252,7 @@ static struct devmm_ipc_node *_devmm_ipc_node_get(const char *name)
 
     ret = devmm_ipc_node_get_inst_by_name(name, &inst);
     if (ka_unlikely(ret != 0)) {
-        devmm_drv_err("Get inst by name failed. (ret=%d; name=%s)\n", ret, name);
+        devmm_drv_err("Get inst by name fail. (ret=%d; name=%s)\n", ret, name);
         return NULL;
     }
 
@@ -305,7 +305,7 @@ static void devmm_ipc_node_free_pages(struct devmm_svm_process *svm_proc, u64 vp
     free_pgs.head.process_id.hostpid = svm_proc->process_id.hostpid;
     free_pgs.head.process_id.vfid = (u16)devmm_page_bitmap_get_vfid(svm_proc, bitmap);
     free_pgs.head.dev_id = free_pgs.head.process_id.devid;
-    free_pgs.real_size = DEVMM_FREE_SECTION_NUM * page_size;
+    free_pgs.real_size = (u64)DEVMM_FREE_SECTION_NUM * page_size;
 
     for (i = 0; i < cnt; i++) {
         free_pgs.va = vptr + i * DEVMM_FREE_SECTION_NUM * page_size;
@@ -443,7 +443,7 @@ static struct devmm_ipc_node *_devmm_ipc_create_node(struct devmm_ipc_node_attr 
     ret = memcpy_s(&node->attr, sizeof(struct devmm_ipc_node_attr), attr, sizeof(struct devmm_ipc_node_attr));
     if (ret != EOK) {
         devmm_kvfree_ex(node);
-        devmm_drv_err("Ipc node attr copy fail. (ret=%d; size=%ld; name=%s)\n", ret, sizeof(struct devmm_ipc_node_attr),
+        devmm_drv_err("Ipc node attr copy fail. (ret=%d; size=%ld; name=%s\n", ret, sizeof(struct devmm_ipc_node_attr),
                       attr->name);
         return NULL;
     }
@@ -611,7 +611,7 @@ int devmm_ipc_set_no_wlist_in_server_attr(const char *name, u64 attr)
 
     if (node->attr.pid != devmm_get_current_pid()) {
         _devmm_ipc_node_put(node);
-        devmm_drv_err("No creator is not allowed to set attr. (name=%s; attr=%llu)\n", name, attr);
+        devmm_drv_err("No creator not allow to set attr. (name=%s; attr=%llu)\n", name, attr);
         return -EPERM;
     }
 
@@ -624,7 +624,7 @@ int devmm_ipc_set_no_wlist_in_server_attr(const char *name, u64 attr)
     ka_task_mutex_lock(&node->mutex);
     /* Not allow to set attr if had called halShmemSetPid or halShmemSetPodPid */
     if ((attr == SHMEM_NO_WLIST_ENABLE) && ((node->attr.need_set_wlist) && (node->wlist_num != 0))) {
-        devmm_drv_err("Had set pid not allowed to set attr. (name=%s; attr=%llu; wlist_num=%u)\n", name, attr,
+        devmm_drv_err("Had set pid not allow to set attr. (name=%s; attr=%llu; wlist_num=%u)\n", name, attr,
                       node->wlist_num);
         ka_task_mutex_unlock(&node->mutex);
         _devmm_ipc_node_put(node);
@@ -676,7 +676,7 @@ static int devmm_ipc_node_heap_check(struct devmm_svm_process *svm_proc, u64 va,
 
     heap = devmm_svm_get_heap(svm_proc, va);
     if (ka_unlikely(heap == NULL)) {
-        devmm_drv_err("Get heap failed. (va=0x%llx)\n", va);
+        devmm_drv_err("Get heap fail. (va=0x%llx)\n", va);
         return -ENOMEM;
     }
 
@@ -885,7 +885,7 @@ static int _devmm_ipc_node_close(struct devmm_ipc_node *node, struct devmm_svm_p
     }
 
     if (ka_unlikely(wlist->vptr != vptr)) {
-        devmm_drv_err("Invalid vptr. (wlist_vptr=0x%llx; vptr=0x%llx)\n", wlist->vptr, vptr);
+        devmm_drv_err("Invalid vptr. (wlist_vptr=0x%llx; vptr=0x%llx\n)\n", wlist->vptr, vptr);
         return -EFAULT;
     }
     wlist->vptr = 0;
@@ -1015,8 +1015,8 @@ static int devmm_ipc_node_set_pids_check(struct devmm_ipc_node *node, u32 devid,
     }
 
     if (ka_unlikely((node->wlist_num + pid_num) > IPC_WLIST_NUM)) {
-        devmm_drv_err("Too many wlist. (name=%s; wlist_num=%u; pid_num=%u)\n", node->attr.name, node->wlist_num,
-                      pid_num);
+        devmm_drv_err("Too many wlist. (name=%s; wlist_num=%u; pid_num=%u; max_wlist_num=%u)\n", node->attr.name,
+                      node->wlist_num, pid_num, (u32)IPC_WLIST_NUM);
         return -EINVAL;
     }
     return 0;
@@ -1041,7 +1041,7 @@ static int _devmm_ipc_node_set_pids(struct devmm_ipc_node *node, u32 devid, u32 
         }
         ret = _devmm_ipc_node_set_pid(node, sdid_to_set, pid[i]);
         if (ret != 0) {
-            devmm_drv_err("Set pid failed. (name=%s; i=%d; pid=%d; pid_num=%d)\n", node->attr.name, i, pid[i], pid_num);
+            devmm_drv_err("Set pid fail. (name=%s; i=%d; pid=%d; pid_num=%d)\n", node->attr.name, i, pid[i], pid_num);
             return ret;
         }
         set_pid_num++;
@@ -1458,6 +1458,7 @@ static int devmm_ipc_node_create_open_page_per_wlist(struct ipc_node_wlist *wlis
     struct devmm_svm_heap *heap = NULL;
     int try_max_cnt = 3; /* 3 times */
     u32 *bitmap = NULL;
+    bool vmma_occupied = false;
     int ret, i;
 
     if ((svm_proc == NULL) || (devmm_svm_other_proc_occupy_num_add(svm_proc) != 0)) {
@@ -1476,18 +1477,27 @@ static int devmm_ipc_node_create_open_page_per_wlist(struct ipc_node_wlist *wlis
 
     heap = devmm_svm_get_heap(svm_proc, wlist->vptr);
     if (heap == NULL) {
-#ifndef EMT_ST
         ka_task_up_read(&svm_proc->bitmap_sem);
-#endif
         devmm_svm_other_proc_occupy_num_sub(svm_proc);
         return -EINVAL;
     }
 
+    if (heap->heap_sub_type == SUB_RESERVE_TYPE) {
+        ret = devmm_vmmas_occupy_inc(&heap->vmma_mng, wlist->vptr, ipc_node->attr.len);
+        if (ret != 0) {
+            ka_task_up_read(&svm_proc->bitmap_sem);
+            devmm_svm_other_proc_occupy_num_sub(svm_proc);
+            return ret;
+        }
+        vmma_occupied = true;
+    }
+
     bitmap = devmm_get_page_bitmap_with_heap(heap, wlist->vptr);
     if (bitmap == NULL) {
-#ifndef EMT_ST
+        if (vmma_occupied) {
+            devmm_vmmas_occupy_dec(&heap->vmma_mng, wlist->vptr, ipc_node->attr.len);
+        }
         ka_task_up_read(&svm_proc->bitmap_sem);
-#endif
         devmm_svm_other_proc_occupy_num_sub(svm_proc);
         return -EFAULT;
     }
@@ -1502,9 +1512,10 @@ static int devmm_ipc_node_create_open_page_per_wlist(struct ipc_node_wlist *wlis
     if (ret != 0) {
         devmm_drv_err("create_open_pages failed. (hostpid=%d; va=0x%llx; ret=%d)\n", svm_proc->process_id.hostpid,
                       wlist->vptr, ret);
-#ifndef EMT_ST
+        if (vmma_occupied) {
+            devmm_vmmas_occupy_dec(&heap->vmma_mng, wlist->vptr, ipc_node->attr.len);
+        }
         ka_task_up_read(&svm_proc->bitmap_sem);
-#endif
         devmm_svm_other_proc_occupy_num_sub(svm_proc);
         return ret;
     }
@@ -1512,6 +1523,9 @@ static int devmm_ipc_node_create_open_page_per_wlist(struct ipc_node_wlist *wlis
                    svm_proc->process_id.hostpid, wlist->vptr, ipc_node->attr.name, ipc_node->attr.vptr,
                    ipc_node->attr.len);
 
+    if (vmma_occupied) {
+        devmm_vmmas_occupy_dec(&heap->vmma_mng, wlist->vptr, ipc_node->attr.len);
+    }
     ka_task_up_read(&svm_proc->bitmap_sem);
     devmm_svm_other_proc_occupy_num_sub(svm_proc);
     return 0;

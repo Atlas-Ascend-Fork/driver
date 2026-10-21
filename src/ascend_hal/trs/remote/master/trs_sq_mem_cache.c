@@ -35,7 +35,7 @@ struct trs_sq_mem_ca {
     bitmap_t *bitmap;
 };
 
-static pthread_rwlock_t g_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+static pthread_rwlock_t g_rwlock[TRS_DEV_NUM];
 struct trs_sq_mem_ca *g_ca[TRS_DEV_NUM];
 
 static uint64_t trs_sq_mem_ca_get_align(void)
@@ -114,28 +114,38 @@ static void _trs_sq_mem_ca_destroy(struct trs_sq_mem_ca *ca)
 
 static struct trs_sq_mem_ca *trs_sq_mem_ca_create(uint32_t devid)
 {
-    (void)pthread_rwlock_wrlock(&g_rwlock);
+    (void)pthread_rwlock_wrlock(&g_rwlock[devid]);
     if (g_ca[devid] == NULL) {
         g_ca[devid] = _trs_sq_mem_ca_create(devid);
     }
-    (void)pthread_rwlock_unlock(&g_rwlock);
+    (void)pthread_rwlock_unlock(&g_rwlock[devid]);
 
     return g_ca[devid];
 }
 
 static void trs_sq_mem_ca_destroy(uint32_t devid)
 {
-    (void)pthread_rwlock_wrlock(&g_rwlock);
+    (void)pthread_rwlock_wrlock(&g_rwlock[devid]);
     if (g_ca[devid] != NULL) {
         _trs_sq_mem_ca_destroy(g_ca[devid]);
         g_ca[devid] = NULL;
     }
-    (void)pthread_rwlock_unlock(&g_rwlock);
+    (void)pthread_rwlock_unlock(&g_rwlock[devid]);
 }
 
-static struct trs_sq_mem_ca *trs_sq_mem_get_ca(uint32_t devid)
+static struct trs_sq_mem_ca *trs_sq_mem_ca_get(uint32_t devid)
 {
+    (void)pthread_rwlock_rdlock(&g_rwlock[devid]);
+    if (g_ca[devid] == NULL) {
+        (void)pthread_rwlock_unlock(&g_rwlock[devid]);
+        return NULL;
+    }
     return g_ca[devid];
+}
+
+static void trs_sq_mem_ca_put(uint32_t devid)
+{
+    (void)pthread_rwlock_unlock(&g_rwlock[devid]);
 }
 
 static int _trs_sq_mem_cache_alloc(struct trs_sq_mem_ca *ca, uint64_t *va, uint64_t size)
@@ -172,21 +182,28 @@ static bool trs_sq_mem_cache_is_support(uint32_t devid, uint64_t size)
 int trs_sq_mem_cache_alloc(uint32_t devid, uint64_t *va, uint64_t size)
 {
     struct trs_sq_mem_ca *ca = NULL;
+    int ret;
 
     if (!trs_sq_mem_cache_is_support(devid, size)) {
         return DRV_ERROR_NOT_SUPPORT;
     }
 
-    ca = trs_sq_mem_get_ca(devid);
+    ca = trs_sq_mem_ca_get(devid);
     if (ca == NULL) {
         ca = trs_sq_mem_ca_create(devid);
         if (ca == NULL) {
             trs_err("Create cache allocator failed. (devid=%u)\n", devid);
             return DRV_ERROR_INNER_ERR;
         }
+        ca = trs_sq_mem_ca_get(devid);
+        if (ca == NULL) {
+            return DRV_ERROR_INNER_ERR;
+        }
     }
 
-    return _trs_sq_mem_cache_alloc(ca, va, size);
+    ret = _trs_sq_mem_cache_alloc(ca, va, size);
+    trs_sq_mem_ca_put(devid);
+    return ret;
 }
 
 int trs_sq_mem_cache_free(uint32_t devid, uint64_t va, uint64_t size)
@@ -198,36 +215,41 @@ int trs_sq_mem_cache_free(uint32_t devid, uint64_t va, uint64_t size)
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    ca = trs_sq_mem_get_ca(devid);
+    ca = trs_sq_mem_ca_get(devid);
     if (ca == NULL) {
         trs_err("Get cache allocator failed. (devid=%u)\n", devid);
         return DRV_ERROR_INNER_ERR;
     }
 
     if (!TRS_IS_ALIGNED(va, ca->align) || !TRS_IS_ALIGNED(size, ca->align)) {
+        trs_sq_mem_ca_put(devid);
         trs_err("Va & size should be aligned. (va=0x%llx; size=0x%llx; align=0x%llx)\n", va, size, ca->align);
         return DRV_ERROR_INVALID_VALUE;
     }
 
     _trs_sq_mem_cache_free(ca, va, size);
+    trs_sq_mem_ca_put(devid);
     return DRV_ERROR_NONE;
 }
 
 int trs_sq_mem_cache_check_exists(uint32_t devid, uint64_t va, uint64_t size)
 {
     struct trs_sq_mem_ca *ca = NULL;
+    int ret;
 
     if (devid >= TRS_DEV_NUM) {
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    ca = trs_sq_mem_get_ca(devid);
+    ca = trs_sq_mem_ca_get(devid);
     if (ca == NULL) {
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    return ((va >= ca->start) && (size <= ca->size) && ((va + size) <= (ca->start + ca->size))) ? DRV_ERROR_NONE :
-                                                                                                  DRV_ERROR_NOT_EXIST;
+    ret = ((va >= ca->start) && (size <= ca->size) && ((va + size) <= (ca->start + ca->size))) ? DRV_ERROR_NONE :
+                                                                                                 DRV_ERROR_NOT_EXIST;
+    trs_sq_mem_ca_put(devid);
+    return ret;
 }
 
 static int trs_sq_mem_cache_dev_init(uint32_t devid)
@@ -246,7 +268,14 @@ static struct trs_dev_init_ops trs_sq_mem_cache_dev_ops = {.dev_init = trs_sq_me
 
 static void __attribute__((constructor)) trs_sq_mem_cache_set_up(void)
 {
-    int ret = trs_register_dev_init_ops(&trs_sq_mem_cache_dev_ops);
+    int i;
+    int ret;
+
+    for (i = 0; i < TRS_DEV_NUM; i++) {
+        (void)pthread_rwlock_init(&g_rwlock[i], NULL);
+    }
+
+    ret = trs_register_dev_init_ops(&trs_sq_mem_cache_dev_ops);
     if (ret != DRV_ERROR_NONE) {
         trs_err("Register sq mem cache dev ops failed. (ret=%d)\n", ret);
     }

@@ -19,6 +19,6 @@
 */
 
 int svm_mpl_populate(u32 devid, u64 va, u64 size, u32 flag);
-int svm_mpl_depopulate(u32 devid, u64 va, u64 size);
+int svm_mpl_depopulate(u32 devid, u64 va, u64 size, u32 flag);
 
 #endif

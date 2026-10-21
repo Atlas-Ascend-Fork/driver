@@ -26,6 +26,7 @@ set(reportSrcFiles
 )
 
 set(reportHeaderDir
+    ${CMAKE_CURRENT_SOURCE_DIR}/../inc/adump
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/libc_sec
     ${CMAKE_CURRENT_SOURCE_DIR}/../inc/mmpa
     ${CMAKE_CURRENT_SOURCE_DIR}/inc/slog
@@ -48,12 +49,39 @@ target_compile_definitions(msnpureport PRIVATE
     $<$<NOT:$<STREQUAL:${TARGET_SYSTEM_NAME},Windows>>:OS_TYPE_DEF=0>
     $<$<STREQUAL:${TARGET_SYSTEM_NAME},Windows>:OS_TYPE_DEF=1>
     $<$<STREQUAL:${TARGET_SYSTEM_NAME},Windows>:SECUREC_USING_STD_SECURE_LIB=0>
+    # ascend950
     $<$<STREQUAL:${PRODUCT},ascend950>:UB_SUPPORT>
     $<$<STREQUAL:${PRODUCT},ascend950esl>:UB_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend950>:AO_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend950esl>:AO_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend950>:CCU_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend950esl>:CCU_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend950>:NETWORK_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend950esl>:NETWORK_SUPPORT>
     $<$<STREQUAL:${PRODUCT},ascend950>:HDC_NEW_CHANNEL>
     $<$<STREQUAL:${PRODUCT},ascend950esl>:HDC_NEW_CHANNEL>
-    $<$<STREQUAL:${PRODUCT},ascend910_96>:HDC_NEW_CHANNEL>
-    $<$<STREQUAL:${PRODUCT},ascend910_96esl>:HDC_NEW_CHANNEL>
+    $<$<STREQUAL:${PRODUCT},ascend950>:USE_LOGIC_ID>
+    $<$<STREQUAL:${PRODUCT},ascend950esl>:USE_LOGIC_ID>
+    # ascend960
+    $<$<STREQUAL:${PRODUCT},ascend960>:HDC_NEW_CHANNEL>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:HDC_NEW_CHANNEL>
+    $<$<STREQUAL:${PRODUCT},ascend960>:UB_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:UB_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960>:AO_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:AO_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960>:CCU_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:CCU_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960>:NETWORK_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:NETWORK_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend960>:USE_LOGIC_ID>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:USE_LOGIC_ID>
+    # ascend350
+    $<$<STREQUAL:${PRODUCT},ascend350>:UB_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend350>:HDC_NEW_CHANNEL>
+    $<$<STREQUAL:${PRODUCT},ascend350>:USE_LOGIC_ID>
+    $<$<STREQUAL:${PRODUCT},ascend350>:AO_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend350>:CCU_SUPPORT>
+    $<$<STREQUAL:${PRODUCT},ascend350>:NETWORK_SUPPORT>
 )
 
 target_compile_options(msnpureport PRIVATE
@@ -95,14 +123,16 @@ target_link_libraries(msnpureport PRIVATE
     # $<BUILD_INTERFACE:intf_pub>
     # $<BUILD_INTERFACE:mmpa_headers>
     # $<BUILD_INTERFACE:slog_headers>
-    # $<BUILD_INTERFACE:adcore_headers>
 
     # Core libraries
     mmpa
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950>,$<STREQUAL:${PRODUCT_SIDE},host>>:drvdsmi_host>
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950esl>,$<STREQUAL:${PRODUCT_SIDE},host>>:drvdsmi_host>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960>,$<STREQUAL:${PRODUCT_SIDE},host>>:drvdsmi_host>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960esl>,$<STREQUAL:${PRODUCT_SIDE},host>>:drvdsmi_host>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend350>,$<STREQUAL:${PRODUCT_SIDE},host>>:drvdsmi_host>
     c_sec
-    adcore
+    msn_adcore
     bbox_dump
 
     ascend_hal 
@@ -127,11 +157,14 @@ target_link_libraries(msnpureport PRIVATE
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950esl>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma>
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950esl>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma_common>
 
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma>
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma_common>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma_common>
 
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96esl>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma>
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96esl>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma_common>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960esl>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960esl>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma_common>
+
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend350>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend350>,$<STREQUAL:${ENABLE_UBE},true>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:urma_common>
 )
 
 target_link_directories(msnpureport PRIVATE
@@ -139,8 +172,9 @@ target_link_directories(msnpureport PRIVATE
     $<$<AND:$<STREQUAL:${PRODUCT},ascend910_55esl>,$<STREQUAL:${PRODUCT_SIDE},host>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950>,$<STREQUAL:${PRODUCT_SIDE},host>,$<STREQUAL:${ENABLE_UBE},true>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950esl>,$<STREQUAL:${PRODUCT_SIDE},host>,$<STREQUAL:${ENABLE_UBE},true>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96>,$<STREQUAL:${PRODUCT_SIDE},host>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96esl>,$<STREQUAL:${PRODUCT_SIDE},host>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960>,$<STREQUAL:${PRODUCT_SIDE},host>,$<STREQUAL:${ENABLE_UBE},true>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960esl>,$<STREQUAL:${PRODUCT_SIDE},host>,$<STREQUAL:${ENABLE_UBE},true>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend350>,$<STREQUAL:${PRODUCT_SIDE},host>,$<STREQUAL:${ENABLE_UBE},true>>:${TOP_DIR}/build/bin/ccec_for_milan/lib/urma>
 )
 ### INTERNAL END ###
 

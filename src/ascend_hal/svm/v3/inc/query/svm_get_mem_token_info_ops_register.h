@@ -13,7 +13,15 @@
 
 #include "svm_pub.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef int (*get_mem_token_info_func)(u32 devid, u64 va, u64 size, u32 *token_id, u32 *token_val);
 void svm_get_mem_token_info_ops_register(u32 devid, get_mem_token_info_func func);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

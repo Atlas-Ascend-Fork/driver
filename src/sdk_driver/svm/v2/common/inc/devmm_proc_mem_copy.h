@@ -47,7 +47,7 @@ enum {
 
 #define DMA_COPY_TASK_WAIT_SLEEP_MIN_TIME 1000 /* us */
 #define DMA_COPY_TASK_WAIT_SLEEP_MAX_TIME 2000 /* us */
-#define DMA_COPY_TASK_WAIT_TIMES 120000
+#define DMA_COPY_TASK_WAIT_TIMES 600000        /* increase from 120000 to 600000: max 600-1200s */
 
 #define DMA_LINK_PREPARE_TRY_TIMES 8
 
@@ -88,7 +88,7 @@ int devmm_set_translate_pa_addr_to_device(struct devmm_svm_process *svm_process,
                                           u64 *pa_offset);
 int devmm_clear_translate_pa_addr_inner(u32 dev_id, u32 vfid, u64 va, u64 len, u32 host_pid);
 int devmm_clear_translate_pa_addr(u32 dev_id, u32 vfid, u64 va, u64 len, u32 host_pid);
-void devmm_wait_task_finish(u32 dev_id, ka_atomic_t *finish_num, int submit_num);
+bool devmm_wait_task_finish(u32 dev_id, ka_atomic_t *finish_num, int submit_num);
 void devmm_task_del(struct devmm_dma_copy_task *copy_task);
 int devmm_convert2d_proc(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg,
                          struct devmm_mem_convrt_addr_para *convrt_para);

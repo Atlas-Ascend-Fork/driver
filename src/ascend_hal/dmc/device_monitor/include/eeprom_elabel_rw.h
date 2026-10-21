@@ -30,7 +30,7 @@
 
 #define EEPROM_ELABEL_OFFSET 0x200
 
-#define ELABELNULL 135  // Elabel data is null
+#define ELABELNULL 135 // Elabel data is null
 
 #define EEPROM_CFG_MAX_LINE 50
 
@@ -49,9 +49,9 @@ typedef struct elabel_data {
 } ELABEL_DATA;
 
 typedef struct eeprom_info {
-    char *buf;                  // data_buf
-    unsigned int count;         // size
-    unsigned int page_address;  // offset
+    char *buf;                 // data_buf
+    unsigned int count;        // size
+    unsigned int page_address; // offset
 } EEPROM_INFO;
 
 #define ELABEL_AREA_CHASSISINFO 1
@@ -99,11 +99,10 @@ typedef struct eeprom_info {
 #define OK 0
 #endif
 
-
 int elabel_open(const char *pathname, int flags, mode_t mode);
 int elabel_ioctl(int fd, unsigned long cmd, EEPROM_INFO *arg);
 int elabel_close(int fd);
-void *elabel_malloc(size_t size); //lint !e101 !e132
+void *elabel_malloc(size_t size); // lint !e101 !e132
 int elabel_strcmp(const char *s1, const char *s2);
 int write_elabel_data(unsigned char test_item, const char *elabel_data, unsigned int len, char *eeprom_name);
 int clear_elabel_data(unsigned char test_item, const char *eeprom_name, unsigned int len);

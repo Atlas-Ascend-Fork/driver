@@ -19,10 +19,12 @@
 
 #include "uda_notifier.h"
 #include "pbl_mem_alloc_interface.h"
+#include "ascend_dev_num.h"
 #include "uda_dev.h"
 
 static ka_mutex_t uda_dev_mutex;
 static ka_rwlock_t uda_dev_lock;
+static ka_mutex_t uda_reorder_mutex;
 static struct uda_dev_inst *dev_insts[UDA_UDEV_MAX_NUM];
 struct uda_reorder_insts reorder_insts;
 struct udevid_reorder_para *reorder_para = NULL;
@@ -56,8 +58,8 @@ void uda_type_to_string(struct uda_dev_type *type, char buf[], u32 buf_len)
         [UDA_REAL_SEC_EH] = "real_sec_eh",
     };
 
-    ret = sprintf_s(buf, buf_len, "%s %s %s %s",
-        uda_hw_name[type->hw], uda_obj_name[type->object], uda_loc_name[type->location], uda_prop_name[type->prop]);
+    ret = sprintf_s(buf, buf_len, "%s %s %s %s", uda_hw_name[type->hw], uda_obj_name[type->object],
+                    uda_loc_name[type->location], uda_prop_name[type->prop]);
     if (ret <= 0) {
         uda_err("Invoke sprintf_s error.\n");
     }
@@ -247,8 +249,8 @@ void uda_dev_inst_put(struct uda_dev_inst *dev_inst)
     ka_base_kref_put(&dev_inst->ref, uda_dev_inst_release);
 }
 
-static int _uda_add_dev_ex(struct uda_dev_type *type, struct uda_dev_para *para,
-    struct uda_mia_dev_para *mia_para, u32 *udevid)
+static int _uda_add_dev_ex(struct uda_dev_type *type, struct uda_dev_para *para, struct uda_mia_dev_para *mia_para,
+                           u32 *udevid)
 {
     struct uda_dev_inst *dev_inst = NULL;
     int ret;
@@ -257,7 +259,7 @@ static int _uda_add_dev_ex(struct uda_dev_type *type, struct uda_dev_para *para,
         if ((para->udevid != UDA_INVALID_UDEVID) || (mia_para != NULL)) {
             *udevid = (mia_para == NULL) ? para->udevid : uda_make_udevid(mia_para);
             if (dev_insts[*udevid] != NULL) {
-                uda_warn("Has add entity dev. (udevid=%u)\n", *udevid);
+                uda_warn("has added entity dev. (udevid=%u)\n", *udevid);
                 dev_insts[*udevid]->para.dev = para->dev;
                 dev_insts[*udevid]->status = 0;
                 return 0;
@@ -277,7 +279,7 @@ static int _uda_add_dev_ex(struct uda_dev_type *type, struct uda_dev_para *para,
         }
 
         if (dev_insts[para->udevid]->agent_dev != NULL) {
-            uda_warn("Has add agent dev. (udevid=%u)\n", para->udevid);
+            uda_warn("has added agent dev. (udevid=%u)\n", para->udevid);
             ((struct uda_dev_inst *)dev_insts[para->udevid]->agent_dev)->para.dev = para->dev;
             ((struct uda_dev_inst *)dev_insts[para->udevid]->agent_dev)->status = 0;
             return 0;
@@ -395,7 +397,7 @@ static void _uda_udevid_reorder(void)
             group_dev_num = reorder_para[reorder_insts.dev_para[i].add_id].group_dev_num;
         } else {
             uda_warn("The set group device number is invalid. (set_group_dev_num=%u)\n",
-                reorder_para[reorder_insts.dev_para[i].add_id].group_dev_num);
+                     reorder_para[reorder_insts.dev_para[i].add_id].group_dev_num);
             group_dev_num = 1; /* 1p */
         }
         if (group_dev_num == 1) {
@@ -485,11 +487,11 @@ STATIC void uda_allocate_logic_id(void)
 }
 
 #ifdef EMU_ST
-#define UDA_ALL_DEV_UP_WAIT_CNT          1
+#define UDA_ALL_DEV_UP_WAIT_CNT 1
 #else
-#define UDA_ALL_DEV_UP_WAIT_CNT          300
+#define UDA_ALL_DEV_UP_WAIT_CNT 300
 #endif
-#define UDA_ALL_DEV_UP_WAIT_TIME         1000
+#define UDA_ALL_DEV_UP_WAIT_TIME 1000
 #define UDA_UB_PORT_ALL_LINK 1
 #define UDA_UB_PORT_NOT_LINK 3
 
@@ -511,12 +513,11 @@ static bool uda_all_dev_is_up(void)
             if (reorder_para[add_id].group_dev_num == 1) {
                 dev_add_num++;
             } else if ((reorder_para[add_id].ub_link_status == UDA_UB_PORT_ALL_LINK) ||
-                (reorder_para[add_id].ub_link_status == UDA_UB_PORT_NOT_LINK)) {
+                       (reorder_para[add_id].ub_link_status == UDA_UB_PORT_NOT_LINK)) {
                 link_all_count++;
             }
         }
-        if ((link_all_count == uda_get_detected_phy_dev_num()) ||
-            (dev_add_num == uda_get_detected_phy_dev_num())) {
+        if ((link_all_count == uda_get_detected_phy_dev_num()) || (dev_add_num == uda_get_detected_phy_dev_num())) {
             return true;
         }
     } else {
@@ -566,8 +567,8 @@ STATIC void uda_wait_all_dev_up_work(ka_work_struct_t *work)
         ka_system_msleep(UDA_ALL_DEV_UP_WAIT_TIME);
         wait_cnt++;
     }
-    uda_info("Reorder wait end. (dev_add_num=%u; detected_phy_dev_num=%u)\n",
-        reorder_insts.dev_add_num, uda_get_detected_phy_dev_num());
+    uda_info("Reorder wait end. (dev_add_num=%u; detected_phy_dev_num=%u)\n", reorder_insts.dev_add_num,
+             uda_get_detected_phy_dev_num());
 
     ka_task_mutex_lock(&reorder_insts.work_mutex);
     if (uda_udevid_reorder_flag) {
@@ -620,29 +621,6 @@ static int uda_dev_add_after_wait_work(struct uda_dev_para *para)
     return ret;
 }
 
-STATIC int uda_alloc_dev_para(unsigned int all_dev_num, struct uda_dev_type *type)
-{
-    if (reorder_insts.dev_para == NULL) {
-        if (all_dev_num == 0) {
-            uda_err("The number of scanned devices is 0.\n");
-            return -EINVAL;
-        }
-        reorder_insts.dev_para = dbl_kzalloc(sizeof(struct uda_dev_para) * all_dev_num, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-        if (reorder_insts.dev_para == NULL) {
-            uda_err("Out of memory.\n");
-            return -ENOMEM;
-        }
-        reorder_insts.dev_type = *type;
-        reorder_insts.udevid = 0;
-        reorder_insts.logic_id = 0;
-        reorder_insts.dev_add_num = 0;
-        reorder_insts.wait_all_dev_work_state = 0;
-        ka_task_mutex_init(&reorder_insts.work_mutex);
-    }
-
-    return 0;
-}
-
 STATIC int uda_wait_all_dev_up(struct uda_dev_type *type, struct uda_dev_para *para)
 {
     unsigned int all_dev_num = uda_get_detected_phy_dev_num();
@@ -651,11 +629,7 @@ STATIC int uda_wait_all_dev_up(struct uda_dev_type *type, struct uda_dev_para *p
     int ret;
     unsigned int i;
 
-    ret = uda_alloc_dev_para(all_dev_num, type);
-    if (ret != 0) {
-        return ret;
-    }
-
+    reorder_insts.dev_type = *type;
     for (i = 0; i < reorder_insts.dev_add_num; i++) {
         if (reorder_insts.dev_para[i].add_id == set_add_id) {
             reorder_insts.dev_para[i].dev = para->dev;
@@ -670,7 +644,7 @@ STATIC int uda_wait_all_dev_up(struct uda_dev_type *type, struct uda_dev_para *p
     }
 
     ka_task_mutex_lock(&reorder_insts.work_mutex);
-    if (reorder_insts.dev_add_num >= all_dev_num) {
+    if ((reorder_insts.dev_add_num >= all_dev_num) || (reorder_insts.dev_add_num >= ASCEND_PDEV_MAX_NUM)) {
         ka_task_mutex_unlock(&reorder_insts.work_mutex);
         uda_err("Reorder insts is full. (dev_add_num=%u; all_dev_num=%u)\n", reorder_insts.dev_add_num, all_dev_num);
         return -EINVAL;
@@ -689,19 +663,21 @@ STATIC int uda_wait_all_dev_up(struct uda_dev_type *type, struct uda_dev_para *p
     } else {
         reorder_insts.dev_add_num++;
     }
-    ka_task_mutex_unlock(&reorder_insts.work_mutex);
 
     /* 1:Add the first device to start work */
     if (reorder_insts.dev_add_num == 1) {
+        ka_task_mutex_unlock(&reorder_insts.work_mutex);
         ka_task_schedule_work(&reorder_insts.wait_all_dev_work);
+    } else {
+        ka_task_mutex_unlock(&reorder_insts.work_mutex);
     }
     uda_info("Reorder add success. (dev_add_num=%u; add_id=%u)\n", reorder_insts.dev_add_num, para->udevid);
 
     return 0;
 }
 
-static int uda_add_dev_ex(struct uda_dev_type *type, struct uda_dev_para *para,
-    struct uda_mia_dev_para *mia_para, u32 *udevid)
+static int uda_add_dev_ex(struct uda_dev_type *type, struct uda_dev_para *para, struct uda_mia_dev_para *mia_para,
+                          u32 *udevid)
 {
     int ret;
 
@@ -755,8 +731,8 @@ KA_EXPORT_SYMBOL(uda_add_dev);
 
 static int uda_mia_dev_check(struct uda_mia_dev_para *mia_para)
 {
-    if (!uda_is_phy_dev(mia_para->phy_devid) || (mia_para->sub_devid >= UDA_SUB_DEV_MAX_NUM)
-        || (uda_make_udevid(mia_para) >= UDA_UDEV_MAX_NUM)) {
+    if (!uda_is_phy_dev(mia_para->phy_devid) || (mia_para->sub_devid >= UDA_SUB_DEV_MAX_NUM) ||
+        (uda_make_udevid(mia_para) >= UDA_UDEV_MAX_NUM)) {
         uda_err("Invalid para. (phy_devid=%u; sub_devid=%u)\n", mia_para->phy_devid, mia_para->sub_devid);
         return -EINVAL;
     }
@@ -764,8 +740,8 @@ static int uda_mia_dev_check(struct uda_mia_dev_para *mia_para)
     return 0;
 }
 
-int uda_add_mia_dev(struct uda_dev_type *type, struct uda_dev_para *para,
-    struct uda_mia_dev_para *mia_para, u32 *udevid)
+int uda_add_mia_dev(struct uda_dev_type *type, struct uda_dev_para *para, struct uda_mia_dev_para *mia_para,
+                    u32 *udevid)
 {
     if ((para == NULL) || (mia_para == NULL)) {
         uda_err("Null ptr.\n");
@@ -788,15 +764,17 @@ KA_EXPORT_SYMBOL(uda_add_mia_dev);
 
 static int _uda_remove_dev(struct uda_dev_inst *dev_inst, struct uda_dev_type *type)
 {
+    unsigned long flags;
+
     if (uda_dev_type_is_match(type, &dev_inst->type)) {
         int ret = uda_access_remove_dev(dev_inst->udevid, &dev_inst->access);
         if (ret != 0) {
             return ret;
         }
 
-        ka_task_write_lock_bh(&uda_dev_lock);
-        dev_insts[dev_inst->udevid] = NULL;  /* set inst invalid, so other thread will not get it */
-        ka_task_write_unlock_bh(&uda_dev_lock);
+        ka_task_write_lock_irqsave(&uda_dev_lock, flags);
+        dev_insts[dev_inst->udevid] = NULL; /* set inst invalid, so other thread will not get it */
+        ka_task_write_unlock_irqrestore(&uda_dev_lock, flags);
         if (dev_inst->agent_dev != NULL) {
             struct uda_dev_inst *agent_dev_inst = dev_inst->agent_dev;
             uda_warn("Not remove agent dev. (udevid=%d)\n", dev_inst->udevid);
@@ -819,7 +797,7 @@ int uda_remove_dev(struct uda_dev_type *type, u32 udevid)
 
     if ((type == NULL) || (udevid >= UDA_UDEV_MAX_NUM)) {
         uda_err("Invalid para. (udevid=%u)\n", udevid);
-        return  -EINVAL;
+        return -EINVAL;
     }
 
     ret = uda_dev_type_valid_check(type);
@@ -857,6 +835,9 @@ int uda_remove_dev(struct uda_dev_type *type, u32 udevid)
         ka_task_mutex_unlock(&uda_dev_mutex);
     }
     dev_inst->para.dev = NULL;
+    if (dev_inst->para.add_id < UDA_UDEV_MAX_NUM) {
+        g_reorder_para_addr[dev_inst->para.add_id] = NULL;
+    }
     uda_update_status_by_action(&dev_inst->status, UDA_REMOVE);
 
     if (ret != 0) {
@@ -975,14 +956,13 @@ int uda_dev_ctrl_ex(u32 udevid, enum uda_dev_ctrl_cmd cmd, u32 val)
 
     if (uda_is_phy_dev(udevid)) {
         if ((cmd == UDA_CTRL_MIA_CHANGE) || (cmd == UDA_CTRL_REMOVE)) {
-            uda_err("Phy dev not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
+            uda_err("Phy dev does not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
             return -EINVAL;
         }
     } else {
-        if ((cmd == UDA_CTRL_SUSPEND) || (cmd == UDA_CTRL_RESUME)
-            || (cmd == UDA_CTRL_TO_MIA) || (cmd == UDA_CTRL_TO_SIA)
-            || (cmd == UDA_CTRL_SHUTDOWN)) {
-            uda_err("Mia dev not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
+        if ((cmd == UDA_CTRL_SUSPEND) || (cmd == UDA_CTRL_RESUME) || (cmd == UDA_CTRL_TO_MIA) ||
+            (cmd == UDA_CTRL_TO_SIA) || (cmd == UDA_CTRL_SHUTDOWN)) {
+            uda_err("Mia dev does not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
             return -EINVAL;
         }
     }
@@ -1017,13 +997,13 @@ int uda_agent_dev_ctrl(u32 udevid, enum uda_dev_ctrl_cmd cmd)
 
     if (uda_is_phy_dev(udevid)) {
         if ((cmd == UDA_CTRL_MIA_CHANGE) || (cmd == UDA_CTRL_REMOVE)) {
-            uda_err("Phy dev not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
+            uda_err("Phy dev does not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
             return -EINVAL;
         }
     } else {
-        if ((cmd == UDA_CTRL_SUSPEND) || (cmd == UDA_CTRL_RESUME)
-            || (cmd == UDA_CTRL_TO_MIA) || (cmd == UDA_CTRL_TO_SIA)) {
-            uda_err("Mia dev not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
+        if ((cmd == UDA_CTRL_SUSPEND) || (cmd == UDA_CTRL_RESUME) || (cmd == UDA_CTRL_TO_MIA) ||
+            (cmd == UDA_CTRL_TO_SIA)) {
+            uda_err("Mia dev does not support cmd. (udevid=%u; cmd=%d)\n", udevid, cmd);
             return -EINVAL;
         }
     }
@@ -1235,7 +1215,8 @@ int uda_udevid_to_remote_udevid(u32 udevid, u32 *remote_udevid)
 
     /* current only support ep device, rc is itself */
     *remote_udevid = ((dev_inst->agent_dev != NULL) || (dev_inst->para.remote_udevid != UDA_INVALID_UDEVID)) ?
-        dev_inst->para.remote_udevid : udevid;
+                         dev_inst->para.remote_udevid :
+                         udevid;
     uda_dev_inst_put(dev_inst);
 
     if (*remote_udevid == UDA_INVALID_UDEVID) {
@@ -1278,7 +1259,7 @@ u32 uda_get_dev_num_all(void)
     }
     return udev_num;
 }
-    
+
 u32 uda_get_dev_num_local(void)
 {
     u32 udevid, udev_num = 0;
@@ -1335,15 +1316,19 @@ int uda_set_udevid_reorder_para(u32 add_id, struct udevid_reorder_para *para)
         return -EINVAL;
     }
 
+    ka_task_mutex_lock(&uda_reorder_mutex);
     if (reorder_para == NULL) {
-        reorder_para = dbl_kzalloc(sizeof(struct udevid_reorder_para) * UDA_UDEV_MAX_NUM, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+        reorder_para = dbl_kzalloc(sizeof(struct udevid_reorder_para) * UDA_UDEV_MAX_NUM,
+                                   KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
         if (reorder_para == NULL) {
+            ka_task_mutex_unlock(&uda_reorder_mutex);
             uda_err("Out of memory.\n");
             return -ENOMEM;
         }
     }
     ka_mm_memcpy_fromio(&reorder_para[add_id], para, sizeof(struct udevid_reorder_para));
     g_reorder_para_addr[add_id] = (void *)para;
+    ka_task_mutex_unlock(&uda_reorder_mutex);
     return 0;
 }
 KA_EXPORT_SYMBOL(uda_set_udevid_reorder_para);
@@ -1363,12 +1348,12 @@ int uda_get_udevid_reorder_para(u32 udevid, struct udevid_reorder_para *para)
         return -EINVAL;
     }
 
-    if (reorder_para == NULL) {
+    if (g_reorder_para_addr[dev_inst->para.add_id] == NULL) {
         uda_dev_inst_put(dev_inst);
         uda_err("Reorder_para is NULL.\n");
         return -EINVAL;
     }
-    *para = reorder_para[dev_inst->para.add_id];
+    ka_mm_memcpy_fromio(para, g_reorder_para_addr[dev_inst->para.add_id], sizeof(struct udevid_reorder_para));
     uda_dev_inst_put(dev_inst);
     return 0;
 }
@@ -1435,13 +1420,41 @@ int uda_add_id_to_udevid(u32 add_id, u32 *udevid)
 }
 KA_EXPORT_SYMBOL(uda_add_id_to_udevid);
 
+STATIC int uda_alloc_dev_para(void)
+{
+    if (reorder_insts.dev_para == NULL) {
+        reorder_insts.dev_para = dbl_kzalloc(sizeof(struct uda_dev_para) * ASCEND_PDEV_MAX_NUM,
+                                             KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+        if (reorder_insts.dev_para == NULL) {
+            uda_err("Out of memory.\n");
+            return -ENOMEM;
+        }
+        reorder_insts.udevid = 0;
+        reorder_insts.logic_id = 0;
+        reorder_insts.dev_add_num = 0;
+        reorder_insts.wait_all_dev_work_state = 0;
+        ka_task_mutex_init(&reorder_insts.work_mutex);
+    }
+
+    return 0;
+}
+
 int uda_dev_init(void)
 {
+    int ret = 0;
+
     (void)memset_s(dev_insts, sizeof(dev_insts), 0, sizeof(dev_insts));
     (void)memset_s(g_addid_array, sizeof(g_addid_array), 0xFF, sizeof(g_addid_array));
     (void)memset_s(g_udevid_to_addid, sizeof(g_udevid_to_addid), 0xFF, sizeof(g_udevid_to_addid));
     ka_task_mutex_init(&uda_dev_mutex);
+    ka_task_mutex_init(&uda_reorder_mutex);
     ka_task_rwlock_init(&uda_dev_lock);
+    if (UDA_WAIT_ALL_DEV_UP_FLAG) {
+        ret = uda_alloc_dev_para();
+        if (ret != 0) {
+            return ret;
+        }
+    }
     KA_TASK_INIT_WORK(&reorder_insts.wait_all_dev_work, uda_wait_all_dev_up_work);
 
     return 0;

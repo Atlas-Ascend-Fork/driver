@@ -145,5 +145,7 @@ u64 svm_get_page_size_by_pa_seg(u64 va, u64 size, struct svm_pa_seg *pa_seg, u64
 /* This func is time-consuming operation, may cause performance problem. */
 bool svm_pa_is_local_mem(u64 pa);
 u64 svm_get_max_page_size_by_pa_seg(struct svm_pa_seg *pa_seg, u64 seg_num);
+u64 svm_get_same_page_size_seg_num_by_pa_seg(u64 va, struct svm_pa_seg *pa_seg, u64 seg_num, u64 *seg_sum_size,
+                                             u64 *page_size);
 
 #endif

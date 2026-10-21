@@ -14,7 +14,6 @@
 #ifndef DEVDRV_HVDEVMNG_CMD_PROC__HOST_H
 #define DEVDRV_HVDEVMNG_CMD_PROC__HOST_H
 
-
 int hvdevmng_get_h2d_devinfo(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg *iomsg);
 int hvdevmng_get_device_status(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg *iomsg);
 int hvdevmng_get_device_boot_status(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg *iomsg);
@@ -27,4 +26,3 @@ int hvdevmng_get_error_code(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg *iomsg
 int hvdevmng_get_osc_freq(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg *iomsg);
 int hvdevmng_get_current_aic_freq(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg *iomsg);
 #endif
-

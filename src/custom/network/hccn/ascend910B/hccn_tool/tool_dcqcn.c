@@ -379,14 +379,14 @@ static int dcqcn_param_fixed_step(struct ds_dcqcn_info *info, char *val, char *p
 
 static int dcqcn_param_update_timer(struct ds_dcqcn_info *info, char *val, char *para, unsigned int length)
 {
-    unsigned long cfgdata;
+    unsigned short cfgdata;
     char *tmp_ptr = NULL;
     int ret;
 
     if (para == NULL) {
-        cfgdata = strtoul(val, &tmp_ptr, STR_NUM_BASE);
+        cfgdata = (unsigned short)strtoul(val, &tmp_ptr, STR_NUM_BASE);
         if (tmp_ptr == val || *tmp_ptr != '\0') {
-            roce_err("alg para val must be unsigned int, now is %lu, tail is %s", cfgdata, tmp_ptr);
+            roce_err("alg para val must be unsigned int, now is %u, tail is %s", cfgdata, tmp_ptr);
             return UDA_PARAM_INVALID_ERR;
         }
 
@@ -394,7 +394,7 @@ static int dcqcn_param_update_timer(struct ds_dcqcn_info *info, char *val, char 
             roce_err("dcqcn_param tmp %lu cfg trans failed.", cfgdata);
             return UDA_PARAM_INVALID_ERR;
         }
-        info->dcqcn_param.tmp = (unsigned short)cfgdata;
+        info->dcqcn_param.tmp = cfgdata;
     } else {
         ret = sprintf_s(para, length, "%u", info->dcqcn_param.tmp);
         if (ret <= 0) {

@@ -28,7 +28,7 @@ target_include_directories(${LIB_BBOX_PROC}
         ${BASE_DIR}/include
         ${BASE_DIR}/utils
         ${PROJ_DIR}/config/${PROD_NAME}/
-        ${DRIVER_USER_DIR}/msnpureport/inc/slog
+        ${DRIVER_USER_DIR}/inc/slog
         ${C_SEC_INCLUDE}
         ${DRIVER_USER_DIR}/inc/mmpa
         ${DRIVER_KERNEL_DIR}/pbl/dev_urd/command/ioctl/

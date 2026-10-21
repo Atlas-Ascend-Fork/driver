@@ -20,7 +20,7 @@
 #include "comm_kernel_interface.h"
 #include "pbl/pbl_uda.h"
 #include "pbl/pbl_soc_res.h"
-#include "ubcore_uapi.h"
+#include "uba/ubcore_adapt.h"
 #if defined(CFG_FEATURE_TRS_SIA_ADAPT) && defined(CFG_FEATURE_HOST_ENV)
 #include "trs_sia_adapt_auto_init.h"
 #elif defined(CFG_FEATURE_TRS_SIA_AGENT)
@@ -30,10 +30,10 @@
 static KA_TASK_DEFINE_RWLOCK(ub_dev_lock);
 struct trs_ub_dev *g_trs_ub_dev[TRS_DEV_MAX_NUM] = {NULL};
 
-static int trs_ub_get_eid_info(struct trs_ub_dev *ub_dev, struct ubcore_eid_info *eid_info)
+static int trs_ub_get_eid_info(struct trs_ub_dev *ub_dev, uba_ubcore_eid_info *eid_info)
 {
     struct devdrv_ub_dev_info dev_info;
-    struct ubcore_device *dev = ub_dev->ubc_dev;
+    uba_ubcore_device *dev = ub_dev->ubc_dev;
     int ret, num;
     u32 i;
 
@@ -92,7 +92,7 @@ void trs_ub_destroy_jetty(struct trs_ub_dev *ub_dev, u32 vfid)
 
 static struct trs_ub_dev *trs_ub_create_dev(u32 devid, u32 vfid)
 {
-    struct ubcore_eid_info eid_info;
+    uba_ubcore_eid_info eid_info;
     struct trs_ub_dev *ub_dev = NULL;
     u32 token_val;
     int ret;
@@ -112,7 +112,7 @@ static struct trs_ub_dev *trs_ub_create_dev(u32 devid, u32 vfid)
     ub_dev->ubc_dev = trs_ub_get_ubcore_dev(devid);
     if (ub_dev->ubc_dev == NULL) {
         ka_mm_vfree(ub_dev);
-        trs_err("Failed to ubc_dev. (devid=%u)\n", devid);
+        trs_err("Failed to get ubc_dev. (devid=%u)\n", devid);
         return NULL;
     }
 

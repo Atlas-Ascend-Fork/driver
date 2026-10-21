@@ -14,7 +14,6 @@
 #ifndef DEVDRV_VPC_H
 #define DEVDRV_VPC_H
 #include "comm_kernel_interface.h"
-#include "devdrv_pci.h"
 
 #define DEVDRV_VPC_RETRY_TIMES 100
 #define DEVDRV_VPC_MSI_BASE 128

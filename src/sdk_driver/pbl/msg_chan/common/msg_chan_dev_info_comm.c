@@ -63,6 +63,30 @@ int devdrv_get_pfvf_type_by_devid(u32 dev_id)
 }
 KA_EXPORT_SYMBOL(devdrv_get_pfvf_type_by_devid);
 
+int devdrv_get_pm_devid_by_vm_devid(u32 udev_id, u32 *pm_devid)
+{
+    u32 index_id;
+    int ret = -EOPNOTSUPP;
+
+    struct devdrv_comm_dev_ops *dev_ops = devdrv_add_ops_ref();
+    if (dev_ops == NULL) {
+        devdrv_err("Get dev_ops fail.\n");
+        return -ENODEV;
+    }
+
+    if (dev_ops->ops.get_pm_devid_by_vm_devid != NULL) {
+        index_id = devdrv_get_index_id_by_devid(udev_id);
+        ret = dev_ops->ops.get_pm_devid_by_vm_devid(index_id, pm_devid);
+    }
+
+    if (ret == 0) {
+        (void)uda_add_id_to_udevid(*pm_devid, pm_devid);
+    }
+    devdrv_sub_ops_ref(dev_ops);
+    return ret;
+}
+KA_EXPORT_SYMBOL(devdrv_get_pm_devid_by_vm_devid);
+
 bool devdrv_is_mdev_vm_boot_mode_inner(u32 index_id)
 {
     int ret;
@@ -280,19 +304,19 @@ int devdrv_process_pasid_del(u32 dev_id, u64 pasid)
 }
 KA_EXPORT_SYMBOL(devdrv_process_pasid_del);
 
-int devdrv_get_d2d_eid(u32 udevid, struct devdrv_pair_info_eid *eid)
+int devdrv_get_d2d_eid(u32 local_udevid, u32 d2d_eid_type, struct devdrv_pair_info_eid *eid, u32 *eid_index)
 {
     int ret = -EOPNOTSUPP;
     u32 index_id;
     struct devdrv_comm_dev_ops *dev_ops = devdrv_add_ops_ref_by_type(DEVDRV_COMMNS_UB);
     if (dev_ops == NULL) {
-        devdrv_err("Get ub d2d eid fail.(devid=%d)\n", udevid);
+        devdrv_err("Get ub d2d eid fail.(devid=%u)\n", local_udevid);
         return -ENODEV;
     }
 
     if (dev_ops->ops.get_d2d_eid != NULL) {
-        index_id = devdrv_get_index_id_by_devid(udevid);
-        ret = dev_ops->ops.get_d2d_eid(index_id, eid);
+        index_id = devdrv_get_index_id_by_devid(local_udevid);
+        ret = dev_ops->ops.get_d2d_eid(index_id, d2d_eid_type, eid, eid_index);
     }
     devdrv_sub_ops_ref_by_type(dev_ops);
     return ret;
@@ -465,3 +489,79 @@ int devdrv_addr_trans_peer_to_local(u32 udevid, struct devdrv_addr_desc *addr_de
     return ret;
 }
 KA_EXPORT_SYMBOL(devdrv_addr_trans_peer_to_local);
+
+int devdrv_addr_trans_local_to_peer(u32 udevid, struct devdrv_addr_desc *addr_desc, u64 *trans_addr)
+{
+    int ret = -EOPNOTSUPP;
+    u32 index_id;
+    struct devdrv_comm_dev_ops *dev_ops = devdrv_add_ops_ref_by_type(DEVDRV_COMMNS_UB);
+    if (dev_ops == NULL) {
+        devdrv_err("trans addr local to peer fail.(devid=%u)\n", udevid);
+        return -ENODEV;
+    }
+
+    if (dev_ops->ops.addr_trans_l2p != NULL) {
+        index_id = devdrv_get_index_id_by_devid(udevid);
+        ret = dev_ops->ops.addr_trans_l2p(index_id, addr_desc, trans_addr);
+    } else {
+        devdrv_err("addr_trans_l2p is null. (udevid=%u)\n", udevid);
+    }
+    devdrv_sub_ops_ref_by_type(dev_ops);
+    return ret;
+}
+KA_EXPORT_SYMBOL(devdrv_addr_trans_local_to_peer);
+
+bool devdrv_query_addr_trans_support(enum devdrv_addr_trans_cap_type cap_type)
+{
+    struct devdrv_comm_dev_ops *dev_ops = NULL;
+    bool support = false;
+
+    dev_ops = devdrv_add_ops_ref_by_type(DEVDRV_COMMNS_UB);
+    if (dev_ops == NULL) {
+        devdrv_warn("Ub comm ops not ready, addr trans cap not support. (cap_type=%u)\n", (u32)cap_type);
+        return false;
+    }
+
+    if (dev_ops->ops.query_addr_trans_support != NULL) {
+        support = dev_ops->ops.query_addr_trans_support(cap_type);
+    } else {
+        devdrv_warn("Query addr trans support ops is null, cap not support. (cap_type=%u)\n", (u32)cap_type);
+    }
+    devdrv_sub_ops_ref_by_type(dev_ops);
+    return support;
+}
+KA_EXPORT_SYMBOL(devdrv_query_addr_trans_support);
+
+int devdrv_force_linkdown(u32 udevid)
+{
+    struct devdrv_comm_dev_ops *dev_ops = devdrv_add_ops_ref();
+    int ret = -EOPNOTSUPP;
+    if (dev_ops == NULL) {
+        devdrv_err("Get dev ops fail.\n");
+        return -ENODEV;
+    }
+
+    if (dev_ops->ops.force_linkdown != NULL) {
+        ret = dev_ops->ops.force_linkdown(udevid);
+    }
+    devdrv_sub_ops_ref(dev_ops);
+    return ret;
+}
+KA_EXPORT_SYMBOL(devdrv_force_linkdown);
+
+int devdrv_get_non_trans_chan_capacity(void *msg_chan, u32 *len)
+{
+    int ret = -EOPNOTSUPP;
+    struct devdrv_comm_dev_ops *dev_ops = devdrv_add_ops_ref();
+    if (dev_ops == NULL) {
+        devdrv_err("Get msg_chan capacity fail.\n");
+        return -ENODEV;
+    }
+
+    if (dev_ops->ops.get_non_trans_chan_capacity != NULL) {
+        ret = dev_ops->ops.get_non_trans_chan_capacity(msg_chan, len);
+    }
+    devdrv_sub_ops_ref(dev_ops);
+    return ret;
+}
+KA_EXPORT_SYMBOL(devdrv_get_non_trans_chan_capacity);

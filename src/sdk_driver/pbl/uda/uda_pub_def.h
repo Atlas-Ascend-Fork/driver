@@ -31,34 +31,38 @@
 
 #define module_uda "uda"
 
-#define uda_err(fmt, ...) do { \
-    drv_err(module_uda, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-    share_log_err(DEVMNG_SHARE_LOG_START, fmt, ##__VA_ARGS__); \
-} while (0)
-#define uda_warn(fmt, ...) do { \
-    drv_warn(module_uda, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-} while (0)
-#define uda_info(fmt, ...) do { \
-    drv_info(module_uda, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-} while (0)
-#define uda_debug(fmt, ...) do { \
-    drv_pr_debug(module_uda, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-} while (0)
+#define uda_err(fmt, ...)                                                                                 \
+    do {                                                                                                  \
+        drv_err(module_uda, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);              \
+        share_log_err(DEVMNG_SHARE_LOG_START, fmt, ##__VA_ARGS__);                                        \
+    } while (0)
+#define uda_warn(fmt, ...)                                                                                 \
+    do {                                                                                                   \
+        drv_warn(module_uda, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                 ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);              \
+    } while (0)
+#define uda_info(fmt, ...)                                                                                 \
+    do {                                                                                                   \
+        drv_info(module_uda, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                 ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);              \
+    } while (0)
+#define uda_debug(fmt, ...)                                                                                    \
+    do {                                                                                                       \
+        drv_pr_debug(module_uda, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                     ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);              \
+    } while (0)
 
 #ifndef __KA_GFP_ACCOUNT
-#  ifdef __GFP_KMEMCG
-#    define __KA_GFP_ACCOUNT __GFP_KMEMCG /* for linux version 3.10 */
-#  endif
-#  ifdef __GFP_NOACCOUNT
-#    define __KA_GFP_ACCOUNT 0 /* for linux version 4.1 */
-#  endif
+#ifdef __GFP_KMEMCG
+#define __KA_GFP_ACCOUNT __GFP_KMEMCG /* for linux version 3.10 */
+#endif
+#ifdef __GFP_NOACCOUNT
+#define __KA_GFP_ACCOUNT 0 /* for linux version 4.1 */
+#endif
 #endif
 
-#define DMS_MODULE_TYPE 3 /* HAL_MODULE_TYPE_DEV_MANAGER */
+#define DMS_MODULE_TYPE 3        /* HAL_MODULE_TYPE_DEV_MANAGER */
 #define DMS_KA_SUB_MODULE_TYPE 1 /* KA_SUB_MODULE_TYPE_1 */
 
 #ifndef ASCEND_BACKUP_DEV_NUM
@@ -84,4 +88,3 @@
 #define UDA_MAX_PHY_DEV_NUM UDA_MIA_UDEV_OFFSET
 
 #endif
-

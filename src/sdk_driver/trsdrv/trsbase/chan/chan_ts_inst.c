@@ -78,7 +78,7 @@ static int trs_chan_ts_inst_irq_init(struct trs_chan_ts_inst *ts_inst, u32 irq_t
     ret = ts_inst->ops.get_irq(inst, irq_type, irq_id, TRS_CHAN_MAX_IRQ_NUM, &irq_num);
     if ((ret != 0) || (irq_num > TRS_CHAN_MAX_IRQ_NUM)) {
         *num = 0;
-        return ret;
+        return (ret != 0) ? ret : -ERANGE;
     }
 
     irq_ctx = trs_kzalloc(sizeof(struct trs_chan_irq_ctx) * irq_num, KA_GFP_KERNEL);
@@ -380,6 +380,7 @@ static int trs_chan_ts_inst_create(struct trs_id_inst *inst, int hw_type, int lo
     }
 
     chan_proc_fs_add_ts_inst(ts_inst);
+
     chan_ts_inst[ts_inst_id] = ts_inst;
 
     trs_info("Ts inst create success. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);

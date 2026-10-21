@@ -36,13 +36,19 @@ static ka_rw_semaphore_t g_spod_node_status_lock[UDA_MAX_PHY_DEV_NUM];
 
 int dbl_get_spod_info(unsigned int udevid, struct spod_info *s)
 {
-    if (udevid >= UDA_MAX_PHY_DEV_NUM || s == NULL) {
+    unsigned int udevid_ex = udevid;
+
+    if (udevid == uda_get_host_id()) {
+        (void)uda_get_cur_ns_udevids(&udevid_ex, 1);
+    }
+
+    if (udevid_ex >= UDA_MAX_PHY_DEV_NUM || s == NULL) {
         return -EINVAL;
     }
-    if (!g_spod_info_been_set[udevid]) {
+    if (!g_spod_info_been_set[udevid_ex]) {
         return -EAGAIN;
     }
-    *s = g_spod_info[udevid];
+    *s = g_spod_info[udevid_ex];
     return 0;
 }
 KA_EXPORT_SYMBOL(dbl_get_spod_info);
@@ -71,7 +77,7 @@ static inline void parse_bit_shift(unsigned int *rcv, unsigned int *src, int bit
     (*src) >>= bit_width;
 }
 
-int dbl_parse_sdid (unsigned int sdid, struct sdid_parse_info *s)
+int dbl_parse_sdid(unsigned int sdid, struct sdid_parse_info *s)
 {
     if (s == NULL) {
         return -EINVAL;
@@ -85,11 +91,16 @@ int dbl_parse_sdid (unsigned int sdid, struct sdid_parse_info *s)
 }
 KA_EXPORT_SYMBOL(dbl_parse_sdid);
 
-int dbl_make_sdid (struct sdid_parse_info *s, unsigned int *sdid)
+int dbl_make_sdid(struct sdid_parse_info *s, unsigned int *sdid)
 {
     unsigned int tmp_sdid;
 
     if (s == NULL || sdid == NULL) {
+        return -EINVAL;
+    }
+
+    if (s->udevid >= (1u << UDEVID_BIT_LEN) || s->die_id >= (1u << DIE_ID_BIT_LEN) ||
+        s->chip_id >= (1u << CHIP_ID_BIT_LEN) || s->server_id >= (1u << SERVER_ID_BIT_LEN)) {
         return -EINVAL;
     }
 
@@ -115,7 +126,7 @@ static int dbl_get_spod_node_status(unsigned int local_udevid, unsigned int inde
     struct spod_node_status *nodes_status = NULL;
 
     if (index >= DBL_SPOD_MAX_NUM) {
-        uda_err("Invalid index. (index=%u)\n", index);
+        uda_err("Invalid index. (index=%u; valid range is [0, %u))\n", index, DBL_SPOD_MAX_NUM);
         return -EINVAL;
     }
 
@@ -137,12 +148,12 @@ int dbl_set_spod_node_status(unsigned int local_udevid, unsigned int index, unsi
     struct spod_node_status *nodes_status = NULL;
 
     if (local_udevid >= UDA_MAX_PHY_DEV_NUM) {
-        uda_err("Invalid udevid. (udevid=%u)\n", local_udevid);
+        uda_err("Invalid udevid. (udevid=%u; max=%u)\n", local_udevid, UDA_MAX_PHY_DEV_NUM);
         return -EINVAL;
     }
 
     if (index >= DBL_SPOD_MAX_NUM) {
-        uda_err("Invalid index. (index=%u)\n", index);
+        uda_err("Invalid index. (index=%u; valid range is [0, %u))\n", index, DBL_SPOD_MAX_NUM);
         return -EINVAL;
     }
 
@@ -165,7 +176,7 @@ int dbl_spod_node_status_init(unsigned int udevid)
     struct spod_node_status *nodes_status = NULL;
 
     if (udevid >= UDA_MAX_PHY_DEV_NUM) {
-        uda_err("Invalid udevid. (udevid=%u)\n", udevid);
+        uda_err("Invalid udevid. (udevid=%u; max=%u)\n", udevid, UDA_MAX_PHY_DEV_NUM);
         return -EINVAL;
     }
 
@@ -177,7 +188,8 @@ int dbl_spod_node_status_init(unsigned int udevid)
         return 0;
     }
 
-    nodes_status = (struct spod_node_status *)dbl_kzalloc(sizeof(struct spod_node_status), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    nodes_status = (struct spod_node_status *)dbl_kzalloc(sizeof(struct spod_node_status),
+                                                          KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (nodes_status == NULL) {
         ka_task_up_write(&g_spod_node_status_lock[udevid]);
         uda_err("malloc spod node status failed. (udevid=%u)", udevid);
@@ -193,7 +205,7 @@ KA_EXPORT_SYMBOL_GPL(dbl_spod_node_status_init);
 void dbl_spod_node_status_uninit(unsigned int udevid)
 {
     if (udevid >= UDA_MAX_PHY_DEV_NUM) {
-        uda_err("Invalid udevid. (udevid=%u)\n", udevid);
+        uda_err("Invalid udevid. (udevid=%u; max=%u)\n", udevid, UDA_MAX_PHY_DEV_NUM);
         return;
     }
 
@@ -262,9 +274,9 @@ int hal_kernel_get_spod_node_status(unsigned int local_udevid, unsigned int remo
     index = sdid_info.server_id * DBL_SPOD_MAX_UDEVID_NUM + sdid_info.udevid;
     return dbl_get_spod_node_status(local_udevid, index, status);
 #else
-    (void) local_udevid;
-    (void) remote_sdid;
-    (void) status;
+    (void)local_udevid;
+    (void)remote_sdid;
+    (void)status;
     return -EOPNOTSUPP;
 #endif
 }

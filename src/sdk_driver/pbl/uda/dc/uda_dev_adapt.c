@@ -19,4 +19,3 @@ u32 uda_get_dev_num_adapt(void)
 {
     return uda_get_dev_num_all();
 }
-

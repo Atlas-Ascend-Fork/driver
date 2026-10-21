@@ -20,15 +20,15 @@
 #define TOOL_CDR_NOT_SUPPORT 1
 
 #define TOOL_CDR_LOOPBACK_CLOSE 2
-#define TOOL_CDR_LOOPBACK_OPEN  3
+#define TOOL_CDR_LOOPBACK_OPEN 3
 
-#define TOOL_CDR_GET_DFX_REG  4
+#define TOOL_CDR_GET_DFX_REG 4
 #define TOOL_CDR_GET_SNR_MODE 5
 
-#define TOOL_CDR_ENABLE_RESET  6
+#define TOOL_CDR_ENABLE_RESET 6
 #define TOOL_CDR_DISABLE_RESET 7
 
-#define TOOL_CDR_PRINT_FMEA   8
+#define TOOL_CDR_PRINT_FMEA 8
 
 #define CDR_RESET_SWITCH "cdr_reset_switch"
 #define TOOL_CDR_ENABLE_RESET_STR "6"
@@ -67,18 +67,20 @@ static void tool_show_unsupported_cdr_snr_info(void)
     }
     return;
 }
- 
+
 #define CDR_SNR_TO_DB(snr) (10 * (log10((double)(snr))))
 static void tool_show_ql_cdr_snr_info(struct cdr_snr_info *cdr_snr_info, unsigned int offset)
 {
     int i;
     for (i = 0; i < DEVICE_CDR_LANE_MAX_NUM; i++) {
-        TOOL_PRINT_INFO("Cdr Host SNR Lane%d         : %.4f dB",
-            i + 1, cdr_snr_info->host_snr[i + offset] == 0 ? 0.0 : CDR_SNR_TO_DB(cdr_snr_info->host_snr[i + offset]));
+        TOOL_PRINT_INFO(
+            "Cdr Host SNR Lane%d         : %.4f dB", i + 1,
+            cdr_snr_info->host_snr[i + offset] == 0 ? 0.0 : CDR_SNR_TO_DB(cdr_snr_info->host_snr[i + offset]));
     }
     for (i = 0; i < DEVICE_CDR_LANE_MAX_NUM; i++) {
-        TOOL_PRINT_INFO("Cdr Media SNR Lane%d        : %.4f dB",
-            i + 1, cdr_snr_info->media_snr[i + offset] == 0 ? 0 : CDR_SNR_TO_DB(cdr_snr_info->media_snr[i + offset]));
+        TOOL_PRINT_INFO(
+            "Cdr Media SNR Lane%d        : %.4f dB", i + 1,
+            cdr_snr_info->media_snr[i + offset] == 0 ? 0 : CDR_SNR_TO_DB(cdr_snr_info->media_snr[i + offset]));
     }
     for (i = 0; i < DEVICE_CDR_LANE_MAX_NUM; i++) {
         TOOL_PRINT_INFO("Cdr His Host SNR Lane%d     : not supported", i + 1);
@@ -87,7 +89,7 @@ static void tool_show_ql_cdr_snr_info(struct cdr_snr_info *cdr_snr_info, unsigne
         TOOL_PRINT_INFO("Cdr His Media SNR Lane%d    : not supported", i + 1);
     }
 }
- 
+
 static void tool_show_5901_cdr_snr_info(struct cdr_snr_info *cdr_snr_info, unsigned int offset)
 {
     int i;
@@ -106,7 +108,7 @@ static void tool_show_5901_cdr_snr_info(struct cdr_snr_info *cdr_snr_info, unsig
 }
 
 static void tool_show_cdr_snr_info(int is_cdr_support, int phy_id, unsigned int board_type,
-    struct cdr_snr_info *cdr_snr_info)
+                                   struct cdr_snr_info *cdr_snr_info)
 {
     if (is_cdr_support == TOOL_CDR_NOT_SUPPORT) {
         tool_show_unsupported_cdr_snr_info();
@@ -139,8 +141,7 @@ int tool_get_cdr_snr(struct tool_param *param, int port)
         return UDA_DSMI_EXE_ERR;
     }
 
-    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) &&
-        (board_type != SUPERPOD_900_BOARD_TYPE)) {
+    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) && (board_type != SUPERPOD_900_BOARD_TYPE)) {
         is_cdr_supported = TOOL_CDR_NOT_SUPPORT;
         roce_info("Board_type:%d not support cdr.", board_type);
         tool_show_cdr_snr_info(is_cdr_supported, param->phy_id, board_type, &snr_infos);
@@ -150,8 +151,8 @@ int tool_get_cdr_snr(struct tool_param *param, int port)
     if (board_type == SUPERPOD_900_BOARD_TYPE) {
         logic_id_after_convert = ATLAS_900_A3_SUPERPOD_logic_id_convert(param->phy_id);
         if (logic_id_after_convert == INVALID_LOGIC_ID) {
-            roce_err("Tool get cdr snr convert failed. (logic_id_after_convert=%d, phy_id=%d)",
-                logic_id_after_convert, param->phy_id);
+            roce_err("Tool get cdr snr convert failed. (logic_id_after_convert=%d, phy_id=%d)", logic_id_after_convert,
+                     param->phy_id);
             return UDA_DSMI_CONTROL_LINK_UNREACHABLE_ERR;
         }
     }
@@ -206,21 +207,21 @@ int tool_set_cdr_mode(struct tool_param *param, struct ds_cdr_mode_info *info)
     if (info->master_flag == 1) {
         ret = dsmi_set_cdr_mode_cmd(logic_id, 0, info);
         if (ret) {
-            roce_err("Tool set cdr mode fail. (ret=%d; logic_id=%d; mode=%u; master_flag=%u)",
-                ret, logic_id, info->mode, info->master_flag);
+            roce_err("Tool set cdr mode fail. (ret=%d; logic_id=%d; mode=%u; master_flag=%u)", ret, logic_id,
+                     info->mode, info->master_flag);
             return tool_set_cdr_ret_convert(ret);
         }
     } else {
         ret = dsmi_set_cdr_mode_cmd(convert_logic_id, 0, info);
         if (ret) {
-            roce_err("Tool set cdr mode fail. (ret=%d; convert_logic_id=%d; mode=%u; master_flag=%u)",
-                ret, convert_logic_id, info->mode, info->master_flag);
+            roce_err("Tool set cdr mode fail. (ret=%d; convert_logic_id=%d; mode=%u; master_flag=%u)", ret,
+                     convert_logic_id, info->mode, info->master_flag);
             return tool_set_cdr_ret_convert(ret);
         }
         ret = dsmi_set_cdr_mode_cmd(logic_id, 0, info);
         if (ret) {
-            roce_err("Tool set cdr mode fail. (ret=%d; logic_id=%d; mode=%u; master_flag=%u)",
-                ret, logic_id, info->mode, info->master_flag);
+            roce_err("Tool set cdr mode fail. (ret=%d; logic_id=%d; mode=%u; master_flag=%u)", ret, logic_id,
+                     info->mode, info->master_flag);
             return tool_set_cdr_ret_convert(ret);
         }
     }
@@ -234,7 +235,7 @@ static int tool_set_cdr_reset_cmd(struct tool_param *param, struct ds_cdr_mode_i
     struct tool_param temp_param;
 
     ret = tool_double_check("[WARNING] Running this command will influence another device that shares the same CDR.\n"
-                    "Are you sure you want to continue?");
+                            "Are you sure you want to continue?");
     if (ret) {
         return ret;
     }
@@ -251,8 +252,8 @@ static int tool_set_cdr_reset_cmd(struct tool_param *param, struct ds_cdr_mode_i
             // 从die，需要做logic_id 转换
             ret = dsmi_get_logicid_from_phyid(temp_param.phy_id, &temp_param.logic_id);
             if (ret) {
-                roce_err("Dsmi get logicid from phyid fail. (ret=%d; phy_id=%d; origin_phy_id=%d)",
-                    ret, temp_param.phy_id, param->phy_id);
+                roce_err("Dsmi get logicid from phyid fail. (ret=%d; phy_id=%d; origin_phy_id=%d)", ret,
+                         temp_param.phy_id, param->phy_id);
                 return UDA_DSMI_CONTROL_LINK_UNREACHABLE_ERR;
             }
         }
@@ -267,7 +268,7 @@ static int tool_set_cdr_reset_cmd(struct tool_param *param, struct ds_cdr_mode_i
     // cdr reset自愈恢复功能开关需要持久化
     if (!g_recovering) {
         ret = cfg_write_conf(temp_param.phy_id, CDR_RESET_SWITCH,
-            ((info->mode == TOOL_CDR_ENABLE_RESET) ? "enable" : "disable"));
+                             ((info->mode == TOOL_CDR_ENABLE_RESET) ? "enable" : "disable"));
         if (ret) {
             roce_err("Write cdr reset enable status error. (ret=%d; phy_id=%d)", ret, temp_param.phy_id);
             return ret;
@@ -353,8 +354,7 @@ int tool_cdr_reset_recovery(struct tool_param *param)
         roce_err("Tool sd cdr reset recovery get board type failed. (ret=%d)", ret);
         return UDA_DSMI_EXE_ERR;
     }
-    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) &&
-        (board_type != SUPERPOD_900_BOARD_TYPE)) {
+    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) && (board_type != SUPERPOD_900_BOARD_TYPE)) {
         // 拦截非不带CDR产品类型
         return 0;
     }
@@ -368,10 +368,10 @@ int tool_cdr_reset_recovery(struct tool_param *param)
     }
     ret = cfg_read_conf(param->phy_id, CDR_RESET_SWITCH, reset_switch_data, ARGC_ID_8);
     if (ret != 0) {
-        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) {  // 当配置文件中没有找到这个配置时，返回成功，跳过配置
+        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) { // 当配置文件中没有找到这个配置时，返回成功，跳过配置
             roce_info("The cdr reset switch conf name is not found in config file, skipped. (ret=%d)", ret);
             return 0;
-        } else {  // 其他错误返回失败
+        } else { // 其他错误返回失败
             roce_err("Other inner err. (ret=%d; phy_id=%d)", ret, param->phy_id);
             return ret;
         }
@@ -399,9 +399,8 @@ STATIC void tool_print_5901_cdr_version(struct tool_param *param, struct ds_cdr_
     TOOL_PRINT_INFO("Manufacturer: Huawei");
     TOOL_PRINT_INFO("Chip Model: SD5901L");
     TOOL_PRINT_INFO("Chip Version: %d.%d.%d.%d - %d.%d.%d.%d", info->hilink_version[HILINK0],
-                    info->hilink_version[HILINK1], info->hilink_version[HILINK2],
-                    info->hilink_version[HILINK3], info->riscv_version[RISCV0],
-                    info->riscv_version[RISCV1], info->riscv_version[RISCV2],
+                    info->hilink_version[HILINK1], info->hilink_version[HILINK2], info->hilink_version[HILINK3],
+                    info->riscv_version[RISCV0], info->riscv_version[RISCV1], info->riscv_version[RISCV2],
                     info->riscv_version[RISCV3]);
     TOOL_PRINT_INFO("Reset Switch: %s", (info->reset_switch - '0' == 0) ? "disable" : "enable");
 }
@@ -410,9 +409,8 @@ STATIC void tool_print_huyang_cdr_version(struct tool_param *param, struct ds_cd
 {
     TOOL_PRINT_INFO("Manufacturer: HUYANG024");
     TOOL_PRINT_INFO("Chip Model: HY024-4301-0002");
-    TOOL_PRINT_INFO("Chip Version: %d.%d.%d.%d", info->hilink_version[HILINK0],
-                    info->hilink_version[HILINK1], info->hilink_version[HILINK2],
-                    info->hilink_version[HILINK3]);
+    TOOL_PRINT_INFO("Chip Version: %d.%d.%d.%d", info->hilink_version[HILINK0], info->hilink_version[HILINK1],
+                    info->hilink_version[HILINK2], info->hilink_version[HILINK3]);
     TOOL_PRINT_INFO("Reset Switch: %s", (info->reset_switch - '0' == 0) ? "disable" : "enable");
 }
 
@@ -459,8 +457,7 @@ STATIC int tool_check_read_reg_param_addr(char *addr, struct scdr_reg_info *reg_
 {
     char *p_end_str = NULL;
     long reg_param;
-    if (addr && (strncmp(addr, "0x", strlen("0x")) != 0) &&
-        (strncmp(addr, "0X", strlen("0X")) != 0)) {
+    if (addr && (strncmp(addr, "0x", strlen("0x")) != 0) && (strncmp(addr, "0X", strlen("0X")) != 0)) {
         roce_err("need 0x or 0X at address head.");
         return UDA_PARAM_INVALID_ERR;
     }
@@ -501,7 +498,7 @@ STATIC int tool_check_read_reg_param_valid(unsigned int address, unsigned int nu
 
 STATIC int tool_parse_handle_read_reg_param(int argc, char **argv, struct scdr_reg_info *reg_info)
 {
-    char is_visited_flag[2] = {0};         // Indicates the subcommand settings, total num is 2.
+    char is_visited_flag[2] = {0}; // Indicates the subcommand settings, total num is 2.
     char *p_end_str = NULL;
     long reg_param;
     int i;
@@ -511,7 +508,7 @@ STATIC int tool_parse_handle_read_reg_param(int argc, char **argv, struct scdr_r
         roce_err("err argc[%d]", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
-    
+
     for (i = 0; i < argc; i += STEP_TWO) {
         if ((strncmp(argv[i], "address", strlen("address") + 1) == 0) && (is_visited_flag[0] == 0)) {
             // 若argv[i + 1]为空则strncmp会报错
@@ -538,12 +535,12 @@ STATIC int tool_parse_handle_read_reg_param(int argc, char **argv, struct scdr_r
     if (ret) {
         return UDA_PARAM_INVALID_ERR;
     }
- 
+
     return 0;
 }
 
-STATIC int tool_print_cdr_reg_info_last_row(struct scdr_reg_info *reg_info, unsigned int *address, \
-    unsigned int *value_index, char *addr, char *value)
+STATIC int tool_print_cdr_reg_info_last_row(struct scdr_reg_info *reg_info, unsigned int *address,
+                                            unsigned int *value_index, char *addr, char *value)
 {
     int ret;
     char *null_str = "NA";
@@ -563,8 +560,8 @@ STATIC int tool_print_cdr_reg_info_last_row(struct scdr_reg_info *reg_info, unsi
         if (ret < 0) {
             return ret;
         }
-        ret = sprintf_s(value + strlen(value), TOOL_CDR_REG_INFO_MARGIN + strlen(value), "0x%-10x | ", \
-            reg_info->value[*value_index]);
+        ret = sprintf_s(value + strlen(value), TOOL_CDR_REG_INFO_MARGIN + strlen(value), "0x%-10x | ",
+                        reg_info->value[*value_index]);
         if (ret < 0) {
             return ret;
         }
@@ -601,8 +598,8 @@ STATIC int tool_show_cdr_reg_info(struct scdr_reg_info *reg_info)
     unsigned int value_index = 0;
     int ret = 0;
 
-    TOOL_PRINT_INFO("The valid result of the reg read address from 0x%-8x to 0x%-8x is as follows:",
-                    reg_info->address, reg_info->address + (reg_info->nums - 1) * TOOL_CDR_REG_ADDR_OFFSET);
+    TOOL_PRINT_INFO("The valid result of the reg read address from 0x%-8x to 0x%-8x is as follows:", reg_info->address,
+                    reg_info->address + (reg_info->nums - 1) * TOOL_CDR_REG_ADDR_OFFSET);
     TOOL_PRINT_INFO("+====================================================================================+");
     TOOL_PRINT_INFO("| start address:0x%-10x\t\tnums:%-40u|", reg_info->address, reg_info->nums);
     TOOL_PRINT_INFO("+=========+==============+==============+==============+==============+==============+");
@@ -621,15 +618,15 @@ STATIC int tool_show_cdr_reg_info(struct scdr_reg_info *reg_info)
             if (ret < 0) {
                 return ret;
             }
-            ret = sprintf_s(value + strlen(value), TOOL_CDR_REG_INFO_MARGIN + strlen(value), "0x%-10x | ", \
-                reg_info->value[value_index]);
+            ret = sprintf_s(value + strlen(value), TOOL_CDR_REG_INFO_MARGIN + strlen(value), "0x%-10x | ",
+                            reg_info->value[value_index]);
             if (ret < 0) {
                 return ret;
             }
             address += TOOL_CDR_REG_ADDR_OFFSET;
             value_index += 1;
         }
-        
+
         TOOL_PRINT_INFO("%s", addr);
         TOOL_PRINT_INFO("%s", value);
         TOOL_PRINT_INFO("+=========+==============+==============+==============+==============+==============+");
@@ -641,7 +638,7 @@ STATIC int tool_show_cdr_reg_info(struct scdr_reg_info *reg_info)
             return ret;
         }
     }
-    
+
     return 0;
 }
 
@@ -649,14 +646,14 @@ STATIC int tool_sd_cdr_handle_reg_cmd(int argc, char **argv, int logic_id)
 {
     struct scdr_reg_info reg_info = {0};
     int ret;
- 
-    reg_info.nums = 1;    // 默认值是1
+
+    reg_info.nums = 1; // 默认值是1
     ret = tool_parse_handle_read_reg_param(argc, argv, &reg_info);
     if (ret != 0) {
         roce_err("Parse handle read reg param failed. (ret=%d)", ret);
         return ret;
     }
- 
+
     ret = dsmi_handle_scdr_reg(logic_id, 0, &reg_info);
     if (ret != 0) {
         roce_err("Dsmi handle scdr reg failed. (ret=%d)", ret);
@@ -705,9 +702,8 @@ int tool_sd_cdr_cmd_execute(int argc, char **argv, struct tool_param *param)
         roce_err("Tool sd cdr cmd get board type failed. (ret=%d)", ret);
         return UDA_DSMI_EXE_ERR;
     }
- 
-    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) &&
-        (board_type != SUPERPOD_900_BOARD_TYPE)) {
+
+    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) && (board_type != SUPERPOD_900_BOARD_TYPE)) {
         roce_err("Board_type:%d not support cdr.", board_type);
         return UDA_TOOL_CMD_UNSUPPORT_ON_PRODUCT_ERR;
     }
@@ -756,8 +752,8 @@ static int tool_get_scdr_reset_info(int argc, char **argv, struct tool_param *pa
 
     ret = dsmi_get_scdr_reset_info(param->logic_id, &scdr_reset_info);
     if (ret == UDA_DSMI_CDR_NOT_SUPPORT_ERROR) {
-        roce_err("Failed to get scdr reset info, retimer type not supported. (ret=%d, logic_id=%d)",
-            ret, param->logic_id);
+        roce_err("Failed to get scdr reset info, retimer type not supported. (ret=%d, logic_id=%d)", ret,
+                 param->logic_id);
         return UDA_DSMI_CDR_NOT_SUPPORT_ERROR;
     } else if (ret != 0) {
         roce_err("Failed to get scdr reset info. (ret=%d, logic_id=%d)", ret, param->logic_id);
@@ -777,8 +773,8 @@ static int tool_scdr_reset_delay_time_set(struct ds_scdr_reset_info *scdr_reset_
     ret = dsmi_set_scdr_reset_info(param->logic_id, scdr_reset_info);
     if (ret == UDA_DSMI_CDR_NOT_SUPPORT_ERROR) {
         // 如果返回值为UDA_DSMI_CDR_NOT_SUPPORT_ERROR，表示不支持的cdr类型，需要打屏不支持信息
-        roce_err("Failed to set scdr reset info, retimer type not supported.  (ret=%d, logic_id=%d)",
-            ret, param->logic_id);
+        roce_err("Failed to set scdr reset info, retimer type not supported.  (ret=%d, logic_id=%d)", ret,
+                 param->logic_id);
         return UDA_DSMI_CDR_NOT_SUPPORT_ERROR;
     } else if (ret != 0) {
         // 其他非0场景， 回显dsmi函数执行失败
@@ -853,8 +849,7 @@ static bool is_cdr_supported_board_type_A2_A3(const struct tool_param *param)
     }
 
     // 判断板类型是否为A_K_BOARD_TYPE、A_X_BOARD_TYPE或SUPERPOD_900_BOARD_TYPE
-    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) &&
-        (board_type != SUPERPOD_900_BOARD_TYPE)) {
+    if ((board_type != A_K_BOARD_TYPE) && (board_type != A_X_BOARD_TYPE) && (board_type != SUPERPOD_900_BOARD_TYPE)) {
         return false;
     }
 
@@ -893,8 +888,8 @@ int tool_scdr_reset_cmd_execute(int argc, char **argv, struct tool_param *param)
             ret = dsmi_get_logicid_from_phyid(temp_param.phy_id, &temp_param.logic_id);
             if (ret) {
                 // 如果id获取失败，说明主die丢卡或其他异常
-                roce_err("Failed to get logic_id from phy_id. (ret=%d; phy_id=%d; origin_phy_id=%d)",
-                    ret, temp_param.phy_id, param->phy_id);
+                roce_err("Failed to get logic_id from phy_id. (ret=%d; phy_id=%d; origin_phy_id=%d)", ret,
+                         temp_param.phy_id, param->phy_id);
                 return UDA_DSMI_CONTROL_LINK_UNREACHABLE_ERR;
             }
         }
@@ -929,10 +924,10 @@ static int tool_get_scdr_reset_info_from_conf(struct tool_param *param, struct d
 
     ret = cfg_read_conf(param->phy_id, "scdr_reset_delay_time", delay_time_str, CONLINE_LENGTH);
     if (ret != 0) {
-        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) {  // 当配置文件中没有找到这个配置时，跳过配置
+        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) { // 当配置文件中没有找到这个配置时，跳过配置
             roce_info("SCDR reset delay time configuration not found in config file., skipped. (ret=%d)", ret);
             return UDA_TOOL_SYS_RD_FILE_NOT_FOUND;
-        } else {  // 其他错误返回失败
+        } else { // 其他错误返回失败
             roce_err("cfg read conf failed. (name=scdr_reset_delay_time, ret=%d; phy_id=%d)", ret, param->phy_id);
             return ret;
         }
@@ -980,9 +975,9 @@ static int tool_scdr_reset_delay_time_recovery_impl(struct tool_param *param)
 
     ret = tool_get_scdr_reset_info_from_conf(&temp_param, &scdr_reset_info);
     if (ret != 0) {
-        return (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) ? 0 : ret;   // 如果conf文件中没有对应配置项，跳过
+        return (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) ? 0 : ret; // 如果conf文件中没有对应配置项，跳过
     }
-    return tool_scdr_reset_delay_time_set(&scdr_reset_info, &temp_param);   // 执行配置恢复动作
+    return tool_scdr_reset_delay_time_set(&scdr_reset_info, &temp_param); // 执行配置恢复动作
 }
 
 int tool_scdr_reset_delay_time_recovery(struct tool_param *param)
@@ -1031,19 +1026,15 @@ static int tool_print_scdr_esd(struct sds_esd_info_array *result, const int mast
     // 打印host
     for (i = 0; i < lane_num; i++) {
         lane_id = host_start_index + i;
-        TOOL_PRINT_INFO("host\t %2d\t %s\t\t %2d",  // 格式化数字对齐
-            i,
-            (result->info[lane_id].sds_esd_flag == 1) ? "PASS" : "FAIL",
-            result->info[lane_id].offset);
+        TOOL_PRINT_INFO("host\t %2d\t %s\t\t %2d", // 格式化数字对齐
+                        i, (result->info[lane_id].sds_esd_flag == 1) ? "PASS" : "FAIL", result->info[lane_id].offset);
     }
 
     // 打印media
     for (i = 0; i < lane_num; i++) {
         lane_id = media_start_index + i;
-        TOOL_PRINT_INFO("media\t %2d\t %s\t\t %2d",  // 格式化数字对齐
-            i,
-            (result->info[lane_id].sds_esd_flag == 1) ? "PASS" : "FAIL",
-            result->info[lane_id].offset);
+        TOOL_PRINT_INFO("media\t %2d\t %s\t\t %2d", // 格式化数字对齐
+                        i, (result->info[lane_id].sds_esd_flag == 1) ? "PASS" : "FAIL", result->info[lane_id].offset);
     }
 
     return 0;
@@ -1105,8 +1096,8 @@ int tool_scdr_esd_cmd_execute(int argc, char **argv, struct tool_param *param)
         ret = dsmi_get_logicid_from_phyid(temp_param.phy_id, &temp_param.logic_id);
         if (ret) {
             // 如果id获取失败，说明主die丢卡或其他异常
-            roce_err("Failed to get logic_id from phy_id. (ret=%d; phy_id=%d; origin_phy_id=%d)",
-                ret, temp_param.phy_id, param->phy_id);
+            roce_err("Failed to get logic_id from phy_id. (ret=%d; phy_id=%d; origin_phy_id=%d)", ret,
+                     temp_param.phy_id, param->phy_id);
             return UDA_DSMI_CONTROL_LINK_UNREACHABLE_ERR;
         }
     }
@@ -1124,8 +1115,8 @@ int tool_scdr_esd_cmd_execute(int argc, char **argv, struct tool_param *param)
         }
         ret = tool_get_scdr_esd_cmd(argc - 1, argv + 1, &temp_param, master_die_flag);
         if (ret != 0) {
-            roce_err("Get scdr esd cmd fail. (ret=%d; logic_id=%d, temp_logic_id=%d)",
-                ret, logic_id, temp_param.logic_id);
+            roce_err("Get scdr esd cmd fail. (ret=%d; logic_id=%d, temp_logic_id=%d)", ret, logic_id,
+                     temp_param.logic_id);
             return ret;
         }
     } else {

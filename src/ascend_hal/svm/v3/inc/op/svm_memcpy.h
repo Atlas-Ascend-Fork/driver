@@ -61,6 +61,13 @@ int svm_sync_copy(struct svm_copy_va_info *src_info, struct svm_copy_va_info *ds
 int svm_async_copy_submit(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info, u64 *handle);
 int svm_async_copy_wait(u64 handle);
 
+/* Two-level async interface for pipeline: alloc channel once, reuse across chunks */
+int svm_async_chan_alloc(u32 devid, int *chan_id);
+void svm_async_chan_free(u32 devid, int chan_id);
+int svm_async_copy_submit_reuse(u32 devid, int chan_id, struct svm_copy_va_info *src_info,
+                                struct svm_copy_va_info *dst_info);
+int svm_async_copy_wait_one(u32 devid, int chan_id);
+
 int svm_dma_desc_convert(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info,
                          struct DMA_ADDR *dma_desc);
 int svm_dma_desc_submit(struct DMA_ADDR *dma_desc, int flag);

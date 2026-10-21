@@ -56,7 +56,7 @@ STATIC int vmnga_fill_msg_cluster_res(struct vmng_msg_chan_res *res, u32 tx_base
     rx_max = rx_base + rx_num;
     if ((tx_base >= VMNG_MSG_CHAN_NUM_MAX) || (tx_num >= VMNG_MSG_CHAN_NUM_MAX) || (rx_base >= VMNG_MSG_CHAN_NUM_MAX) ||
         (rx_num >= VMNG_MSG_CHAN_NUM_MAX) || (tx_max > VMNG_MSG_CHAN_NUM_MAX) || (rx_max > VMNG_MSG_CHAN_NUM_MAX)) {
-        vmng_err("Parameter check failed. (tx_base=%u;tx_num=%u;rx_base=%u;rx_num=%u)\n", tx_base, tx_num, rx_base,
+        vmng_err("Parameter check failed. (tx_base=%u; tx_num=%u; rx_base=%u; rx_num=%u)\n", tx_base, tx_num, rx_base,
                  rx_num);
         return -EINVAL;
     }
@@ -156,14 +156,14 @@ static vmnga_admin_func g_vmnga_msg_admin_func_ops[] = {
 
 #define VMNG_ADMIN_PROC_OPCODE_MAX (sizeof(g_vmnga_msg_admin_func_ops) / sizeof(void *))
 
-int vmnga_register_admin_rx_func(int opcode, vmnga_admin_func admin_func)
+int vmnga_register_admin_rx_func(u32 opcode, vmnga_admin_func admin_func)
 {
     if (opcode >= VMNG_ADMIN_PROC_OPCODE_MAX) {
         vmng_err("opcode is invalid. (opcode=%u)\n", opcode);
         return -EINVAL;
     }
     if (g_vmnga_msg_admin_func_ops[opcode] != NULL) {
-        vmng_err("opcode has registered. (opcode=%u)\n", opcode);
+        vmng_err("opcode has been registered. (opcode=%u)\n", opcode);
         return -EINVAL;
     }
     g_vmnga_msg_admin_func_ops[opcode] = admin_func;
@@ -171,7 +171,7 @@ int vmnga_register_admin_rx_func(int opcode, vmnga_admin_func admin_func)
 }
 KA_EXPORT_SYMBOL(vmnga_register_admin_rx_func);
 
-void vmnga_unregister_admin_rx_func(int opcode)
+void vmnga_unregister_admin_rx_func(u32 opcode)
 {
     if (opcode >= VMNG_ADMIN_PROC_OPCODE_MAX) {
         vmng_err("opcode is invalid. (opcode=%u)\n", opcode);

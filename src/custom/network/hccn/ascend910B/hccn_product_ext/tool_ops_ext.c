@@ -28,31 +28,31 @@
 #include "log.h"
 #include "ds_net_ext.h"
 #include "ascend_hal.h"
-#define WAIT_TIME    1
+#define WAIT_TIME 1
 
-#define FEC_EEROR_CMD_SIZE  1
+#define FEC_EEROR_CMD_SIZE 1
 
-#define DOWNGRADE_LANE_SWITCH              "downgrade_lane_switch"
-#define DOWNGRADE_LANE_FILTER_TIME         "downgrade_lane_filter_time"
-#define DOWNGRADE_LANE_ENABLE              1
-#define DOWNGRADE_LANE_DISABLE             0
-#define DOWNGRADE_FILTER_MIN_TIME_S        3
-#define DOWNGRADE_FILTER_MAX_TIME_S        8
-#define DOWNGRADE_FILE_NUM                 2
+#define DOWNGRADE_LANE_SWITCH "downgrade_lane_switch"
+#define DOWNGRADE_LANE_FILTER_TIME "downgrade_lane_filter_time"
+#define DOWNGRADE_LANE_ENABLE 1
+#define DOWNGRADE_LANE_DISABLE 0
+#define DOWNGRADE_FILTER_MIN_TIME_S 3
+#define DOWNGRADE_FILTER_MAX_TIME_S 8
+#define DOWNGRADE_FILE_NUM 2
 
 /* mem_reserve magic numbers */
 
-#define MEM_RESERVE_STRTOL_BASE            10
-#define MEM_RESERVE_CONFIG_LENGTH          384
-#define MEM_RESERVE_SET_ARGC               4   /* "type %s size %u" format requires 4 arguments */
+#define MEM_RESERVE_STRTOL_BASE 10
+#define MEM_RESERVE_CONFIG_LENGTH 384
+#define MEM_RESERVE_SET_ARGC 4 /* "type %s size %u" format requires 4 arguments */
 
-#define MEM_RESERVE_ARG_IDX_SIZE           2   /* argv index for "size" keyword */
+#define MEM_RESERVE_ARG_IDX_SIZE 2 /* argv index for "size" keyword */
 
-#define MEM_RESERVE_ARG_IDX_VALUE          3   /* argv index for size value */
+#define MEM_RESERVE_ARG_IDX_VALUE 3 /* argv index for size value */
 
-#define MEM_RESERVE_KB_TO_BYTES            1024
-#define MEM_RESERVE_MAX_SIZE_MB            512  /* Max supported mem_size in MB */
- 
+#define MEM_RESERVE_KB_TO_BYTES 1024
+#define MEM_RESERVE_MAX_SIZE_MB 512 /* Max supported mem_size in MB */
+
 static void tool_display_down_info(int phy_id, const struct ds_link_down_info *down_info, int cnt)
 {
     (void)fprintf(stdout, "[time %d] =======================\n", cnt);
@@ -62,17 +62,17 @@ static void tool_display_down_info(int phy_id, const struct ds_link_down_info *d
     (void)fprintf(stdout, "[time %d] dec_err_blk_cnt  : 0x%x\n", cnt, down_info->pcs_info.dec_err_blk_cnt);
     (void)fprintf(stdout, "[time %d] test_err_cnt     : 0x%x\n", cnt, down_info->pcs_info.test_err_cnt);
     (void)fprintf(stdout, "[time %d] lane_bip_err_cnt : 0x%x\n", cnt, down_info->pcs_info.lane_bip_err_cnt);
- 
+
     (void)fprintf(stdout, "[time %d] pcs_link         : 0x%x\n", cnt, down_info->pcs_link);
     (void)fprintf(stdout, "[time %d] mac_link         : 0x%x\n", cnt, down_info->mac_link);
     (void)fprintf(stdout, "[time %d] rf_lf            : 0x%x\n", cnt, down_info->rf_lf);
 }
- 
+
 static void tool_display_eth_down_data(int phy_id, const struct ds_link_down_data *down_data)
 {
     int cnt = 0;
     int i;
- 
+
     if (down_data->total_nums > 0) {
         (void)fprintf(stdout, "[devid %d] ======================\n", phy_id);
         (void)fprintf(stdout, "[devid %d] link down record :\n", phy_id);
@@ -80,12 +80,12 @@ static void tool_display_eth_down_data(int phy_id, const struct ds_link_down_dat
         (void)fprintf(stdout, "[devid %d] link down record : NA\n", phy_id);
         return;
     }
- 
+
     for (i = (down_data->down_info_idx - 1); i >= 0; i--) {
         tool_display_down_info(phy_id, &down_data->down_info[i], cnt);
         cnt++;
     }
- 
+
     if ((down_data->total_nums == MAX_LINK_DOWN_NUMS) && (down_data->down_info_idx < MAX_LINK_DOWN_NUMS)) {
         for (i = (MAX_LINK_DOWN_NUMS - 1); i > (down_data->down_info_idx - 1); i--) {
             tool_display_down_info(phy_id, &down_data->down_info[i], cnt);
@@ -94,7 +94,7 @@ static void tool_display_eth_down_data(int phy_id, const struct ds_link_down_dat
     }
     (void)fprintf(stdout, "[time %d] =======================\n", --cnt);
 }
- 
+
 int tool_down_data_cmd_execute(int argc, char **argv, struct tool_param *param)
 {
     struct ds_link_down_data down_data = {0};
@@ -112,7 +112,7 @@ int tool_down_data_cmd_execute(int argc, char **argv, struct tool_param *param)
         roce_err("Err argc. (argc=%d)", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
- 
+
     logic_id = param->logic_id;
     if (!strncmp(argv[0], "-g", strlen("-g") + 1)) {
         param->get_cmd_flag = true;
@@ -129,13 +129,13 @@ int tool_down_data_cmd_execute(int argc, char **argv, struct tool_param *param)
 
     return 0;
 }
- 
+
 static int tool_traceroute_ip_param(unsigned int *dip, unsigned int dip_size, bool ipv6_flag, char *ipaddr)
 {
     struct in_addr addr;
     struct in6_addr addr6;
     int ret;
- 
+
     if (ipv6_flag) {
         ret = inet_pton(AF_INET6, ipaddr, &addr6);
         if (ret <= 0) {
@@ -155,25 +155,26 @@ static int tool_traceroute_ip_param(unsigned int *dip, unsigned int dip_size, bo
         }
         dip[0] = addr.s_addr;
     }
- 
+
     return UDA_EXE_SUCCESS;
 }
 
-static int tool_parse_traceroute_param(int index, char **argv, struct traceroute_parse_param *tmp_map,
-    int map_len, bool is_ipv6)
+static int tool_parse_traceroute_param(int index, char **argv, struct traceroute_parse_param *tmp_map, int map_len,
+                                       bool is_ipv6)
 {
     int tmp_index;
     int ret, troute_info;
     char *p_tmp = NULL, *map_param = NULL;
 
-    if (strncmp(argv[index], "-d", strlen("-d") + 1) == 0) { // strlen()+1是为了全字符串比较，带上'\0'，否则形如"-dxxx"的也能通过
+    if (strncmp(argv[index], "-d", strlen("-d") + 1) ==
+        0) { // strlen()+1是为了全字符串比较，带上'\0'，否则形如"-dxxx"的也能通过
         if (tmp_map[map_len - 1].is_used) {
             roce_err("Operation '-d' was used.");
             return UDA_PARAM_OP_NOT_SUPPORT_ERR;
         }
         tmp_map[map_len - 1].is_used = true;
-        ret = tool_traceroute_ip_param(
-            tmp_map[map_len - 1].value.unint_value, DEVDRV_IPV6_ARRAY_INT_LEN, is_ipv6, argv[index + 1]);
+        ret = tool_traceroute_ip_param(tmp_map[map_len - 1].value.unint_value, DEVDRV_IPV6_ARRAY_INT_LEN, is_ipv6,
+                                       argv[index + 1]);
         if (ret != UDA_EXE_SUCCESS) {
             roce_err("Tool loaded traceroute ip param failed! (ip=%s; ret=%d)", argv[index + 1], ret);
             return ret;
@@ -208,20 +209,20 @@ static int tool_parse_traceroute_param(int index, char **argv, struct traceroute
 
     return UDA_PARAM_OP_NOT_SUPPORT_ERR;
 }
- 
+
 static int tool_traceroute_info_load(int argc, char **argv, struct dsmi_traceroute_info *traceroute_info_send,
-    bool ipv6_flag)
+                                     bool ipv6_flag)
 {
     int ret;
     struct dsmi_traceroute_info *tmp_info = traceroute_info_send;
     int max_tos_or_tc = ipv6_flag ? TRACEROUTE_TC_MAX : TRACEROUTE_TOS_MAX;
     struct traceroute_parse_param map_traceroute_info[] = {
-        { .value.int_value = &tmp_info->max_ttl, "-m", TRACEROUTE_TTL_MIN, TRACEROUTE_TTL_MAX, false },
-        { .value.int_value = &tmp_info->tos, "-t", TOS_NUMBER_MIN, max_tos_or_tc, false },
-        { .value.int_value = &tmp_info->waittime, "-w", TRACEROUTE_WAITTIME_MIN, TRACEROUTE_WAITTIME_MAX, false },
-        { .value.int_value = &tmp_info->source_port, "-sport", UDP_PORT_NUMBER_MIN, UDP_PORT_NUMBER_MAX, false },
-        { .value.int_value = &tmp_info->dest_port, "-dport", UDP_PORT_NUMBER_MIN, UDP_PORT_NUMBER_MAX, false },
-        { .value.unint_value = tmp_info->dip, "-d", 0, 0, false },
+        {.value.int_value = &tmp_info->max_ttl, "-m", TRACEROUTE_TTL_MIN, TRACEROUTE_TTL_MAX, false},
+        {.value.int_value = &tmp_info->tos, "-t", TOS_NUMBER_MIN, max_tos_or_tc, false},
+        {.value.int_value = &tmp_info->waittime, "-w", TRACEROUTE_WAITTIME_MIN, TRACEROUTE_WAITTIME_MAX, false},
+        {.value.int_value = &tmp_info->source_port, "-sport", UDP_PORT_NUMBER_MIN, UDP_PORT_NUMBER_MAX, false},
+        {.value.int_value = &tmp_info->dest_port, "-dport", UDP_PORT_NUMBER_MIN, UDP_PORT_NUMBER_MAX, false},
+        {.value.unint_value = tmp_info->dip, "-d", 0, 0, false},
     };
     int map_len = sizeof(map_traceroute_info) / sizeof(struct traceroute_parse_param);
 
@@ -247,7 +248,7 @@ static int tool_traceroute_start(int logic_id, struct dsmi_traceroute_info *trac
 {
     int ret;
     int troute_status = 0, troute_result = 0, troute_reset = 0;
-    
+
     ret = dsmi_get_traceroute_status(logic_id, &troute_status);
     if (ret != 0) {
         roce_err("Tool traceroute start get status failed. (ret=%d; logic_id=%d)", ret, logic_id);
@@ -259,26 +260,24 @@ static int tool_traceroute_start(int logic_id, struct dsmi_traceroute_info *trac
     } else if (troute_status == TRACEROUTE_STATUS_ERROR) {
         ret = dsmi_reset_traceroute(logic_id, &troute_reset);
         if (ret != 0) {
-            roce_err("Dsmi reset traceroute failed. (ret=%d; logic_id=%d; troute_reset=%d)",
-                ret, troute_reset, logic_id);
+            roce_err("Dsmi reset traceroute failed. (ret=%d; logic_id=%d; troute_reset=%d)", ret, troute_reset,
+                     logic_id);
             return dsmi_analysis_dsmi_ret_to_uda(ret);
         }
         if (troute_reset != 0) {
-            roce_err("Dsmi reset traceroute failed. (ret=%d; logic_id=%d; troute_reset=%d)",
-                ret, troute_reset, logic_id);
+            roce_err("Dsmi reset traceroute failed. (ret=%d; logic_id=%d; troute_reset=%d)", ret, troute_reset,
+                     logic_id);
             return UDA_DSMI_EXE_ERR;
         }
     }
 
     ret = dsmi_start_traceroute(logic_id, traceroute_info_send, &troute_result);
     if (ret != 0) {
-        roce_err("Dsmi_start_traceroute failed. (ret=%d; logic_id=%d; troute_result=%d)",
-                 ret, logic_id, troute_result);
+        roce_err("Dsmi_start_traceroute failed. (ret=%d; logic_id=%d; troute_result=%d)", ret, logic_id, troute_result);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
     if (troute_result == TRACEROUTE_STATUS_ERROR) {
-        roce_err("Dsmi_start_traceroute failed. (ret=%d; logic_id=%d; troute_result=%d)",
-                 ret, logic_id, troute_result);
+        roce_err("Dsmi_start_traceroute failed. (ret=%d; logic_id=%d; troute_result=%d)", ret, logic_id, troute_result);
         return UDA_DSMI_EXE_ERR;
     }
 
@@ -299,8 +298,8 @@ STATIC int tool_waiting_traceroute_finish(int logic_id)
         if (troute_status == TRACEROUTE_STATUS_NOT_RUNNING) {
             break;
         } else if (troute_status == TRACEROUTE_STATUS_ERROR) {
-            roce_err("Dsmi got error traceroute status. (ret=%d; logic_id=%d; troute_status=%d)",
-                     ret, logic_id, troute_status);
+            roce_err("Dsmi got error traceroute status. (ret=%d; logic_id=%d; troute_status=%d)", ret, logic_id,
+                     troute_status);
             return UDA_DSMI_EXE_ERR;
         }
 
@@ -321,7 +320,8 @@ static int tool_get_traceroute_info(int argc, char **argv, struct tool_param *pa
     struct dsmi_traceroute_info traceroute_info_send = {0};
     char *troute_info_show = NULL;
 
-    if ((argc < TOOL_TRACEROUTE_CMD_LEN_MIN) || (((unsigned int)argc & 1) == 1)) { // agrc按位与1，即取余数，若为奇数则错误
+    if ((argc < TOOL_TRACEROUTE_CMD_LEN_MIN) ||
+        (((unsigned int)argc & 1) == 1)) { // agrc按位与1，即取余数，若为奇数则错误
         roce_err("Argc error. (argc=%d)", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
@@ -370,8 +370,8 @@ static int tool_reset_traceroute(struct tool_param *param)
 
     ret = dsmi_reset_traceroute(param->logic_id, &troute_reset);
     if (ret != 0 || troute_reset != 0) {
-        roce_err("Dsmi reset traceroute failed. (ret=%d; logic_id=%d; troute_reset=%d)",
-            ret, troute_reset, param->logic_id);
+        roce_err("Dsmi reset traceroute failed. (ret=%d; logic_id=%d; troute_reset=%d)", ret, troute_reset,
+                 param->logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
     TOOL_PRINT_ERR("Traceroute processes have been killed.");
@@ -407,7 +407,7 @@ int tool_traceroute_cmd_execute(int argc, char **argv, struct tool_param *param)
         }
         return ret;
     }
-    
+
     if (is_ipv6_cmd(&argc_tmp, &argv_tmp)) {
         ipv6_flag = true;
         if (argc_tmp <= 0) {
@@ -419,7 +419,7 @@ int tool_traceroute_cmd_execute(int argc, char **argv, struct tool_param *param)
             return UDA_TOOL_OP_NOT_SUPPORT_IPV6_ERR;
         }
     }
-    
+
     if (!strncmp(argv_tmp[0], "-g", strlen("-g") + 1)) {
         param->get_cmd_flag = true;
         ret = tool_get_traceroute_info(argc_tmp - 1, argv_tmp + 1, param, ipv6_flag);
@@ -475,7 +475,7 @@ int verify_little_param(int argc, struct tool_param *param, struct perftest_cmd_
     struct perftest_curr_stat perftest_curr = {0};
     unsigned int little_mem = get_little_mem_process();
     int ret;
- 
+
     ret = dsmi_get_roce_perftest_status(param->logic_id, is_client, &perftest_curr);
     if (ret) {
         roce_err("Dsmi get roce perftest status failed. (ret=%d; dev_id=%d)", ret, param->logic_id);
@@ -484,20 +484,20 @@ int verify_little_param(int argc, struct tool_param *param, struct perftest_cmd_
     if (perftest_curr.free_mem <= MEM_MIN) {
         if (little_mem) {
             TOOL_PRINT_ERR("There isn't enough memory to perform the requested, only -n and -s parameters"
-                        " are allowed here.");
+                           " are allowed here.");
             return UDA_PARAM_INVALID_ERR;
         }
     }
     return 0;
 }
- 
+
 int waiting_roce_perftest_finish(int device_id, unsigned int is_client, struct perftest_cmd_info cmd_info[],
                                  struct perftest_curr_stat *perftest_curr, int wait_num)
 {
     int ret;
     int local_wait_num = wait_num;
     unsigned int little_mem = get_little_mem_process();
- 
+
     while (1) {
         sleep(WAIT_TIME);
         ret = dsmi_get_roce_perftest_status(device_id, is_client, perftest_curr);
@@ -558,7 +558,7 @@ static int tool_get_xsfp_reset_info(int argc, int logic_id)
 
 static int tool_parse_xsfp_reset_info_parm(int argc, char **argv, struct xsfp_reset_info *reset_info)
 {
-    char flag[2] = {0};         // Indicates the subcommand settings, total num is 2.
+    char flag[2] = {0}; // Indicates the subcommand settings, total num is 2.
     char *p_tmp = NULL;
     long tmp;
     int i;
@@ -571,7 +571,7 @@ static int tool_parse_xsfp_reset_info_parm(int argc, char **argv, struct xsfp_re
                 return UDA_PARAM_OP_NOT_SUPPORT_ERR;
             }
             reset_info->max_time = (unsigned char)tmp;
-            flag[0] = 1;                                    // Indicates that the field has been set.
+            flag[0] = 1; // Indicates that the field has been set.
         } else if ((strncmp(argv[i], "wait_times", strlen("wait_times") + 1) == 0) && (flag[INDEX_ONE] == 0)) {
             tmp = strtol(argv[i + 1], &p_tmp, NUMBER_BASE);
             if ((*p_tmp != '\0') || (tmp < 0) || (tmp > MAX_XSFP_WATI_TIME)) {
@@ -579,7 +579,7 @@ static int tool_parse_xsfp_reset_info_parm(int argc, char **argv, struct xsfp_re
                 return UDA_PARAM_OP_NOT_SUPPORT_ERR;
             }
             reset_info->wait_time = (unsigned char)tmp;
-            flag[1] = 1;                                    // Indicates that the field has been set.
+            flag[1] = 1; // Indicates that the field has been set.
         } else {
             roce_err("Invalid operation.)");
             return UDA_PARAM_OP_NOT_SUPPORT_ERR;
@@ -842,7 +842,7 @@ static int tool_get_fec_error_info(int logic_id, int mac_id)
     int ret;
     int j;
     struct ds_fec_error_info info = {0};
- 
+
     ret = dsmi_get_fec_error_info(logic_id, &info, mac_id);
     if (ret != 0) {
         roce_err("Dsmi get fec erro info fail! (ret=%d; logic_id=%d)", ret, logic_id);
@@ -924,7 +924,7 @@ static int tool_parse_cw_bad_cnt_thd(int argc, char **argv, struct ds_cw_bad_cnt
     char *p_tmp = NULL;
     long tmp;
     int i;
-    
+
     if (argc == 0) {
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
     }
@@ -932,8 +932,8 @@ static int tool_parse_cw_bad_cnt_thd(int argc, char **argv, struct ds_cw_bad_cnt
         if (strncmp(argv[i], "high_limit", strlen("high_limit") + 1) == 0) {
             tmp = strtol(argv[i + 1], &p_tmp, NUMBER_BASE);
             if ((*p_tmp != '\0') || (tmp < ROCE_MIN_CW_BAD_CNT_THD) || (tmp > ROCE_MAX_CW_BAD_CNT_THD)) {
-                roce_err("The value of cw_bad_cnt_thd high_limit wrong. [%d ~ %d]",
-                         ROCE_MIN_CW_BAD_CNT_THD, ROCE_MAX_CW_BAD_CNT_THD);
+                roce_err("The value of cw_bad_cnt_thd high_limit wrong. [%d ~ %d]", ROCE_MIN_CW_BAD_CNT_THD,
+                         ROCE_MAX_CW_BAD_CNT_THD);
                 return UDA_PARAM_INVALID_ERR;
             }
             info->cw_bad_cnt_thd = (unsigned char)tmp;
@@ -976,7 +976,7 @@ int tool_set_roce_cw_bad_cnt_thd(int argc, char **argv, struct tool_param *param
         roce_err("Dsmi set cw_bad_cnt_thd failed. (ret=%d; dev_id=%d)", ret, logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
-    
+
     return 0;
 }
 
@@ -1036,12 +1036,12 @@ int host_info_read(struct ds_host_info *host_info)
 {
     int ret;
     struct utsname buffer;
- 
+
     if (host_info == NULL) {
         roce_err("Input param is NULL.");
         return UDA_TOOL_NO_MEM_ERR;
     }
- 
+
     /* 通过uname()函数获取系统信息，等同于uname -a */
     ret = uname(&buffer);
     if (ret != 0) {
@@ -1055,13 +1055,13 @@ int host_info_read(struct ds_host_info *host_info)
         return ret;
     }
     /* 拷贝host_description */
-    ret = sprintf_s(host_info->host_description, HOST_INFO_SIZE_MAX,
-        "%s %s %s %s %s", buffer.sysname, buffer.nodename, buffer.release, buffer.version, buffer.machine);
+    ret = sprintf_s(host_info->host_description, HOST_INFO_SIZE_MAX, "%s %s %s %s %s", buffer.sysname, buffer.nodename,
+                    buffer.release, buffer.version, buffer.machine);
     if (ret <= 0) {
         roce_err("Sprintf_s host info err. (ret=%d)", ret);
         return -ENOMEM;
     }
- 
+
     return 0;
 }
 
@@ -1082,15 +1082,15 @@ int tool_cfg_host_info_recovery(struct tool_param *param)
         roce_err(" Set host info failed. (ret=%d; logic_id=%d)", ret, param->logic_id);
         ret = dsmi_analysis_dsmi_ret_to_uda(ret);
     }
- 
+
     return ret;
 }
 
 static void tool_show_ippair_list(struct ds_ippair_list *list, struct ds_roce_port_ippair *ippair)
 {
     int i;
-    char sip[INET6_ADDRSTRLEN] = { 0 };
-    char dip[INET6_ADDRSTRLEN] = { 0 };
+    char sip[INET6_ADDRSTRLEN] = {0};
+    char dip[INET6_ADDRSTRLEN] = {0};
 
     TOOL_PRINT_INFO("UDP port list(based on IP pair):");
     if (list->count == 0) {
@@ -1141,7 +1141,7 @@ int tool_roce_port_get_ip(char *arg, struct in6_addr *ip, int *family)
 
 static bool ippair_ip_addrees_is_null(struct ds_roce_port_ippair *ippair)
 {
-    struct in6_addr zero_addr = { 0 };
+    struct in6_addr zero_addr = {0};
 
     if (memcmp(&zero_addr, &ippair->sip.ipv6, sizeof(struct in6_addr)) == 0 ||
         memcmp(&zero_addr, &ippair->dip.ipv6, sizeof(struct in6_addr)) == 0) {
@@ -1215,16 +1215,14 @@ static int tool_get_ippair_list(int logic_id, struct ds_ippair_list **out_list)
 }
 
 #ifdef HCCN_TOOL_SHOW_EXT
-int tool_update_roce_port_ippair(int logic_id, int argc, char **argv,
-    enum tool_ippair_op_type op)
+int tool_update_roce_port_ippair(int logic_id, int argc, char **argv, enum tool_ippair_op_type op)
 {
     int ret;
     char *op_name[] = {"set", "del"};
-    char sip[INET6_ADDRSTRLEN] = { 0 };
-    char dip[INET6_ADDRSTRLEN] = { 0 };
-    struct ds_roce_port_ippair ippair = { 0 };
-    int (*func[])(int, int, struct ds_roce_port_ippair *) = {
-        dsmi_set_roce_port_ippair, dsmi_del_roce_port_ippair};
+    char sip[INET6_ADDRSTRLEN] = {0};
+    char dip[INET6_ADDRSTRLEN] = {0};
+    struct ds_roce_port_ippair ippair = {0};
+    int (*func[])(int, int, struct ds_roce_port_ippair *) = {dsmi_set_roce_port_ippair, dsmi_del_roce_port_ippair};
 
     if (argc != ARGC_ID_6) {
         return UDA_PARAM_CMD_COUNT_ERR;
@@ -1238,14 +1236,14 @@ int tool_update_roce_port_ippair(int logic_id, int argc, char **argv,
     (void)inet_ntop(ippair.sip_family, &ippair.sip.ipv6, sip, INET6_ADDRSTRLEN);
     (void)inet_ntop(ippair.dip_family, &ippair.dip.ipv6, dip, INET6_ADDRSTRLEN);
 
-    LOG_CONFIG("Start to %s roce port ippair.(logic_id=%d; roce_port=%d; sip=%s; dip=%s)",
-        op_name[op], logic_id, ippair.roce_port, sip, dip);
+    LOG_CONFIG("Start to %s roce port ippair.(logic_id=%d; roce_port=%d; sip=%s; dip=%s)", op_name[op], logic_id,
+               ippair.roce_port, sip, dip);
     ret = func[op](logic_id, 0, &ippair);
-    LOG_CONFIG("End to %s roce port ippair.(logic_id=%d; roce_port=%d; sip=%s; dip=%s; result=%d)",
-        op_name[op], logic_id, ippair.roce_port, sip, dip, ret);
+    LOG_CONFIG("End to %s roce port ippair.(logic_id=%d; roce_port=%d; sip=%s; dip=%s; result=%d)", op_name[op],
+               logic_id, ippair.roce_port, sip, dip, ret);
     if (ret != 0) {
-        roce_err("Dsmi %s roce port fail.(ret=%d; logic_id=%d; roce_port=%d; sip=%s; dip=%s)",
-            op_name[op], ret, logic_id, ippair.roce_port, sip, dip);
+        roce_err("Dsmi %s roce port fail.(ret=%d; logic_id=%d; roce_port=%d; sip=%s; dip=%s)", op_name[op], ret,
+                 logic_id, ippair.roce_port, sip, dip);
         if (ret == -EINVAL) {
             return op == IPPAIR_SET ? UDA_PARAM_INVALID_ERR : UDA_TOOL_CONF_NOT_EXIST_ERR;
         }
@@ -1294,7 +1292,7 @@ int tool_get_single_ippair(int logic_id, int argc, char **argv)
     int ret;
     int roce_port = 0;
     struct ds_ippair_list *list = NULL;
-    struct ds_roce_port_ippair ippair = { 0 };
+    struct ds_roce_port_ippair ippair = {0};
 
     ret = parse_roce_port_ippair(argc, argv, &ippair);
     if (ret != UDA_SUCCESS) {
@@ -1335,20 +1333,20 @@ int tool_get_all_ippair(int logic_id)
 #endif
 
 int tool_get_npu_serders_snr_macro(int phy_id, int logic_id, unsigned int macro_id)
- 
+
 {
     int ret;
     tool_serdes_quality_info serdes_quality_info;
     unsigned int out_size = (unsigned int)sizeof(tool_serdes_quality_info);
- 
+
     serdes_quality_info.macro_id = macro_id;
     ret = dsmi_get_device_info(logic_id, DSMI_MAIN_CMD_SERDES, DSMI_SERDES_SUB_CMD_QUALITY_INFO,
-        (void *)&serdes_quality_info, &out_size);
+                               (void *)&serdes_quality_info, &out_size);
     if ((ret != 0) && (ret != DSMI_ERR_NOT_SUPPORT)) {
         roce_err("Dsmi_get_device_info failed.(ret = %u)", ret);
         return UDA_TOOL_INNER_PARAM_ERR;
     }
- 
+
     if (ret == DSMI_ERR_NOT_SUPPORT) {
         roce_err("Npu_serdes_snr is not supported.");
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
@@ -1359,19 +1357,19 @@ int tool_get_npu_serders_snr_macro(int phy_id, int logic_id, unsigned int macro_
     for (int i = 0; i < DEVICE_NPU_LANE_MAX_NUM; i++) {
         TOOL_PRINT_INFO("npu serdes lane%d  :  %08u", i, serdes_quality_info.serdes_quality_info[i].snr);
     }
- 
+
     return ret;
 }
- 
+
 static void tool_print_serdes_speed_lane_cnt(unsigned int macro_id)
- 
+
 {
     TOOL_PRINT_INFO("");
     TOOL_PRINT_INFO("npu serdes speed  :  56.125G");
     TOOL_PRINT_INFO("npu lane cnt      :  4");
     TOOL_PRINT_INFO("----THE SERDES INFO OF PORT %d----------------------", macro_id);
 }
- 
+
 int tool_get_npu_serders_snr(struct tool_param *param)
 {
     int ret;
@@ -1392,7 +1390,7 @@ int tool_get_npu_serders_snr(struct tool_param *param)
     } else {
         TOOL_PRINT_INFO("---------------------------------------------------");
     }
- 
+
     return UDA_SUCCESS;
 }
 
@@ -1423,7 +1421,7 @@ static void tool_show_downgrade_lane_info(struct downgrade_lane_info info)
 
 static int tool_parse_downgrade_info_parm(int argc, char **argv, struct downgrade_lane_info *info)
 {
-    char flag[2] = {0};         // Indicates the subcommand settings, total num is 2.
+    char flag[2] = {0}; // Indicates the subcommand settings, total num is 2.
     char *p_tmp = NULL;
     long tmp;
     int i;
@@ -1443,7 +1441,7 @@ static int tool_parse_downgrade_info_parm(int argc, char **argv, struct downgrad
                 return UDA_PARAM_INVALID_ERR;
             }
             info->switch_flag = (unsigned char)tmp;
-            flag[0] = 1;                                    // Indicates that the field has been set.
+            flag[0] = 1; // Indicates that the field has been set.
         } else if ((strncmp(argv[i], "filter_time", strlen("filter_time") + 1) == 0) && (flag[INDEX_ONE] == 0)) {
             tmp = strtol(argv[i + 1], &p_tmp, NUMBER_BASE);
             if ((*p_tmp != '\0') || (tmp > DOWNGRADE_FILTER_MAX_TIME_S) || (tmp < DOWNGRADE_FILTER_MIN_TIME_S)) {
@@ -1451,7 +1449,7 @@ static int tool_parse_downgrade_info_parm(int argc, char **argv, struct downgrad
                 return UDA_PARAM_INVALID_ERR;
             }
             info->filter_time = (unsigned char)tmp;
-            flag[1] = 1;                                    // Indicates that the field has been set.
+            flag[1] = 1; // Indicates that the field has been set.
         } else {
             roce_err("Invalid operation.)");
             return UDA_PARAM_OP_NOT_SUPPORT_ERR;
@@ -1645,10 +1643,10 @@ int tool_read_downgrade_info(struct tool_param *param, char **argv_tmp, char *sw
     argv_tmp[0] = "enable";
     ret = cfg_read_conf(param->phy_id, DOWNGRADE_LANE_SWITCH, switch_data, PARAM_COUNT_THREE);
     if (ret != 0) {
-        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) {  // 当配置文件中没有找到这个配置时，返回成功，跳过配置
+        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) { // 当配置文件中没有找到这个配置时，返回成功，跳过配置
             (*check_times)++;
             roce_info("The Downgrade filter time conf name is not found in config file, skipped. (ret=%d)", ret);
-        } else {  // 其他错误返回失败
+        } else { // 其他错误返回失败
             roce_err("Other inner err. (ret=%d; phy_id=%d)", ret, param->phy_id);
             return ret;
         }
@@ -1658,10 +1656,10 @@ int tool_read_downgrade_info(struct tool_param *param, char **argv_tmp, char *sw
     argv_tmp[INDEX_TWO] = "filter_time";
     ret = cfg_read_conf(param->phy_id, DOWNGRADE_LANE_FILTER_TIME, filter_time, PARAM_COUNT_THREE);
     if (ret != 0) {
-        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) {  // 当配置文件中没有找到这个配置时，返回成功，跳过配置
+        if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) { // 当配置文件中没有找到这个配置时，返回成功，跳过配置
             (*check_times)++;
             roce_info("The Downgrade filter time conf name is not found in config file, skipped. (ret=%d)", ret);
-        } else {  // 其他错误返回失败
+        } else { // 其他错误返回失败
             roce_err("Other inner err. (ret=%d; phy_id=%d)", ret, param->phy_id);
             return ret;
         }
@@ -1714,19 +1712,20 @@ int tool_cfg_downgrade_lane_recovery(struct tool_param *param)
 static int tool_a3_ipaddr_conflict_extend(int logic_id, unsigned int phy_id, unsigned int ipaddr, unsigned int mask)
 {
     int ret;
-    const char* vnic_a3_spod_addr[MAX_A3_LIMIT_IP_NUMS] = {"192.0.0.0", "192.168.0.0"}; // index 0代表超节点内的ip限制，1代表非超节点内
-    const char* vnic_a3_spod_mask[MAX_A3_LIMIT_IP_NUMS] = {"255.0.0.0", "255.255.248.0"};
+    const char *vnic_a3_spod_addr[MAX_A3_LIMIT_IP_NUMS] = {
+        "192.0.0.0", "192.168.0.0"}; // index 0代表超节点内的ip限制，1代表非超节点内
+    const char *vnic_a3_spod_mask[MAX_A3_LIMIT_IP_NUMS] = {"255.0.0.0", "255.255.248.0"};
     unsigned int addr_index = 0;
     unsigned int vnic_h_ipaddr = 0;
     unsigned int vnic_h_mask = 0;
     struct dsmi_spod_info spod_info = {0};
     unsigned int spod_info_size = sizeof(struct dsmi_spod_info);
 
-    ret = dsmi_get_device_info(logic_id, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_SPOD_INFO,
-                               &spod_info, &spod_info_size);
+    ret = dsmi_get_device_info(logic_id, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_SPOD_INFO, &spod_info,
+                               &spod_info_size);
     if (ret) {
-        roce_err("Dsmi_get_device_info failed.(ret=%d; main_cmd=%u; sub_cmd=%u)",
-                 ret, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_SPOD_INFO);
+        roce_err("Dsmi_get_device_info failed.(ret=%d; main_cmd=%u; sub_cmd=%u)", ret, DSMI_MAIN_CMD_CHIP_INF,
+                 DSMI_CHIP_INF_SUB_CMD_SPOD_INFO);
         return ret;
     }
 
@@ -1746,8 +1745,8 @@ static int tool_a3_ipaddr_conflict_extend(int logic_id, unsigned int phy_id, uns
 static int tool_a1_a2_ipaddr_conflict_extend(int logic_id, unsigned int phy_id, unsigned int ipaddr, unsigned int mask)
 {
     int ret;
-    const char* vnic_addr[MAX_LIMIT_IP_NUMS] = {"192.168.2.0", "192.168.3.0", "192.168.4.0", "192.168.5.0"};
-    const char* vnic_mask = "255.255.255.0";
+    const char *vnic_addr[MAX_LIMIT_IP_NUMS] = {"192.168.2.0", "192.168.3.0", "192.168.4.0", "192.168.5.0"};
+    const char *vnic_mask = "255.255.255.0";
     unsigned int vnic_h_ipaddr = 0;
     unsigned int vnic_h_mask = 0;
     unsigned int work_mode = 0; // 0 - AMP, 1 - SMP
@@ -1756,8 +1755,8 @@ static int tool_a1_a2_ipaddr_conflict_extend(int logic_id, unsigned int phy_id, 
     vnic_h_ipaddr = inet_addr(vnic_addr[0]);
     vnic_h_mask = inet_addr(vnic_mask);
     if ((ipaddr & vnic_h_mask) == (vnic_h_ipaddr & vnic_h_mask)) {
-        roce_err("AMP mode get same network address. (vnic_h_ipaddr=0x%x; vnic_h_mask=0x%x)",
-                 vnic_h_ipaddr, vnic_h_mask);
+        roce_err("AMP mode get same network address. (vnic_h_ipaddr=0x%x; vnic_h_mask=0x%x)", vnic_h_ipaddr,
+                 vnic_h_mask);
         return UDA_PARAM_CONFLICT_IP_ADDR_ERR;
     }
 
@@ -1808,7 +1807,7 @@ int tool_ip_read_gateway_conf_v2(int phy_id, bool is_pcie_card, unsigned int *ga
     int ret;
     unsigned int gw_ip = 0;
     char gw[MAX_IP_LEN] = "";
- 
+
     ret = cfg_read_conf(phy_id, "gateway", gw, sizeof(gw));
     if (ret) {
         if (ret != UDA_TOOL_SYS_RD_FILE_NOT_FOUND) {
@@ -1816,13 +1815,13 @@ int tool_ip_read_gateway_conf_v2(int phy_id, bool is_pcie_card, unsigned int *ga
         }
         return ret;
     }
- 
+
     ret = tool_inet_pton_ipv4_address(gw, &gw_ip);
     if (ret) {
         roce_err("Tool inet pton ipv4 address fail. (ret=%d; phy_id=%d; gw_ip=0x%x)", ret, phy_id, gw_ip);
         return ret;
     }
- 
+
     *gateway_phy_id = phy_id;
     *gateway = gw_ip;
     return 0;
@@ -1833,7 +1832,7 @@ int tool_dump_execute(int argc, char **argv, struct tool_param *param)
     int i, ret, index = -1;
     struct send_data_info data_info;
     char *target[] = {"adapt_info"};
- 
+
     // -dump命令后面必须是 -t + 目标
     if (argc != ARGC_ID_2) {
         roce_err("Err argc. (argc=%d)", argc);
@@ -1843,7 +1842,7 @@ int tool_dump_execute(int argc, char **argv, struct tool_param *param)
         roce_err("Unexpected input. (input=%s)", argv[0]);
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
     }
- 
+
     // 确认目标代号
     for (i = 0; i < sizeof(target) / sizeof(target[0]); i++) {
         if (strcmp(argv[1], target[i]) == 0) {
@@ -1851,12 +1850,12 @@ int tool_dump_execute(int argc, char **argv, struct tool_param *param)
             break;
         }
     }
- 
+
     if (index == -1) {
         roce_err("Unknown target. (target=%s)", argv[1]);
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
     }
- 
+
     // dump命令不取回数据，直接在imp日志中打印
     TOOL_SET_SEND_DATA(data_info, DS_DUMP_INFO, &index, sizeof(int), NULL, 0);
     ret = dsmi_send_data(param->logic_id, 0, &data_info);
@@ -1896,8 +1895,8 @@ static int tool_get_mem_reserve_page_size(unsigned int *page_size)
     } else if (page_size_bytes == (long)(MEM_RESERVE_PAGE_SIZE_64KB * MEM_RESERVE_KB_TO_BYTES)) {
         *page_size = MEM_RESERVE_PAGE_SIZE_64KB;
     } else {
-        roce_err("Invalid page_size, only %uKB or %uKB supported. (page_size_bytes=%ld)",
-            MEM_RESERVE_PAGE_SIZE_4KB, MEM_RESERVE_PAGE_SIZE_64KB, page_size_bytes);
+        roce_err("Invalid page_size, only %uKB or %uKB supported. (page_size_bytes=%ld)", MEM_RESERVE_PAGE_SIZE_4KB,
+                 MEM_RESERVE_PAGE_SIZE_64KB, page_size_bytes);
         return -EIO;
     }
 
@@ -1939,14 +1938,14 @@ STATIC int tool_parse_mem_reserve_conf(const char *conf_value, unsigned int *typ
         }
     }
     if (i >= sizeof(g_mem_reserve_type_map) / sizeof(g_mem_reserve_type_map[0])) {
-        return UDA_PARAM_INVALID_ERR;  /* Invalid type */
+        return UDA_PARAM_INVALID_ERR; /* Invalid type */
     }
 
     /* 解析 size */
     *size = (unsigned int)strtol(colon + 1, &tmp_str, MEM_RESERVE_STRTOL_BASE);
     /* 检查转换是否成功：tmp_str 应该指向字符串结尾 */
     if ((*tmp_str != '\0') || !tool_is_mem_reserve_size_valid(*size)) {
-        return UDA_PARAM_INVALID_ERR;  /* size 部分包含无效字符 */
+        return UDA_PARAM_INVALID_ERR; /* size 部分包含无效字符 */
     }
 
     return 0;
@@ -1969,8 +1968,8 @@ STATIC const char *tool_mem_reserve_get_type_str(unsigned int type)
 /*
  * Save result to config file and print message based on result code
  */
-STATIC int tool_mem_reserve_save_result(struct tool_param *param, unsigned int result,
-    unsigned int type, unsigned int size)
+STATIC int tool_mem_reserve_save_result(struct tool_param *param, unsigned int result, unsigned int type,
+                                        unsigned int size)
 {
     int ret;
     char conf_value[32] = {0};
@@ -2050,7 +2049,7 @@ STATIC int tool_mem_reserve_set_execute(struct tool_param *param, unsigned int t
     }
 
     roce_info("DSMI set mem_reserve success. (logic_id=%d; type=%u; mem_size=%uMB; page_size=%uKB; result=%u)",
-        param->logic_id, info.type, info.mem_size, info.page_size, info.result);
+              param->logic_id, info.type, info.mem_size, info.page_size, info.result);
 
     return tool_mem_reserve_save_result(param, info.result, type, size);
 }
@@ -2072,8 +2071,7 @@ STATIC int tool_mem_reserve_get_execute(struct tool_param *param)
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 
-    TOOL_PRINT_INFO("Process Type              :  %s",
-        (info.type == RESERVE_MEM_TYPE_PDCCL) ? "pdccl" : "unknown");
+    TOOL_PRINT_INFO("Process Type              :  %s", (info.type == RESERVE_MEM_TYPE_PDCCL) ? "pdccl" : "unknown");
     TOOL_PRINT_INFO("Cur Reserve MEM Size      :  %u MB", info.mem_size);
     TOOL_PRINT_INFO("Rebooted Reserve MEM Size :  %u MB", info.rebooted_size);
 
@@ -2138,10 +2136,10 @@ STATIC int tool_mem_reserve_cmd_set(int argc, char **argv, struct tool_param *pa
     }
 
     LOG_SET_CONFIG("Start to set mem_reserve.(phy_id=%d; type=%s; size=%u)", param->phy_id,
-        tool_mem_reserve_get_type_str(type), size);
+                   tool_mem_reserve_get_type_str(type), size);
     ret = tool_mem_reserve_set_execute(param, type, size);
     LOG_SET_CONFIG("End to set mem_reserve.(phy_id=%d; type=%s; size=%u; ret=%d)", param->phy_id,
-        tool_mem_reserve_get_type_str(type), size, ret);
+                   tool_mem_reserve_get_type_str(type), size, ret);
     if (ret != 0) {
         roce_err("set mem_reserve fail. (ret=%d; phy_id=%d)", ret, param->phy_id);
         return ret;

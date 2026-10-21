@@ -48,7 +48,7 @@ STATIC hdcError_t drv_hdc_pcie_server_create(signed int devid, signed int servic
     pHead = malloc(size);
     if (pHead == NULL) {
         HDC_LOG_ERR("Call malloc failed.\n");
-        hdc_report_out_of_mem_err_msg(size);
+        hdc_report_out_of_mem_err_msg("drvHdcServerCreate", size);
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
@@ -162,7 +162,7 @@ STATIC hdcError_t drv_hdc_pcie_session_accept(HDC_SERVER server, HDC_SESSION *pS
 #endif
     if (p_serv_session == NULL) {
         HDC_LOG_ERR("Call malloc failed.\n");
-        hdc_report_out_of_mem_err_msg(sizeof(struct hdc_server_session));
+        hdc_report_out_of_mem_err_msg("drvHdcSessionAccept", sizeof(struct hdc_server_session));
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
@@ -311,23 +311,25 @@ hdcError_t drvHdcServerDestroy(HDC_SERVER server)
     }
 
     pServ = (struct hdc_server_head *)server;
-    if ((pServ->deviceId >= hdc_get_max_device_num()) || (pServ->deviceId < 0)) {
+    if ((pServ == NULL) || (pServ->deviceId >= hdc_get_max_device_num()) || (pServ->deviceId < 0)) {
         HDC_LOG_ERR("Input parameter deviceId is error. (deviceId=%d)\n", pServ->deviceId);
         return DRV_ERROR_INVALID_DEVICE;
     }
 
+    (void)mmMutexLock(&pServ->mutex);
     if (pServ->magic != HDC_MAGIC_WORD) {
+        (void)mmMutexUnLock(&pServ->mutex);
         HDC_LOG_ERR("Input parameter magic is error. (magic=%#x)\n", pServ->magic);
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    (void)mmMutexLock(&pServ->mutex);
     session_num = pServ->session_num;
     if (session_num > 0) {
         (void)mmMutexUnLock(&pServ->mutex);
         HDC_LOG_WARN("Destroy server not success, there have session alive. (session_num=%d)\n", session_num);
         return DRV_ERROR_SERVER_BUSY;
     }
+    pServ->magic = 0;
     (void)mmMutexUnLock(&pServ->mutex);
 
     if (g_hdcConfig.trans_type == HDC_TRANS_USE_PCIE) {
@@ -366,7 +368,6 @@ hdcError_t drvHdcServerDestroy(HDC_SERVER server)
 
     HDC_LOG_INFO("Destroy server success. (deviceId=%d; service_Type=%d)\n", pServ->deviceId, pServ->serviceType);
     (void)mmMutexDestroy(&pServ->mutex);
-    pServ->magic = 0;
     free(pServ);
     pServ = NULL;
 
@@ -512,7 +513,7 @@ hdcError_t drv_hdc_server_session_close(HDC_SESSION session, int close_state, in
             ret = DRV_ERROR_INVALID_HANDLE;
         }
         if (ret != 0) {
-            HDC_LOG_WARN("Close pcie session not success. (device=%d; sessiondID=%d; errno=%d)\n",
+            HDC_LOG_WARN("Close pcie session not success. (device=%d; sessionID=%d; errno=%d)\n",
                          p_serv_session->deviceId, p_serv_session->session.sockfd, ret);
         }
 

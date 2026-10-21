@@ -21,6 +21,7 @@
 #include "svm_slab.h"
 #include "svm_gfp.h"
 #include "kmc_msg.h"
+#include "kmc_h2d.h"
 #include "pmq.h"
 #include "pmq_msg.h"
 #include "pmq_client.h"
@@ -33,7 +34,7 @@ static int pmq_client_query(u32 udevid, struct svm_global_va *src_info, struct s
     u64 end = src_info->va + src_info->size;
     u64 max_extend_num = ((udevid != uda_get_host_id()) && (src_info->udevid != uda_get_host_id())) ?
                              SVM_KMC_P2P_MAX_EXTEND_NUM :
-                             SVM_KMC_MAX_EXTEND_NUM;
+                             ((u64)pmq_get_max_msg_len() - sizeof(struct pmq_query_pa_msg)) / sizeof(struct svm_pa_seg);
     u64 extend_num = ka_base_min_t(u64, *seg_num, max_extend_num);
     u32 in_len, real_out_len, msg_len;
     u64 i = 0, total_size = 0;
@@ -69,6 +70,11 @@ static int pmq_client_query(u32 udevid, struct svm_global_va *src_info, struct s
                        msg->head.extend_num * sizeof(struct svm_pa_seg));
         i += msg->head.extend_num;
         size = svm_get_pa_size(msg->seg, msg->head.extend_num);
+        if ((size == 0) || ((va + size) < start)) {
+            svm_err("Pa size is invalid. (extend_num=%llu; size=%llu; va=0x%llx)\n", msg->head.extend_num, size, va);
+            svm_kvfree(msg);
+            return -EINVAL;
+        }
         total_size += size;
     }
     if (total_size != src_info->size) {

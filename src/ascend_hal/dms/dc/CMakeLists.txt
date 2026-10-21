@@ -11,6 +11,7 @@ target_sources(dms_obj PRIVATE
     dms_lpm_adapt.c
     dms_pcie_info_adapt.c
     dms_user_common_adapt.c
+    dms_soc_adapt.c
     devdrv_manager_adapter.c
 )
 

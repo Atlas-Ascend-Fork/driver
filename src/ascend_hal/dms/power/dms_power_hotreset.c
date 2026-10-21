@@ -11,7 +11,6 @@
 #include <sys/ioctl.h>
 
 #include "dms_user_common.h"
-#include "dms_power.h"
 #include "devmng_user_common.h"
 #include "devdrv_user_common.h"
 #include "devdrv_ioctl.h"

@@ -38,8 +38,10 @@
 
 static int32_t __ka_init dvpp_cmdlist_init(void)
 {
+#ifdef SUPPORT_VIR_MACH
+    uint32_t devid;
+#endif
     int32_t ret = 0;
-
 
     // 注册三个模块的cmdlist引擎
     jpege_cmdlist_engine_register();
@@ -67,8 +69,7 @@ static int32_t __ka_init dvpp_cmdlist_init(void)
         goto FAIL0;
     }
 
-    uint32_t devid;
-    for (devid = 0; devid < DVPP_VMNG_DEVICE_NUM_MAX;devid++) {
+    for (devid = 0; devid < DVPP_VMNG_DEVICE_NUM_MAX; devid++) {
         ka_task_spin_lock_init(&g_share_mem_pool_lock[devid]);
     }
 #endif
@@ -123,4 +124,3 @@ ka_module_init(dvpp_cmdlist_init);
 ka_module_exit(dvpp_cmdlist_exit);
 
 KA_MODULE_LICENSE("GPL");
-

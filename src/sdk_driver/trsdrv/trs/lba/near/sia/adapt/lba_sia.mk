@@ -9,7 +9,7 @@
 # ------------------------------------------------------------------------------------------------------------
 
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_comm.o lba/near/comm/adapt/trs_host_ts_cq.o lba/near/comm/adapt/trs_host_id.o lba/near/comm/adapt/trs_host_msg.o lba/near/comm/adapt/trs_host_rpc.o lba/near/comm/adapt/trs_near_adapt_init.o lba/near/comm/adapt/trs_host_group.o lba/near/comm/adapt/trs_host_accelerator_util.o
-$(MODULE_NAME)-objs += lba/near/comm/adapt/soc_adapt/soc_adapt.o lba/near/sia/adapt/trs_host_init/trs_host.o lba/near/sia/adapt/trs_host_chan/trs_host_chan.o lba/near/sia/adapt/trs_host_chan/trs_sqe_update.o lba/near/sia/adapt/trs_host_core/trs_host_core.o
+$(MODULE_NAME)-objs += lba/near/comm/adapt/soc_adapt/soc_adapt.o lba/near/sia/adapt/trs_host_init/trs_host.o lba/near/sia/adapt/trs_host_init/trs_host_trsbase_feature.o lba/near/sia/adapt/trs_host_chan/trs_host_chan.o lba/near/sia/adapt/trs_host_chan/trs_sqe_update.o lba/near/sia/adapt/trs_host_core/trs_host_core.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_chan/stars_v1/trs_chan_stars_v1_ops.o lba/near/comm/adapt/trs_host_chan/stars_v1/trs_chan_stars_v1_ops_stars.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_chan/stars_v2/trs_chan_stars_v2_ops.o lba/near/comm/adapt/trs_host_chan/stars_v2/trs_chan_stars_v2_ops_stars.o lba/near/comm/adapt/trs_host_chan/stars_v2/trs_chan_stars_v2_maint_sqcq.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_chan/trs_chan_near_ops_mbox.o lba/near/comm/adapt/trs_host_chan/trs_chan_near_ops_mem.o lba/near/comm/adapt/trs_host_chan/trs_chan_near_ops_rsv_mem.o lba/near/comm/adapt/trs_host_chan/trs_chan_near_ops_db.o lba/near/comm/adapt/trs_host_chan/trs_chan_near_ops_id.o lba/near/comm/adapt/trs_host_chan/trs_chan_near_event_update.o
@@ -17,7 +17,7 @@ $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_chan/tscpu/trs_tscpu_chan_ne
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_core/trs_core_near_ops_mbox.o lba/near/comm/adapt/trs_host_core/stars_v1/trs_core_stars_v1_ops.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_core/stars_v2/trs_core_stars_v2_ops.o lba/near/comm/adapt/trs_host_core/stars_v2/trs_ub_info.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_core/tscpu/trs_tscpu_core_near_ops.o lba/near/comm/adapt/trs_host_core/trs_core_near_ops.o
-$(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_mode_config.o
+$(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_mode_config.o lba/near/comm/adapt/trs_host_feature.o
 $(MODULE_NAME)-objs += lba/comm/adapt/trs_chan_mem_pool.o lba/comm/adapt/trs_chan_mem.o lba/comm/adapt/trs_chan_mbox.o lba/comm/adapt/trs_mbox.o lba/comm/adapt/trs_hard_mbox.o lba/comm/adapt/trs_rsv_mem.o lba/comm/adapt/trs_ts_db.o lba/comm/adapt/trs_chan_update.o lba/comm/adapt/trs_chan_irq.o lba/comm/adapt/trs_ts_status.o lba/comm/adapt/trs_stars.o lba/comm/adapt/trs_id_range.o
 $(MODULE_NAME)-objs += lba/comm/adapt/stars_v1/trs_stars_cq.o lba/comm/adapt/stars_v1/trs_chan_sqcq.o lba/comm/adapt/stars_v1/trs_stars_sq.o lba/comm/adapt/trs_chan_maint_sqcq.o
 $(MODULE_NAME)-objs += lba/comm/adapt/stars_v2/trs_stars_v2_cq.o lba/comm/adapt/stars_v2/trs_stars_v2_chan_sqcq.o lba/comm/adapt/stars_v2/trs_stars_v2_sq.o

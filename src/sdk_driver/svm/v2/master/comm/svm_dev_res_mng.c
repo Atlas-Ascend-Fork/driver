@@ -161,7 +161,7 @@ static struct devmm_dev_res_mng *devmm_dev_res_mng_erase(struct svm_id_inst *id_
         mng = dev_res_mng[dev_inst_id];
         if (mng == NULL) {
             ka_task_write_unlock_bh(&mng_rwlock);
-            devmm_drv_err("Already erase. (devid=%u; vfid=%u)\n", id_inst->devid, id_inst->vfid);
+            devmm_drv_warn("Dev_res_mng isn't exist. (devid=%u; vfid=%u)\n", id_inst->devid, id_inst->vfid);
             return NULL;
         }
         if (ka_base_kref_read(&mng->ref) == 1) {
@@ -261,8 +261,10 @@ void devmm_dev_res_mng_destroy_all(void)
             svm_id_inst_pack(&inst, devid, vfid);
             mng = devmm_dev_res_mng_get(&inst);
             if (mng != NULL) {
-                devmm_dev_res_mng_destroy(&inst);
                 devmm_dev_res_mng_put(mng);
+#ifndef EMU_ST
+                devmm_dev_res_mng_destroy(&inst);
+#endif
             }
             devmm_try_cond_resched(&stamp);
         }

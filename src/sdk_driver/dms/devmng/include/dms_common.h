@@ -24,9 +24,9 @@ struct dms_ctrl_cb {
 
 struct dms_info {
     ka_list_head_t list;
-    unsigned int plat_info; /* 0:device side, 1: host side */
+    unsigned int plat_info;    /* 0:device side, 1: host side */
     unsigned int machine_mode; /* 0:RC_MODE,  1: EP_MODE */
-    unsigned int amp_or_smp; /* 0:AMP_MODE, 1: SMP_MODE */
+    unsigned int amp_or_smp;   /* 0:AMP_MODE, 1: SMP_MODE */
 };
 
 #endif

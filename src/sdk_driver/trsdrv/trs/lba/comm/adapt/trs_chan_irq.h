@@ -35,7 +35,7 @@ struct trs_chan_irq_attr {
     void (*free_chan_irq)(struct trs_id_inst *inst, u32 irq_type, u32 irq, void *para);
 };
 
-#define MAX_PROC_CQ_NUM 1024
+#define MAX_PROC_CQ_NUM 2048
 struct trs_chan_irq {
     struct trs_chan_irq_attr attr;
     int irq_index;

@@ -32,9 +32,10 @@ static struct uda_notifiers *uda_get_notifiers(struct uda_dev_type *type)
 
 static int uda_get_action_notifier_order(enum uda_notified_action action)
 {
-    return ((action == UDA_UNINIT) || (action == UDA_RESUME) ||
-        (action == UDA_SHUTDOWN) || (action == UDA_HOTRESET_CANCEL) ||
-        (action == UDA_PRE_HOTRESET_CANCEL)) ? UDA_PRI_DEC_ORDER : UDA_PRI_INC_ORDER;
+    return ((action == UDA_UNINIT) || (action == UDA_RESUME) || (action == UDA_SHUTDOWN) ||
+            (action == UDA_HOTRESET_CANCEL) || (action == UDA_PRE_HOTRESET_CANCEL)) ?
+               UDA_PRI_DEC_ORDER :
+               UDA_PRI_INC_ORDER;
 }
 
 static bool uda_is_ctrl_action(enum uda_notified_action action)
@@ -46,9 +47,14 @@ static int uda_single_notifier_call(struct uda_notifier_node *nf, u32 udevid, en
 {
     int ret;
 
+    if (udevid >= UDA_UDEV_MAX_NUM) {
+        uda_err("Invalid udevid. (udevid=%u)\n", udevid);
+        return -EINVAL;
+    }
+
     if (uda_is_action_conflict(nf->status[udevid], action)) {
-        uda_info("Conflict action. (notifier=%s; action=%d; udevid=%u; status=%x)\n",
-            nf->notifier, action, udevid, nf->status[udevid]);
+        uda_info("Conflict action. (notifier=%s; action=%d; udevid=%u; status=%x)\n", nf->notifier, action, udevid,
+                 nf->status[udevid]);
         return 0;
     }
     nf->call_count++;
@@ -65,7 +71,8 @@ static int uda_single_pri_notifier_call(ka_list_head_t *nf_head, u32 udevid, enu
 {
     struct uda_notifier_node *nf = NULL;
 
-    ka_list_for_each_entry(nf, nf_head, node) {
+    ka_list_for_each_entry(nf, nf_head, node)
+    {
         int ret = uda_single_notifier_call(nf, udevid, action);
         if (ret != 0) {
             uda_warn("Notifier call warn. (notifier=%s; action=%d; ret=%d)\n", nf->notifier, action, ret);
@@ -113,7 +120,8 @@ static struct uda_notifier_node *uda_find_notifier_node(struct uda_notifiers *no
         ka_list_head_t *nf_head = &notifiers->pri_head[i];
         struct uda_notifier_node *nf = NULL;
 
-        ka_list_for_each_entry(nf, nf_head, node) {
+        ka_list_for_each_entry(nf, nf_head, node)
+        {
             if (ka_base_strcmp(nf->notifier, notifier) == 0) {
                 return nf;
             }
@@ -142,7 +150,7 @@ static void uda_destroy_notifier(struct uda_notifier_node *nf)
 }
 
 static void uda_notifier_change_action(struct uda_notifier_node *nf, struct uda_dev_type *type,
-    enum uda_notified_action action)
+                                       enum uda_notified_action action)
 {
     u32 i;
     struct uda_dev_inst *dev_inst = NULL;
@@ -170,8 +178,8 @@ static void uda_notifier_change_action(struct uda_notifier_node *nf, struct uda_
     }
 }
 
-static int _uda_notifier_register(struct uda_notifiers *notifiers, struct uda_dev_type *type,
-    const char *notifier, enum uda_priority pri, uda_notify func)
+static int _uda_notifier_register(struct uda_notifiers *notifiers, struct uda_dev_type *type, const char *notifier,
+                                  enum uda_priority pri, uda_notify func)
 {
     struct uda_notifier_node *nf = uda_find_notifier_node(notifiers, notifier);
     if (nf != NULL) {
@@ -195,9 +203,10 @@ static int _uda_notifier_register(struct uda_notifiers *notifiers, struct uda_de
     return 0;
 }
 
-int hal_kernel_uda_notifier_register(const char *notifier, struct uda_dev_type *type, enum uda_priority pri, uda_notify func)
+int hal_kernel_uda_notifier_register(const char *notifier, struct uda_dev_type *type, enum uda_priority pri,
+                                     uda_notify func)
 {
-    return uda_notifier_register(notifier,type,pri,func);
+    return uda_notifier_register(notifier, type, pri, func);
 }
 KA_EXPORT_SYMBOL(hal_kernel_uda_notifier_register);
 
@@ -253,7 +262,7 @@ static int _uda_notifier_unregister(struct uda_notifiers *notifiers, struct uda_
 
 int hal_kernel_uda_notifier_unregister(const char *notifier, struct uda_dev_type *type)
 {
-    return uda_notifier_unregister(notifier,type);
+    return uda_notifier_unregister(notifier, type);
 }
 KA_EXPORT_SYMBOL(hal_kernel_uda_notifier_unregister);
 
@@ -284,7 +293,7 @@ int uda_notifier_unregister(const char *notifier, struct uda_dev_type *type)
 KA_EXPORT_SYMBOL(uda_notifier_unregister);
 
 void uda_for_each_notifiers(void *priv,
-    void (*func)(struct uda_dev_type *type, struct uda_notifiers *notifiers, void *priv))
+                            void (*func)(struct uda_dev_type *type, struct uda_notifiers *notifiers, void *priv))
 {
     struct uda_dev_type type;
 
@@ -323,7 +332,8 @@ static void _uda_notifiers_uninit(struct uda_dev_type *type, struct uda_notifier
         ka_list_head_t *nf_head = &notifiers->pri_head[i];
         struct uda_notifier_node *nf = NULL, *n = NULL;
 
-        ka_list_for_each_entry_safe(nf, n, nf_head, node) {
+        ka_list_for_each_entry_safe(nf, n, nf_head, node)
+        {
             ka_list_del(&nf->node);
             uda_destroy_notifier(nf);
         }
@@ -334,4 +344,3 @@ void uda_notifier_uninit(void)
 {
     uda_for_each_notifiers(NULL, _uda_notifiers_uninit);
 }
-

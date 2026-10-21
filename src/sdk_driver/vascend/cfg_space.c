@@ -85,6 +85,7 @@
 #define DAVINCI_PCI_COMMAND_HI_RW_MASK 0x07
 #define DAVINCI_PCI_CFG_RO 0x00
 #define DAVINCI_PCI_STATUS_HI_RW1C 0xF9
+#define DAVINCI_PCI_MSIX_FLAGS_HI_RW_MASK 0x30
 
 struct hw_vdavinci_cfg_init_ops {
     unsigned short device;
@@ -110,6 +111,8 @@ STATIC const u8 vdavinci_pci_cfg_rw_bmp[] = {
     [KA_PCI_STATUS + 1] = DAVINCI_PCI_STATUS_HI_RW1C,
     [KA_PCI_CACHE_LINE_SIZE] = DAVINCI_PCI_CFG_RW,
     [KA_PCI_BASE_ADDRESS_0... KA_PCI_CARDBUS_CIS - 1] = DAVINCI_PCI_CFG_RW,
+    [DAVINCI_PCI_MSIX_FLAGS] = DAVINCI_PCI_CFG_RO,
+    [DAVINCI_PCI_MSIX_FLAGS + 1] = DAVINCI_PCI_MSIX_FLAGS_HI_RW_MASK,
 };
 
 static inline void hw_vdavinci_write_pci_bar(struct hw_vdavinci *vdavinci, u32 offset, u32 val, bool low)
@@ -218,7 +221,6 @@ STATIC bool vdavinci_pci_cfg_mem_check(struct hw_vdavinci *vdavinci, unsigned in
  */
 STATIC void vdavinci_pci_cfg_mem_write(struct hw_vdavinci *vdavinci, unsigned int off, u8 *src, unsigned int bytes)
 {
-    int ret = 0;
     u8 mask = 0;
     bool is_rw1c = 0;
     unsigned int i = 0, current_off = 0, count = bytes;
@@ -238,14 +240,10 @@ STATIC void vdavinci_pci_cfg_mem_write(struct hw_vdavinci *vdavinci, unsigned in
         is_rw1c = (current_off == KA_PCI_STATUS + 1);
         cfg_base[current_off] = vdavinci_compute_pci_bype_write(cfg_base[current_off], src[i], mask, is_rw1c);
     }
-    if (i < count) {
-        ret = memcpy_s(cfg_base + off + i, KA_PCI_CFG_SPACE_EXP_SIZE - off - i, src + i, count - i);
-    }
-    if (ret != 0) {
-        vascend_err(vdavinci_to_dev(vdavinci),
-                    "write to vdavinic pci cfg failed, "
-                    "vid: %u, ret: %d\n",
-                    vdavinci->id, ret);
+    for (; i < count; i++) {
+        current_off = off + i;
+        cfg_base[current_off] = vdavinci_compute_pci_bype_write(cfg_base[current_off], src[i], DAVINCI_PCI_CFG_RO,
+                                                                false);
     }
 }
 
@@ -258,7 +256,9 @@ int hw_vdavinci_emulate_cfg_read(struct hw_vdavinci *vdavinci, unsigned int offs
         return -EINVAL;
     }
 
-    if (KA_WARN_ON(offset + bytes > KA_PCI_CFG_SPACE_EXP_SIZE)) {
+    /* Check offset and length separately: offset + bytes would wrap around
+     * for an offset near UINT_MAX and let the copy read past cfg_space. */
+    if (KA_WARN_ON(offset >= KA_PCI_CFG_SPACE_EXP_SIZE || bytes > KA_PCI_CFG_SPACE_EXP_SIZE - offset)) {
         return -EINVAL;
     }
 
@@ -268,7 +268,7 @@ int hw_vdavinci_emulate_cfg_read(struct hw_vdavinci *vdavinci, unsigned int offs
     if (ret != 0) {
         vascend_err(vdavinci_to_dev(vdavinci),
                     "read vdavinci cfg failed, "
-                    "err happen in memcpy_s, vid: %u, ret: %d,"
+                    "error happened in memcpy_s, vid: %u, ret: %d,"
                     "bytes: %u, minsize: %u\n",
                     vdavinci->id, ret, bytes, maxsize);
         return -EFAULT;
@@ -372,7 +372,8 @@ int hw_vdavinci_emulate_cfg_write(struct hw_vdavinci *vdavinci, unsigned int off
         return -EINVAL;
     }
 
-    if (KA_WARN_ON(offset + bytes > vdavinci->dvt->device_info.cfg_space_size)) {
+    if (KA_WARN_ON(offset >= vdavinci->dvt->device_info.cfg_space_size ||
+                   bytes > vdavinci->dvt->device_info.cfg_space_size - offset)) {
         return -EINVAL;
     }
 

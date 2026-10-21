@@ -13,10 +13,16 @@
 #include "queue_interface.h"
 #include "queue_agent.h"
 #include "dms_user_interface.h"
+#include "queue_feature.h"
+#include "que_platform.h"
 
 /* ============================================================================
  * queue_interface.c - Host specific implementations
  * ============================================================================ */
+
+bool g_enable_local_queue = false;
+bool g_default_client_queue = true;
+
 unsigned int que_get_unified_devid_platform(unsigned int dev_id)
 {
     drvError_t ret;
@@ -74,6 +80,11 @@ void que_get_inter_dev_local_devid_platform(struct shareQueInfo *que_info, unsig
 bool queue_inter_devid_invalid_platform(unsigned int dev_id)
 {
     return (dev_id != halGetHostDevid());
+}
+
+bool queue_is_client_queue_deploy(void)
+{
+    return true;
 }
 
 /* ============================================================================

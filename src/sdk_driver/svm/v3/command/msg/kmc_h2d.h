@@ -31,4 +31,6 @@ void kmc_h2d_uninit_dev(u32 udevid);
 int kmc_h2d_init(void);
 void kmc_h2d_uninit(void);
 
+u32 svm_kmc_h2d_get_max_msg_len(void);
+
 #endif

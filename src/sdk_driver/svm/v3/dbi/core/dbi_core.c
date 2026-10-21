@@ -19,7 +19,9 @@
 #include "ka_pci_pub.h"
 #include "ka_ioctl_pub.h"
 
+#include "pbl_kernel_interface.h"
 #include "pbl_feature_loader.h"
+#include "pbl/pbl_runenv_config.h"
 #include "pbl_uda.h"
 #include "comm_msg_chan.h"
 #include "comm_pcie.h"
@@ -47,8 +49,11 @@ static u32 dbi_feature_id;
 #define DBI_HOST_IS_PHYS 1
 #define DBI_HOST_IS_UNKNOWN 2
 
-static const ka_pci_device_id_t g_svm_pci_device_id[] = {
-    {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0}, {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0}, {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0}, {}};
+static const ka_pci_device_id_t g_svm_pci_device_id[] = {{KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
+                                                         {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
+                                                         {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+                                                         {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
+                                                         {0}};
 KA_MODULE_DEVICE_TABLE(pci, g_svm_pci_device_id);
 
 static int dbi_op(u32 udevid, u32 op, struct svm_device_basic_info *dbi)
@@ -76,7 +81,7 @@ static int dbi_set(u32 udevid, struct svm_device_basic_info *dbi)
     return dbi_op(udevid, DBI_OP_SET, dbi);
 }
 
-static int dbi_query(u32 udevid, struct svm_device_basic_info *dbi)
+int dbi_query(u32 udevid, struct svm_device_basic_info *dbi)
 {
     return dbi_op(udevid, DBI_OP_QUERY, dbi);
 }
@@ -86,6 +91,10 @@ static int dbi_msg_check(struct svm_device_basic_info *dbi)
     if ((dbi->npage_size == 0ULL) || (dbi->hpage_size == 0ULL) || (dbi->gpage_size == 0ULL)) {
         svm_err("Invalid page_size. (page_size=0x%llx; hpage_size=0x%llx; gpage_size=0x%llx)\n", dbi->npage_size,
                 dbi->hpage_size, dbi->gpage_size);
+        return -EINVAL;
+    }
+    if (dbi->smmu_mode >= SVM_SMMU_MODE_INVALID) {
+        svm_err("Invalid smmu mode. (smmu_mode=%u)\n", dbi->smmu_mode);
         return -EINVAL;
     }
 
@@ -113,7 +122,7 @@ static int dbi_device_query(u32 udevid, struct svm_device_basic_info *dbi)
     }
 
     *dbi = msg.dbi;
-
+    dbi->cc_vm = 0;
     return 0;
 }
 
@@ -122,9 +131,11 @@ static int dbi_host_query(struct svm_device_basic_info *dbi)
     dbi->npage_size = KA_MM_PAGE_SIZE;
     dbi->hpage_size = SVM_HOST_HPAGE_SIZE;
     dbi->gpage_size = SVM_HOST_GPAGE_SIZE;
-    dbi->cap_flag = 0;
     dbi->bus_inst_eid_flag = 0;
     dbi->d2h_acc_mask = 0;
+    dbi->smmu_mode = SVM_SMMU_MODE_IOVA;
+    dbi->cc_vm = svm_dbi_kern_is_cc_vm() ? 1U : 0U;
+    (void)memset_s(dbi->cap_flag, sizeof(dbi->cap_flag), 0, sizeof(dbi->cap_flag));
 
     return 0;
 }
@@ -176,10 +187,32 @@ bool svm_dbi_kern_is_support_sva(u32 udevid)
     struct svm_device_basic_info dbi;
     int ret = dbi_query(udevid, &dbi);
     if (ret == 0) {
-        return ((dbi.cap_flag & SVM_DEV_CAP_SVA) != 0);
+        return svm_dev_cap_is_support(dbi.cap_flag, SVM_DEV_CAP_BIT_SVA);
     }
 
     return false;
+}
+#ifndef EMU_ST /* Simulation ST dynamic set */
+int svm_dbi_kern_query_smmu_mode(u32 udevid, enum svm_smmu_mode *mode)
+{
+    struct svm_device_basic_info dbi;
+    int ret;
+
+    ret = dbi_query(udevid, &dbi);
+    if (ret != 0) {
+        return ret;
+    }
+    if (dbi.smmu_mode >= SVM_SMMU_MODE_INVALID) {
+        return -EINVAL;
+    }
+
+    *mode = (enum svm_smmu_mode)dbi.smmu_mode;
+    return 0;
+}
+#endif
+bool svm_dbi_kern_is_cc_vm(void)
+{
+    return run_in_confidential_virtual_mach();
 }
 
 bool svm_dbi_kern_is_support_ubmem(u32 udevid)
@@ -187,7 +220,7 @@ bool svm_dbi_kern_is_support_ubmem(u32 udevid)
     struct svm_device_basic_info dbi;
     int ret = dbi_query(udevid, &dbi);
     if (ret == 0) {
-        return ((dbi.cap_flag & SVM_DEV_CAP_UBMEM) != 0);
+        return svm_dev_cap_is_support(dbi.cap_flag, SVM_DEV_CAP_BIT_UBMEM);
     }
 
     return false;
@@ -270,12 +303,16 @@ static bool dbi_is_support_wc(u32 udevid)
     return ((value & SVM_BAR4_MASK) == SVM_BAR4_MASK);
 }
 
-static void dbi_update_pci_bar_cap(u32 udevid, struct svm_device_basic_info *dbi)
+static void dbi_update_host_access_dev_cap(u32 udevid, struct svm_device_basic_info *dbi)
 {
-    if ((dbi->cap_flag & SVM_DEV_CAP_PCI_BAR) != 0) {
+    if (svm_dev_cap_is_support(dbi->cap_flag, SVM_DEV_CAP_BIT_HOST_ACCESS_DEV)) {
         if (!dbi_is_support_wc(udevid)) {
-            dbi->cap_flag &= ~SVM_DEV_CAP_PCI_BAR;
+            svm_dev_cap_clear(dbi->cap_flag, SVM_DEV_CAP_BIT_HOST_ACCESS_DEV);
         }
+    }
+
+    if (devdrv_query_addr_trans_support(DEVDRV_ADDR_TRANS_CAP_H2D)) {
+        svm_dev_cap_set(dbi->cap_flag, SVM_DEV_CAP_BIT_HOST_ACCESS_DEV);
     }
 }
 
@@ -298,6 +335,25 @@ static int svm_ioctl_dbi_query(u32 udevid, u32 cmd, unsigned long arg)
     return 0;
 }
 
+static void svm_dev_cap_set_host_access_dev(void)
+{
+    u32 dev_num = uda_get_udev_max_num();
+    struct svm_device_basic_info dbi;
+    u32 i;
+    int ret;
+
+    for (i = 0; i < dev_num; i++) {
+        ret = dbi_query(i, &dbi);
+        if (ret == 0) {
+            svm_dev_cap_set(dbi.cap_flag, SVM_DEV_CAP_BIT_HOST_ACCESS_DEV);
+            ret = dbi_set(i, &dbi);
+            if (ret != 0) {
+                svm_warn("Dbi set host_access_dev not success.\n");
+            }
+        }
+    }
+}
+
 static int svm_enable_host_ubmem(u32 udevid)
 {
     struct svm_device_basic_info dbi;
@@ -306,7 +362,10 @@ static int svm_enable_host_ubmem(u32 udevid)
         return ret;
     }
 
-    dbi.cap_flag |= SVM_DEV_CAP_UBMEM;
+    if (devdrv_query_addr_trans_support(DEVDRV_ADDR_TRANS_CAP_H2D)) {
+        svm_dev_cap_set_host_access_dev();
+    }
+    svm_dev_cap_set(dbi.cap_flag, SVM_DEV_CAP_BIT_UBMEM);
     return dbi_set(udevid, &dbi);
 }
 
@@ -331,7 +390,8 @@ static int svm_update_dbi(u32 udevid, void *msg, u32 *reply_len)
         return ret;
     }
 
-    dbi_update_pci_bar_cap(udevid, &dbi_msg->dbi);
+    dbi_msg->dbi.cc_vm = 0;
+    dbi_update_host_access_dev_cap(udevid, &dbi_msg->dbi);
     return dbi_set(udevid, &dbi_msg->dbi);
 }
 
@@ -353,11 +413,16 @@ void dbi_show_dev(u32 udevid, int feature_id, ka_seq_file_t *seq)
             ka_fs_seq_printf(seq, "    npage_size=0x%llx\n", dbi->npage_size);
             ka_fs_seq_printf(seq, "    hpage_size=0x%llx\n", dbi->hpage_size);
             ka_fs_seq_printf(seq, "    gpage_size=0x%llx\n", dbi->gpage_size);
-            ka_fs_seq_printf(seq, "    support_sva=%d\n", ((dbi->cap_flag & SVM_DEV_CAP_SVA) != 0));
-            ka_fs_seq_printf(seq, "    support_ubmem=%d\n", ((dbi->cap_flag & SVM_DEV_CAP_UBMEM) != 0));
-            ka_fs_seq_printf(seq, "    support_assign_gap=%d\n", ((dbi->cap_flag & SVM_DEV_CAP_ASSIGN_GAP) != 0));
-            ka_fs_seq_printf(seq, "    support_pci_bar=%d\n", ((dbi->cap_flag & SVM_DEV_CAP_PCI_BAR) != 0));
+            ka_fs_seq_printf(seq, "    support_sva=%d\n", svm_dev_cap_is_support(dbi->cap_flag, SVM_DEV_CAP_BIT_SVA));
+            ka_fs_seq_printf(seq, "    support_ubmem=%d\n",
+                             svm_dev_cap_is_support(dbi->cap_flag, SVM_DEV_CAP_BIT_UBMEM));
+            ka_fs_seq_printf(seq, "    support_assign_gap=%d\n",
+                             svm_dev_cap_is_support(dbi->cap_flag, SVM_DEV_CAP_BIT_ASSIGN_GAP));
+            ka_fs_seq_printf(seq, "    support_host_access_dev=%d\n",
+                             svm_dev_cap_is_support(dbi->cap_flag, SVM_DEV_CAP_BIT_HOST_ACCESS_DEV));
             ka_fs_seq_printf(seq, "    d2h_acc_mask=0x%llx\n", dbi->d2h_acc_mask);
+            ka_fs_seq_printf(seq, "    smmu_mode=%u\n", dbi->smmu_mode);
+            ka_fs_seq_printf(seq, "    cc_vm=%u\n", dbi->cc_vm);
             ka_fs_seq_printf(seq, "    bus_inst_eid_flag=%u\n", dbi->bus_inst_eid_flag);
             if (dbi->bus_inst_eid_flag == 1) {
                 ka_fs_seq_printf(seq, "    bus_inst_eid=" DBI_EID_FMT "\n", DBI_EID_ARGS(dbi->bus_inst_eid));
@@ -374,7 +439,7 @@ int dbi_init_dev(u32 udevid)
     void *dev_ctx = NULL;
     int ret;
 
-    dbi = (struct svm_device_basic_info *)svm_vzalloc(sizeof(*dbi));
+    dbi = (struct svm_device_basic_info *)svm_kzalloc(sizeof(*dbi), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (dbi == NULL) {
         svm_err("Alloc failed.\n");
         return -ENOMEM;
@@ -382,21 +447,21 @@ int dbi_init_dev(u32 udevid)
 
     ret = dbi_client_query(udevid, dbi);
     if (ret != 0) {
-        svm_vfree(dbi);
+        svm_kfree(dbi);
         return ret;
     }
-    dbi_update_pci_bar_cap(udevid, dbi);
+    dbi_update_host_access_dev_cap(udevid, dbi);
 
     dev_ctx = svm_dev_ctx_get(udevid);
     if (dev_ctx == NULL) {
-        svm_vfree(dbi);
+        svm_kfree(dbi);
         return -EINVAL;
     }
 
     ret = svm_dev_set_feature_priv(dev_ctx, dbi_feature_id, "dbi", dbi);
     if (ret != 0) {
         svm_dev_ctx_put(dev_ctx);
-        svm_vfree(dbi);
+        svm_kfree(dbi);
         svm_err("Set dev feature priv failed. (udevid=%u; ret=%d; feature_id=%u)\n", udevid, ret, dbi_feature_id);
         return ret;
     }
@@ -416,7 +481,7 @@ void dbi_uninit_dev(u32 udevid)
         svm_dev_ctx_put(dev_ctx);
         svm_dev_ctx_put(dev_ctx); /* paired with init */
         if (dbi != NULL) {
-            svm_vfree(dbi);
+            svm_kfree(dbi);
         }
     }
 }
@@ -428,6 +493,7 @@ int dbi_feature_init(void)
 
     svm_register_ioctl_cmd_handle(_KA_IOC_NR(SVM_DBI_QUERY), svm_ioctl_dbi_query);
     dbi_feature_id = svm_dev_obtain_feature_id();
+
     return 0;
 }
 DECLAER_FEATURE_AUTO_INIT(dbi_feature_init, FEATURE_LOADER_STAGE_1);

@@ -410,7 +410,7 @@ int soc_resmng_dev_for_each_res_addr(u32 devid, u32 type, int (*func)(char *name
     int ret;
 
     if (devid >= SOC_MAX_DAVINCI_NUM) {
-        soc_err("Param is illegal. (devid=%u)\n", devid);
+        soc_err("Param is invalid when handling each resource addr. (devid=%u)\n", devid);
         return -EINVAL;
     }
 
@@ -539,12 +539,13 @@ int soc_resmng_set_rsv_mem(struct res_inst_info *inst, const char *name, struct 
     }
 
     if ((rsv_mem == NULL) || (name == NULL)) {
-        soc_err("Param is NULL. (devid=%u)\n", inst->devid);
+        soc_err("Param is null when setting rsv mem. (devid=%u)\n", inst->devid);
         return -EINVAL;
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", inst->devid);
+        soc_err("Name len is invalid when setting rsv mem. (devid=%u; name_len=%u; max_len=%u)\n", inst->devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -580,7 +581,8 @@ int soc_resmng_get_rsv_mem(struct res_inst_info *inst, const char *name, struct 
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", inst->devid);
+        soc_err("Name len is invalid when getting rsv mem. (devid=%u; name_len=%u; max_len=%u)\n", inst->devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -616,7 +618,8 @@ int soc_resmng_set_reg_base(struct res_inst_info *inst, const char *name, struct
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", inst->devid);
+        soc_err("Name len is invalid when setting reg base. (devid=%u; name_len=%u; max_len=%u)\n", inst->devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -652,7 +655,8 @@ int soc_resmng_get_reg_base(struct res_inst_info *inst, const char *name, struct
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", inst->devid);
+        soc_err("Name len is invalid when getting reg base. (devid=%u; name_len=%u; max_len=%u)\n", inst->devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -1084,7 +1088,8 @@ int soc_resmng_dev_set_rsv_mem(u32 devid, const char *name, struct soc_rsv_mem_i
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", devid);
+        soc_err("Name len is invalid when setting rsv mem. (devid=%u; name_len=%u; max_len=%u)\n", devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -1134,7 +1139,8 @@ int soc_resmng_dev_get_rsv_mem(u32 devid, const char *name, struct soc_rsv_mem_i
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", devid);
+        soc_err("Name len is invalid when getting rsv mem. (devid=%u; name_len=%u; max_len=%u)\n", devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -1283,7 +1289,7 @@ static int dev_repeat_set_attr(struct soc_attr_data *attr_node, const void *attr
     int ret;
 
     if (attr_node->size != size) {
-        soc_err("Not support repeat set differ size attr. (name=%s; old_attr_size=0x%x, new_attr_size=0x%x)\n",
+        soc_err("Not support repeat set attr with different size. (name=%s; old_attr_size=0x%x, new_attr_size=0x%x)\n",
                 attr_node->name, attr_node->size, size);
         return -EEXIST;
     }
@@ -1373,7 +1379,7 @@ int soc_resmng_dev_set_attr(u32 devid, const char *name, const void *attr, u32 s
     ret = dev_set_attr(&resmng->attr_head, name, attr, size);
     ka_task_mutex_unlock(&resmng->mutex);
     if (ret != 0) {
-        soc_err("Set attr fail. (devid=%u; name=%s; ret=%d)\n", resmng->devid, name, ret);
+        soc_err("Set attr failed. (devid=%u; name=%s; ret=%d)\n", resmng->devid, name, ret);
         return ret;
     }
 
@@ -1489,7 +1495,8 @@ int soc_resmng_dev_set_reg_base(u32 devid, const char *name, struct soc_reg_base
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", devid);
+        soc_err("Name len is invalid when setting reg base. (devid=%u; name_len=%u; max_len=%u)\n", devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -1507,67 +1514,6 @@ int soc_resmng_dev_set_reg_base(u32 devid, const char *name, struct soc_reg_base
 }
 KA_EXPORT_SYMBOL_GPL(soc_resmng_dev_set_reg_base);
 
-#ifdef CFG_FEATURE_SUPPORT_TRY_GET_REG_BASE_FROM_DTS
-STATIC int dev_get_reg_by_name_from_dts(const char *reg_name, struct soc_reg_base_info *io_base_info)
-{
-    struct device_node *root_node = NULL;
-    struct device_node *np = NULL;
-    const __be32 *addrp;
-    u64 size;
-    u64 addr;
-    int index;
-
-    if ((reg_name == NULL) || (io_base_info == NULL)) {
-        soc_err("Invalid input parameters\n");
-        return -EINVAL;
-    }
-
-    root_node = of_find_compatible_node(NULL, NULL, "hisi,resource_manage");
-    if (root_node == NULL) {
-        soc_err("Failed to find resource_manage node\n");
-        return -ENODEV;
-    }
-
-    np = of_get_child_by_name(root_node, "reg-node");
-    if (np == NULL) {
-        soc_err("Failed to find reg-node\n");
-        of_node_put(root_node);
-        return -ENODEV;
-    }
-
-    index = of_property_match_string(np, "reg-names", reg_name);
-    if (index < 0) {
-        soc_err("Failed to find reg_name: %s\n", reg_name);
-        of_node_put(np);
-        of_node_put(root_node);
-        return -ENODEV;
-    }
-
-    addrp = of_get_address(np, index, &size, NULL);
-    if (addrp == NULL) {
-        soc_err("Failed to get address for %s\n", reg_name);
-        of_node_put(np);
-        of_node_put(root_node);
-        return -ENODEV;
-    }
-
-    addr = of_translate_address(np, addrp);
-    if (addr == OF_BAD_ADDR) {
-        soc_err("Failed to translate address for %s\n", reg_name);
-        of_node_put(np);
-        of_node_put(root_node);
-        return -ENODEV;
-    }
-
-    io_base_info->io_base = addr;
-    io_base_info->io_base_size = size;
-    of_node_put(np);
-    of_node_put(root_node);
-
-    return 0;
-}
-#endif
-
 static int dev_get_reg_base(struct soc_dev_resmng *resmng, const char *name, struct soc_reg_base_info *io_base)
 {
     struct soc_reg_base *reg = NULL;
@@ -1575,12 +1521,6 @@ static int dev_get_reg_base(struct soc_dev_resmng *resmng, const char *name, str
     ka_task_mutex_lock(&resmng->mutex);
     reg = io_bases_node_find(name, &resmng->io_bases_head);
     if (reg == NULL) {
-#ifdef CFG_FEATURE_SUPPORT_TRY_GET_REG_BASE_FROM_DTS
-        if (dev_get_reg_by_name_from_dts(name, io_base) == 0) {
-            ka_task_mutex_unlock(&resmng->mutex);
-            return 0;
-        }
-#endif
         ka_task_mutex_unlock(&resmng->mutex);
         return -ENOENT;
     }
@@ -1607,7 +1547,8 @@ int soc_resmng_dev_get_reg_base(u32 devid, const char *name, struct soc_reg_base
     }
 
     if (ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN) >= SOC_RESMNG_MAX_NAME_LEN) {
-        soc_err("Name len is invalid. (devid=%u)\n", devid);
+        soc_err("Name len is invalid when getting reg base. (devid=%u; name_len=%u; max_len=%u)\n", devid,
+                (u32)ka_base_strnlen(name, SOC_RESMNG_MAX_NAME_LEN), SOC_RESMNG_MAX_NAME_LEN);
         return -EINVAL;
     }
 
@@ -2309,7 +2250,7 @@ int soc_resmng_get_dev_topology(u32 devid, u32 peer_devid, int *topo_type)
     }
 
     if (devid == peer_devid) {
-        soc_err("Input devid and peer_devid is equal, invalid.(devid=%u;peer_devid=%u)\n", devid, peer_devid);
+        soc_err("Input devid and peer_devid are equal, invalid.(devid=%u;peer_devid=%u)\n", devid, peer_devid);
         return -EINVAL;
     }
 
@@ -2604,7 +2545,7 @@ int soc_resnmg_get_version(enum soc_ver_type type)
         case VER_TYPE_HOST:
             return g_soc_host_ver;
         default:
-            soc_warn("Invalid version type\n");
+            soc_warn("Invalid version type. (type=%d; valid range=0-%d)\n", type, VER_TYPE_MAX - 1);
             return -EINVAL;
     }
 }

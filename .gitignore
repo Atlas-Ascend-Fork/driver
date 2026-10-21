@@ -35,3 +35,6 @@ skills/gitcode-pr-review/config.json
 .claude
 .claude/
 .opencode/
+
+# clang-format cache
+oat_reports/

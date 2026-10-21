@@ -46,8 +46,8 @@ STATIC int bbox_check_path_perm(const char *path)
     }
 
     if ((stat.st_mode & MMPA_DEFAULT_PIPE_PERMISSION) > DIR_CHECK_MODE) {
-        BBOX_ERR("Directory permissions exceed maximum allowed. (path=%s, current_mode=%04o, max_mode=%04o)",
-           path, (stat.st_mode & MMPA_DEFAULT_PIPE_PERMISSION), DIR_CHECK_MODE);
+        BBOX_ERR("Directory permissions exceed maximum allowed. (path=%s, current_mode=%04o, max_mode=%04o)", path,
+                 (stat.st_mode & MMPA_DEFAULT_PIPE_PERMISSION), DIR_CHECK_MODE);
         return BBOX_FAILURE;
     }
 
@@ -86,11 +86,12 @@ STATIC bbox_status bbox_check_path(const char *dir_path)
             if (index > 0) {
                 ret = bbox_check_path_perm(cur_path);
             }
-            while (*(path + 1) == OS_PATH_SPLIT) path++;
+            while (*(path + 1) == OS_PATH_SPLIT)
+                path++;
         }
 
         if (index >= (DIR_MAXLEN - 1)) {
-            BBOX_ERR("Path too long. (max_len=%d)", DIR_MAXLEN);
+            BBOX_ERR("Path too long. (max_len=%d, path=%s, cur_len=%u)", DIR_MAXLEN, abs_path, index);
             ret = BBOX_FAILURE;
             break;
         }
@@ -114,8 +115,7 @@ STATIC bbox_status bbox_check_path(const char *dir_path)
  * @param [in]  : u32  is_append           determine whether write with append
  * @return      : <0 failure; >=0 success
  */
-s32 bbox_save_buf_to_fs(const char *log_path, const char *file_name,
-                   const buff *buf, u32 len, u32 is_append)
+s32 bbox_save_buf_to_fs(const char *log_path, const char *file_name, const buff *buf, u32 len, u32 is_append)
 {
     BBOX_CHK_NULL_PTR(log_path, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(file_name, return BBOX_FAILURE);
@@ -181,7 +181,10 @@ s32 bbox_save_buf_to_fs(const char *log_path, const char *file_name,
  */
 s32 bbox_write_done_file(const char *path, s32 stat)
 {
-    BBOX_CHK_INVALID_PARAM(stat < STORE_STARTING || stat >= STORE_MAX, return BBOX_FAILURE, "%d", stat);
+    if (stat < STORE_STARTING || stat >= STORE_MAX) {
+        BBOX_ERR("stat out of range. (stat=%d, valid_range=[%d, %d))", stat, STORE_STARTING, STORE_MAX);
+        return BBOX_FAILURE;
+    }
     const char *str = g_done_file_str[stat];
     BBOX_DBG("write done file stat: %s", str);
     return bbox_save_buf_to_fs(path, DONE_FILE, str, (u32)strlen(str), BBOX_FALSE);
@@ -318,8 +321,7 @@ bbox_status bbox_create_log_sub_path(char *sub_path, u32 len, const char *log_pa
  * @param [in]  : u32  is_append          determine whether write with append
  * @return      : <0 failure; >=0 success
  */
-s32 bbox_save_log_buf_to_fs(const char *log_path, const char *file_name,
-                      const buff *buf, u32 len, u32 is_append)
+s32 bbox_save_log_buf_to_fs(const char *log_path, const char *file_name, const buff *buf, u32 len, u32 is_append)
 {
     char sub_path[DIR_MAXLEN];
     bbox_status ret = bbox_create_log_sub_path(sub_path, DIR_MAXLEN, log_path);
@@ -379,7 +381,7 @@ bbox_status bbox_mkdir_recur(const char *dir_path)
 
         cur_path[index] = *path;
         if (++index == DIR_MAXLEN) {
-            BBOX_ERR("path name(%s) too long.", path);
+            BBOX_ERR("path name(%s) too long. (max_len=%d)", path, DIR_MAXLEN);
             return BBOX_FAILURE;
         }
         path++;

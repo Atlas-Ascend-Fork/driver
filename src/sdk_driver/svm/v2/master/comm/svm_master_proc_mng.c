@@ -27,6 +27,7 @@
 #include "svm_mem_stats.h"
 #include "svm_master_proc_mng.h"
 #include "svm_phy_addr_blk_mng.h"
+#include "devmm_pagefault_info.h"
 
 #ifndef EMU_ST
 #define SVM_ASYNC_TASK_MAX_ID 65535
@@ -74,6 +75,45 @@ bool devmm_proc_dev_is_async_allow(struct devmm_svm_process *svm_proc, u32 devid
     struct devmm_svm_proc_master *master_data = (struct devmm_svm_proc_master *)svm_proc->priv_data;
 
     return master_data->async_copy_record.is_async_allow[devid];
+}
+
+void devmm_timeout_task_add(struct devmm_svm_process *svm_proc, struct devmm_dma_copy_task *copy_task)
+{
+#ifndef EMU_ST
+    struct devmm_svm_proc_master *master_data = (struct devmm_svm_proc_master *)svm_proc->priv_data;
+
+    ka_task_mutex_lock(&master_data->timeout_task_lock);
+    list_add(&copy_task->timeout_node, &master_data->timeout_task_list);
+    ka_task_mutex_unlock(&master_data->timeout_task_lock);
+#endif
+}
+
+static void devmm_timeout_task_list_cleanup(struct devmm_svm_process *svm_proc)
+{
+    struct devmm_svm_proc_master *master_data = (struct devmm_svm_proc_master *)svm_proc->priv_data;
+    struct devmm_dma_copy_task *task = NULL;
+    struct devmm_dma_copy_task *tmp = NULL;
+    u32 stamp = (u32)ka_jiffies;
+
+    if (master_data == NULL) {
+        return;
+    }
+    ka_task_mutex_lock(&master_data->timeout_task_lock);
+    list_for_each_entry_safe(task, tmp, &master_data->timeout_task_list, timeout_node)
+    {
+#ifndef EMU_ST
+        list_del(&task->timeout_node);
+        devmm_kvfree(task);
+        devmm_try_cond_resched(&stamp);
+#endif
+    }
+    ka_task_mutex_unlock(&master_data->timeout_task_lock);
+}
+
+static void devmm_timeout_task_list_init(struct devmm_svm_proc_master *master_data)
+{
+    INIT_LIST_HEAD(&master_data->timeout_task_list);
+    ka_task_mutex_init(&master_data->timeout_task_lock);
 }
 
 static inline void devmm_proc_init_async_task_record(struct devmm_svm_proc_master *master_data)
@@ -176,7 +216,18 @@ static void devmm_init_master_p2p_mem_mng(struct devmm_master_p2p_mem_mng *p2p_m
         p2p_mem_mng[i].free_cb_cnt = 0;
     }
 }
+#ifndef EMU_ST
+ka_mnt_namespace_t *devmm_get_proc_mnt_ns(struct devmm_svm_process *svm_proc)
+{
+    struct devmm_svm_proc_master *master_data = (struct devmm_svm_proc_master *)svm_proc->priv_data;
+    ka_mnt_namespace_t *mnt_ns = NULL;
 
+    if (master_data != NULL) {
+        mnt_ns = master_data->mnt_ns;
+    }
+    return mnt_ns;
+}
+#endif
 void devmm_free_proc_priv_data(struct devmm_svm_process *svm_proc)
 {
     devmm_proc_destroy_async_task_record(svm_proc);
@@ -201,6 +252,10 @@ int devmm_svm_proc_init_private(struct devmm_svm_process *svm_proc)
     devmm_init_svm_proc_register_dma_mng(master_data);
     devmm_init_mem_stats_mng(master_data->mem_stats_va_mng);
     devmm_init_master_p2p_mem_mng(master_data->p2p_mem_mng);
+    devmm_pagefault_info_proc_init(svm_proc);
+    devmm_timeout_task_list_init(master_data);
+    master_data->mnt_ns = ka_task_get_current_mnt_ns();
+
     svm_proc->priv_data = (void *)master_data;
 
     return 0;
@@ -233,6 +288,12 @@ void devmm_svm_release_private_proc(struct devmm_svm_process *svm_proc)
     devmm_destroy_ipc_mem_node_by_proc(svm_proc, SVM_MAX_AGENT_NUM);
     devmm_destory_all_heap_by_proc(svm_proc);
     devmm_destroy_pages_cache(svm_proc);
+    devmm_timeout_task_list_cleanup(svm_proc);
+
+    /* Free phy addr blk pages after all page references (convert/dma/task) are
+     * released, so free_contig_range() sees refcount == 1. */
+    devmm_phy_addr_blks_destroy(svm_proc);
+
     if (devmm_release_process_notice_pm(svm_proc) != 0) {
         devmm_drv_err("Vm notice pm failed. (hostpid=%d)\n", svm_proc->process_id.hostpid);
     }

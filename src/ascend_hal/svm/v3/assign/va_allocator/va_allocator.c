@@ -124,7 +124,7 @@ u32 svm_get_va_allocator_type(u64 va, u64 size, u32 devid, u32 flag, int op)
 {
     if ((flag & SVM_VA_ALLOCATOR_FLAG_MASTER_UVA) != 0) {
         if ((flag & SVM_VA_ALLOCATOR_FLAG_WITH_MASTER) == 0) {
-            svm_err("Master uva must be with master. (va=0x%llx; flag=%x)\n", va, flag);
+            svm_err("Master uva must with master. (va=0x%llx; flag=%x)\n", va, flag);
             return VA_ALLOCATOR_TYPE_UNKNOWN;
         }
     }
@@ -176,7 +176,7 @@ int svm_alloc_va(u64 va, u64 size, u64 align, u32 devid, u32 flag, u64 *start)
             }
             return ret;
         case VA_ALLOCATOR_TYPE_PCIE_TH:
-            return va_pcie_th_alloc(devid, align, size, start);
+            return va_pcie_th_alloc(align, size, start);
         case VA_ALLOCATOR_TYPE_DEFAULT:
             reserve_flag |= SVM_VA_RESERVE_FLAG_WITH_CUSTOM_CP;
             reserve_flag |= SVM_VA_RESERVE_FLAG_WITH_HCCP;
@@ -185,7 +185,7 @@ int svm_alloc_va(u64 va, u64 size, u64 align, u32 devid, u32 flag, u64 *start)
                 reserve_flag |= SVM_VA_RESERVE_FLAG_WITH_MASTER;
             }
 
-            return svm_reserve_va(va, size + svm_align_up(svm_va_get_gap(), SVM_VA_RESERVE_ALIGN), reserve_flag, start);
+            return svm_reserve_va(va, size, reserve_flag, start);
         case VA_ALLOCATOR_TYPE_VA_ONLY_WITHOUT_POPULATE:
             return va_only_without_populate_alloc(devid, align, size, start);
         default:
@@ -213,7 +213,7 @@ int svm_free_va(u64 va, u64 size, u64 align, u32 devid, u32 flag)
         case VA_ALLOCATOR_TYPE_DEV_DCACHE:
             return va_dev_dcache_free(va, size);
         case VA_ALLOCATOR_TYPE_PCIE_TH:
-            return va_pcie_th_free(devid, va, size, align);
+            return va_pcie_th_free(va, size, align);
         case VA_ALLOCATOR_TYPE_DEFAULT:
             return svm_release_va(va);
         case VA_ALLOCATOR_TYPE_VA_ONLY_WITHOUT_POPULATE:
@@ -240,6 +240,13 @@ static int svm_va_allocator_dev_init(u32 devid)
     }
 
     if (devid == svm_get_host_devid()) {
+        ret = va_pcie_th_allocator_init();
+        if (ret != DRV_ERROR_NONE) {
+            va_reserve_del_dev(devid);
+            va_dev_default_allocator_dev_uninit(devid);
+            return ret;
+        }
+
         return DRV_ERROR_NONE;
     }
 

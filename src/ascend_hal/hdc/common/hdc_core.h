@@ -57,5 +57,5 @@ signed int hdc_get_max_device_num(void);
 unsigned int hdc_get_max_vf_dev_id_start(void);
 unsigned int hdc_get_alloc_len(unsigned int len, unsigned int flag);
 bool hdc_is_in_ub(void);
-void hdc_report_out_of_mem_err_msg(size_t size);
+void hdc_report_out_of_mem_err_msg(const char *func_name, size_t size);
 #endif

@@ -32,7 +32,7 @@
 #define FLASH_SIZE_UNIT_KB 1024
 
 int flash_open(const char *pathname, int flags, int mode);
-char *flash_malloc(size_t size); //lint !e101 !e132
+char *flash_malloc(size_t size); // lint !e101 !e132
 int state_sscanf(const char *buffer, const char *format, unsigned int *buffer1);
 
 #endif

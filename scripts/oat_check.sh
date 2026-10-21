@@ -1,10 +1,10 @@
 #!/bin/sh
 # -----------------------------------------------------------------------------------------------------------
 # Copyright (c) 2026 Huawei Technologies Co., Ltd.
-# This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+# This program is free software, you can redistribute it and/or modify it under the terms and conditions of 
 # CANN Open Software License Agreement Version 2.0 (the "License").
 # Please refer to the License for details. You may not use this file except in compliance with the License.
-# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+# THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, 
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # -----------------------------------------------------------------------------------------------------------
@@ -48,49 +48,28 @@ if [ -z "$_PYTHON" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 1. Ensure oat-py>=1.0.2 is installed (serialized via flock to prevent parallel pip conflicts)
+# 1. Ensure oat-py is installed (serialized via flock to prevent parallel pip conflicts)
 # ---------------------------------------------------------------------------
-_OAT_MIN="1.0.2"
-_check_oat_version() {
-    "$_PYTHON" -c "
-import importlib.util, sys
-if not importlib.util.find_spec('oat'):
-    print('missing'); sys.exit()
-try:
-    from importlib.metadata import version
-    v = version('oat-py')
-    parts_have = [int(x) for x in v.split('.')[:3]]
-    parts_need = [int(x) for x in '${_OAT_MIN}'.split('.')[:3]]
-    print('ok' if parts_have >= parts_need else 'old')
-except Exception:
-    print('ok')  # cannot determine version, assume ok
-" 2>/dev/null || echo "missing"
-}
-
-_OAT_OK=$(_check_oat_version)
+_OAT_OK=$("$_PYTHON" -c "import importlib.util; print('ok' if importlib.util.find_spec('oat') else 'missing')" 2>/dev/null || echo "missing")
 if [ "$_OAT_OK" != "ok" ]; then
-    if [ "$_OAT_OK" = "old" ]; then
-        echo "[OAT] oat-py is outdated. Upgrading to oat-py>=${_OAT_MIN} ..."
-    else
-        echo "[OAT] oat-py not found. Installing oat-py>=${_OAT_MIN} ..."
-    fi
+    echo "[OAT] oat-py not found. Installing oat-py>=1.0.1 ..."
     _LOCK_FILE="/tmp/oat_pip_install.lock"
     # flock ensures only one concurrent invocation runs pip install at a time;
     # re-check inside the lock so processes that waited skip redundant installs
     if command -v flock >/dev/null 2>&1; then
         (
             flock -w 120 9
-            _RECHECK=$(_check_oat_version)
+            _RECHECK=$("$_PYTHON" -c "import importlib.util; print('ok' if importlib.util.find_spec('oat') else 'missing')" 2>/dev/null || echo "missing")
             if [ "$_RECHECK" != "ok" ]; then
-                "$_PYTHON" -m pip install --quiet "oat-py>=${_OAT_MIN}"
+                "$_PYTHON" -m pip install --quiet "oat-py>=1.0.1"
             fi
         ) 9>"$_LOCK_FILE"
     else
-        "$_PYTHON" -m pip install --quiet "oat-py>=${_OAT_MIN}"
+        "$_PYTHON" -m pip install --quiet "oat-py>=1.0.1"
     fi
-    _OAT_OK=$(_check_oat_version)
+    _OAT_OK=$("$_PYTHON" -c "import importlib.util; print('ok' if importlib.util.find_spec('oat') else 'missing')" 2>/dev/null || echo "missing")
     if [ "$_OAT_OK" != "ok" ]; then
-        echo "[OAT] [WARNING] Failed to install oat-py. Please run: pip install oat-py>=${_OAT_MIN}"
+        echo "[OAT] [WARNING] Failed to install oat-py. Please run: pip install oat-py>=1.0.1"
         echo "[OAT] Skipping OAT check, continuing commit..."
         exit 0
     fi
@@ -227,8 +206,7 @@ elif [ -n "$_PR_MERGE_BASE" ]; then
     fi
     FILE_COUNT=$(echo "$_STAGED" | wc -l | tr -d ' ')
     FILE_LIST=""
-    while IFS= read -r _f; do
-        [ -z "$_f" ] && continue
+    for _f in $_STAGED; do
         case "$_f" in
             /*) _abs="$_f" ;;
             *)  _abs="$REPO_ROOT/$_f" ;;
@@ -239,9 +217,7 @@ elif [ -n "$_PR_MERGE_BASE" ]; then
         else
             FILE_LIST="$FILE_LIST,$_abs"
         fi
-    done <<EOF
-$_STAGED
-EOF
+    done
 else
     # Staged files mode: on upstream branch directly, scan only staged files
     _STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)
@@ -251,8 +227,7 @@ else
     fi
     FILE_COUNT=$(echo "$_STAGED" | wc -l | tr -d ' ')
     FILE_LIST=""
-    while IFS= read -r _f; do
-        [ -z "$_f" ] && continue
+    for _f in $_STAGED; do
         case "$_f" in
             /*) _abs="$_f" ;;
             *)  _abs="$REPO_ROOT/$_f" ;;
@@ -263,9 +238,7 @@ else
         else
             FILE_LIST="$FILE_LIST,$_abs"
         fi
-    done <<EOF
-$_STAGED
-EOF
+    done
 fi
 
 if [ -z "$FILE_LIST" ]; then
@@ -282,34 +255,23 @@ mkdir -p "$OAT_REPORT_DIR"
 mkdir -p "$OAT_RESULT_DIR"
 
 # ---------------------------------------------------------------------------
-# 5. Resolve OAT.xml path
+# 5. Build oat command ??use OAT.xml if present in repo root
 # ---------------------------------------------------------------------------
+_OAT_CMD="$_PYTHON -m oat -mode s -s $REPO_ROOT -r $OAT_REPORT_DIR -n $REPO_NAME -w 1 -f $FILE_LIST"
+
 _OAT_XML="$REPO_ROOT/OAT.xml"
-if [ ! -f "$_OAT_XML" ] && [ -f "$REPO_ROOT/scripts/OAT.xml" ]; then
-    _OAT_XML="$REPO_ROOT/scripts/OAT.xml"
-fi
-
-# _OAT_CMD is kept for display purposes only (shown in error messages).
-# Actual execution uses direct argument passing below to avoid eval word-splitting
-# and command-injection risks when paths or filenames contain special characters.
 if [ -f "$_OAT_XML" ]; then
-    _OAT_CMD="\"$_PYTHON\" -m oat -mode s -s \"$REPO_ROOT\" -r \"$OAT_REPORT_DIR\" -n \"$REPO_NAME\" -w 1 -f \"$FILE_LIST\" -oatconfig \"$_OAT_XML\""
-else
-    _OAT_CMD="\"$_PYTHON\" -m oat -mode s -s \"$REPO_ROOT\" -r \"$OAT_REPORT_DIR\" -n \"$REPO_NAME\" -w 1 -f \"$FILE_LIST\""
+    _OAT_CMD="$_OAT_CMD -oatconfig $_OAT_XML"
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Run oat scan (direct argument passing � no eval)
+# 6. Run oat scan
 # ---------------------------------------------------------------------------
 echo ""
 echo "[OAT] Running compliance scan..."
 
 set +e
-if [ -f "$_OAT_XML" ]; then
-    "$_PYTHON" -m oat -mode s -s "$REPO_ROOT" -r "$OAT_REPORT_DIR" -n "$REPO_NAME" -w 1 -f "$FILE_LIST" -oatconfig "$_OAT_XML" >/dev/null 2>&1
-else
-    "$_PYTHON" -m oat -mode s -s "$REPO_ROOT" -r "$OAT_REPORT_DIR" -n "$REPO_NAME" -w 1 -f "$FILE_LIST" >/dev/null 2>&1
-fi
+eval "$_OAT_CMD" >/dev/null 2>&1
 _OAT_RC=$?
 set -e
 
@@ -364,7 +326,7 @@ if [ ! -f "$REPORT_FILE" ]; then
         rm -rf "$OAT_REPORT_DIR"
         exit 0
     else
-        # oat returned exit code 1 but produced no report �?possible disk issue
+        # oat returned exit code 1 but produced no report — possible disk issue
         # or oat internal error. Do not silently pass; block the commit.
         echo ""
         echo "[OAT] [ERROR] oat exited with code $_OAT_RC but no report was generated."

@@ -184,6 +184,10 @@ int DmsIoctl(int cmd, struct dms_ioctl_arg *ioarg)
         return DRV_ERROR_PARA_ERROR;
     }
 
+    if (!dms_ioctl_cmd_check((unsigned long)cmd, ioarg->main_cmd, ioarg->sub_cmd, ioarg->filter)) {
+        return DRV_ERROR_PERMISSION;
+    }
+
     fd = dms_open_intf();
     if (!FdIsValid(fd)) {
         DMS_ERR("Open dms device failed. (fd=%d; cmd=%d)\n", fd, cmd);
@@ -251,16 +255,21 @@ drvError_t DmsIoctlConvertErrno(unsigned long cmd, struct urd_ioctl_arg *ioarg)
     mmProcess fd;
     drvError_t ret;
 
+    if (ioarg == NULL) {
+        DMS_ERR("ioctl arg is null. (cmd=%lu)\n", cmd);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    if (!dms_ioctl_cmd_check(cmd, ioarg->cmd.main_cmd, ioarg->cmd.sub_cmd, ioarg->cmd.filter)) {
+        return DRV_ERROR_PERMISSION;
+    }
+
     fd = dms_open_intf();
     if (!FdIsValid(fd)) {
         DMS_ERR("Open dms device failed. (fd=%d; cmd=%lu)\n", fd, cmd);
         return DRV_ERROR_OPEN_FAILED;
     }
-    if (ioarg == NULL) {
-        DMS_ERR("ioctl arg is null. (fd=%d; cmd=%lu)\n", fd, cmd);
-        return DRV_ERROR_PARA_ERROR;
-    }
-#ifndef CFG_FEATURE_SRIOV
+#if !defined(CFG_FEATURE_SRIOV)
     if (g_env_virt == true) {
         return DRV_ERROR_NOT_SUPPORT;
     }
@@ -432,54 +441,37 @@ drvError_t dmsCloseRestoreHandler(uint32_t devid, halDevCloseIn *in)
     return ret;
 }
 
-drvError_t dms_res_rollback_p2p(u32 target_dev_id, u32 target_peer_id, u32 tmp_cnt)
+static int dms_enable_p2p_per_type(u32 dev_id, u32 peer_phy_id)
 {
-    u32 remaining_cnt, ret, dev_id, peer_phy_id;
-    u32 p2p_type;
+    int ret;
+    u32 remaining_cnt = 0, p2p_type;
 
-    for (dev_id = target_dev_id; dev_id != UINT32_MAX; --dev_id) {
-        for (peer_phy_id = target_peer_id; peer_phy_id != UINT32_MAX; --peer_phy_id) {
-            (void)dms_get_p2p_restore_info(dev_id, peer_phy_id, &remaining_cnt, &p2p_type);
+    for (p2p_type = DMS_P2P_TYPE_MEM; p2p_type < DMS_P2P_TYPE_MAX; ++p2p_type) {
+        (void)dms_get_p2p_restore_info(dev_id, peer_phy_id, p2p_type, &remaining_cnt);
 
-            if ((dev_id == target_dev_id) && (peer_phy_id == target_peer_id)) {
-                remaining_cnt -= tmp_cnt;
+        while (remaining_cnt > 0) {
+            ret = DmsEnableP2P(dev_id, peer_phy_id, p2p_type);
+            if (ret != 0) {
+                DMS_ERR("p2p restore enable fail. (dev_id=%u; peer_phy_id=%u; p2p_type=%u; ret=%d)\n", dev_id,
+                        peer_phy_id, p2p_type, ret);
+                return ret;
             }
-
-            while (remaining_cnt > 0) {
-                ret = DmsDisableP2P(dev_id, peer_phy_id, p2p_type);
-                if (ret != 0) {
-                    DMS_ERR("p2p restore rollback fail. (dev_id=%u; peer_phy_id=%u; ret=%d)\n", dev_id, peer_phy_id,
-                            ret);
-                    return ret;
-                }
-                remaining_cnt--;
-            }
+            remaining_cnt--;
         }
     }
-    DMS_INFO("p2p restore rollback success.\n");
-
     return DRV_ERROR_NONE;
 }
 
 drvError_t dms_res_enable_p2p(u32 dev_num)
 {
-    u32 dev_id, peer_phy_id, remaining_cnt = 0;
-    u32 p2p_type;
     int ret;
+    u32 dev_id, peer_phy_id;
 
     for (dev_id = 0; dev_id < dev_num; ++dev_id) {
         for (peer_phy_id = 0; peer_phy_id < ASCEND_PDEV_MAX_NUM; ++peer_phy_id) {
-            (void)dms_get_p2p_restore_info(dev_id, peer_phy_id, &remaining_cnt, &p2p_type);
-
-            while (remaining_cnt > 0) {
-                ret = DmsEnableP2P(dev_id, peer_phy_id, p2p_type);
-                if (ret != 0) {
-                    DMS_ERR("p2p restore enable fail, ready to rollback. (dev_id=%u; peer_phy_id=%u; ret=%d)\n", dev_id,
-                            peer_phy_id, ret);
-                    (void)dms_res_rollback_p2p(dev_id, peer_phy_id, remaining_cnt);
-                    return ret;
-                }
-                remaining_cnt--;
+            ret = dms_enable_p2p_per_type(dev_id, peer_phy_id);
+            if (ret != 0) {
+                return ret;
             }
         }
     }
@@ -490,12 +482,13 @@ drvError_t dms_res_enable_p2p(u32 dev_num)
 
 drvError_t dmsProcResRestoreHandler(halProcResRestoreInfo *info)
 {
-    unsigned int dev_num;
     int ret;
     (void)info;
+    u32 dev_num;
 
     ret = drvGetDevNum(&dev_num);
     if (ret != 0) {
+        DMS_ERR("Get dev num fail. (ret=%d)\n", ret);
         return ret;
     }
 

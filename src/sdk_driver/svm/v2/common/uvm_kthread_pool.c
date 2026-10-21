@@ -68,13 +68,14 @@ struct kthread_pool *kthread_pool_create(int num_threads)
     }
 
     for (i = 0; i < num_threads; i++) {
-        pool->threads[i] = ka_task_kthread_run(kthread_worker, pool, "kthread_pool/%d", i);
+        pool->threads[i] = ka_task_kthread_create(kthread_worker, pool, "kthread_pool/%d", i);
         if (KA_IS_ERR(pool->threads[i])) {
             pool->threads[i] = NULL;
             goto err_destroy_pool;
         }
 
         ka_task_kthread_bind(pool->threads[i], 0);
+        ka_task_wake_up_process(pool->threads[i]);
     }
 
     return pool;
@@ -92,6 +93,9 @@ void kthread_pool_destroy(struct kthread_pool *pool)
     if (!pool) {
         return;
     }
+    ka_task_spin_lock(&pool->lock);
+    pool->stop = true;
+    ka_task_spin_unlock(&pool->lock);
 
     for (i = 0; i < pool->num_threads; i++) {
         if (pool->threads[i]) {
@@ -120,8 +124,15 @@ int kthread_pool_submit(struct kthread_pool *pool, void (*func)(void *), void *a
     if (!pool || !func || !arg)
         return -EINVAL;
 
-    task = devmm_kzalloc_ex(sizeof(*task), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    ka_task_spin_lock(&pool->lock);
+    if (pool->stop) {
+        ka_task_spin_unlock(&pool->lock);
+        return -ESHUTDOWN;
+    }
+
+    task = devmm_kzalloc_ex(sizeof(*task), KA_GFP_ATOMIC | __KA_GFP_ACCOUNT);
     if (!task) {
+        ka_task_spin_unlock(&pool->lock);
         return -ENOMEM;
     }
 
@@ -129,7 +140,6 @@ int kthread_pool_submit(struct kthread_pool *pool, void (*func)(void *), void *a
     task->func = func;
     task->arg = arg;
 
-    ka_task_spin_lock(&pool->lock);
     ka_list_add_tail(&task->list, &pool->task_list);
     ka_task_spin_unlock(&pool->lock);
     ka_task_wake_up(&pool->waitq);

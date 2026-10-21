@@ -17,5 +17,3 @@ int dms_dtm_init(void);
 void dms_dtm_exit(void);
 
 #endif
-
-

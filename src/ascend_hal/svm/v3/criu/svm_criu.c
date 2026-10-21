@@ -219,14 +219,14 @@ int svm_criu_unregister_ops(const struct svm_criu_ops *ops)
     return ret;
 }
 
-int svm_criu_backup(u32 devid)
+int svm_criu_backup(u32 devid, void *data)
 {
     if (svm_criu_devid_is_out_of_range(devid)) {
         svm_err("Invalid CRIU devid. (devid=%u)\n", devid);
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    return svm_criu_do_action(devid, SVM_CRIU_ACTION_BACKUP, NULL);
+    return svm_criu_do_action(devid, SVM_CRIU_ACTION_BACKUP, data);
 }
 
 int svm_criu_reset(u32 devid)
@@ -245,7 +245,7 @@ int svm_criu_reset(u32 devid)
     return ret;
 }
 
-int svm_criu_restore(u32 devid)
+int svm_criu_restore(u32 devid, void *data)
 {
     int ret;
 
@@ -255,7 +255,7 @@ int svm_criu_restore(u32 devid)
     }
 
     svm_criu_set_phase(devid, SVM_CRIU_PHASE_RESTORE);
-    ret = svm_criu_do_action(devid, SVM_CRIU_ACTION_RESTORE, NULL);
+    ret = svm_criu_do_action(devid, SVM_CRIU_ACTION_RESTORE, data);
     svm_criu_set_phase(devid, SVM_CRIU_PHASE_IDLE);
 
     return ret;

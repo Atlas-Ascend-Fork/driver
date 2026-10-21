@@ -13,6 +13,7 @@
 
 #include "svm_pub.h"
 #include "svm_addr_desc.h"
+#include "casm_def.h"
 
 /*
  *  CASM: cross application shared memory, also support sharing within a single application
@@ -28,7 +29,7 @@
 #define SVM_CASM_FLAG_MAP_UB_MULTI_PORT_PATH (1U << 3U)
 
 /* owner app call */
-int svm_casm_create_key(struct svm_dst_va *dst_va, u64 *key);
+int svm_casm_create_key(struct svm_dst_va *dst_va, const struct casm_src_prop *prop, u64 *key);
 int svm_casm_destroy_key(u64 key);
 
 int svm_casm_add_task(u64 key, u32 server_id, int tgid[], u32 num); /* tgid[]: shared app pid */
@@ -52,11 +53,17 @@ static inline int svm_casm_check_local_task(u64 key, int tgid[], u32 num)
 }
 
 /* shared app call */
-int svm_casm_get_src_va_ex(u32 devid, u64 key, struct svm_global_va *src_va, u64 *update_va, u64 *ex_info);
+struct casm_src_va_ex_info {
+    struct casm_src_prop src_prop;
+    u64 update_va;
+    u64 ex_info;
+};
+
+int svm_casm_get_src_va_ex(u32 devid, u64 key, struct svm_global_va *src_va, struct casm_src_va_ex_info *info);
 static inline int svm_casm_get_src_va(u32 devid, u64 key, struct svm_global_va *src_va)
 {
-    u64 tmp, update_va;
-    return svm_casm_get_src_va_ex(devid, key, src_va, &update_va, &tmp);
+    struct casm_src_va_ex_info info;
+    return svm_casm_get_src_va_ex(devid, key, src_va, &info);
 }
 
 int svm_casm_mem_map(u32 devid, u64 va, u64 size, u64 key, u32 flag);

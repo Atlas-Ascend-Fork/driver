@@ -88,8 +88,8 @@ STATIC void tool_print_help_global(void)
     TOOL_PRINT_INFO("\thccn_tool -mode -cmd -npu_info [-options]");
     TOOL_PRINT_INFO("mode:");
     for (idx = 0; idx < ARRAY_SIZE_COMPUTE(modes); idx++) {
-        TOOL_PRINT_INFO("\t%s\tFor -cmd and -npu_info, enter [ hccn_tool -h %s ] for more details.",
-            modes[idx], modes[idx]);
+        TOOL_PRINT_INFO("\t%s\tFor -cmd and -npu_info, enter [ hccn_tool -h %s ] for more details.", modes[idx],
+                        modes[idx]);
     }
     TOOL_PRINT_INFO("example:");
     TOOL_PRINT_INFO("\thccn_tool -g -link -i 0 -u 1 -p 0\tquery link status");
@@ -158,8 +158,8 @@ void tool_exe_help(struct command_context *ctx)
     return;
 }
 
-STATIC void tool_handle_err_comm(struct command_context *ctx, int exe_ret,
-    struct tool_err_info *err_list, unsigned int size, int *err_help_level)
+STATIC void tool_handle_err_comm(struct command_context *ctx, int exe_ret, struct tool_err_info *err_list,
+                                 unsigned int size, int *err_help_level)
 {
     struct tool_err_info *err_info = NULL;
     unsigned int i;
@@ -222,7 +222,9 @@ STATIC void tool_handle_tls_err(struct command_context *ctx, int ret, int *err_h
     static struct tool_err_info err_list[] = {
         {TLS_INPUT_CERT_COUNT_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_CMD, "The total count of options is wrong."},
         {
-            TLS_PWD_COMPLEXITY_ERR, PRINT_LEVEL_INFO, HELP_LEVEL_NONE,
+            TLS_PWD_COMPLEXITY_ERR,
+            PRINT_LEVEL_INFO,
+            HELP_LEVEL_NONE,
             "The complexity of password you input is too low, please choose another one!",
         },
         {
@@ -238,7 +240,9 @@ STATIC void tool_handle_tls_err(struct command_context *ctx, int ret, int *err_h
         {TLS_CERT_EXPIRED_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "The Certificate has expired!"},
         {TLS_CERT_ILLEGAL_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "The certificates are illegal!"},
         {
-            TLS_CERT_VERIFY_FAIL, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+            TLS_CERT_VERIFY_FAIL,
+            PRINT_LEVEL_ERR,
+            HELP_LEVEL_NONE,
             "Failed to verify the certificate chain, make sure the certificate chain is correct!",
         },
         {TLS_CERT_LEN_INVALID_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "The certificate length is invalid!"},
@@ -254,51 +258,38 @@ STATIC void tool_handle_dev_exe_err(struct command_context *ctx, int ret, int *e
     static struct tool_err_info err_list[] = {
         {DEV_SYS_BUSY_ERR, PRINT_LEVEL_INFO, HELP_LEVEL_NONE, "hccn_tool is busy, please try again."},
         {
-            TOOL_PUBLIC_ROOT_UNSUPPORT, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+            TOOL_PUBLIC_ROOT_UNSUPPORT,
+            PRINT_LEVEL_ERR,
+            HELP_LEVEL_NONE,
             "permission denied: pls check this cmd run permission.",
         },
         {
-            TOOL_PUBLIC_ENV_UNSUPPORT, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+            TOOL_PUBLIC_ENV_UNSUPPORT,
+            PRINT_LEVEL_ERR,
+            HELP_LEVEL_NONE,
             "permission denied: pls check this cmd run environment.",
         },
         {DEV_EXE_CONFLICT_IP_ADDR_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "The ip address configured is conflicted!"},
-        {
-            DEV_EXE_GATEWAY_NOT_PRESET_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
-            "Get gateway failed, because no gateway was preset there!"
-        },
-        {
-            DEV_EXE_IP_ADDRESS_NOT_PRESET_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
-            "Get ip failed, because no ip was preset there!"
-        },
-        {
-            DEV_EXE_DIFF_SEGMT_GTWY_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
-            "The segment of configured gateway doesn't match that of the configured ip address!"
-        },
-        {
-            TOOL_DHCPC_PROCESS_EXIST_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
-            "udhcpc running, don't run again!"
-        },
-        {
-            TOOL_DHCPC_CONFIG_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
-            "Cmd execute failed, no ip and router set."},
-        {
-            TOOL_TROUTE_PROCESS_EXIST_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_CMD,
-            "Traceroute is running, please kill the running process and start a new one."
-        },
+        {DEV_EXE_GATEWAY_NOT_PRESET_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+         "Get gateway failed, because no gateway was preset there!"},
+        {DEV_EXE_IP_ADDRESS_NOT_PRESET_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+         "Get ip failed, because no ip was preset there!"},
+        {DEV_EXE_DIFF_SEGMT_GTWY_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+         "The segment of configured gateway doesn't match that of the configured ip address!"},
+        {TOOL_DHCPC_PROCESS_EXIST_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "udhcpc running, don't run again!"},
+        {TOOL_DHCPC_CONFIG_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "Cmd execute failed, no ip and router set."},
+        {TOOL_TROUTE_PROCESS_EXIST_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_CMD,
+         "Traceroute is running, please kill the running process and start a new one."},
         {DEV_EXE_TRACEROUTE_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "Traceroute execution failed."},
         {DEV_EXE_TRACEROUTE_TIMEOUT, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "Traceroute execution timeout."},
         {TOOL_EXE_DEV_INFO_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, "Get device info failed."},
         {DEV_EXE_ETH_TEST_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, NULL},
         {DEV_QOS_MAP_CONFLICT_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, NULL},
         {DEV_QOS_UNMAP_REPEAT_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE, NULL},
-        {
-            TOOL_GATEWAY_OR_ARP_RECOVERY_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
-            "Link up executed, but recovery failed, please check '/var/log/hccn_tool/hccn_config.log' for details."
-        },
-        {
-            TOOL_WRITE_CONF_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
-            "Cmd executed successfully, but persistent configuration failed."
-        },
+        {TOOL_GATEWAY_OR_ARP_RECOVERY_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+         "Link up executed, but recovery failed, please check '/var/log/hccn_tool/hccn_config.log' for details."},
+        {TOOL_WRITE_CONF_ERR, PRINT_LEVEL_ERR, HELP_LEVEL_NONE,
+         "Cmd executed successfully, but persistent configuration failed."},
     };
 
     tool_handle_err_comm(ctx, ret, err_list, ARRAY_SIZE_COMPUTE(err_list), err_help_level);
@@ -313,7 +304,7 @@ void tool_handle_cmd_err(int argc, char **argv, struct command_context *ctx, int
         if (ctx->mode != MODE_GET && ctx->mode != MODE_HELP) {
             TOOL_PRINT_INFO("Cmd executed successfully!");
         }
-        LOG_PROMPT(ctx, "hccn tool execution succeed!");
+        LOG_PROMPT(ctx, "hccn tool execution succeeded!");
         return;
     } else {
         LOG_PROMPT(ctx, "hccn tool execution failed! ret=0x%x", ret);

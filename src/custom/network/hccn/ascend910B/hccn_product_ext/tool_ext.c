@@ -26,39 +26,29 @@
 
 #define MAX_ELEMENT_NUM 16
 #define MAX_STR_LEN 1024
-#define HEAD_LEN (8 + 2)  /* "0x" len is 2 */
-
+#define HEAD_LEN (8 + 2) /* "0x" len is 2 */
 
 #define HEAD_FORMAT "0x%-8.04x"
 #define ELE_LEN 3
 #define ELE_FORMAT "%-3.02x"
 #define MAX_PRINT_NUM 4
 
-#define FEC_MODE_NO                        0
-#define FEC_MODE_RS                        4
-#define FEC_MODE_AUTO                      1
-#define AUTO_FLAG                          0x1
-#define FEC_GET_MODE_ERROR                 (-1)
+#define FEC_MODE_NO 0
+#define FEC_MODE_RS 4
+#define FEC_MODE_AUTO 1
+#define AUTO_FLAG 0x1
+#define FEC_GET_MODE_ERROR (-1)
 
-#define PCS_POWER_INDEX_0                  0
-#define PCS_POWER_INDEX_1                  1
-#define PCS_POWER_INDEX_2                  2
-#define PCS_POWER_INDEX_3                  3
-#define PCS_EQ_DATA_DISPLAY_NUM            36
+#define PCS_POWER_INDEX_0 0
+#define PCS_POWER_INDEX_1 1
+#define PCS_POWER_INDEX_2 2
+#define PCS_POWER_INDEX_3 3
+#define PCS_EQ_DATA_DISPLAY_NUM 36
 #define PCS_MACHINE_STATE_DATA_DISPLAY_NUM 19
 
 const char *adapt_status_str[] = {
-    "START",
-    "ADP_START",
-    "CDR_ADP",
-    "MAC_RF_1",
-    "RESET_DONE_1",
-    "CTLE_DONE_1",
-    "MAC_RF_2",
-    "RESET_DONE_2",
-    "CTLE_DONE_2",
-    "MAC_UP",
-    "OUT",
+    "START",    "ADP_START",    "CDR_ADP",     "MAC_RF_1", "RESET_DONE_1", "CTLE_DONE_1",
+    "MAC_RF_2", "RESET_DONE_2", "CTLE_DONE_2", "MAC_UP",   "OUT",
 };
 const char *err_code_str[] = {
     "NO_ERR",
@@ -164,7 +154,7 @@ static int tool_prepare_add_ip_route_param(struct ip_route_cmd_param *cmd_param,
     struct in_addr addr_ip;
     struct in_addr addr_via;
     int ret;
-    
+
     cmd_info->cmd_type = 's';
     ret = inet_pton(AF_INET, cmd_param->ip, &addr_ip);
     if (ret <= 0) {
@@ -410,16 +400,9 @@ STATIC int tool_check_dir(char *str)
 }
 
 static struct param_check_info g_param_check_tab[] = {
-    {"ip", tool_check_ip},
-    {"via", tool_check_ip},
-    {"mac", tool_check_mac},
-    {"dev", tool_check_dev},
-    {"table", tool_check_table},
-    {"ip_mask", tool_check_ip_mask_bit},
-    {"dir", tool_check_dir},
-    {"address", tool_check_ip},
-    {"ipv6_address", tool_check_ip6}
-};
+    {"ip", tool_check_ip},   {"via", tool_check_ip},      {"mac", tool_check_mac},
+    {"dev", tool_check_dev}, {"table", tool_check_table}, {"ip_mask", tool_check_ip_mask_bit},
+    {"dir", tool_check_dir}, {"address", tool_check_ip},  {"ipv6_address", tool_check_ip6}};
 
 STATIC int tool_check_param(char *prefix, char *str)
 {
@@ -446,8 +429,7 @@ int tool_get_param(int argc, char **argv, char *prefix, char *val, int max_len)
         if ((!strncmp(argv[i], prefix, strlen(prefix) + 1)) && (i < argc - 1)) {
             ret = memcpy_s(val, max_len, argv[i + 1], strlen(argv[i + 1]));
             if (ret) {
-                roce_err("Get param copy failed.(ret=%d; max_len=%d; real_len=%d)",
-                    ret, max_len, strlen(argv[i + 1]));
+                roce_err("Get param copy failed.(ret=%d; max_len=%d; real_len=%d)", ret, max_len, strlen(argv[i + 1]));
                 return UDA_PARAM_INVALID_ERR;
             }
             ret = tool_check_param(prefix, val);
@@ -482,8 +464,8 @@ STATIC int tool_start_roce_perftest(int device_id, unsigned int is_client, struc
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
     if (perftest_start_result != PERFTEST_START_SUCCESS) {
-        roce_err("Start roce perftest create pthread failed. (dev_id=%d; perftest_start_result=%d)",
-            device_id, perftest_start_result);
+        roce_err("Start roce perftest create pthread failed. (dev_id=%d; perftest_start_result=%d)", device_id,
+                 perftest_start_result);
         return perftest_start_result;
     }
     return UDA_EXE_SUCCESS;
@@ -542,8 +524,8 @@ roce_perftest_out:
     return ret;
 }
 
-static int perftest_param_trans_ip_address(struct perftest_cmd_info *cmd_info, char *val, char *comment,
-    int min_data, int max_data)
+static int perftest_param_trans_ip_address(struct perftest_cmd_info *cmd_info, char *val, char *comment, int min_data,
+                                           int max_data)
 {
     struct in_addr addr;
     struct in6_addr addr6;
@@ -556,12 +538,12 @@ static int perftest_param_trans_ip_address(struct perftest_cmd_info *cmd_info, c
         roce_err("Roce test param %s cfg trans failed. (errno=%d)", comment, errno);
         return UDA_PARAM_IP_INVALID_ERR;
     }
- 
+
     return 0;
 }
 
-static int perftest_param_trans_ib_device(struct perftest_cmd_info *cmd_info, char *val, char *comment,
-    int min_data, int max_data)
+static int perftest_param_trans_ib_device(struct perftest_cmd_info *cmd_info, char *val, char *comment, int min_data,
+                                          int max_data)
 {
     char *hns_name = NULL;
     unsigned long cfgdata;
@@ -575,8 +557,8 @@ static int perftest_param_trans_ib_device(struct perftest_cmd_info *cmd_info, ch
     return 0;
 }
 
-static int perftest_param_trans(struct perftest_cmd_info *cmd_info, char *val, char *comment,
-    int min_data, int max_data)
+static int perftest_param_trans(struct perftest_cmd_info *cmd_info, char *val, char *comment, int min_data,
+                                int max_data)
 {
     unsigned long cfgdata;
     char *val_tmp = "";
@@ -638,11 +620,11 @@ STATIC int get_param_from_cmd_list_ext(int argc, char **argv, int *cnt, struct p
 
 static void little_param(struct perftest_cmd_info *cmd_info, char *cmd_param, int n)
 {
-    char *per_short_param[] = {"-a", "-b", "-V", "-tclass", "-u", "-t", "-Q", "-q", "-ib", "-m", "-l", "-f", "-D", "-x",
-                               "-p"};
+    char *per_short_param[] = {"-a",  "-b", "-V", "-tclass", "-u", "-t", "-Q", "-q",
+                               "-ib", "-m", "-l", "-f",      "-D", "-x", "-p"};
     int size_param = sizeof(per_short_param) / sizeof(per_short_param[0]);
     int j;
- 
+
     for (j = 0; j < size_param; j++) {
         if (!strncmp(cmd_param, per_short_param[j], n)) {
             g_little_mem = MEM_STATUS_LIMIT;
@@ -668,8 +650,8 @@ STATIC int get_param_from_cmd_list(int argc, char **argv, int *cnt, struct perft
             little_param(cmd_info, perftest_cmd_list[i].param, strlen(perftest_cmd_list[i].param) + 1);
             ret = memcpy_s(val, MAX_PARAM_LEN, argv[*cnt + 1], strlen(argv[*cnt + 1]) + 1);
             if (ret != 0) {
-                roce_err("Get param copy failed. (ret=%d; max_len=%d; real_len=%d)",
-                    ret, MAX_PARAM_LEN, strlen(argv[*cnt + 1]));
+                roce_err("Get param copy failed. (ret=%d; max_len=%d; real_len=%d)", ret, MAX_PARAM_LEN,
+                         strlen(argv[*cnt + 1]));
                 return UDA_PARAM_INVALID_ERR;
             }
             ret = perftest_cmd_list[i].param_trans_func(cmd_info, val, perftest_cmd_list[i].comment,
@@ -756,7 +738,7 @@ static int tool_get_perftest_cmd_info(int argc, char **argv, struct tool_param *
     int i, is_client = 0;
     int start_cnt, tcp_flag = 0;
 
-    for (i = 0; i < sizeof(perftest_list) / sizeof(char*); i++) {
+    for (i = 0; i < sizeof(perftest_list) / sizeof(char *); i++) {
         if (!strncmp(argv[0], perftest_list[i], strlen(perftest_list[i]) + 1)) {
             ret = sprintf_s((char *)cmd_info[0].type, MAX_TYPE_LEN, "%s", perftest_list[i]);
             if (ret <= 0) {
@@ -768,7 +750,7 @@ static int tool_get_perftest_cmd_info(int argc, char **argv, struct tool_param *
     }
     // little_mem :有符合小参数的输入用例出现，只使用-n -s
     g_little_mem = MEM_STATUS_INIT;
-    if (i >= sizeof(perftest_list) / sizeof(char*)) {
+    if (i >= sizeof(perftest_list) / sizeof(char *)) {
         roce_err("Invalid option.\n");
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
     }
@@ -813,7 +795,7 @@ int tool_roce_test_cmd_execute(int argc, char **argv, struct tool_param *param)
         roce_err("Input param is NULL.");
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
     }
-    
+
     cmd_info[0].ipv6_index = 0;
     if (is_ipv6_cmd(&argc, &argv)) {
         cmd_info[0].ipv6_index = 1;
@@ -1034,7 +1016,7 @@ STATIC int tool_display_array(char *name, unsigned char *arr, int sz)
             return ret;
         }
         str_idx += HEAD_LEN;
-        
+
         for (i = 0; i < ele_num; ++i) {
             ret = sprintf_s(str + str_idx, MAX_STR_LEN - str_idx, ELE_FORMAT, arr[alread_print_size + i]);
             if (ret < 0) {
@@ -1119,7 +1101,7 @@ STATIC int tool_get_ffe_info(int logic_id)
     int ret;
     int i;
     struct hilink_ffe_data s_ffe_data[MAX_SERDES_NUM] = {{0}};
-    
+
     ret = dsmi_get_serdes_ffe_info(logic_id, s_ffe_data);
     if (ret) {
         roce_err("DSMI get serdes ffe info fail. (ret=%d; dev_id=%d)\n", ret, logic_id);
@@ -1284,23 +1266,23 @@ STATIC void tool_display_pcs_bd0_reg(struct hilink_port_info *pinfo)
 STATIC void tool_display_pcs_bd1_reg(struct hilink_port_info *pinfo)
 {
     TOOL_PRINT_INFO("PCS BD1 REG INFO:");
-    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "cable_length", pinfo->cable_length,
-                    "cable_temp", pinfo->cable_temp, "max_speed", pinfo->max_speed);
-    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "sfp_type", pinfo->sfp_type,
-                    "rsvd2", pinfo->rsvd2, "power0", pinfo->power[PCS_POWER_INDEX_0]);
-    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "power1", pinfo->power[PCS_POWER_INDEX_1],
-                    "power2", pinfo->power[PCS_POWER_INDEX_2], "power3", pinfo->power[PCS_POWER_INDEX_3]);
+    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "cable_length", pinfo->cable_length, "cable_temp",
+                    pinfo->cable_temp, "max_speed", pinfo->max_speed);
+    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "sfp_type", pinfo->sfp_type, "rsvd2", pinfo->rsvd2,
+                    "power0", pinfo->power[PCS_POWER_INDEX_0]);
+    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "power1", pinfo->power[PCS_POWER_INDEX_1], "power2",
+                    pinfo->power[PCS_POWER_INDEX_2], "power3", pinfo->power[PCS_POWER_INDEX_3]);
 }
 
 STATIC void tool_display_pcs_bd2_reg(struct hilink_port_info *pinfo)
 {
     TOOL_PRINT_INFO("PCS BD2 REG INFO:");
-    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "an_state", pinfo->an_state,
-                    "fec", pinfo->fec, "speed", pinfo->speed);
-    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "gpio_insert", pinfo->gpio_insert,
-                    "alos", pinfo->alos, "rx_los", pinfo->rx_los);
-    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "pma_ctrl", pinfo->pma_ctrl,
-                    "pma_fifo_reg", pinfo->pma_fifo_reg, "pma_signal_ok_reg", pinfo->pma_signal_ok_reg);
+    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "an_state", pinfo->an_state, "fec", pinfo->fec,
+                    "speed", pinfo->speed);
+    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "gpio_insert", pinfo->gpio_insert, "alos",
+                    pinfo->alos, "rx_los", pinfo->rx_los);
+    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "pma_ctrl", pinfo->pma_ctrl, "pma_fifo_reg",
+                    pinfo->pma_fifo_reg, "pma_signal_ok_reg", pinfo->pma_signal_ok_reg);
     TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X", "pcs_64_66b_reg", pinfo->pcs_64_66b_reg, "rf_lf", pinfo->rf_lf);
 }
 
@@ -1309,8 +1291,8 @@ STATIC int tool_display_pcs_bd3_reg(struct hilink_port_info *pinfo)
     int ret;
 
     TOOL_PRINT_INFO("PCS BD3/4 REG INFO:");
-    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "pcs_link", pinfo->pcs_link,
-                    "pcs_mac_link", pinfo->pcs_mac_link, "tx_enable", pinfo->tx_enable);
+    TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X    %-18s:0x%08X", "pcs_link", pinfo->pcs_link, "pcs_mac_link",
+                    pinfo->pcs_mac_link, "tx_enable", pinfo->tx_enable);
     TOOL_PRINT_INFO("%-18s:0x%08X    %-13s:0x%08X", "rx_enable", pinfo->rx_enable, "pcs_err_cnt", pinfo->pcs_err_cnt);
     ret = tool_display_array("eq_data", pinfo->eq_data, PCS_EQ_DATA_DISPLAY_NUM);
     if (ret) {
@@ -1329,14 +1311,14 @@ STATIC int tool_display_pcs_bd5_reg(struct hilink_port_info *pinfo)
                     "cur_link_machine_state", pinfo->cur_link_machine_state);
     TOOL_PRINT_INFO("%-25s:0x%08X    %-25s:0x%08X", "his_machine_state_length", pinfo->his_machine_state_length,
                     "cur_machine_state_length", pinfo->cur_machine_state_length);
-    ret = tool_display_array("his_machine_state_data",
-        pinfo->his_machine_state_data, PCS_MACHINE_STATE_DATA_DISPLAY_NUM);
+    ret = tool_display_array("his_machine_state_data", pinfo->his_machine_state_data,
+                             PCS_MACHINE_STATE_DATA_DISPLAY_NUM);
     if (ret) {
         roce_err("PCS bd5 info print error. (ret=%d)\n", ret);
         return ret;
     }
-    ret = tool_display_array("cur_machine_state_data",
-        pinfo->cur_machine_state_data, PCS_MACHINE_STATE_DATA_DISPLAY_NUM);
+    ret = tool_display_array("cur_machine_state_data", pinfo->cur_machine_state_data,
+                             PCS_MACHINE_STATE_DATA_DISPLAY_NUM);
     if (ret) {
         roce_err("PCS bd5 info print error. (ret=%d)\n", ret);
         return ret;
@@ -1452,7 +1434,7 @@ int tool_fec_cmd_execute(int argc, char **argv, struct tool_param *param)
     return 0;
 }
 
-#define FEC_ARGV_LEN    15
+#define FEC_ARGV_LEN 15
 int tool_cfg_fec_recovery(struct tool_param *param)
 {
 #ifndef CFG_SOC_PLATFORM_CLOUD_V2
@@ -1559,7 +1541,8 @@ static void tool_display_status_change(int index, unsigned int status_changes, s
     err_len[0] = (TOTAL_LEN - PART_TIMES_LEN - sum_len) / DIVIDE_TWO;
     err_len[1] = TOTAL_LEN - PART_TIMES_LEN - err_len[0] - sum_len;
     TOOL_PRINT_INFO("|%*s%s%*s                 %*s%s, %s%*s|", (PART_STR_LEN - len) / STEP_TWO, "", tmp,
-        PART_STR_LEN - (PART_STR_LEN - len) / STEP_TWO - len, "", err_len[0], "", err[0], err[1], err_len[1], "");
+                    PART_STR_LEN - (PART_STR_LEN - len) / STEP_TWO - len, "", err_len[0], "", err[0], err[1],
+                    err_len[1], "");
 }
 
 static int tool_display_adapt_status(struct hilink_adapt_status_info *adapt_status_info)
@@ -1594,16 +1577,17 @@ STATIC int tool_get_adapt_status_info(int logic_id, int port_id)
 
     TOOL_PRINT_INFO("MAC ADAPT STATUS INFORMATION:");
     ret = tool_display_adapt_status(&status_info);
-    TOOL_PRINT_INFO("link setup start time: %04u-%02u-%02u-%02u:%02u:%02u",
+    TOOL_PRINT_INFO(
+        "link setup start time: %04u-%02u-%02u-%02u:%02u:%02u",
         (unsigned short)(status_info.start_date >> MAC_DFX_INDEX_SIXTEEN),
-        (unsigned char)(status_info.start_date >> MAC_DFX_INDEX_EIGHT),
-        (unsigned char)status_info.start_date, (unsigned char)(status_info.start_time >> MAC_DFX_INDEX_SIXTEEN),
+        (unsigned char)(status_info.start_date >> MAC_DFX_INDEX_EIGHT), (unsigned char)status_info.start_date,
+        (unsigned char)(status_info.start_time >> MAC_DFX_INDEX_SIXTEEN),
         (unsigned char)(status_info.start_time >> MAC_DFX_INDEX_EIGHT), (unsigned char)status_info.start_time);
     TOOL_PRINT_INFO("link setup  end  time: %04u-%02u-%02u-%02u:%02u:%02u",
-        (unsigned short)(status_info.end_date >> MAC_DFX_INDEX_SIXTEEN),
-        (unsigned char)(status_info.end_date >> MAC_DFX_INDEX_EIGHT),
-        (unsigned char)status_info.end_date, (unsigned char)(status_info.end_time >> MAC_DFX_INDEX_SIXTEEN),
-        (unsigned char)(status_info.end_time >> MAC_DFX_INDEX_EIGHT), (unsigned char)status_info.end_time);
+                    (unsigned short)(status_info.end_date >> MAC_DFX_INDEX_SIXTEEN),
+                    (unsigned char)(status_info.end_date >> MAC_DFX_INDEX_EIGHT), (unsigned char)status_info.end_date,
+                    (unsigned char)(status_info.end_time >> MAC_DFX_INDEX_SIXTEEN),
+                    (unsigned char)(status_info.end_time >> MAC_DFX_INDEX_EIGHT), (unsigned char)status_info.end_time);
     if (ret == UDA_SUCCESS) {
         TOOL_PRINT_INFO("Adapt Status Transition Process: NA");
     } else {
@@ -1727,7 +1711,6 @@ int tool_get_ip_rule_table(int argc, char **argv, struct tool_param *param)
     return 0;
 }
 
-
 static int tool_add_ip_rule_table_conf(int phy_id, const char *dir, const char *ip, const char *table)
 {
     int ret;
@@ -1801,8 +1784,7 @@ int tool_add_ip_rule_table(int argc, char **argv, struct tool_param *param)
     return 0;
 }
 
-static int tool_prepare_del_ip_rule_param(const char *dir, const char *ip,
-                                          struct ip_rule_cmd_info *cmd_info)
+static int tool_prepare_del_ip_rule_param(const char *dir, const char *ip, struct ip_rule_cmd_info *cmd_info)
 {
     struct in_addr addr;
     int ret;
@@ -1920,8 +1902,8 @@ static int tool_add_ip_route_table_conf(int phy_id, struct ip_route_cmd_param *c
         return UDA_TOOL_NO_MEM_ERR;
     }
 
-    ret = sprintf_s(cmd_buf, RDFX_EXT_CMD_MAX_LEN, "add %s/%s via %s dev %s table %s",
-        cmd_param->ip, cmd_param->ip_mask, cmd_param->via, cmd_param->dev, cmd_param->table);
+    ret = sprintf_s(cmd_buf, RDFX_EXT_CMD_MAX_LEN, "add %s/%s via %s dev %s table %s", cmd_param->ip,
+                    cmd_param->ip_mask, cmd_param->via, cmd_param->dev, cmd_param->table);
     if (ret <= 0) {
         free(cmd_buf);
         roce_err("Tool construct cmdline failed. (ret=%d)", ret);
@@ -1975,11 +1957,11 @@ STATIC unsigned int tool_make_big_endian_mask(unsigned int ip_mask)
     // 生成掩码
     little_endian_mask = (temp_mask << (TOOL_BIT_OFFSET_32 - ip_mask)) & 0xFFFFFFFF;
     // 大小端转换
-    big_endian_mask |= (little_endian_mask & 0xFF) << TOOL_BIT_OFFSET_24;                           // 第1字节移到第4字节
-    big_endian_mask |= ((little_endian_mask >> TOOL_BIT_OFFSET_8) & 0xFF) << TOOL_BIT_OFFSET_16;    // 第2字节移到第3字节
-    big_endian_mask |= ((little_endian_mask >> TOOL_BIT_OFFSET_16) & 0xFF) << TOOL_BIT_OFFSET_8;    // 第3字节移到第2字节
-    big_endian_mask |= (little_endian_mask >> TOOL_BIT_OFFSET_24) & 0xFF;                           // 第4字节移到第1字节
-    
+    big_endian_mask |= (little_endian_mask & 0xFF) << TOOL_BIT_OFFSET_24; // 第1字节移到第4字节
+    big_endian_mask |= ((little_endian_mask >> TOOL_BIT_OFFSET_8) & 0xFF) << TOOL_BIT_OFFSET_16; // 第2字节移到第3字节
+    big_endian_mask |= ((little_endian_mask >> TOOL_BIT_OFFSET_16) & 0xFF) << TOOL_BIT_OFFSET_8; // 第3字节移到第2字节
+    big_endian_mask |= (little_endian_mask >> TOOL_BIT_OFFSET_24) & 0xFF; // 第4字节移到第1字节
+
     return big_endian_mask;
 }
 
@@ -1992,7 +1974,7 @@ STATIC int tool_ip_route_check(struct tool_param *param, struct ip_route_cmd_inf
     unsigned int ip_mask_address;
     ip_addr_t ip_address;
     ip_addr_t mask_address;
-    
+
     ip_address.ip_type = IPADDR_TYPE_V4;
     mask_address.ip_type = IPADDR_TYPE_V4;
     ret = dsmi_get_device_ip_address(param->logic_id, port_type, port_id, &ip_address, &mask_address);
@@ -2001,12 +1983,12 @@ STATIC int tool_ip_route_check(struct tool_param *param, struct ip_route_cmd_inf
         ret = (ret == DRV_ERROR_NO_DEVICE) ? UDA_DSMI_IPCONF_NOT_PRESET_ERR : UDA_DSMI_EXE_ERR;
         return ret;
     }
-    
+
     if (!is_network_segment(cmd_info.ip_address, tool_make_big_endian_mask(cmd_info.ip_mask))) {
         roce_err("Address is not network segment");
         return UDA_TOOL_IP_MISMATCH_MASK_ERR;
     }
-    
+
     address = *(unsigned int *)(void *)&ip_address.u_addr;
     ip_mask_address = *(unsigned int *)(void *)&mask_address.u_addr;
     if (!is_address_gateway_same_segment(address, cmd_info.via_address, ip_mask_address)) {
@@ -2021,7 +2003,7 @@ int tool_add_ip_route_table(int argc, char **argv, struct tool_param *param)
     struct send_data_info data_info;
     struct ip_route_cmd_info cmd_info = {0};
     struct ip_route_cmd_param cmd_param;
-    
+
     if (argc != ARGC_NUM_10) {
         roce_err("Tool add ip route param failed. (argc=%d)", argc);
         return UDA_PARAM_CMD_COUNT_ERR;

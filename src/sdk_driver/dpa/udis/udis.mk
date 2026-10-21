@@ -23,20 +23,17 @@ EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/dpa/inc
 EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/dpa/udis/command/msg
 
 EXTRA_CFLAGS += -DDRV_HOST
+EXTRA_CFLAGS += -DCFG_FEATURE_HOST_LOG
 EXTRA_CFLAGS += -DCFG_FEATURE_MEMALLOC_MODULE_TYPE=4
 EXTRA_CFLAGS += -DCFG_FEATURE_MEMALLOC_SUBMODULE_TYPE=2
 
 ifneq ($(filter $(PRODUCT), ascend910B),)
-    EXTRA_CFLAGS += -DCFG_FEATURE_HOST_LOG
     EXTRA_CFLAGS += -DCFG_FEATURE_KA_ALLOC_INTERFACE
-    ifneq ($(ASCEND910_93_EX), true)
-        EXTRA_CFLAGS += -DCFG_FEATURE_UDIS_SUPPORT_VF
-    endif
 endif
 
 ifneq ($(filter $(PRODUCT), ascend950),)
-    EXTRA_CFLAGS += -DCFG_FEATURE_UDIS_SUPPORT_VF
+    EXTRA_CFLAGS += -DCFG_FEATURE_KA_ALLOC_INTERFACE
 endif
 
-asdrv_dpa-objs += udis/udis_management.o udis/udis_timer.o udis/udis_cmd.o
+asdrv_dpa-objs += udis/udis_management.o udis/udis_timer.o udis/udis_cmd.o udis/udis_dfx.o
 asdrv_dpa-objs += udis/host/udis_msg.o udis/host/udis_data.o udis/host/udis_init.o udis/host/udis_addr.o

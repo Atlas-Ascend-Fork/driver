@@ -87,6 +87,7 @@ struct trs_chan_ts_inst {
     struct trs_chan_guard_work guard_work;
     ka_proc_dir_entry_t *entry;
     bool trace_enable;
+    bool vaddr_enable;
     int location;
 };
 

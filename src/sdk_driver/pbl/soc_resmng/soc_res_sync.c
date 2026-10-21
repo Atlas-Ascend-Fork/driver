@@ -255,12 +255,22 @@ static int soc_res_dev_irq_extract(char *key, u64 value, void *priv)
     return soc_res_irq_extract(SOC_DEV, key, value, priv);
 }
 
+static bool soc_res_mia_skip_sync_to_host(enum soc_mia_res_type type)
+{
+    return ((type == MIA_STARS_H2D_JETTY) || (type == MIA_STARS_D2D_IN_BOARD_JETTY) ||
+            (type == MIA_STARS_D2D_CROSS_BOARD_JETTY));
+}
+
 static int soc_res_mia_extract(enum soc_mia_res_type type, struct soc_mia_res_info_ex *mia_res, void *priv)
 {
     struct res_sync_info *info = (struct res_sync_info *)priv;
     struct res_mia_sync *sync = (struct res_mia_sync *)(info->buf + info->out_len);
 
     if (mia_res->bitmap == 0) {
+        return 0;
+    }
+
+    if (soc_res_mia_skip_sync_to_host(type)) {
         return 0;
     }
 

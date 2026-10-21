@@ -85,8 +85,9 @@ int devmm_page_create_query_msg(struct devmm_svm_process *svm_pro, struct devmm_
         }
         ret = devmm_chan_msg_send(page_query, (u32)sizeof(struct devmm_chan_page_query_ack), (u32)ack_msg_len);
         if (ret != 0) {
-            devmm_drv_info("Can not page alloc message. (ret=%d; ack_len=%lu; va=0x%llx; "
-                           "size=%llu; msg_id=%u; dev_id=%u; vfid=%u; num=%u; total_num=%u)\n",
+            devmm_drv_info("Page alloc message completed. "
+                           "(ret=%d; ack_msg_len=%lu; va=0x%llx; size=%llu; msg_id=%u; dev_id=%u; vfid=%u; num=%u; "
+                           "total_num=%u)\n",
                            ret, ack_msg_len, query_arg.va, query_arg.size, query_arg.msg_id, query_arg.dev_id,
                            query_arg.process_id.vfid, *num, total_num);
             goto query_page_bymsg_free;
@@ -98,7 +99,7 @@ int devmm_page_create_query_msg(struct devmm_svm_process *svm_pro, struct devmm_
             /* over max size */
             ret = -EINVAL;
             devmm_drv_err("Page query pa num null or too long. (page_query_num=%u; "
-                          "num_pre_msg%u; va=0x%llx; size=%llu; msg_id=%u; dev_id=%u; num=%u; total_num=%u)\n",
+                          "num_pre_msg=%u; va=0x%llx; size=%llu; msg_id=%u; dev_id=%u; num=%u; total_num=%u)\n",
                           page_query->num, num_pre_msg, page_query->va, page_query->size, query_arg.msg_id,
                           query_arg.dev_id, *num, total_num);
             goto query_page_bymsg_free;
@@ -195,7 +196,7 @@ int devmm_page_fault_h2d_sync(struct devmm_devid svm_id, ka_page_t **pages, unsi
     devmm_fill_page_fault_msg(svm_id, va, adjust_order, DEVMM_CHAN_PAGE_FAULT_H2D_ID, fault_msg);
 
     if (fault_msg->num > DEVMM_PAGE_NUM_PER_FAULT) {
-        devmm_drv_err("Fault message num is invalid. (num=%u)\n", fault_msg->num);
+        devmm_drv_err("Num is out of range. (num=%u; max=%d)\n", fault_msg->num, DEVMM_PAGE_NUM_PER_FAULT);
         devmm_kfree_ex(fault_msg);
         return -EINVAL;
     }
@@ -286,7 +287,8 @@ int devmm_chan_page_fault_d2h_process_dma_copy(struct devmm_chan_page_fault *fau
         max_num = num;
     } else {
         if (fault_msg->num > DEVMM_PAGE_NUM_PER_FAULT) {
-            devmm_drv_err("Fault page num too large. (num=%u; max_num=%u)\n", fault_msg->num, DEVMM_PAGE_NUM_PER_FAULT);
+            devmm_drv_err("Fault page num too large. (num=%u; max=%u)\n", fault_msg->num,
+                          (u32)DEVMM_PAGE_NUM_PER_FAULT);
             devmm_kfree_ex(dma_nodes);
             dma_nodes = NULL;
             return -EINVAL;
@@ -407,3 +409,20 @@ bool devmm_is_hccs_vm_scene(u32 dev_id, u32 host_mode)
     return false;
 }
 #endif
+
+int devmm_get_if_run_in_hccs_vm(u32 udevid, bool *is_in_hccs_vm)
+{
+    u32 host_flag;
+    int ret;
+
+    ret = devmm_get_host_phy_mach_flag(udevid, &host_flag);
+    if (ret != 0) {
+#ifndef EMU_ST
+        devmm_drv_err("Get host phy mach flag failed. (udevid=%u; ret=%d)\n", udevid, ret);
+        return ret;
+#endif
+    }
+
+    *is_in_hccs_vm = devmm_is_hccs_vm_scene(udevid, host_flag);
+    return 0;
+}

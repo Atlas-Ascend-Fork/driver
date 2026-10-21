@@ -22,28 +22,29 @@
 #define PCI_DEVICE_CLOUD (0xa126U)
 
 static const ka_pci_device_id_t g_pbl_tbl[] = {
-    { KA_PCI_VDEVICE(HUAWEI, 0xd100),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd105),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, PCI_DEVICE_CLOUD), 0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd801),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd500),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd501),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd802),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd803),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd804),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd805),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd806),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd807),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd808),           0 },
-    { DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    { 0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    { 0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    { 0x20E9, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    { 0x20C6, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    { 0x203F, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    { 0x20E9, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    {}
-};
+    {KA_PCI_VDEVICE(HUAWEI, 0xd100), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd105), 0},
+    {KA_PCI_VDEVICE(HUAWEI, PCI_DEVICE_CLOUD), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd801), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd500), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd501), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd802), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd803), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd804), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd805), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd809), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
+    {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20E9, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20C6, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x203F, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20E9, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {}};
 KA_MODULE_DEVICE_TABLE(pci, g_pbl_tbl);
 #endif
 
@@ -88,7 +89,7 @@ void __attribute__((weak)) ubmem_dev_exit(void)
 }
 
 struct submodule_ops {
-    int (*init) (void);
+    int (*init)(void);
     void (*uninit)(void);
 };
 
@@ -156,7 +157,7 @@ STATIC int __ka_init init_pbl_base(void)
 
     for (index = 0; index < table_size; index++) {
         ret = g_sub_table[index].init();
-        if  (ret != 0) {
+        if (ret != 0) {
             goto out;
         }
     }

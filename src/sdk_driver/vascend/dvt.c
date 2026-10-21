@@ -716,16 +716,20 @@ STATIC int vdavinci_vfg_stats_cb(ka_device_t *dev, void *data)
 
 STATIC ssize_t davinci_sysfs_vfg_info(ka_device_t *dev, ka_device_attribute_t *attr, char *buf)
 {
-    int i;
+    int i = 0;
     struct vfg_info info = {{0}};
     int *stats = info.stats;
     ssize_t offset = 0;
 
     ka_device_for_each_child(dev, &info, vdavinci_vfg_stats_cb);
     for (i = 0; i < VDAVINCI_VFG_MAX; i++) {
-        int ret;
+        size_t left = KA_MM_PAGE_SIZE - (size_t)offset;
+        int ret = 0;
 
-        ret = snprintf_s(buf + offset, KA_MM_PAGE_SIZE, KA_MM_PAGE_SIZE - 1, "VFG %d: %d\n", i, stats[i]);
+        if (left == 0) {
+            break;
+        }
+        ret = snprintf_s(buf + offset, left, left - 1, "VFG %d: %d\n", i, stats[i]);
         if (ret < 0) {
             return -1;
         }
@@ -783,18 +787,18 @@ STATIC int hw_dvt_init_device_info(struct hw_dvt *dvt)
     dvt->vendor = pdev->vendor;
     dvt->device = pdev->device;
     if (!hw_vdavinci_smmu_check(dvt, vdavinci_priv->dev)) {
-        vascend_warn(&pdev->dev, "iommu is not enable, vdavinci is not support for this device");
+        vascend_warn(&pdev->dev, "iommu is not enabled, vdavinci does not support this device");
         return -ENOTSUPP;
     }
     ret = hw_dvt_set_mmio_ops(dvt, vdavinci_mmio_pf_devices_ops);
     if (ret) {
-        vascend_warn(&pdev->dev, "vdavinci is not support for this device: 0x%x\n", dvt->device);
+        vascend_warn(&pdev->dev, "vdavinci is not supported for this device: 0x%x\n", dvt->device);
         return ret;
     }
 
     ret = hw_dvt_set_mmio_device_info(dvt);
     if (ret != 0) {
-        vascend_warn(&pdev->dev, "vdavinci is not support for this device: 0x%x\n", dvt->device);
+        vascend_warn(&pdev->dev, "vdavinci is not supported for this device: 0x%x\n", dvt->device);
         return ret;
     }
     pdrv->sriov_configure = NULL;
@@ -1016,7 +1020,10 @@ int hw_dvt_init_device(struct vdavinci_priv *vdavinci_priv)
         goto out_dev_pf;
     }
 
-    hw_dvt_debugfs_init(dvt);
+    ret = hw_dvt_debugfs_init(dvt);
+    if (ret != 0) {
+        vascend_warn(vdavinci_priv->dev, "debugfs is unavailable. (ret=%d)\n", ret);
+    }
 
     ret = davinci_vfg_info_create(pdev);
     if (ret != 0) {

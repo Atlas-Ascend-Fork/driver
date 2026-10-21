@@ -72,8 +72,8 @@ static void buff_scale_submit_event(int pool_id, int type, void *addr, unsigned 
     devid = (unsigned int)((subscriber >> PROP_DEVID_OFFSET) & PROP_DEVID_MASK);
     ret = halEschedSubmitEvent(devid, &event);
     if (ret != DRV_ERROR_NONE) {
-        buff_warn("Notify failed. (devid=%u; pool_id=%d; pid=%d; grp_id=%d; addr=%p; size=%llx)\n", devid, pool_id,
-                  event.pid, event.grp_id, addr, size);
+        buff_warn("Notify not successful. (devid=%u; pool_id=%d; pid=%d; grp_id=%d; addr=%p; size=%llx)\n", devid,
+                  pool_id, event.pid, event.grp_id, addr, size);
     }
 }
 
@@ -193,7 +193,7 @@ drvError_t halBufEventReport(const char *grpName)
     unsigned long subscriber;
     drvError_t ret;
     unsigned int i;
-    int pool_id;
+    int pool_id = -1;
 
     ret = event_report_para_check(grpName);
     if (ret != DRV_ERROR_NONE) {
@@ -204,7 +204,7 @@ drvError_t halBufEventReport(const char *grpName)
     if ((ret != DRV_ERROR_NONE) || (pool_id != buff_get_default_pool_id())) {
         buff_err("Buff_pool_id_query failed. (grp_name=%s; pool_id=%d; ret=%d; get_default_pool_id=%d)\n", grpName,
                  pool_id, ret, buff_get_default_pool_id());
-        return ret;
+        return DRV_ERROR_IOCRL_FAIL;
     }
 
     for (i = 0; i < EVENT_MAX_SUBSCRIBER; i++) {
@@ -219,13 +219,15 @@ drvError_t halBufEventReport(const char *grpName)
     return DRV_ERROR_NONE;
 }
 
-static drvError_t event_subscribe_para_check(const char *grp_name, unsigned int thread_grp_id, unsigned int event_id)
+static drvError_t event_subscribe_para_check(const char *grp_name, unsigned int thread_grp_id, unsigned int event_id,
+                                             unsigned int devid)
 {
     unsigned long len;
 
-    if ((grp_name == NULL) || (thread_grp_id >= EVENT_GRP_MAX_NUM) || (event_id >= EVENT_MAX_NUM)) {
-        buff_err("Parameter invalid. (thread_grp_id=%d; event_id=%d; grp_name=%p)\n", thread_grp_id, event_id,
-                 grp_name);
+    if ((grp_name == NULL) || (thread_grp_id >= EVENT_GRP_MAX_NUM) || (event_id >= EVENT_MAX_NUM) ||
+        (devid > PROP_DEVID_MASK)) {
+        buff_err("Parameter invalid. (thread_grp_id=%d; event_id=%d; grp_name=%p; devid=%u)\n", thread_grp_id, event_id,
+                 grp_name, devid);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -246,7 +248,7 @@ drvError_t halBufEventSubscribe(const char *grpName, unsigned int threadGrpId, u
     unsigned int i;
     int pool_id;
 
-    ret = event_subscribe_para_check(grpName, threadGrpId, event_id);
+    ret = event_subscribe_para_check(grpName, threadGrpId, event_id, devid);
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }

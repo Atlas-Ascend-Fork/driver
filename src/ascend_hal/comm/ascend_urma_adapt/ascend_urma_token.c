@@ -35,16 +35,6 @@ struct ascend_urma_token_pool {
     struct ascend_urma_token *cur_token;
 };
 
-struct ascend_urma_token {
-    struct list_head node;
-
-    void *pool;
-
-    urma_token_id_t *token_id;
-    urma_token_t token_val;
-    u64 acquired_num;
-};
-
 static inline bool ascend_urma_token_flag_bit_is_set(u32 flag, u32 bit_mask)
 {
     return ((flag & bit_mask) != 0);
@@ -307,6 +297,16 @@ void *ascend_urma_token_acquire(void *pool, u32 token_flag)
     return (void *)token;
 }
 
+void ascend_urma_token_acquire_existing(void *token)
+{
+    struct ascend_urma_token *ascend_urma_token = (struct ascend_urma_token *)token;
+    struct ascend_urma_token_pool *token_pool = (struct ascend_urma_token_pool *)ascend_urma_token->pool;
+
+    (void)pthread_rwlock_wrlock(&token_pool->rwlock);
+    ascend_urma_token_acquired_num_inc(ascend_urma_token);
+    (void)pthread_rwlock_unlock(&token_pool->rwlock);
+}
+
 void ascend_urma_token_release(void *token)
 {
     struct ascend_urma_token *ascend_urma_token = (struct ascend_urma_token *)token;
@@ -327,4 +327,14 @@ urma_token_t ascend_urma_token_to_val(void *token)
 {
     struct ascend_urma_token *ascend_urma_token = (struct ascend_urma_token *)token;
     return ascend_urma_token->token_val;
+}
+
+urma_token_id_t *ascend_urma_alloc_token_id(void *ctx)
+{
+    return urma_alloc_token_id(ascend_to_urma_ctx(ctx));
+}
+
+void ascend_urma_free_token_id(urma_token_id_t *token_id)
+{
+    (void)urma_free_token_id(token_id);
 }

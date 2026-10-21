@@ -22,7 +22,6 @@
 #include "hbm_ctrl.h"
 #include "ascend_dev_num.h"
 
-
 int dev_ecc_config_get_total_isolated_pages_info(unsigned int dev_id, struct ecc_statistics_s_all *pvalue)
 {
     int ret;
@@ -76,7 +75,7 @@ int dev_ecc_config_clear_isolated_info(unsigned int dev_id)
 }
 
 STATIC int dev_ecc_config_ioctl_read(unsigned int dev_id, unsigned int op_type,
-    struct ecc_config_udata_s *ecc_config_udata)
+                                     struct ecc_config_udata_s *ecc_config_udata)
 {
     int ret;
     struct dms_ioctl_arg ioarg = {0};
@@ -120,7 +119,7 @@ int dev_ecc_config_get_multi_ecc_time_info(unsigned int dev_id, MULTI_ECC_TIMES 
     }
 
     ret = memcpy_s(multi_eccs_timestamp, sizeof(MULTI_ECC_TIMES), &ecc_config_udata.multi_ecc_time_data,
-        sizeof(MULTI_ECC_TIMES));
+                   sizeof(MULTI_ECC_TIMES));
     if (ret != 0) {
         DMS_ERR("Memcpy multi ECC timestamp failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
     }
@@ -128,7 +127,7 @@ int dev_ecc_config_get_multi_ecc_time_info(unsigned int dev_id, MULTI_ECC_TIMES 
 }
 
 int dev_ecc_config_get_multi_ecc_info(unsigned int dev_id, unsigned int data_index,
-    struct ecc_common_data_s *ecc_detail_info)
+                                      struct ecc_common_data_s *ecc_detail_info)
 {
     int ret;
     struct ecc_config_udata_s ecc_config_udata = {0};
@@ -145,8 +144,8 @@ int dev_ecc_config_get_multi_ecc_info(unsigned int dev_id, unsigned int data_ind
     ecc_config_udata.data_index = data_index;
     ret = dev_ecc_config_ioctl_read(dev_id, MULTI_ECC_INFO_READ, &ecc_config_udata);
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Read ECC config timestamp failed. (dev_id=%u; data_index=%u; ret=%d)\n",
-            dev_id, data_index, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Read ECC config timestamp failed. (dev_id=%u; data_index=%u; ret=%d)\n", dev_id,
+                              data_index, ret);
         return ret;
     }
     ecc_detail_info->physical_addr = ecc_config_udata.multi_ecc_data.physical_addr;
@@ -154,20 +153,20 @@ int dev_ecc_config_get_multi_ecc_info(unsigned int dev_id, unsigned int data_ind
 #if defined CFG_FEATURE_HBM_FLASH || defined CFG_FEATURE_DDR_FLASH
     ecc_detail_info->stack_pc_id = ecc_config_udata.multi_ecc_data.module_id;
     ecc_detail_info->reg_addr_h = (uint32_t)(ecc_config_udata.multi_ecc_data.row << LOW_ADDR_ROW_BITS_OFFSET) |
-        ecc_config_udata.multi_ecc_data.column;
+                                  ecc_config_udata.multi_ecc_data.column;
     ecc_detail_info->reg_addr_l = (uint32_t)(ecc_config_udata.multi_ecc_data.rank << HIGH_ADDR_SID_BITS_COUNT) |
-        ecc_config_udata.multi_ecc_data.bank;
+                                  ecc_config_udata.multi_ecc_data.bank;
 #else
     ecc_detail_info->reg_addr_h = (uint32_t)(ecc_config_udata.multi_ecc_data.row << HIGH_ADDR_COLUMN_BITS_COUNT) |
-        ecc_config_udata.multi_ecc_data.column;
+                                  ecc_config_udata.multi_ecc_data.column;
     ecc_detail_info->reg_addr_l = (uint32_t)(ecc_config_udata.multi_ecc_data.rank << LOW_ADDR_RANK_BITS_OFFSET) |
-        ecc_config_udata.multi_ecc_data.bank;
+                                  ecc_config_udata.multi_ecc_data.bank;
 #endif
     return ret;
 }
 
 int dev_ecc_config_get_single_ecc_info(unsigned int dev_id, unsigned int data_index,
-    struct ecc_common_data_s *ecc_detail_info)
+                                       struct ecc_common_data_s *ecc_detail_info)
 {
     int ret;
     struct ecc_config_udata_s ecc_config_udata = {0};
@@ -184,8 +183,8 @@ int dev_ecc_config_get_single_ecc_info(unsigned int dev_id, unsigned int data_in
     ecc_config_udata.data_index = data_index;
     ret = dev_ecc_config_ioctl_read(dev_id, SINGLE_ECC_INFO_READ, &ecc_config_udata);
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Read ECC config timestamp failed. (devid=%u; data_index=%u; ret=%d)\n",
-            dev_id, data_index, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Read single ECC info failed. (devid=%u; data_index=%u; ret=%d)\n", dev_id,
+                              data_index, ret);
         return ret;
     }
 
@@ -198,7 +197,7 @@ int dev_ecc_config_get_single_ecc_info(unsigned int dev_id, unsigned int data_in
 }
 
 int dev_ecc_config_get_ecc_addr_count(unsigned int dev_id, unsigned char err_type,
-    unsigned int count_value[ECC_ERROR_TYPE_COUNT])
+                                      unsigned int count_value[ECC_ERROR_TYPE_COUNT])
 {
     int ret;
     struct ecc_config_udata_s ecc_config_udata = {0};
@@ -215,8 +214,8 @@ int dev_ecc_config_get_ecc_addr_count(unsigned int dev_id, unsigned char err_typ
 
     ret = dev_ecc_config_ioctl_read(dev_id, ECC_ADDRESS_COUNT_READ, &ecc_config_udata);
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Read ECC address count failed. (devid=%u; err_type=%u; ret=%d)\n",
-            dev_id, err_type, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Read ECC address count failed. (devid=%u; err_type=%u; ret=%d)\n", dev_id, err_type,
+                              ret);
         return ret;
     }
     count_value[0] = ecc_config_udata.ecc_address_count.single_ecc_addr_cnt;
@@ -237,8 +236,8 @@ int dev_ecc_config_get_va_info(unsigned int devId, void *buf, unsigned int *size
     struct dms_ioctl_arg ioarg = {0};
 
     if (devId >= ASCEND_DEV_MAX_NUM || buf == NULL || size == NULL) {
-        DMS_ERR("Invalid parameters. (dev_id=%u; buf%s; size%s)\n",
-            devId, buf == NULL ? "=NULL" : "!=NULL", size == NULL ? "=NULL" : "!=NULL");
+        DMS_ERR("Invalid parameters. (dev_id=%u; buf%s; size%s)\n", devId, buf == NULL ? "=NULL" : "!=NULL",
+                size == NULL ? "=NULL" : "!=NULL");
         return DRV_ERROR_PARA_ERROR;
     }
     if (*size != sizeof(struct MemRepairInPara)) {
@@ -271,7 +270,7 @@ int dev_ecc_config_get_va_info(unsigned int devId, void *buf, unsigned int *size
 
     for (i = 0; i < va_info.va_num; i++) {
         mem_para->repairAddrs[i].ptr = va_info.va_info[i].va_addr;
-        mem_para->repairAddrs[i].len = (unsigned long long)(1 << va_info.va_info[i].size);
+        mem_para->repairAddrs[i].len = (unsigned long long)(1ULL << va_info.va_info[i].size);
     }
 #endif
     return ret;
@@ -282,17 +281,17 @@ drvError_t dms_memory_get_hbm_ecc_syscnt(unsigned int dev_id, void *buf, unsigne
 #if (defined(CFG_FEATURE_GET_CURRENT_EVENTINFO) && defined(DRV_HOST)) || (defined(URD_FORWARD_UT))
     struct urd_ioctl_arg ioarg = {0};
     struct memory_fault_timestamp mem_para = {0};
-    HAL_FAULT_OCCUR_SYSCNT_STRU* input = NULL;
+    HAL_FAULT_OCCUR_SYSCNT_STRU *input = NULL;
     int ret;
 
     if (dev_id >= ASCEND_DEV_MAX_NUM || buf == NULL || size == NULL) {
-        DMS_ERR("Invalid parameters. (dev_id=%u; buf%s; size%s)\n",
-            dev_id, buf == NULL ? "=NULL" : "!=NULL", size == NULL ? "=NULL" : "!=NULL");
+        DMS_ERR("Invalid parameters. (dev_id=%u; buf%s; size%s)\n", dev_id, buf == NULL ? "=NULL" : "!=NULL",
+                size == NULL ? "=NULL" : "!=NULL");
         return DRV_ERROR_PARA_ERROR;
     }
     if (*size != sizeof(HAL_FAULT_OCCUR_SYSCNT_STRU)) {
-        DMS_ERR("Invalid parameter. (dev_id=%u; input_size=%u; expected=%u)\n",
-                dev_id, *size, sizeof(HAL_FAULT_OCCUR_SYSCNT_STRU));
+        DMS_ERR("Invalid parameter. (dev_id=%u; input_size=%u; expected=%u)\n", dev_id, *size,
+                sizeof(HAL_FAULT_OCCUR_SYSCNT_STRU));
         return DRV_ERROR_PARA_ERROR;
     }
 

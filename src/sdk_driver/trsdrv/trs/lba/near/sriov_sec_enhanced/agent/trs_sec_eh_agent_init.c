@@ -117,7 +117,7 @@ static void trs_sec_eh_irq_unrequest(u32 devid)
     int i;
 
     if (inject == NULL) {
-        trs_err("Irq is repeatedly freed. (devid=%u)\n", devid);
+        trs_err("Irq is repeated free. (devid=%u)\n", devid);
         return;
     }
 
@@ -244,7 +244,7 @@ static int trs_sec_eh_init_instance(u32 udevid)
     ret = trs_sec_eh_ts_inst_create(&inst);
     ka_task_mutex_unlock(&sec_eh_cfg_mutex);
     if (ret != 0) {
-        trs_err("Failed. (devid=%u, fid=%u)\n", udevid, fid);
+        trs_err("Trs sec eh agent init instance failed. (devid=%u; fid=%u)\n", udevid, fid);
         return ret;
     }
 
@@ -327,14 +327,15 @@ int init_sec_eh_trs_agent(void)
     struct uda_dev_type type;
     int ret;
 
+    ka_task_mutex_init(&sec_eh_cfg_mutex);
+
     uda_dev_type_pack(&type, UDA_DAVINCI, UDA_ENTITY, UDA_NEAR, UDA_REAL_SEC_EH);
     ret = uda_notifier_register(TRS_SEC_EH_AGENT_NOTIFIER, &type, UDA_PRI1, trs_sec_eh_agent_notifier_func);
     if (ret != 0) {
+        ka_task_mutex_destroy(&sec_eh_cfg_mutex);
         trs_err("Register notifier failed. (ret=%d)\n", ret);
         return ret;
     }
-
-    ka_task_mutex_init(&sec_eh_cfg_mutex);
 
     trs_info("Sec eh agent init success\n");
     return 0;
@@ -344,10 +345,10 @@ void exit_sec_eh_trs_agent(void)
 {
     struct uda_dev_type type;
 
-    ka_task_mutex_destroy(&sec_eh_cfg_mutex);
-
     uda_dev_type_pack(&type, UDA_DAVINCI, UDA_ENTITY, UDA_NEAR, UDA_REAL_SEC_EH);
     (void)uda_notifier_unregister(TRS_SEC_EH_AGENT_NOTIFIER, &type);
+
+    ka_task_mutex_destroy(&sec_eh_cfg_mutex);
 
     trs_info("Sec eh agent exit success\n");
     return;

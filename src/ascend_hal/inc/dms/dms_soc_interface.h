@@ -42,6 +42,7 @@ typedef struct dms_pcie_id_info {
     unsigned int device;      /* Device id */
     unsigned int fn;          /* Function id */
     unsigned int davinci_id;  /* device logical id */
+    unsigned int domain;      /* domain id */
 } dms_pcie_id_info_t;
 
 #define MAX_CHIP_NAME 32

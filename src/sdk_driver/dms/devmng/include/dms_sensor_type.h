@@ -21,7 +21,6 @@
  */
 #define DMS_SENSOR_RESERVED_FOR_PRODUCT (0xFE)
 
-
 /* sensor type definition */
 typedef enum {
     DMS_SEN_TYPE_TEMPERATURE = 0x01, // temperature
@@ -53,9 +52,9 @@ typedef enum {
     DMS_SEN_TYPE_CABLE_INTERCONNECT,
     DMS_SEN_TYPE_TERMINATOR,
     DMS_SEN_TYPE_SYSTEM_BOOT_INITIATED,
-    DMS_SEN_TYPE_BOOT_ERROR,              // startup error
+    DMS_SEN_TYPE_BOOT_ERROR, // startup error
     DMS_SEN_TYPE_OS_BOOT,
-    DMS_SEN_TYPE_OS_CRITICAL_STOP,        // operating system termination/Shutdown
+    DMS_SEN_TYPE_OS_CRITICAL_STOP, // operating system termination/Shutdown
     DMS_SEN_TYPE_SLOT_CONNECTOR,
     DMS_SEN_TYPE_SYSTEM_ACPI_POWER_STATE, // ACPI power status
     DMS_SEN_TYPE_WATCHDOG2,               // watchdog
@@ -69,20 +68,21 @@ typedef enum {
     DMS_SEN_TYPE_VERSION_CHANGE = 0x2B,
     DMS_SEN_TYPE_MAX_STANDARD,
     /* above are the sensor types defined by the standard, below are the custom sensor types */
-    DMS_SEN_TYPE_RAS_SENSOR = 0xC0,         // AS sensor, chip hardware direct error detection
+    DMS_SEN_TYPE_RAS_SENSOR = 0xC0, // AS sensor, chip hardware direct error detection
     DMS_SEN_TYPE_EXPIRED_SENSOR,
     DMS_SEN_TYPE_MEMORY_ERR_RECORD,
-    DMS_SEN_TYPE_SAFETY_SENSOR = 0xC3,      // SOC EVENT1: SOC system exception
-    DMS_SEN_TYPE_EXTEND_SENSOR = 0xC4,      // SOC EVENT2: SOC system exception - hardware error detection assisted by software
-    DMS_SEN_TYPE_BUS_SENSOR = 0xC5,         // SOC EVENT3: SOC system exception - external Bus exception
-    DMS_SEN_TYPE_CHECK_SENSOR = 0xC6,       // SOC EVENT4: SOC system exception - verification exception
-    DMS_SEN_TYPE_CRYPTO_SENSOR = 0xC7,      // SOC EVENT5: SOC system exception - security module exception
-    DMS_SEN_TYPE_MODULE_SENSOR1 = 0xC8,     // SOC EVENT6: SOC system exception - public IP module exception
-    DMS_SEN_TYPE_MODULE_SENSOR2 = 0xC9,     // SOC EVENT7: SOC system exception - public IP module exception
-    DMS_SEN_TYPE_DISP_SENSOR = 0xCA,        // Dispatch module exception
-    DMS_SEN_TYPE_SMMU_SENSOR = 0xCB,        // SMMU module exception
-    DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT = 0xD0,        // GENERAL SOFTWARE FALUT: common software exception
-    DMS_SEN_TYPE_CHIP_HARDWARE = 0xD1,      // CHIP HARDWARE: chip hardware exception
+    DMS_SEN_TYPE_SAFETY_SENSOR = 0xC3,  // SOC EVENT1: SOC system exception
+    DMS_SEN_TYPE_EXTEND_SENSOR = 0xC4,  // SOC EVENT2: SOC system exception - hardware error detection assisted by
+                                        // software
+    DMS_SEN_TYPE_BUS_SENSOR = 0xC5,     // SOC EVENT3: SOC system exception - external Bus exception
+    DMS_SEN_TYPE_CHECK_SENSOR = 0xC6,   // SOC EVENT4: SOC system exception - verification exception
+    DMS_SEN_TYPE_CRYPTO_SENSOR = 0xC7,  // SOC EVENT5: SOC system exception - security module exception
+    DMS_SEN_TYPE_MODULE_SENSOR1 = 0xC8, // SOC EVENT6: SOC system exception - public IP module exception
+    DMS_SEN_TYPE_MODULE_SENSOR2 = 0xC9, // SOC EVENT7: SOC system exception - public IP module exception
+    DMS_SEN_TYPE_DISP_SENSOR = 0xCA,    // Dispatch module exception
+    DMS_SEN_TYPE_SMMU_SENSOR = 0xCB,    // SMMU module exception
+    DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT = 0xD0, // GENERAL SOFTWARE FALUT: common software exception
+    DMS_SEN_TYPE_CHIP_HARDWARE = 0xD1,          // CHIP HARDWARE: chip hardware exception
     DMS_SEN_TYPE_UB_SENSOR = 0xD5,
     /* The 0xFE sensor type is reserved, used for product-defined event IDs. */
     DMS_SEN_TYPE_MAX_CUSTOM,
@@ -129,12 +129,12 @@ enum memory_error_type {
 
 /* for DMS_SEN_TYPE_MEMORY_ERR_RECORD(0xC2) sensor */
 enum memory_error_record_type {
-	MEMORY_ERROR_RECORD_TYPE_MULTI_BITS_ECC = 0,
-	MEMORY_ERROR_RECORD_TYPE_NOTICE_ECC_COUNT,
-	MEMORY_ERROR_RECORD_TYPE_UPPER_LIMITS_ECC_COUNT,
-	MEMORY_ERROR_RECORD_TYPE_SINGLE_ECC_THRESHOLD,
-	MEMORY_ERROR_RECORD_TYPE_UCE_INT_SHIELD,
-	MEMORY_ERROR_RECORD_TYPE_HBM_SUB_HEALTH,
+    MEMORY_ERROR_RECORD_TYPE_MULTI_BITS_ECC = 0,
+    MEMORY_ERROR_RECORD_TYPE_NOTICE_ECC_COUNT,
+    MEMORY_ERROR_RECORD_TYPE_UPPER_LIMITS_ECC_COUNT,
+    MEMORY_ERROR_RECORD_TYPE_SINGLE_ECC_THRESHOLD,
+    MEMORY_ERROR_RECORD_TYPE_UCE_INT_SHIELD,
+    MEMORY_ERROR_RECORD_TYPE_HBM_SUB_HEALTH,
     MEMORY_ERROR_RECORD_TYPE_ERROR_RECORD_MAX
 };
 
@@ -161,7 +161,7 @@ enum soc_safety_error_type {
     SOC_SAFETY_ERR_TYPE_MAX
 };
 
- /* for DMS_SEN_TYPE_BUS_SENSOR(0xC5) sensor */
+/* for DMS_SEN_TYPE_BUS_SENSOR(0xC5) sensor */
 enum soc_bus_error_type {
     SOC_BUS_BUS_TIMESTAMP_ABNORMAL = 0x00,
     SOC_BUS_TXRX_EVENTS_LOST = 0x01,
@@ -211,6 +211,22 @@ enum temp_error_type {
     TEMP_ERROR_TYPE_L3H_RESUME = 0x0A,
     TEMP_ERROR_TYPE_L3H_OCCUR = 0x0B,
     TEMP_ERROR_TYPE_ERR_TYPE_MAX
+};
+
+enum voltage_error_type {
+    VOLTAGE_ERROR_TYPE_LNC_LOW = 0x00,  /* Crossed Lower non-critical going low */
+    VOLTAGE_ERROR_TYPE_LNC_HIGH = 0x01, /* Crossed Lower non-critical going high */
+    VOLTAGE_ERROR_TYPE_LC_LOW = 0x02,   /* Crossed Lower critical going low */
+    VOLTAGE_ERROR_TYPE_LC_HIGH = 0x03,  /* Crossed Lower critical going high */
+    VOLTAGE_ERROR_TYPE_LNR_LOW = 0x04,  /* Crossed Lower non-recoverable going low */
+    VOLTAGE_ERROR_TYPE_LNR_HIGH = 0x05, /* Crossed Lower non-recoverable going high */
+    VOLTAGE_ERROR_TYPE_UNC_LOW = 0x06,  /* Crossed Upper non-critical going low */
+    VOLTAGE_ERROR_TYPE_UNC_HIGH = 0x07, /* Crossed Upper non-critical going high */
+    VOLTAGE_ERROR_TYPE_UC_LOW = 0x08,   /* Crossed Upper critical going low */
+    VOLTAGE_ERROR_TYPE_UC_HIGH = 0x09,  /* Crossed Upper critical going high */
+    VOLTAGE_ERROR_TYPE_UNR_LOW = 0x0A,  /* Crossed Upper non-recoverable going low */
+    VOLTAGE_ERROR_TYPE_UNR_HIGH = 0x0B, /* Crossed Upper non-recoverable going high */
+    VOLTAGE_ERROR_TYPE_ERR_TYPE_MAX
 };
 
 enum heartbeat_error_type {
@@ -264,6 +280,6 @@ struct tag_dms_sensor_type {
 };
 
 int dms_get_sensor_type_count(void);
-struct tag_dms_sensor_type* dms_get_sensor_type(void);
+struct tag_dms_sensor_type *dms_get_sensor_type(void);
 
 #endif

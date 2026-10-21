@@ -133,10 +133,9 @@ int dma_desc_convert_2d(struct dma_desc_ctx *ctx, struct copy_2d_va_info *info, 
 static struct svm_copy_task *dma_desc_copy_task_convert(struct dma_desc_ctx *ctx, struct copy_va_info *info)
 {
     struct svm_copy_task *copy_task = NULL;
-    u32 exec_udevid = copy_va_info_get_exec_udevid(info);
     int ret;
 
-    copy_task = svm_copy_task_create(exec_udevid);
+    copy_task = svm_copy_task_create(ctx->udevid);
     if (copy_task == NULL) {
         return NULL;
     }

@@ -451,7 +451,7 @@ int devdrv_mini_v3_alloc_devid(struct devdrv_ctrl *ctrl_this)
 
 int devdrv_mini_v3_is_p2p_access_cap(struct devdrv_pci_ctrl *pci_ctrl, struct devdrv_pci_ctrl *peer_pci_ctrl)
 {
-    devdrv_info("This chip_type not support p2p. (dev_id=%u; chip_type=%d)\n", pci_ctrl->dev_id,
+    devdrv_info("This chip_type does not support p2p. (dev_id=%u;chip_type=%d)\n", pci_ctrl->dev_id,
                 pci_ctrl->shr_para->chip_type);
     return DEVDRV_P2P_ACCESS_DISABLE;
 }
@@ -513,66 +513,66 @@ void devdrv_mini_v3_init_setup_runtime_info(struct devdrv_pci_ctrl *pci_ctrl)
     pci_ctrl->local_reserve_mem_base = NULL;
 }
 
+// clang-format off
 static const devdrv_feature_bitmap_t mini_v3_features = 0;
 
-// clang-format off
-#define DEVDRV_MINI_V3_OPS \
-    .init_load_file_info = devdrv_mini_v3_init_load_file_info, \
-    .init_depend_module_info = devdrv_mini_v3_init_depend_module_info, \
-    .alloc_devid = devdrv_mini_v3_alloc_devid, \
-    .is_p2p_access_cap = devdrv_mini_v3_is_p2p_access_cap, \
-    .get_load_wait_mode = devdrv_mini_v3_get_load_wait_mode, \
-    .get_pf_max_msg_chan_cnt = devdrv_mini_v3_get_pf_msg_chan_cnt, \
-    .get_vf_max_msg_chan_cnt = devdrv_mini_v3_get_vf_msg_chan_cnt, \
-    .get_p2p_support_max_devnum = devdrv_mini_v3_get_p2p_support_max_devnum, \
-    .set_dev_shr_info = devdrv_mini_v3_set_dev_shr_info, \
-    .get_nvme_low_level_db_irq_num = devdrv_mini_v3_get_nvme_low_level_db_irq_num, \
-    .get_nvme_db_irq_strde = devdrv_mini_v3_get_nvme_db_irq_strde, \
-    .get_vf_dma_info = NULL, \
-    .is_mdev_vm_full_spec = NULL, \
-    .get_p2p_addr = NULL, \
-    .get_server_id = NULL, \
-    .get_max_server_num = NULL, \
-    .init_virt_info = NULL, \
-    .init_link_info = NULL, \
-    .set_udevid_reorder_para = NULL, \
-    .devdrv_deal_suspend_handshake = NULL, \
-    .check_ep_suspend_status = NULL, \
-    .single_fault_init = NULL, \
+#define DEVDRV_MINI_V3_OPS                                                                           \
+    .init_load_file_info = devdrv_mini_v3_init_load_file_info,                                       \
+    .init_depend_module_info = devdrv_mini_v3_init_depend_module_info,                               \
+    .alloc_devid = devdrv_mini_v3_alloc_devid,                                                       \
+    .is_p2p_access_cap = devdrv_mini_v3_is_p2p_access_cap,                                           \
+    .get_load_wait_mode = devdrv_mini_v3_get_load_wait_mode,                                         \
+    .get_pf_max_msg_chan_cnt = devdrv_mini_v3_get_pf_msg_chan_cnt,                                   \
+    .get_vf_max_msg_chan_cnt = devdrv_mini_v3_get_vf_msg_chan_cnt,                                   \
+    .get_p2p_support_max_devnum = devdrv_mini_v3_get_p2p_support_max_devnum,                         \
+    .set_dev_shr_info = devdrv_mini_v3_set_dev_shr_info,                                             \
+    .get_nvme_low_level_db_irq_num = devdrv_mini_v3_get_nvme_low_level_db_irq_num,                   \
+    .get_nvme_db_irq_strde = devdrv_mini_v3_get_nvme_db_irq_strde,                                   \
+    .get_vf_dma_info = NULL,                                                                         \
+    .is_mdev_vm_full_spec = NULL,                                                                    \
+    .get_p2p_addr = NULL,                                                                            \
+    .get_server_id = NULL,                                                                           \
+    .get_max_server_num = NULL,                                                                      \
+    .init_virt_info = NULL,                                                                          \
+    .init_link_info = NULL,                                                                          \
+    .set_udevid_reorder_para = NULL,                                                                 \
+    .devdrv_deal_suspend_handshake = NULL,                                                           \
+    .check_ep_suspend_status = NULL,                                                                 \
+    .single_fault_init = NULL,                                                                       \
     .single_fault_uninit = NULL,
 
-#define DEVDRV_MINI_V3_PF_OPS \
-    .init_bar_info = devdrv_mini_v3_init_bar_info, \
-    .init_bar_addr_info = devdrv_mini_v3_init_bar_addr_info, \
-    .init_msg_cnt = devdrv_mini_v3_init_msg_cnt, \
-    .boot_mode_rebuild = NULL, \
-    .init_dma_info = devdrv_mini_v3_init_dma_info, \
+#define DEVDRV_MINI_V3_PF_OPS                                                                        \
+    .init_bar_info = devdrv_mini_v3_init_bar_info,                                                   \
+    .init_bar_addr_info = devdrv_mini_v3_init_bar_addr_info,                                         \
+    .init_msg_cnt = devdrv_mini_v3_init_msg_cnt,                                                     \
+    .boot_mode_rebuild = NULL,                                                                       \
+    .init_dma_info = devdrv_mini_v3_init_dma_info,                                                   \
     .init_setup_runtime_info = devdrv_mini_v3_init_setup_runtime_info,
 
-#define DEVDRV_MINI_V3_PCIE_OPS \
-    .flush_cache = NULL, \
-    .get_peh_link_info = NULL, \
-    .link_speed_slow_to_normal = NULL,
-
-#define DEVDRV_MINI_V3_PF_INIT_INTR_OPS \
+#define DEVDRV_MINI_V3_PF_INIT_INTR_OPS                                                              \
     .init_intr_info = devdrv_mini_v3_init_intr_info,
 
+#define DEVDRV_MINI_V3_PF_PCIE_CFG(boot, boot_ops)                                                   \
+    {                                                                                                \
+        .mode = (1U << (DEVDRV_SRIOV_TYPE_PF + DEVDRV_FEATURE_PFVF_BIT_OFFSET)) |                    \
+                (1U << (CONNECT_PROTOCOL_PCIE + DEVDRV_FEATURE_CONNECT_PROTO_BIT_OFFSET)) |          \
+                (1U << ((boot) + DEVDRV_FEATURE_ENV_BOOT_BIT_OFFSET)),                               \
+        .ops = {                                                                                     \
+            DEVDRV_MINI_V3_OPS                                                                       \
+            DEVDRV_MINI_V3_PF_OPS                                                                    \
+            DEVDRV_MINI_V3_PF_INIT_INTR_OPS                                                          \
+            boot_ops                                                                                 \
+        },                                                                                           \
+    }
+
 struct res_config mini_v3_res_cfg[] = {
-    {
-        .mode = (1U << (DEVDRV_SRIOV_TYPE_PF + DEVDRV_FEATURE_PFVF_BIT_OFFSET)) |
-                (1U << (CONNECT_PROTOCOL_PCIE + DEVDRV_FEATURE_CONNECT_PROTO_BIT_OFFSET)),
-        .ops = {
-            DEVDRV_MINI_V3_OPS
-            DEVDRV_MINI_V3_PF_OPS
-            DEVDRV_MINI_V3_PCIE_OPS
-            DEVDRV_MINI_V3_PF_INIT_INTR_OPS
-        },
-    },
+    DEVDRV_MINI_V3_PF_PCIE_CFG(DEVDRV_PHY_BOOT, DEVDRV_PHY_BOOT_OPS),
 };
 // clang-format on
 
 int devdrv_mini_v3_res_init(struct devdrv_pci_ctrl *pci_ctrl)
 {
+    devdrv_feature_ops_bitmap_t mode = devdrv_feature_get_rescfg_bitmap(pci_ctrl);
     struct res_config *res_cfg = NULL;
     size_t res_cfg_size;
     int ret;
@@ -580,11 +580,12 @@ int devdrv_mini_v3_res_init(struct devdrv_pci_ctrl *pci_ctrl)
     pci_ctrl->features = mini_v3_features;
 
     res_cfg_size = KA_BASE_ARRAY_SIZE(mini_v3_res_cfg);
-    res_cfg = devdrv_feature_get_res_cfg(pci_ctrl, mini_v3_res_cfg, res_cfg_size);
+    res_cfg = devdrv_feature_get_res_cfg(mini_v3_res_cfg, res_cfg_size, mode);
     if (res_cfg == NULL) {
         return -EINVAL;
     }
 
+    res_cfg->ops.peh = NULL;
     (void)memcpy_s(&pci_ctrl->ops, sizeof(struct devdrv_dev_ops), &res_cfg->ops, sizeof(struct devdrv_dev_ops));
     devdrv_parse_res_gear();
     ret = res_cfg->ops.init_bar_info(pci_ctrl);

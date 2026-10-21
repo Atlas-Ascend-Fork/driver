@@ -16,10 +16,10 @@
 #define DSMI_PRODUCT_MAIN_CMD_START 0x8000U
 #define DSMI_PRODUCT_MAIN_CMD_END 0x8FFFU
 
-int dsmi_product_set_device_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
-    const void *buf, unsigned int buf_size);
-int dsmi_product_get_device_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size);
+int dsmi_product_set_device_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, const void *buf,
+                                 unsigned int buf_size);
+int dsmi_product_get_device_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd, void *buf,
+                                 unsigned int *size);
 int dsmi_cmd_get_i2c_heartbeat_status(int device_id, unsigned char *status, unsigned int *disconn_cnt);
 
 int dsmi_cmd_passthru_mcu(int device_id, unsigned char pass_para, struct passthru_message_stru *passthru_message);

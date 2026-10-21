@@ -20,7 +20,7 @@
 #ifdef EMU_ST
 #include <sys/syscall.h>
 #ifndef THREAD__
-#define THREAD__  __thread
+#define THREAD__ __thread
 #endif
 #define GETPID() syscall(__NR_gettid)
 #else
@@ -55,23 +55,21 @@
 #define sched_err(fmt, ...) DRV_ERR(HAL_MODULE_TYPE_EVENT_SCHEDULE, fmt, ##__VA_ARGS__)
 #define sched_warn(fmt, ...) DRV_WARN(HAL_MODULE_TYPE_EVENT_SCHEDULE, fmt, ##__VA_ARGS__)
 #define sched_info(fmt, ...) DRV_INFO(HAL_MODULE_TYPE_EVENT_SCHEDULE, fmt, ##__VA_ARGS__)
-#define sched_debug(fmt, ...) \
-    DRV_DEBUG(HAL_MODULE_TYPE_EVENT_SCHEDULE, fmt, ##__VA_ARGS__)
-#define sched_run_info(format, ...) do { \
-    DRV_RUN_INFO(HAL_MODULE_TYPE_EVENT_SCHEDULE, format, ##__VA_ARGS__); \
-} while (0)
+#define sched_debug(fmt, ...) DRV_DEBUG(HAL_MODULE_TYPE_EVENT_SCHEDULE, fmt, ##__VA_ARGS__)
+#define sched_run_info(format, ...)                                          \
+    do {                                                                     \
+        DRV_RUN_INFO(HAL_MODULE_TYPE_EVENT_SCHEDULE, format, ##__VA_ARGS__); \
+    } while (0)
 #endif
 
-#define HOST_NAME_LEN          64
-#define AOSSD_HOST_NAME        "AOS_SD"
-#define SCHED_DEV_FD_CLOSED     (-2)
+#define HOST_NAME_LEN 64
+#define AOSSD_HOST_NAME "AOS_SD"
+#define SCHED_DEV_FD_CLOSED (-2)
 
 /* configured provisionally for tuning. default ctrl cpu num 2 */
-#ifdef CFG_ENV_HOST
-#define HOST_SCHED_CPU_START   2
-#define HOST_CPU_NUM           32
-#define HOST_CTRL_CPU_NUM      2
-#endif
+#define HOST_SCHED_CPU_START 2
+#define HOST_CPU_NUM 32
+#define HOST_CTRL_CPU_NUM 2
 
 #ifndef u64
 typedef unsigned long long u64;
@@ -106,9 +104,25 @@ typedef struct {
     struct list_head list_head;
 } esched_thread_wait_info_head;
 
+struct sync_event_wait_info {
+    uint32_t grp_id;
+    uint32_t thread_id;
+    int32_t pid;
+    EVENT_ID event_id;
+    uint32_t subevent_id;
+    int32_t timeout;
+};
+
 int esched_dev_ioctl(unsigned int dev_id, unsigned int cmd, void *para);
 int esched_device_check(unsigned int dev_id);
+int32_t esched_dev_init(unsigned int dev_id);
 void esched_query_sync_msg_trace(uint32_t dev_id, struct event_summary *event, uint32_t grp_id, uint32_t thread_id);
+
+#ifndef EMU_ST
+int esched_open(const char *char_dev_name);
+int esched_close(int fd);
+int esched_ioctl(int fd, uint32_t cmd, void *para);
+#endif
 
 void esched_share_log_create(void);
 void esched_share_log_read(void);

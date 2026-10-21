@@ -121,12 +121,21 @@ static bool trs_core_ops_is_drop_cqe(struct trs_id_inst *inst, struct trs_logic_
     return (logic_cqe->drop_flag == 1);
 }
 
+static int trs_core_stars_v1_res_id_remote_get(struct trs_id_inst *inst, int type, u32 id, u32 hpid, u32 seq)
+{
+    (void)hpid;
+    (void)seq;
+    return trs_host_res_id_check(inst, type, id);
+}
+
 static struct trs_core_adapt_ops trs_core_stars_v1_ops = {
     .owner = KA_THIS_MODULE,
     .cq_mem_alloc = trs_core_ops_cq_mem_alloc,
     .cq_mem_free = trs_core_ops_cq_mem_free,
     .ssid_query = trs_host_get_ssid,
     .res_id_check = trs_host_res_id_check,
+    .res_id_remote_get = trs_core_stars_v1_res_id_remote_get,
+    .res_id_remote_put = NULL,
     .get_res_support_proc_num = trs_core_ops_get_proc_num,
     .get_sq_id_head_from_hw_cqe = trs_core_ops_get_sq_id_head_from_hw_cqe,
     .get_stream_id_from_hw_cqe = trs_core_ops_get_stream_from_cqe,
@@ -150,6 +159,8 @@ static struct trs_core_adapt_ops trs_core_stars_v1_ops = {
     .ras_report = trs_host_ras_report,
     .mem_update = trs_core_ops_mem_update,
     .res_num_query = trs_host_res_num_query,
+    .get_sq_mem_handle = trs_host_get_sq_mem_handle,
+    .put_sq_mem_handle = trs_host_put_sq_mem_handle,
 };
 
 struct trs_core_adapt_ops *trs_core_get_stars_v1_adapt_ops(void)
@@ -200,7 +211,7 @@ int trs_sq_send_trigger_db_init(struct trs_id_inst *inst)
     ret |= soc_resmng_get_hwirq(&res_inst, TS_SQ_SEND_TRIGGER_IRQ, irq, &hwirq);
     if (ret != 0) {
         trs_ts_db_uninit(inst, TRS_DB_TRIGGER_SQ);
-        trs_err("Get irq failed. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
+        trs_err("Get irq fail. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
         return ret;
     }
 

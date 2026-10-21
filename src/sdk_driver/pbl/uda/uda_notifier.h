@@ -35,11 +35,10 @@ struct uda_notifiers {
 };
 
 void uda_for_each_notifiers(void *priv,
-    void (*func)(struct uda_dev_type *type, struct uda_notifiers *notifiers, void *priv));
+                            void (*func)(struct uda_dev_type *type, struct uda_notifiers *notifiers, void *priv));
 
 int uda_notifier_call(u32 udevid, struct uda_dev_type *type, enum uda_notified_action action);
 int uda_notifier_init(void);
 void uda_notifier_uninit(void);
 
 #endif
-

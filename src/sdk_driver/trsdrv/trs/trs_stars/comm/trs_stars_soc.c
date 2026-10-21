@@ -19,6 +19,7 @@
 #include "trs_pub_def.h"
 #include "trs_stars_com.h"
 #include "trs_stars_function.h"
+#include "trs_stars_auto_init.h"
 
 #define DEVDRV_DIVERSITY_PCIE_VENDOR_ID 0xFFFF
 static const ka_pci_device_id_t trs_stars_tbl[] = {
@@ -29,6 +30,7 @@ static const ka_pci_device_id_t trs_stars_tbl[] = {
     {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
     {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
@@ -125,7 +127,8 @@ KA_EXPORT_SYMBOL_GPL(trs_stars_soc_get_sq_fsm_status);
 int trs_stars_soc_init(u32 phy_devid)
 {
     struct trs_id_inst inst;
-    u32 ts_num, i, tsid;
+    u32 ts_num = 0;
+    u32 i, tsid;
     int ret;
 
     if (!uda_is_phy_dev(phy_devid)) {
@@ -157,7 +160,8 @@ int trs_stars_soc_init(u32 phy_devid)
 void trs_stars_soc_uninit(u32 phy_devid)
 {
     struct trs_id_inst inst;
-    u32 ts_num, tsid;
+    u32 ts_num = 0;
+    u32 tsid;
     int ret;
 
     if (!uda_is_phy_dev(phy_devid)) {
@@ -182,9 +186,18 @@ int trs_stars_notifier_func(u32 udevid, enum uda_notified_action action)
     int ret = 0;
 
     if (action == UDA_INIT) {
+        ret = module_feature_auto_init_dev(udevid);
+        if (ret != 0) {
+            trs_err("Auto init dev failed. (udevid=%u; ret=%d)\n", udevid, ret);
+            return ret;
+        }
         ret = trs_stars_soc_init(udevid);
+        if (ret != 0) {
+            module_feature_auto_uninit_dev(udevid);
+        }
     } else if (action == UDA_UNINIT) {
         trs_stars_soc_uninit(udevid);
+        module_feature_auto_uninit_dev(udevid);
     }
 
     return ret;

@@ -300,7 +300,7 @@ static drvError_t que_inter_dev_attach_tgt(unsigned int dev_id, const void *msg,
                       (unsigned int)MAX_DEVICE, in->qid, actualqid, (unsigned int)MAX_SURPORT_QUEUE_NUM);
         return DRV_ERROR_INVALID_VALUE;
     }
-    ret = que_set_tjfr_id_and_token(dev_id, actualqid, &in->tjfr_id, &in->token);
+    ret = que_save_inter_dev_attach_cfg(dev_id, actualqid, in);
     if (que_unlikely(ret != DRV_ERROR_NONE)) {
         QUEUE_LOG_ERR("que set que info fail. (ret=%d; devid=%u; qid=%u)\n", ret, dev_id, actualqid);
         return ret;

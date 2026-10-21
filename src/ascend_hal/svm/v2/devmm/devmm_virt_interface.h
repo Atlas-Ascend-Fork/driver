@@ -165,6 +165,7 @@ struct devmm_virt_heap_para {
     bool is_uvm_heap;
 #endif
     bool is_soma_heap;
+    bool is_host_pin; /* 1: heap belongs to host_pin_heaps[] */
 };
 
 struct devmm_virt_com_heap {
@@ -179,6 +180,7 @@ struct devmm_virt_com_heap {
     bool is_uvm_heap;
 #endif
     bool is_soma_heap;
+    bool is_host_pin;                                 /* true: heap belongs to host_pin_heaps[] */
     uint64_t cur_cache_mem[DEVMM_MEMTYPE_MAX];        /* current cached mem */
     uint64_t cache_mem_thres[DEVMM_MEMTYPE_MAX];      /* cached mem threshold */
     uint64_t cur_alloc_cache_mem[DEVMM_MEMTYPE_MAX];  /* current alloc can cache total mem */
@@ -194,7 +196,6 @@ struct devmm_virt_com_heap {
     virt_addr_t end;
 
     uint32_t module_id; /* used for large heap (>=512M) */
-    uint32_t side;      /* used for large heap (>=512M) */
     uint32_t devid;     /* used for large heap (>=512M) */
     uint64_t mapped_size;
     uint64_t reserve_size; /* used for snapshot restore of SUB_RESERVE_TYPE primary_heap */
@@ -228,15 +229,16 @@ struct devmm_heap_queue {
 #endif
     struct devmm_virt_com_heap soma_heap; /* use for manage SOMA 3T heap */
     struct devmm_virt_com_heap *heaps[DEVMM_MAX_HEAP_NUM];
+    struct devmm_virt_com_heap *host_pin_heaps[DEVMM_MAX_HOST_PIN_HEAP_NUM]; /* reserve uva heap lookup */
 };
 
 struct devmm_heap_list {
     int heap_cnt;
     pthread_rwlock_t list_lock;
     struct devmm_virt_list_head heap_list;
-    volatile uint64_t version; /* used for checking whether the heap_list has been modified or some memory spaces
-                                  have been return to heaps in the heap_list by another thread, if so the heap_list
-                                  needs to be re-scanned before alloc a new heap in allocation path */
+    volatile uint64_t version; /* used for checking whether the heap_list has been modified; */
+                               /* or some memory space have been return to the heap_list by another thread; */
+                               /* so the heap_list needs to be re-scanned. */
 };
 
 struct devmm_virt_heap_mgmt {
@@ -299,6 +301,9 @@ void *devmm_virt_init_get_heap_mgmt(void);
 void devmm_virt_uninit_heap_mgmt(void);
 DVresult devmm_virt_backup_heap_mgmt(void);
 DVresult devmm_virt_restore_heap_mgmt(void);
+typedef DVresult (*devmm_snapshot_add_fn)(uint64_t va, uint64_t size, bool required, void *priv);
+DVresult devmm_snapshot_collect_memory(bool include_optional, devmm_snapshot_add_fn add, void *priv);
+DVresult devmm_snapshot_mark_required(uint64_t va, uint64_t size, uint32_t device);
 
 void *devmm_virt_get_heap_mgmt(void);
 bool devmm_dev_is_inited(uint32_t devid);
@@ -317,7 +322,7 @@ uint32_t devmm_virt_status_get_free_pgcnt_buddy(uint32_t heap_idx);
 uint32_t devmm_virt_status_get_page_cache_cnt(uint32_t heap_idx);
 
 bool devmm_virt_check_idle_heap(struct devmm_virt_com_heap *heap);
-uint32_t devmm_va_to_heap_idx(const struct devmm_virt_heap_mgmt *mgmt, virt_addr_t va);
+uint32_t devmm_va_to_heap_idx(const struct devmm_virt_heap_mgmt *mgmt, virt_addr_t va, bool is_host_pin);
 struct devmm_virt_com_heap *devmm_va_to_heap(virt_addr_t va);
 DVresult devmm_get_heap_list_by_type(struct devmm_virt_heap_mgmt *p_heap_mgmt, struct devmm_virt_heap_type *heap_type,
                                      struct devmm_heap_list **heap_list);
@@ -332,10 +337,11 @@ drvError_t devmm_alloc_proc(uint32_t devid, uint32_t sub_mem_type, DVmem_advise 
 void devmm_set_module_id_to_advise(uint32_t model_id, DVmem_advise *advise);
 void devmm_virt_status_init(struct devmm_virt_com_heap *heap);
 DVresult devmm_ioctl_enable_heap(uint32_t heap_idx, uint32_t heap_type, uint32_t heap_sub_type, uint64_t heap_size,
-                                 uint32_t heap_list_type);
-int devmm_ioctl_disable_heap(uint32_t heap_idx, uint32_t heap_type, uint32_t heap_sub_type, uint64_t heap_size);
+                                 uint32_t heap_list_type, bool is_host_pin);
+int devmm_ioctl_disable_heap(uint32_t heap_idx, uint32_t heap_type, uint32_t heap_sub_type, uint64_t heap_size,
+                             bool is_host_pin);
 struct devmm_virt_com_heap *devmm_virt_get_heap_from_queue(struct devmm_virt_heap_mgmt *mgmt, uint32_t heap_idx,
-                                                           size_t heap_size);
+                                                           size_t heap_size, bool is_host_pin);
 virt_addr_t devmm_alloc_from_normal_heap(struct devmm_virt_heap_mgmt *p_heap_mgmt, size_t bytesize,
                                          struct devmm_virt_heap_type *heap_type, DVmem_advise advise, DVdeviceptr va);
 uint32_t devmm_virt_heap_size_to_order(uint64_t step, size_t size);

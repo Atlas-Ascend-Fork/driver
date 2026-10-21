@@ -25,6 +25,7 @@
 
 #include "securec.h"
 #include "hdc_cmn.h"
+#include "ascend_inpackage_hal.h"
 #include "hdc_file_common.h"
 
 unsigned long long g_recv_bytes = 0;
@@ -132,7 +133,7 @@ recv_flag_again:
         (void)drvHdcFreeMsg(p_rcvmsg);
         if ((fh->flags == FILE_FLAGS_ACK) && (retry_cnt == 0)) {
             retry_cnt++;
-            HDC_LOG_WARN("Receive ack flag, reply may in next time, retry recv.\n");
+            HDC_LOG_WARN("Receive ack flag, reply may arrive in the next packet, retry recv.\n");
             goto recv_flag_again;
         }
         HDC_LOG_ERR("Receive packet isn't reply after retry. (flags=%d, retry_time=%d)\n", fh->flags, retry_cnt);
@@ -329,8 +330,9 @@ STATIC uint64_t get_send_rate(const struct filesock *fs)
 
     ret = (hdcError_t)clock_gettime(CLOCK_MONOTONIC, &now);
     hdc_file_check("clock_gettime", (hdcError_t)ret, DRV_ERROR_NONE);
-    time = (uint64_t)(now.tv_sec - fs->start_time.tv_sec) * SECONDS_TO_MICORSECONDS +
-           (uint64_t)(now.tv_nsec - fs->start_time.tv_nsec) / CONVERT_NS_TO_US;
+    time = (uint64_t)(((uint64_t)now.tv_sec * SECONDS_TO_NS + (uint64_t)now.tv_nsec) -
+                      ((uint64_t)fs->start_time.tv_sec * SECONDS_TO_NS + (uint64_t)fs->start_time.tv_nsec)) /
+           CONVERT_NS_TO_US;
     if (time != 0) {
         rate = (uint64_t)(fs->prog_info.send_bytes) * SECONDS_TO_MICORSECONDS / time;
     } else {
@@ -383,7 +385,7 @@ STATIC void process_ack(char *p_rcvbuf, struct filesock *fs)
         return;
     }
 
-    if (ntohs(fopt->opt_len) > 0) {
+    if (ntohs(fopt->opt_len) >= sizeof(fs->prog_info.send_bytes)) {
         if (memcpy_s(&(fs->prog_info.send_bytes), sizeof(fs->prog_info.send_bytes), fopt->info,
                      sizeof(fs->prog_info.send_bytes)) != 0) {
             return;
@@ -1007,7 +1009,7 @@ STATIC hdcError_t drv_hdc_send_file_para_check(signed int user_mode, signed int 
     file_len = (int)strnlen(file, PATH_MAX);
     dstpth_len = (int)strnlen(dst_path, PATH_MAX);
     if ((file_len == 0) || (file_len >= PATH_MAX) || (dstpth_len >= PATH_MAX) || (dstpth_len == 0)) {
-        HDC_LOG_ERR("Input parameter is error. (file or dst_path is too long)\n");
+        HDC_LOG_ERR("Input parameter is invalid. (file_len=%d;dstpth_len=%d;)\n", file_len, dstpth_len);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -1342,7 +1344,7 @@ hdcError_t send_dir_in_session(HDC_SESSION session, const char *plocal_dir, cons
     signed int is_count = count;
 
     if (is_count-- <= 0) {
-        HDC_LOG_ERR("Only support direction maxdepth. (maxdepth=%d)\n", DIR_SEND_MAX_DEPTH);
+        HDC_LOG_ERR("Only support directory maxdepth. (maxdepth=%d)\n", DIR_SEND_MAX_DEPTH);
         return DRV_ERROR_INVALID_VALUE;
     }
 

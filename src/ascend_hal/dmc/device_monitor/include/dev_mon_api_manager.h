@@ -13,16 +13,16 @@
 #include "dm_common.h"
 #include "device_monitor_type.h"
 
-#define DEV_MON_ADD_CMD(table, op1, op2, op_prop, uid, op_type, handle)           \
-    if (cmd_hash_insert(table, op1, op2, op_prop, uid, op_type, handle) != OK) {  \
-        DEV_MON_ERR("cmd add failed!,op_1:%d,op_2:%d\n", op1, op2); \
-        return FAILED;                                              \
+#define DEV_MON_ADD_CMD(table, op1, op2, op_prop, uid, op_type, handle)          \
+    if (cmd_hash_insert(table, op1, op2, op_prop, uid, op_type, handle) != OK) { \
+        DEV_MON_ERR("cmd add failed!,op_1:%d,op_2:%d\n", op1, op2);              \
+        return FAILED;                                                           \
     }
 
 #ifndef __DEV_MON_HOST__
 signed int IT_cmd_insert_to_table(hash_table *hashtable);
 signed int davinci_cmd_insert_to_table(hash_table *hashtable);
-int dev_mon_cmd_hash_get(hash_table *hashtable, DM_RECV_ST* msg, void **value);
+int dev_mon_cmd_hash_get(hash_table *hashtable, DM_RECV_ST *msg, void **value);
 signed int cmd_hash_insert(hash_table *hashtable, unsigned char op_fun, unsigned char op_cmd, unsigned char cntr_prop,
                            unsigned char uid, unsigned char op_type, dev_mon_cmd_handle handle);
 #else
@@ -34,7 +34,7 @@ static inline signed int davinci_cmd_insert_to_table(hash_table *hashtable)
 {
     return 0;
 }
-static inline int dev_mon_cmd_hash_get(hash_table *hashtable, DM_RECV_ST* msg, **value)
+static inline int dev_mon_cmd_hash_get(hash_table *hashtable, DM_RECV_ST *msg, **value)
 {
     return -1;
 }
@@ -46,4 +46,3 @@ signed int cmd_hash_insert(hash_table *hashtable, unsigned char op_fun, unsigned
 #endif
 
 #endif
-

@@ -3,7 +3,6 @@
 简体中文 | [English](./README_en.md)
 
 ## 🔥Latest News
-
 - **[2026/06] 增加昇腾A5芯片（UB形态）支持**；
 
 - [2026/03] 增加昇腾A5芯片（PCIE形态）支持
@@ -21,20 +20,17 @@ Driver 在 CANN 软件栈的位置参考[昇腾社区](https://www.hiascend.com/
 </center>
 
 ## 📖模块介绍
-
 - [RoCE（RDMA over Converged Ethernet）](./src/ascend_hal/roce/README.md)：昇腾 AI 处理器平台中的RoCE模块，用于减少延迟和提高数据传输效率。
-- [SVM (Shared Virtual Memory)](./src/ascend_hal/svm/README.md)：昇腾 AI 处理器平台中的内存管理模块，用于高效管理设备侧内存。
+- [SVM (Shared Virtual Memory) ](./src/ascend_hal/svm/README.md)：昇腾 AI 处理器平台中的内存管理模块，用于高效管理设备侧内存。
 
 ## ⚡️快速入门
-
 若您希望快速体验driver的调用和开发过程，请访问如下文档获取简易教程。
-
 - [QUICKSTART](./docs/zh/QUICKSTART.md)：端到端快速上手指南，包括搭建环境、编译部署、源码开发、调试、贡献等过程。
 - [参考用例](./examples/README.md)：介绍设备管理等模块基础用例。
 
 ## 🔍FAQ
-
 - [FAQ](./docs/zh/FAQ.md)：汇总了源码编译、安装部署等问题(持续)。
+
 
 ## 📝目录结构
 
@@ -93,7 +89,8 @@ Driver 在 CANN 软件栈的位置参考[昇腾社区](https://www.hiascend.com/
 │   │   ├── lqdrv                                  # 灵渠PCIe故障检测
 │   │   ├── ndr                                    # NPU RDMA直通特性
 │   │   ├── network                                # DCMI网络接口实现
-│   │   └── ops_debug                              # 算子诊断目录
+│   │   ├── ops_debug                              # 算子诊断目录
+│   │   └── tools                                  # 可以供二次开发的定制化工具目录
 │   └── sdk_driver                                 # SDK层源码文件夹
 │       ├── buff                                   # 进程间共享内存管理
 │       ├── comm                                   # Communication 主机侧<->设备侧通信层
@@ -121,6 +118,7 @@ Driver 在 CANN 软件栈的位置参考[昇腾社区](https://www.hiascend.com/
 │       └── vpc                                    # VPC（Virtual Physical Communication）物理机与虚拟机通信
 └── test                                           # UT用例文件目录
 ```
+
 
 ## 相关信息
 

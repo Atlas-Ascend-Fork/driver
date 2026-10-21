@@ -166,7 +166,9 @@ static void mms_get_stats(void *ctx, void *priv)
         return;
     }
 
+    ka_task_down_read(&mms_ctx->rw_sem);
     if (mms_ctx->stats == NULL) {
+        ka_task_up_read(&mms_ctx->rw_sem);
         return;
     }
 
@@ -184,6 +186,7 @@ static void mms_get_stats(void *ctx, void *priv)
             dst_stats->free_cnt += src_stats->free_cnt;
         }
     }
+    ka_task_up_read(&mms_ctx->rw_sem);
 }
 
 void svm_mms_dev_show(u32 udevid)

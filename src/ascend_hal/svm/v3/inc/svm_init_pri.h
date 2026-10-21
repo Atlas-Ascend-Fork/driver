@@ -24,13 +24,14 @@
         Because there is no priority when registering handles, the framework calls them back in the order
         they are registered. Generally, lower-level modules need to be initialized first, so they should
         have a higher constructor priority and be registered with the framework earlier.
-        first: dbi, apbi, urma_seg_mng
+        first: dbi, apbi, urma_seg_mng, pcie/ub share
             urma_seg_mng needs to register the dev uninit pre-handle before
    urma_adapt, so remote segs
             are recycled after urma_adapt unregisters reserved segments during device
    close.
+        pre_high: assign_gap
         hign: va allocator
-        medium: handle register: pcie/ub share/op/query low: cache malloc,
+        medium: handle register: op/query low: cache malloc,
    urma_seg_local final: others: mms, host/pcie_th register, urma adapt chan/seg init, mem show, task group
     2. submodule global variables init/uninit
         device init is after constructor, so global variables can be initialized independently using default priority.
@@ -43,9 +44,10 @@
 */
 
 #define SVM_INIT_PRI_FISRT 201
-#define SVM_INIT_PRI_HIGH 301
-#define SVM_INIT_PRI_MEDIUM 401
-#define SVM_INIT_PRI_LOW 501
+#define SVM_INIT_PRI_PRE_HIGH 301
+#define SVM_INIT_PRI_HIGH 401
+#define SVM_INIT_PRI_MEDIUM 501
+#define SVM_INIT_PRI_LOW 601
 #define SVM_INIT_PRI_FINAL 65535
 
 #endif

@@ -69,6 +69,7 @@ target_include_directories(mmpa PRIVATE
 target_link_options(mmpa PRIVATE
         $<$<CONFIG:Release>:-Wl,--build-id=none>
         $<$<CONFIG:Release>:-s>
+        $<$<OR:$<STREQUAL:${TARGET_SYSTEM_NAME},Linux>,$<STREQUAL:${TARGET_SYSTEM_NAME},Android>>:-Wl,-z,relro,-z,now>
 )
 
 target_link_libraries(mmpa
@@ -81,6 +82,7 @@ target_link_libraries(mmpa
 )
 target_compile_options(mmpa PRIVATE
     -fPIC -pipe -Wall
+    -fstack-protector-strong
     $<$<STREQUAL:${TARGET_SYSTEM_NAME},Linux>:-fvisibility=hidden>
 )
 target_compile_definitions(mmpa PRIVATE
@@ -145,5 +147,5 @@ set_target_properties(static_mmpa PROPERTIES
 )
 
 install(TARGETS mmpa static_mmpa
-    LIBRARY DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
+    DESTINATION ${INSTALL_LIBRARY_DIR} OPTIONAL
 )

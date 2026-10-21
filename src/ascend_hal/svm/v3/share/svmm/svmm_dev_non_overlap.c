@@ -190,7 +190,19 @@ int svmm_dev_non_overlap_add_seg(struct svmm_inst *svmm_inst, u32 devid, u64 sta
     return ret;
 }
 
-int svmm_dev_non_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size, bool force)
+int svmm_dev_non_overlap_can_add_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size)
+{
+    struct rb_range_handle range = {.start = start, .end = start + size - 1ULL};
+    bool can_insert;
+
+    pthread_rwlock_rdlock(&svmm_inst->rwlock);
+    can_insert = rbtree_can_insert_range(&svmm_inst->dev_root[devid], &range, rb_range_of_svmm_dev_non_overlap_seg);
+    pthread_rwlock_unlock(&svmm_inst->rwlock);
+
+    return can_insert ? 0 : DRV_ERROR_REPEATED_USERD;
+}
+
+int svmm_dev_non_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size, bool force, u64 *svm_flag)
 {
     struct svmm_dev_non_overlap_seg *seg = NULL;
     u32 ref;
@@ -218,6 +230,9 @@ int svmm_dev_non_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 sta
         return DRV_ERROR_PARA_ERROR;
     }
 
+    if (svm_flag != NULL) {
+        *svm_flag = seg->svm_flag;
+    }
     svmm_dev_non_overlap_seg_erase(svmm_inst, seg);
     pthread_rwlock_unlock(&svmm_inst->rwlock);
 

@@ -43,7 +43,6 @@ static const enum bbox_feature_id hisi_cloud_v4_bbox_features[] = {
 static const enum bbox_feature_id hisi_cloud_v5_bbox_features[] = {
     BBOX_FEATURE_PCIE_BBOX_DUMP,
     BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4,
-    BBOX_FEATURE_NOT_SUPPORT_ALLOC,
 };
 
 /* chip key: hisi_mini_v4 - HISI_MINI_V4 (10) */

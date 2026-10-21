@@ -190,7 +190,8 @@ static long svm_ioctl(ka_file_t *file, u32 cmd, unsigned long arg)
     }
 
     if (cmd_nr >= SVM_MAX_CMD) {
-        svm_err("The command is invalid, which is out of range. (cmd=%u)\n", cmd_nr);
+        svm_err("The command is invalid, which is out of range. (cmd=%u; valid range=[0, %u))\n", cmd_nr,
+                (u32)SVM_MAX_CMD);
         return -EINVAL;
     }
 

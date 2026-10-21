@@ -21,12 +21,12 @@
 #include "casm_ioctl.h"
 #include "casm.h"
 
-int svm_casm_create_key(struct svm_dst_va *dst_va, u64 *key)
+int svm_casm_create_key(struct svm_dst_va *dst_va, const struct casm_src_prop *prop, u64 *key)
 {
     struct svm_casm_create_key_para para;
     int ret;
 
-    if ((dst_va == NULL) || (key == NULL)) {
+    if ((dst_va == NULL) || (prop == NULL) || (key == NULL)) {
         svm_err("Null ptr.\n");
         return DRV_ERROR_PARA_ERROR;
     }
@@ -34,6 +34,7 @@ int svm_casm_create_key(struct svm_dst_va *dst_va, u64 *key)
     para.task_type = dst_va->task_type;
     para.va = dst_va->va;
     para.size = dst_va->size;
+    para.src_prop = *prop;
 
     ret = svm_cmd_ioctl(dst_va->devid, SVM_CASM_CREATE_KEY, (void *)&para);
     if (ret != DRV_ERROR_NONE) {
@@ -126,12 +127,12 @@ int svm_casm_check_task(u64 key, u32 server_id, int tgid[], u32 num)
     return svm_casm_op_task(key, server_id, tgid, num, SVM_CASM_TASK_OP_CHECK);
 }
 
-int svm_casm_get_src_va_ex(u32 devid, u64 key, struct svm_global_va *src_va, u64 *update_va, u64 *ex_info)
+int svm_casm_get_src_va_ex(u32 devid, u64 key, struct svm_global_va *src_va, struct casm_src_va_ex_info *info)
 {
     struct svm_casm_get_src_va_para para = {0};
     int ret;
 
-    if (src_va == NULL) {
+    if ((src_va == NULL) || (info == NULL)) {
         svm_err("Null ptr. (key=0x%llx)\n", key);
         return DRV_ERROR_PARA_ERROR;
     }
@@ -145,8 +146,9 @@ int svm_casm_get_src_va_ex(u32 devid, u64 key, struct svm_global_va *src_va, u64
     }
 
     *src_va = para.src_va;
-    *update_va = para.updated_va;
-    *ex_info = para.ex_info;
+    info->src_prop = para.src_prop;
+    info->update_va = para.updated_va;
+    info->ex_info = para.ex_info;
 
     return 0;
 }

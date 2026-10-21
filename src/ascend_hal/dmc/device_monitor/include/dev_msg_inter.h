@@ -12,12 +12,10 @@
 #define DEV_MSG_INTER
 
 signed int ipmi_init(IPMI_CB_ST **ipmi_cb)
-{
-}
+{}
 
 INT32 openipmi_init(IPMI_INTF_ST **my_intf, IPMI_CB_ST *cb, const IPMI_ADDR_ST *my_addr, const char *my_name,
                     int name_len)
-{
-}
+{}
 
 #endif

@@ -32,7 +32,7 @@
 
 #include "securec.h"
 
-#include "ubcore_uapi.h"
+#include "uba/ubcore_adapt.h"
 
 #define TRS_UB_JETTY_BIND_WORK_PERIOD 10U /* unit ms */
 
@@ -65,7 +65,7 @@ struct trs_ub_reg_cfg_para {
     u64 dst_offset;
 };
 
-struct ubcore_device *trs_ub_get_ubcore_dev(u32 dev_id)
+uba_ubcore_device *trs_ub_get_ubcore_dev(u32 dev_id)
 {
     ka_device_t *uda_dev;
 
@@ -75,7 +75,7 @@ struct ubcore_device *trs_ub_get_ubcore_dev(u32 dev_id)
         return NULL;
     }
 
-    return ka_container_of(uda_dev, struct ubcore_device, dev);
+    return ka_container_of(uda_dev, uba_ubcore_device, dev);
 }
 
 int trs_ub_get_sq_tail_paddr(struct trs_id_inst *inst, u32 sq_id, u64 *paddr)
@@ -352,27 +352,27 @@ int trs_ub_sqcq_info_update(struct trs_id_inst *inst, struct trs_chan_info *chan
 
 int trs_ub_sq_jetty_init(struct trs_ub_dev *ub_dev, u32 vfid)
 {
-    struct ubcore_jfc_cfg jfc_cfg = {0};
-    struct ubcore_jfr_cfg jfr_cfg = {0};
-    struct ubcore_jfc *jfc;
-    struct ubcore_jfr *jfr;
+    uba_ubcore_jfc_cfg jfc_cfg = {0};
+    uba_ubcore_jfr_cfg jfr_cfg = {0};
+    uba_ubcore_jfc *jfc;
+    uba_ubcore_jfr *jfr;
 
     jfc_cfg.depth = TRS_UB_SQ_JFC_DEPTH;
-    jfc = ubcore_create_jfc(ub_dev->ubc_dev, &jfc_cfg, NULL, NULL, NULL);
+    jfc = uba_ubcore_create_jfc(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &jfc_cfg, NULL, NULL, NULL);
     if (KA_IS_ERR_OR_NULL(jfc)) {
         trs_err("Create sq head recv jfc failed.\n");
         return -ENOMEM;
     }
 
     jfr_cfg.depth = TRS_UB_SQ_JFR_DEPTH;
-    jfr_cfg.trans_mode = UBCORE_TP_RM;
+    jfr_cfg.trans_mode = UBA_UBCORE_TP_RM;
     jfr_cfg.min_rnr_timer = (u8)TRS_UB_JFR_RNR_TIME;
     jfr_cfg.max_sge = TRS_UB_JFR_MAX_SGE;
     jfr_cfg.jfc = jfc;
-    jfr_cfg.flag.bs.token_policy = UBCORE_TOKEN_PLAIN_TEXT;
+    jfr_cfg.flag.bs.token_policy = UBA_UBCORE_TOKEN_PLAIN_TEXT;
     jfr_cfg.token_value.token = ub_dev->token_val;
     jfr_cfg.eid_index = ub_dev->eid_info.eid_index;
-    jfr = ubcore_create_jfr(ub_dev->ubc_dev, &jfr_cfg, NULL, NULL);
+    jfr = uba_ubcore_create_jfr(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &jfr_cfg, NULL, NULL);
     if (KA_IS_ERR_OR_NULL(jfr)) {
         trs_err("Create sq head jfr failed. (devid=%u)\n", ub_dev->devid);
         goto destroy_jfc;
@@ -384,23 +384,23 @@ int trs_ub_sq_jetty_init(struct trs_ub_dev *ub_dev, u32 vfid)
     return 0;
 
 destroy_jfc:
-    ubcore_delete_jfc(jfc);
+    uba_ubcore_delete_jfc(UBA_MODULE_TYPE_TRS, jfc);
     return -ENOMEM;
 }
 
 void trs_ub_sq_jetty_uninit(struct trs_ub_dev *ub_dev, u32 vfid)
 {
-    ubcore_delete_jfr(ub_dev->jetty_info[vfid].sq_jfr);
-    ubcore_delete_jfc(ub_dev->jetty_info[vfid].sq_jfc);
+    uba_ubcore_delete_jfr(UBA_MODULE_TYPE_TRS, ub_dev->jetty_info[vfid].sq_jfr);
+    uba_ubcore_delete_jfc(UBA_MODULE_TYPE_TRS, ub_dev->jetty_info[vfid].sq_jfc);
     ub_dev->jetty_info[vfid].sq_jfc = NULL;
     ub_dev->jetty_info[vfid].sq_jfr = NULL;
 }
 
-static int trs_ub_import_jfr_segment(struct ubcore_jfr *jfr, struct ubcore_target_seg *target_seg, u32 index, u32 len)
+static int trs_ub_import_jfr_segment(uba_ubcore_jfr *jfr, uba_ubcore_target_seg *target_seg, u32 index, u32 len)
 {
-    struct ubcore_jfr_wr *bad_wr = NULL;
-    struct ubcore_jfr_wr wr;
-    struct ubcore_sge sge;
+    uba_ubcore_jfr_wr *bad_wr = NULL;
+    uba_ubcore_jfr_wr wr;
+    uba_ubcore_sge sge;
     int ret;
 
     wr.src.sge = &sge;
@@ -411,16 +411,16 @@ static int trs_ub_import_jfr_segment(struct ubcore_jfr *jfr, struct ubcore_targe
     wr.user_ctx = index;
     wr.next = NULL;
 
-    ret = ubcore_post_jfr_wr(jfr, &wr, &bad_wr);
+    ret = uba_ubcore_post_jfr_wr(UBA_MODULE_TYPE_TRS, jfr, &wr, &bad_wr);
     if (ret != 0) {
-        trs_err("ubcore_post_jfr_wr failed. (seg_id=%d; len=%u)\n", index, len);
+        trs_err("uba_ubcore_post_jfr_wr failed. (seg_id=%d; len=%u)\n", index, len);
         return -ENOMEM;
     }
 
     return 0;
 }
 
-static int trs_ub_import_jfr_all_segment(struct ubcore_jfr *jfr, struct ubcore_target_seg *target_seg, u32 num, u32 len)
+static int trs_ub_import_jfr_all_segment(uba_ubcore_jfr *jfr, uba_ubcore_target_seg *target_seg, u32 num, u32 len)
 {
     int ret;
     u32 i;
@@ -448,7 +448,7 @@ static int trs_ub_trigger_cq_update_irq(struct trs_id_inst *inst, u32 cqid[], u3
     }
 
     if ((ub_dev->cq_irq_handler == NULL) || (ub_dev->cq_irq_para == NULL)) {
-        trs_err("None irq handler registered. (devid=%u)\n", inst->devid);
+        trs_err("No irq handler registered. (devid=%u)\n", inst->devid);
         trs_put_ub_dev(ub_dev);
         return -ENODEV;
     }
@@ -472,7 +472,7 @@ static void trs_ub_cq_dispatch_task(unsigned long data)
 
     trs_debug("In jfce tasklet handle. (devid=%u; jfr_idx=%u)\n", inst.devid, jetty_info->cq_jfr->jfr_id.id);
 
-    cr_num = ubcore_poll_jfc(jetty_info->cq_jfc, TRS_UB_CQ_JFC_CR_EXPERT_NUM, jetty_info->cr);
+    cr_num = uba_ubcore_poll_jfc(UBA_MODULE_TYPE_TRS, jetty_info->cq_jfc, TRS_UB_CQ_JFC_CR_EXPERT_NUM, jetty_info->cr);
     if (cr_num <= 0) {
         trs_err("Polled cqe failed. (devid=%u; cr_num=%d)\n", inst.devid, cr_num);
         goto rearm_jfc;
@@ -525,7 +525,7 @@ static void trs_ub_cq_dispatch_task(unsigned long data)
     }
 
 rearm_jfc:
-    ret = ubcore_rearm_jfc(jetty_info->cq_jfc, false);
+    ret = uba_ubcore_rearm_jfc(UBA_MODULE_TYPE_TRS, jetty_info->cq_jfc, false);
     if (ret != 0) {
         trs_err("Rearm jfc fail. (devid=%u; ret=%d)\n", jetty_info->devid, ret);
     }
@@ -573,7 +573,7 @@ int trs_ub_free_cq_update_irq(struct trs_id_inst *inst, int irq_type, int irq_in
     return 0;
 }
 
-static void trs_ub_cq_jfce_recv_handle(struct ubcore_jfc *jfc)
+static void trs_ub_cq_jfce_recv_handle(uba_ubcore_jfc *jfc)
 {
     struct trs_jetty_info *jetty_info = (struct trs_jetty_info *)jfc->jfc_cfg.jfc_context;
 
@@ -582,8 +582,8 @@ static void trs_ub_cq_jfce_recv_handle(struct ubcore_jfc *jfc)
 
 static int trs_ub_init_segment(struct trs_ub_dev *ub_dev, size_t seg_size, struct trs_ub_seg *seg, int local_flag)
 {
-    union ubcore_reg_seg_flag flag = {0};
-    struct ubcore_seg_cfg seg_cfg = {0};
+    uba_ubcore_reg_seg_flag flag = {0};
+    uba_ubcore_seg_cfg seg_cfg = {0};
 
     seg->seg_pages = ka_mm_alloc_pages(KA_GFP_KERNEL, ka_mm_get_order(seg_size));
     if (seg->seg_pages == NULL) {
@@ -591,18 +591,18 @@ static int trs_ub_init_segment(struct trs_ub_dev *ub_dev, size_t seg_size, struc
         return -ENOMEM;
     }
 
-    flag.bs.token_policy = UBCORE_TOKEN_PLAIN_TEXT;
-    flag.bs.access = (local_flag == 1) ? UBCORE_ACCESS_LOCAL_ONLY :
-                                         (UBCORE_ACCESS_READ | UBCORE_ACCESS_WRITE | UBCORE_ACCESS_ATOMIC);
+    flag.bs.token_policy = UBA_UBCORE_TOKEN_PLAIN_TEXT;
+    flag.bs.access = (local_flag == 1) ? UBA_UBCORE_ACCESS_LOCAL_ONLY :
+                                         (UBA_UBCORE_ACCESS_READ | UBA_UBCORE_ACCESS_WRITE | UBA_UBCORE_ACCESS_ATOMIC);
     flag.bs.non_pin = TRS_UB_DEFAULT_NON_PIN;
     seg_cfg.va = (u64)ka_mm_page_to_virt(seg->seg_pages);
     seg_cfg.len = seg_size;
     seg_cfg.flag = flag;
     seg_cfg.token_value.token = ub_dev->token_val;
 
-    seg->target_seg = ubcore_register_seg(ub_dev->ubc_dev, &seg_cfg, NULL);
+    seg->target_seg = uba_ubcore_register_seg(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &seg_cfg, NULL);
     if (KA_IS_ERR_OR_NULL(seg->target_seg)) {
-        trs_err("ubcore_register_seg fail.\n");
+        trs_err("uba_ubcore_register_seg fail.\n");
         __ka_mm_free_pages(seg->seg_pages, ka_mm_get_order(seg_size));
         seg->seg_pages = NULL;
         return -EFAULT;
@@ -614,7 +614,7 @@ static int trs_ub_init_segment(struct trs_ub_dev *ub_dev, size_t seg_size, struc
 
 static void trs_ub_uninit_segment(struct trs_ub_seg *seg)
 {
-    (void)ubcore_unregister_seg(seg->target_seg);
+    (void)uba_ubcore_unregister_seg(UBA_MODULE_TYPE_TRS, seg->target_seg);
     seg->target_seg = NULL;
 
     if (seg->seg_pages != NULL) {
@@ -626,10 +626,10 @@ static void trs_ub_uninit_segment(struct trs_ub_seg *seg)
 
 int trs_ub_cq_jetty_init(struct trs_ub_dev *ub_dev, u32 vfid)
 {
-    struct ubcore_jfc_cfg jfc_cfg = {0}; // ceqn in jfce must set zero
-    struct ubcore_jfr_cfg jfr_cfg = {0};
-    struct ubcore_jfc *jfc;
-    struct ubcore_jfr *jfr;
+    uba_ubcore_jfc_cfg jfc_cfg = {0}; // ceqn in jfce must set zero
+    uba_ubcore_jfr_cfg jfr_cfg = {0};
+    uba_ubcore_jfc *jfc;
+    uba_ubcore_jfr *jfr;
     int ret;
 
     ret = trs_ub_init_segment(ub_dev, TRS_UB_CQ_SEG_SIZE, &(ub_dev->jetty_info[vfid].cq_seg), 1);
@@ -639,27 +639,27 @@ int trs_ub_cq_jetty_init(struct trs_ub_dev *ub_dev, u32 vfid)
 
     jfc_cfg.depth = TRS_UB_CQ_JFC_DEPTH;
     jfc_cfg.jfc_context = (void *)&ub_dev->jetty_info[vfid];
-    jfc = ubcore_create_jfc(ub_dev->ubc_dev, &jfc_cfg, trs_ub_cq_jfce_recv_handle, NULL, NULL);
+    jfc = uba_ubcore_create_jfc(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &jfc_cfg, trs_ub_cq_jfce_recv_handle, NULL, NULL);
     if (KA_IS_ERR_OR_NULL(jfc)) {
         trs_err("Create cq recv jfc failed.\n");
         goto uninit_segment;
     }
 
-    ret = ubcore_rearm_jfc(jfc, false);
+    ret = uba_ubcore_rearm_jfc(UBA_MODULE_TYPE_TRS, jfc, false);
     if (ret != 0) {
         trs_err("Ubcore rearm recv jfc fail. (ret=%d; devid=%u)\n", ret, ub_dev->devid);
         goto destroy_jfc;
     }
 
     jfr_cfg.depth = TRS_UB_CQ_JFR_DEPTH;
-    jfr_cfg.trans_mode = UBCORE_TP_RM;
+    jfr_cfg.trans_mode = UBA_UBCORE_TP_RM;
     jfr_cfg.min_rnr_timer = (u8)TRS_UB_JFR_RNR_TIME;
     jfr_cfg.max_sge = TRS_UB_JFR_MAX_SGE;
     jfr_cfg.jfc = jfc;
-    jfr_cfg.flag.bs.token_policy = UBCORE_TOKEN_PLAIN_TEXT;
+    jfr_cfg.flag.bs.token_policy = UBA_UBCORE_TOKEN_PLAIN_TEXT;
     jfr_cfg.token_value.token = ub_dev->token_val;
     jfr_cfg.eid_index = ub_dev->eid_info.eid_index;
-    jfr = ubcore_create_jfr(ub_dev->ubc_dev, &jfr_cfg, NULL, NULL);
+    jfr = uba_ubcore_create_jfr(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &jfr_cfg, NULL, NULL);
     if (KA_IS_ERR_OR_NULL(jfr)) {
         trs_err("Create cq jfr failed. (devid=%u)\n", ub_dev->devid);
         goto destroy_jfc;
@@ -678,9 +678,9 @@ int trs_ub_cq_jetty_init(struct trs_ub_dev *ub_dev, u32 vfid)
     return 0;
 
 destroy_jfr:
-    ubcore_delete_jfr(jfr);
+    uba_ubcore_delete_jfr(UBA_MODULE_TYPE_TRS, jfr);
 destroy_jfc:
-    ubcore_delete_jfc(jfc);
+    uba_ubcore_delete_jfc(UBA_MODULE_TYPE_TRS, jfc);
 uninit_segment:
     trs_ub_uninit_segment(&ub_dev->jetty_info[vfid].cq_seg);
     return -ENOMEM;
@@ -688,8 +688,8 @@ uninit_segment:
 
 void trs_ub_cq_jetty_uninit(struct trs_ub_dev *ub_dev, u32 vfid)
 {
-    ubcore_delete_jfr(ub_dev->jetty_info[vfid].cq_jfr);
-    ubcore_delete_jfc(ub_dev->jetty_info[vfid].cq_jfc);
+    uba_ubcore_delete_jfr(UBA_MODULE_TYPE_TRS, ub_dev->jetty_info[vfid].cq_jfr);
+    uba_ubcore_delete_jfc(UBA_MODULE_TYPE_TRS, ub_dev->jetty_info[vfid].cq_jfc);
     trs_ub_uninit_segment(&ub_dev->jetty_info[vfid].cq_seg);
     ub_dev->jetty_info[vfid].cq_jfc = NULL;
     ub_dev->jetty_info[vfid].cq_jfr = NULL;
@@ -697,34 +697,34 @@ void trs_ub_cq_jetty_uninit(struct trs_ub_dev *ub_dev, u32 vfid)
 
 static int trs_ub_import_reg_segment(struct trs_ub_dev *ub_dev, struct trs_msg_jetty_info *jetty_info)
 {
-    struct ubcore_target_seg_cfg seg_cfg = {0};
+    uba_ubcore_target_seg_cfg seg_cfg = {0};
 
-    seg_cfg.seg.attr.bs.token_policy = UBCORE_TOKEN_PLAIN_TEXT;
+    seg_cfg.seg.attr.bs.token_policy = UBA_UBCORE_TOKEN_PLAIN_TEXT;
     seg_cfg.token_value.token = jetty_info->rmt_token_value;
     seg_cfg.seg = jetty_info->notify_seg;
-    ub_dev->notify_tseg = ubcore_import_seg(ub_dev->ubc_dev, &seg_cfg, NULL);
+    ub_dev->notify_tseg = uba_ubcore_import_seg(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &seg_cfg, NULL);
     if (KA_IS_ERR_OR_NULL(ub_dev->notify_tseg)) {
         trs_err("Failed to import notify segment. (devid=%u)\n", ub_dev->devid);
         return -EFAULT;
     }
 
     seg_cfg.seg = jetty_info->cnt_notify_seg;
-    ub_dev->cnt_notify_tseg = ubcore_import_seg(ub_dev->ubc_dev, &seg_cfg, NULL);
+    ub_dev->cnt_notify_tseg = uba_ubcore_import_seg(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &seg_cfg, NULL);
     if (KA_IS_ERR_OR_NULL(ub_dev->cnt_notify_tseg)) {
-        (void)ubcore_unimport_seg(ub_dev->notify_tseg);
+        (void)uba_ubcore_unimport_seg(UBA_MODULE_TYPE_TRS, ub_dev->notify_tseg);
         ub_dev->notify_tseg = NULL;
         trs_err("Failed to import cnt notify segment. (devid=%u)\n", ub_dev->devid);
         return -EFAULT;
     }
 
     seg_cfg.seg = jetty_info->sq_reg_seg;
-    ub_dev->sq_reg_tseg = ubcore_import_seg(ub_dev->ubc_dev, &seg_cfg, NULL);
+    ub_dev->sq_reg_tseg = uba_ubcore_import_seg(UBA_MODULE_TYPE_TRS, ub_dev->ubc_dev, &seg_cfg, NULL);
     if (KA_IS_ERR_OR_NULL(ub_dev->sq_reg_tseg)) {
-        (void)ubcore_unimport_seg(ub_dev->cnt_notify_tseg);
+        (void)uba_ubcore_unimport_seg(UBA_MODULE_TYPE_TRS, ub_dev->cnt_notify_tseg);
         ub_dev->cnt_notify_tseg = NULL;
-        (void)ubcore_unimport_seg(ub_dev->notify_tseg);
+        (void)uba_ubcore_unimport_seg(UBA_MODULE_TYPE_TRS, ub_dev->notify_tseg);
         ub_dev->notify_tseg = NULL;
-        trs_err("Failed to import cnt notify segment. (devid=%u)\n", ub_dev->devid);
+        trs_err("Failed to import sq reg segment. (devid=%u)\n", ub_dev->devid);
         return -EFAULT;
     }
 
@@ -734,11 +734,11 @@ static int trs_ub_import_reg_segment(struct trs_ub_dev *ub_dev, struct trs_msg_j
 
 static void trs_ub_unimport_reg_segment(struct trs_ub_dev *ub_dev)
 {
-    (void)ubcore_unimport_seg(ub_dev->sq_reg_tseg);
+    (void)uba_ubcore_unimport_seg(UBA_MODULE_TYPE_TRS, ub_dev->sq_reg_tseg);
     ub_dev->sq_reg_tseg = NULL;
-    (void)ubcore_unimport_seg(ub_dev->notify_tseg);
+    (void)uba_ubcore_unimport_seg(UBA_MODULE_TYPE_TRS, ub_dev->notify_tseg);
     ub_dev->notify_tseg = NULL;
-    (void)ubcore_unimport_seg(ub_dev->cnt_notify_tseg);
+    (void)uba_ubcore_unimport_seg(UBA_MODULE_TYPE_TRS, ub_dev->cnt_notify_tseg);
     ub_dev->cnt_notify_tseg = NULL;
 }
 
@@ -932,10 +932,10 @@ int trs_ub_bind_jetty(struct trs_ub_dev *ub_dev, u32 vfid)
     jetty_info->sq_jfr_id = ub_dev->jetty_info[vfid].sq_jfr->jfr_id.id;
     jetty_info->eid_info = ub_dev->eid_info;
     jetty_info->token_value = ub_dev->token_val;
-    (void)memcpy_s(&(jetty_info->sq_seg), sizeof(struct ubcore_seg), &(ub_dev->sq_seg.target_seg->seg),
-                   sizeof(struct ubcore_seg));
-    (void)memcpy_s(&(jetty_info->cq_seg), sizeof(struct ubcore_seg), &(ub_dev->jetty_info[vfid].cq_seg.target_seg->seg),
-                   sizeof(struct ubcore_seg));
+    (void)memcpy_s(&(jetty_info->sq_seg), sizeof(uba_ubcore_seg), &(ub_dev->sq_seg.target_seg->seg),
+                   sizeof(uba_ubcore_seg));
+    (void)memcpy_s(&(jetty_info->cq_seg), sizeof(uba_ubcore_seg), &(ub_dev->jetty_info[vfid].cq_seg.target_seg->seg),
+                   sizeof(uba_ubcore_seg));
     jetty_info->vfid = vfid;
 
     ret = trs_host_msg_send(devid, &msg, sizeof(struct trs_msg_data));

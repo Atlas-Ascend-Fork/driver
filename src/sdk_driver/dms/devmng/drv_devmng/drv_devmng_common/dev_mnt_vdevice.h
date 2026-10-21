@@ -52,11 +52,11 @@ struct dev_mnt_vdev_inform {
 };
 
 struct vdavinci_info {
-    void *ns;              /* ns namespace pointer */
-    u32 used;              /* whether the vdevice is used */
-    u32 phy_devid;         /* which physical device alloc the vdevice */
-    u32 vfid;              /* alloced by vmanager */
-    u32 container_devid;   /* container logic_devid */
+    void *ns;                               /* ns namespace pointer */
+    u32 used;                               /* whether the vdevice is used */
+    u32 phy_devid;                          /* which physical device alloc the vdevice */
+    u32 vfid;                               /* alloced by vmanager */
+    u32 container_devid;                    /* container logic_devid */
     struct devdrv_vdev_spec_info spec_info; /* specification of the vdevice */
     u64 container_id;
 };

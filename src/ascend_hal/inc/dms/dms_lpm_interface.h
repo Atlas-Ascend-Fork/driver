@@ -28,7 +28,7 @@
 #define DMS_SUBCMD_GET_LP_STATUS 7
 #define DMS_LPM_SUB_CMD_MAX 8
 
-#define DMS_SUBCMD_LP_SUSPEND       0
+#define DMS_SUBCMD_LP_SUSPEND 0
 
 #define POWER_INFO_RESERVE_LEN 8
 struct dms_power_state_info {
@@ -45,16 +45,15 @@ struct dms_lp_state_in {
 
 drvError_t DmsGetLpmInfo(struct dms_lpm_info_in *in, void *result, unsigned int result_size);
 drvError_t dms_get_lpm_freq_v2(struct dms_lpm_info_in_v2 *in, unsigned int *frequency);
-int DmsLpmPassThroughMcu(unsigned char rw_flag, unsigned char *buf, unsigned char buf_len,
-    unsigned char *resp_buff, unsigned char *recv_len);
+int DmsLpmPassThroughMcu(unsigned char rw_flag, unsigned char *buf, unsigned char buf_len, unsigned char *resp_buff,
+                         unsigned char *recv_len);
 
 /* get info from LP: new\old\adapter */
-int DmsGetLowPowerInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf,
-    unsigned int *size);
+int DmsGetLowPowerInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 int DmsGetInfoFromLp(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *buf_size);
+                     unsigned int *buf_size);
 int DmsGetInfoFromLpAdapter(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *buf_size);
+                            unsigned int *buf_size);
 int dms_set_temperature_threshold(unsigned int dev_id, unsigned int sub_cmd, void *in_buf, unsigned int buf_size);
 
 /* set info to LP: new */
@@ -63,9 +62,9 @@ int DmsSetLowPowerInfo(unsigned int dev_id, unsigned int sub_cmd, void *buf, uns
 /* get temperature and threshold from LP: new\old\adapter */
 int DmsGetTempFromLp(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 int DmsGetTemperature(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *buf_size);
+                      unsigned int *buf_size);
 int DmsGetTemperatureAdapter(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *buf_size);
+                             unsigned int *buf_size);
 
 /* set temperature and threshold from LP: old */
 int DmsSetTemperature(unsigned int dev_id, unsigned int sub_cmd, void *in_buf, unsigned int buf_size);

@@ -36,11 +36,11 @@ STATIC u32 bbox_str_fc_time(char *s, u32 max, const char *format, const time_t *
         BBOX_ERR_CTRL(BBOX_ERR, return 0, "get local time failed(time: %lld).", (s64)*timep);
     }
 
-    BBOX_DBG("time: [%4d-%02d-%02d-%02d:%02d:%02d]", result.tm_year, result.tm_mon,
-        result.tm_mday, result.tm_hour, result.tm_min, result.tm_sec);
+    BBOX_DBG("time: [%4d-%02d-%02d-%02d:%02d:%02d]", result.tm_year, result.tm_mon, result.tm_mday, result.tm_hour,
+             result.tm_min, result.tm_sec);
 
-    s32 ret_len = snprintf_s(s, max, max - 1U, format, result.tm_year, result.tm_mon, result.tm_mday,
-                         result.tm_hour, result.tm_min, result.tm_sec);
+    s32 ret_len = snprintf_s(s, max, max - 1U, format, result.tm_year, result.tm_mon, result.tm_mday, result.tm_hour,
+                             result.tm_min, result.tm_sec);
     if (ret_len == -1) {
         BBOX_ERR("snprintf_s error");
         *s = '\0';
@@ -90,7 +90,7 @@ void bbox_host_time_to_str(char *buf, u32 len, struct timeval *tv)
     BBOX_CHK_NULL_PTR(buf, return);
 
     if ((tv->tv_usec < 0) || (tv->tv_usec > USEC_MAX)) {
-        BBOX_ERR("Bad tv.usec(%ld).", tv->tv_usec);
+        BBOX_ERR("Bad tv.usec. (tv_usec=%ld, valid_range=[0, %ld])", tv->tv_usec, (long)USEC_MAX);
         tv->tv_usec = 0;
     }
 
@@ -103,7 +103,7 @@ void bbox_host_time_to_str(char *buf, u32 len, struct timeval *tv)
 
     s32 ret = sprintf_s(&buf[ret_len], len - ret_len, ".%06ld", tv->tv_usec);
     if (ret == -1) {
-        BBOX_WAR("usec was not append to time string(%06ld).", tv->tv_usec);
+        BBOX_WAR("usec was not appended to time string(%06ld).", tv->tv_usec);
     }
     BBOX_DBG("host-time-str: %s", buf);
     return;
@@ -122,7 +122,7 @@ void bbox_log_time_to_str(char *buf, u32 len, struct timeval *tv)
     BBOX_CHK_NULL_PTR(buf, return);
 
     if ((tv->tv_usec < 0) || (tv->tv_usec > USEC_MAX)) {
-        BBOX_ERR("Bad tv.usec(%ld).", tv->tv_usec);
+        BBOX_ERR("Bad tv.usec. (tv_usec=%ld, valid_range=[0, %ld])", tv->tv_usec, (long)USEC_MAX);
         tv->tv_usec = 0;
     }
 
@@ -135,7 +135,7 @@ void bbox_log_time_to_str(char *buf, u32 len, struct timeval *tv)
 
     s32 ret = sprintf_s(&buf[ret_len], len - ret_len, ".%03ld", tv->tv_usec / NSEC_PER_USEC);
     if (ret == -1) {
-        BBOX_WAR("usec was not append to time string(%03ld).", tv->tv_usec / NSEC_PER_USEC);
+        BBOX_WAR("usec was not appended to time string(%03ld).", tv->tv_usec / NSEC_PER_USEC);
     }
     BBOX_DBG("log-time-str: %s", buf);
 }
@@ -236,4 +236,3 @@ bbox_status bbox_data_print(struct bbox_data_info *info, const char *fmt, ...)
     info->next = &info->next[used];
     return BBOX_SUCCESS;
 }
-

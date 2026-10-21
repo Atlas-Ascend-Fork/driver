@@ -81,12 +81,20 @@ KA_EXPORT_SYMBOL(devdrv_get_msg_chan_devid);
 
 int devdrv_set_msg_chan_priv(void *msg_chan, void *priv)
 {
+    if (msg_chan == NULL) {
+        devdrv_err("msg_chan is null.\n");
+        return -EINVAL;
+    }
     return devdrv_set_msg_chan_priv_proc(msg_chan, priv);
 }
 KA_EXPORT_SYMBOL(devdrv_set_msg_chan_priv);
 
 void *devdrv_get_msg_chan_priv(void *msg_chan)
 {
+    if (msg_chan == NULL) {
+        devdrv_err("msg_chan is null.\n");
+        return NULL;
+    }
     return devdrv_get_msg_chan_priv_proc(msg_chan);
 }
 KA_EXPORT_SYMBOL(devdrv_get_msg_chan_priv);

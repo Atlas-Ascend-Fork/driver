@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "securec.h"
 #include "davinci_interface.h"
@@ -78,10 +79,13 @@ static int _shrid_get_fd(void)
     return -1;
 }
 
+#define MAX_SHRID_OPEN_RETRY_TIME 3000
+#define SHRID_OPEN_RETRY_INTERVAL 100000 /* 100ms */
 static int shrid_ioctl_open(void)
 {
     struct davinci_intf_open_arg arg = {};
-    int ret, fd;
+    int ret, fd, cnt = 0;
+    bool retry = false;
 
     ret = strcpy_s(arg.module_name, DAVINIC_MODULE_NAME_MAX, DAVINCI_INTF_MODULE_TRS_SHR_ID);
     if (ret < 0) {
@@ -94,7 +98,16 @@ static int shrid_ioctl_open(void)
         trs_err("open failed, fd(%d), errno(%d), error(%s).\n", fd, errno, strerror(errno));
         return fd;
     }
-    ret = _shrid_ioctl(fd, DAVINCI_INTF_IOCTL_OPEN, &arg);
+
+    do {
+        ret = _shrid_ioctl(fd, DAVINCI_INTF_IOCTL_OPEN, &arg);
+        cnt++;
+        retry = ((ret != 0) && (errno == EBUSY) && (cnt < MAX_SHRID_OPEN_RETRY_TIME));
+        if (retry) {
+            usleep(SHRID_OPEN_RETRY_INTERVAL);
+        }
+    } while (retry);
+
     if (ret != 0) {
         trs_err("ioctl failed, fd(%d), errno(%d), error(%s).\n", fd, errno, strerror(errno));
         (void)_shrid_close(fd);
@@ -147,8 +160,8 @@ static int get_type_by_name(const char *name, int *id_type)
 
     name_len = strnlen(name, SHR_ID_NSM_NAME_SIZE);
     if ((name_len == 0) || (name_len >= SHR_ID_NSM_NAME_SIZE)) {
-        trs_err("Length out of range. (name_len=%lu; range=1-%lu)\n", name_len,
-                (unsigned long)(SHR_ID_NSM_NAME_SIZE - 1));
+        trs_err("Length out of range. (name_len=%lu; valid range=[1, %lu))\n", name_len,
+                (unsigned long)SHR_ID_NSM_NAME_SIZE);
         return -EINVAL;
     }
 
@@ -190,9 +203,9 @@ drvError_t shrid_ioctl(u32 cmd, void *para)
                     return DRV_ERROR_IOCRL_FAIL;
                 }
                 if (type == SHR_ID_EVENT_TYPE) {
-                    trs_operation_not_supported_err_msg("halShrIdOpen", "event");
+                    trs_event_operation_not_supported_err_msg();
                 } else if (type == SHR_ID_NOTIFY_TYPE) {
-                    trs_operation_not_supported_err_msg("halShrIdOpen", "notify");
+                    trs_notify_operation_not_supported_err_msg(((struct shr_id_ioctl_info *)para)->name);
                 }
             }
             trs_err("Ioctl failed. (ret=%d; cmd=%u).\n", errno, _IOC_NR(cmd));
@@ -206,10 +219,12 @@ void shrid_close(void)
 {
     int fd = -1;
 
+    (void)pthread_mutex_lock(&shrid_device_mutex);
     fd = _shrid_get_fd();
-    if (fd < 0) {
-        return;
+    if (fd >= 0) {
+        (void)_shrid_close(fd);
     }
-
-    (void)_shrid_close(fd);
+    shrid_set_fd(-1);
+    shrid_set_pid(-1);
+    (void)pthread_mutex_unlock(&shrid_device_mutex);
 }

@@ -29,3 +29,8 @@ int pmq_msg_send(u32 src_udevid, u32 dst_udevid, void *msg, u32 msg_len, u32 *re
         return -EINVAL;
     }
 }
+
+u32 pmq_get_max_msg_len(void)
+{
+    return svm_kmc_h2d_get_max_msg_len();
+}

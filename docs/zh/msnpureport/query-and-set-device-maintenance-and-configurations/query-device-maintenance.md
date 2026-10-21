@@ -53,7 +53,7 @@ msnpureport -r [--device <deviceId>]
 |参数|可选/必选|说明|
 |--|--|--|
 |-d \<deviceId>或--device \<deviceId>|可选|指定Device ID（逻辑ID），默认为0。<br>部分产品可能存在SMP工作模式，即多个Device共用一个OS组成一组，此时指定一个OS内的任意Device ID时，会导出该OS下的所有Device日志。|
-|-r或--request|必选|查询Device侧slog系统类日志的级别，包括全局级、模块级和是否开启Event日志。如果不指定Device ID，默认查询Device 0的日志级别。该参数仅方式二支持。|
+|-r或--request|必选|查询Device侧slog系统类日志的级别，包括全局级、模块级和是否开启Event日志。如果不指定Device ID，默认查询Device 0的日志级别。该参数仅支持方式二传入。|
 
 ## 使用示例
 

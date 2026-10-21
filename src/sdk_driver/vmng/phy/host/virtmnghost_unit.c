@@ -43,20 +43,6 @@ int vmngh_vm_id_check(u32 vm_id, u32 vm_devid)
 }
 
 struct vmngh_unit g_vmngh_unit;
-
-struct vmng_msg_dev *vmngh_get_msg_dev_by_id(u32 dev_id, u32 fid)
-{
-    struct vmngh_vd_dev *vd_dev = NULL;
-
-    if (vmngh_dev_id_check(dev_id, fid) != 0) {
-        vmng_err("Parameter check failed. (dev_id=%u; fid=%u)\n", dev_id, fid);
-        return NULL;
-    }
-    vd_dev = g_vmngh_unit.vmngh_pcidev[dev_id].vd_dev[fid];
-
-    return vd_dev->msg_dev;
-}
-
 struct vmngh_vd_dev *vmngh_get_vddev_by_id(u32 dev_id, u32 fid)
 {
     if (vmngh_dev_id_check(dev_id, fid) != 0) {

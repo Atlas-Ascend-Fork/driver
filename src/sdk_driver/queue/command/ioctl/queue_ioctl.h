@@ -7,6 +7,7 @@
 #include "hal_pkg/esched_pkg.h"
 
 #define DEV_QUEUE_STATUS_RECORE_START 10
+#define QUEUE_FEATURE_DEV_NUM 1140
 
 enum queue_status_time_type {
     HOST_START_MAKE_DMA_LIST = 0,
@@ -123,6 +124,36 @@ union queue_req_arg {
     struct queue_ioctl_copy copy_arg;
 };
 
+/*
+ * Queue feature ID definitions.
+ * Shared between kernel and user-space via this ioctl header.
+ * User-space visible features use QUEUE_FEATURE_xxx naming (without _USER_)
+ * and their enum values are placed after kernel-internal features.
+ * The bitmap returned by QUEUE_GET_ALL_FEATURE_CMD uses the enum value
+ * as the index directly (QUEUE_FEATURE_xxx).
+ */
+enum queue_feature_id {
+    QUEUE_FEATURE_PLATFORM_MINI_DMA = 0,
+    QUEUE_FEATURE_SURPORT_PCIE_DMA_SVA,
+    QUEUE_FEATURE_SHARE_LOG,
+    QUEUE_FEATURE_KA_ALLOC_INTERFACE,
+    QUEUE_FEATURE_HOST_LOG,
+
+    /* User-space visible features (auto-incremented from HOST_LOG + 1) */
+    QUEUE_FEATURE_SUPPORT_SRIOV,
+    QUEUE_FEATURE_HOST_SUPPORT_LOCAL_QUEUE,
+    QUEUE_SOC_PLATFORM_960,
+    QUEUE_FEATURE_MAX
+};
+#define QUEUE_FEATURE_MAX_LIMIT 10000
+
+struct queue_ioctl_feature {
+    /* input: user-space's current feature count (covers both chip and version features) */
+    unsigned int user_feature_num;
+    /* output: feature support bitmap (only indices < user_feature_num are valid) */
+    unsigned char feature_bitmaps[QUEUE_FEATURE_DEV_NUM][QUEUE_FEATURE_MAX];
+};
+
 #define DAVINCI_QUEUE_SUB_MODULE_NAME "QUEUE"
 #define QUEUE_IOC_MAGIC 'Q'
 
@@ -134,6 +165,7 @@ union queue_req_arg {
 #define QUEUE_SESSION_INIT _IOW(QUEUE_IOC_MAGIC, 5, struct queue_init_para)
 #define QUEUE_CTRL_MSG_RECV_CMD _IOWR(QUEUE_IOC_MAGIC, 7, struct queue_ioctl_ctrl_msg_recv)
 #define QUEUE_GET_IOVEC_NUM_CMD _IOWR(QUEUE_IOC_MAGIC, 8, struct queue_ioctl_iovec_num)
+#define QUEUE_GET_ALL_FEATURE_CMD _IOR(QUEUE_IOC_MAGIC, 9, struct queue_ioctl_feature)
 
 #define QUEUE_DEV_FULL_NAME "/dev/hi-queue-manage"
 #define QUEUE_ENQUEUE_FLAG 0
@@ -142,6 +174,6 @@ union queue_req_arg {
 /* user agent and kernel use */
 #define MSG_MAX_LEN 64
 #define QUEUE_CTRL_MSG_SEND_CMD _IOW(QUEUE_IOC_MAGIC, 6, struct queue_ioctl_ctrl_msg_send)
-#define QUEUE_CMD_MAX 9
+#define QUEUE_CMD_MAX 10
 
 #endif

@@ -38,7 +38,7 @@ struct mms_stats *mms_stats_create(u32 devid)
 
     ret = svm_cmd_ioctl(devid, SVM_MMS_STATS_MEM_CFG, (void *)mms_stats);
     if (ret != 0) {
-        svm_err("Svm mms_init ioctl failed for (ret=%d; devid=%u; )\n", ret, devid);
+        svm_err("Svm mms_init ioctl failed. (ret=%d; devid=%u)\n", ret, devid);
         svm_user_munmap(mms_stats, sizeof(struct mms_stats));
         return NULL;
     }

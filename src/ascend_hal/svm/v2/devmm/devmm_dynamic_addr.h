@@ -19,5 +19,6 @@ int svm_da_alloc(uint64_t *va, uint64_t size, uint32_t flag);
 int svm_da_free(uint64_t va);
 int svm_da_query_size(uint64_t va, uint64_t *size);
 bool svm_is_dyn_addr(uint64_t va);
+void svm_da_free_set_ops(void (*pre_free)(uint64_t va, uint64_t size));
 
 #endif

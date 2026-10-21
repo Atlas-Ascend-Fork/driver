@@ -17,12 +17,29 @@ endif()
 
 set(C_SEC_HEAD_SEARCH_PATHS
     ${CANN_3RD_LIB_PATH}/abl/libc_sec/include             # compile with ci
-    ${CANN_3RD_LIB_PATH}/libboundscheck
+    ${CANN_3RD_LIB_PATH}/libboundscheck-v1.1.16/include
 )
 
 find_path(C_SEC_INCLUDE NAMES securec.h PATHS ${C_SEC_HEAD_SEARCH_PATHS} NO_DEFAULT_PATH)
-if(NOT C_SEC_INCLUDE)
-    set(C_SEC_URL "https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/libboundscheck-v1.1.16.tar.gz")
+if(C_SEC_INCLUDE)
+    get_filename_component(CANN_3RD_SECURE_C_DIR ${C_SEC_INCLUDE} DIRECTORY)
+    file(MAKE_DIRECTORY "${EXTERN_DEPEND_SOURCE_DIR}/libc_sec")
+    execute_process(
+        COMMAND bash -c "cp -r ${CANN_3RD_SECURE_C_DIR}/include ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/include \
+&& cp -r ${CANN_3RD_SECURE_C_DIR}/src ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/src"
+        RESULT_VARIABLE _cp_result
+    )
+    if(NOT _cp_result EQUAL 0)
+        message(FATAL_ERROR "Failed to copy secure_c source from ${CANN_3RD_SECURE_C_DIR} (ret=${_cp_result})")
+    endif()
+else()
+    if(EXISTS "${CANN_3RD_LIB_PATH}/libboundscheck-v1.1.16.tar.gz")
+        set(C_SEC_URL "file://${CANN_3RD_LIB_PATH}/libboundscheck-v1.1.16.tar.gz")
+    else()
+        set(C_SEC_URL "https://gitcode.com/cann-src-third-party/libboundscheck/releases/download/v1.1.16/\
+libboundscheck-v1.1.16.tar.gz")
+    endif()
+
     message(STATUS "Downloading ${C_SEC_NAME} from ${C_SEC_URL}")
 
     include(FetchContent)
@@ -33,23 +50,25 @@ if(NOT C_SEC_INCLUDE)
         SOURCE_DIR ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec
     )
     FetchContent_MakeAvailable(${C_SEC_NAME})
-
-    set(C_SEC_INCLUDE ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/include)
-
-    configure_file(
-        ${PROJECT_SOURCE_DIR}/cmake/config/c_sec_config/c_sec.cmake
-        ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/CMakeLists.txt
-        COPYONLY
-    )
-
-    execute_process(
-            COMMAND bash -c "cp ${PROJECT_SOURCE_DIR}/src/sdk_driver/seclib/Makefile ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/Makefile"
-            COMMAND bash -c "cp ${PROJECT_SOURCE_DIR}/src/sdk_driver/seclib/securecmodule.c ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/src/securecmodule.c"
-            WORKING_DIRECTORY ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/src
-        )
 endif()
 
+set(C_SEC_INCLUDE ${EXTERN_DEPEND_SOURCE_DIR}/libc_sec/include)
 get_filename_component(SECURE_C_DIR ${C_SEC_INCLUDE} DIRECTORY)
+
+configure_file(
+    ${PROJECT_SOURCE_DIR}/cmake/config/c_sec_config/c_sec.cmake
+    ${SECURE_C_DIR}/CMakeLists.txt
+    COPYONLY
+)
+
+execute_process(
+    COMMAND bash -c "cp ${PROJECT_SOURCE_DIR}/src/sdk_driver/seclib/Makefile ${SECURE_C_DIR}/Makefile \
+&& cp ${PROJECT_SOURCE_DIR}/src/sdk_driver/seclib/securecmodule.c ${SECURE_C_DIR}/src/securecmodule.c"
+    RESULT_VARIABLE _cp_result
+)
+if(NOT _cp_result EQUAL 0)
+    message(FATAL_ERROR "Failed to copy Makefile/securecmodule.c to ${SECURE_C_DIR} (ret=${_cp_result})")
+endif()
 
 include(ExternalProject)
 ExternalProject_Add(secure_c

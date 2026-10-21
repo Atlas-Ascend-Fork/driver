@@ -26,6 +26,7 @@ struct register_record_node {
     DVdeviceptr src_ptr;
     uint64_t count;
     uint32_t map_type;
+    uint32_t flag;
     DVdeviceptr dst_ptr;
     struct rb_node node;
 };
@@ -39,12 +40,6 @@ struct register_record_node {
 #define REG_RECORD_MAX_DEV_NUM DEVMM_MAX_LOGIC_DEVICE_NUM
 static struct rbtree_root g_reg_record_tree[MEM_REGISTER_MAX_SIDE][RECORD_TREE_MAX_TYPE][REG_RECORD_MAX_DEV_NUM];
 static pthread_rwlock_t g_reg_record_lock[MEM_REGISTER_MAX_SIDE][RECORD_TREE_MAX_TYPE][REG_RECORD_MAX_DEV_NUM];
-static THREAD bool g_record_enable = false;
-
-void svm_mem_register_record_enable(void)
-{
-    g_record_enable = true;
-}
 
 static inline uint32_t svm_mem_register_get_mem_side(uint32_t map_type)
 {
@@ -78,6 +73,13 @@ static inline struct register_record_node *svm_mem_register_get_record_node(stru
 {
     struct rb_node *tmp = container_of(rb_node, struct rb_node, rbtree_node);
     return container_of(tmp, struct register_record_node, node);
+}
+
+static void svm_mem_register_record_get_range(struct rbtree_node *node, struct rb_range_handle *range_handle)
+{
+    struct register_record_node *record_node = svm_mem_register_get_record_node(node);
+    range_handle->start = record_node->src_ptr;
+    range_handle->end = record_node->src_ptr + record_node->count - 1;
 }
 
 static struct register_record_node *svm_mem_register_find_overlap_record_node(DVdeviceptr ptr, uint64_t size,
@@ -136,18 +138,25 @@ static inline struct register_record_node *svm_mem_register_find_record_node(DVd
 static bool _svm_mem_register_record_is_exist(DVdeviceptr ptr, uint64_t size, uint32_t side, uint32_t tree_type,
                                               uint32_t devid)
 {
-    return svm_mem_register_find_overlap_record_node(ptr, size, side, tree_type, devid) != NULL;
+    struct rb_range_handle range = {.start = ptr, .end = ptr + size - 1};
+
+    return !rbtree_can_insert_range(&g_reg_record_tree[side][tree_type][devid], &range,
+                                    svm_mem_register_record_get_range);
 }
 
 static DVresult _svm_mem_register_record_add(uint32_t devid, DVdeviceptr src_ptr, uint64_t size, uint32_t map_type,
-                                             DVdeviceptr dst_ptr)
+                                             DVdeviceptr dst_ptr, uint32_t flag)
 {
     uint32_t side = svm_mem_register_get_mem_side(map_type);
     uint32_t tree_type = svm_mem_register_get_tree_type(map_type);
     struct register_record_node *record_node = NULL;
+    uint32_t tree_tmp;
 
-    if (_svm_mem_register_record_is_exist(src_ptr, size, side, tree_type, devid)) {
-        return DRV_ERROR_REPEATED_USERD;
+    /* Duplicate check within the same side (cross-tree) */
+    for (tree_tmp = NO_DMA_MAP_RECORD_TREE; tree_tmp < RECORD_TREE_MAX_TYPE; tree_tmp++) {
+        if (_svm_mem_register_record_is_exist(src_ptr, size, side, tree_tmp, devid)) {
+            return DRV_ERROR_BUSY;
+        }
     }
 
     record_node = (struct register_record_node *)malloc(sizeof(struct register_record_node));
@@ -158,11 +167,14 @@ static DVresult _svm_mem_register_record_add(uint32_t devid, DVdeviceptr src_ptr
     record_node->src_ptr = src_ptr;
     record_node->count = size;
     record_node->map_type = map_type;
+    record_node->flag = flag;
     record_node->dst_ptr = dst_ptr;
+    record_node->node.key = src_ptr;
 
-    if (rbtree_insert(src_ptr, &g_reg_record_tree[side][tree_type][devid], &record_node->node)) {
+    if (rbtree_insert_by_range(&g_reg_record_tree[side][tree_type][devid], &record_node->node.rbtree_node,
+                               svm_mem_register_record_get_range) != 0) {
         free(record_node);
-        return DRV_ERROR_REPEATED_USERD;
+        return DRV_ERROR_BUSY;
     }
 
     DEVMM_DRV_DEBUG_ARG(
@@ -173,24 +185,28 @@ static DVresult _svm_mem_register_record_add(uint32_t devid, DVdeviceptr src_ptr
 }
 
 DVresult svm_mem_register_record_add(uint32_t devid, DVdeviceptr src_ptr, uint64_t size, uint32_t map_type,
-                                     DVdeviceptr dst_ptr)
+                                     DVdeviceptr dst_ptr, uint32_t flag)
 {
-    uint32_t side, tree_type;
+    uint32_t side, tree_tmp;
     DVresult ret;
 
-    if (g_record_enable == false) {
-        return DRV_ERROR_NONE;
-    }
-
-    if ((devid >= REG_RECORD_MAX_DEV_NUM)) {
+    if (devid >= REG_RECORD_MAX_DEV_NUM) {
         return DRV_ERROR_INVALID_DEVICE;
     }
 
     side = svm_mem_register_get_mem_side(map_type);
-    tree_type = svm_mem_register_get_tree_type(map_type);
-    pthread_rwlock_wrlock(&g_reg_record_lock[side][tree_type][devid]);
-    ret = _svm_mem_register_record_add(devid, src_ptr, size, map_type, dst_ptr);
-    pthread_rwlock_unlock(&g_reg_record_lock[side][tree_type][devid]);
+
+    /* Lock only the current side's trees to avoid blocking the other side
+     * (host and dev may share the same local address space) */
+    for (tree_tmp = NO_DMA_MAP_RECORD_TREE; tree_tmp < RECORD_TREE_MAX_TYPE; tree_tmp++) {
+        pthread_rwlock_wrlock(&g_reg_record_lock[side][tree_tmp][devid]);
+    }
+
+    ret = _svm_mem_register_record_add(devid, src_ptr, size, map_type, dst_ptr, flag);
+
+    for (tree_tmp = NO_DMA_MAP_RECORD_TREE; tree_tmp < RECORD_TREE_MAX_TYPE; tree_tmp++) {
+        pthread_rwlock_unlock(&g_reg_record_lock[side][tree_tmp][devid]);
+    }
 
     return ret;
 }
@@ -214,7 +230,7 @@ void svm_mem_register_record_del(uint32_t devid, DVdeviceptr src_ptr, uint32_t m
 {
     uint32_t side, tree_type;
 
-    if ((g_record_enable == false) || (devid >= REG_RECORD_MAX_DEV_NUM)) {
+    if (devid >= REG_RECORD_MAX_DEV_NUM) {
         return;
     }
 
@@ -246,7 +262,7 @@ void svm_mem_register_records_del(uint32_t devid)
 {
     uint32_t side, tree_type;
 
-    if ((g_record_enable == false) || (devid >= REG_RECORD_MAX_DEV_NUM)) {
+    if (devid >= REG_RECORD_MAX_DEV_NUM) {
         return;
     }
 
@@ -260,7 +276,7 @@ void svm_mem_register_records_del(uint32_t devid)
 }
 
 static DVresult _svm_mem_register_record_query(DVdeviceptr src_ptr, uint32_t side, uint32_t tree_type, uint32_t devid,
-                                               uint32_t *map_type, DVdeviceptr *dst_ptr)
+                                               DVdeviceptr *dst_ptr, uint32_t *flag)
 {
     struct register_record_node *record_node = NULL;
     struct rb_node *tmp = NULL;
@@ -271,28 +287,28 @@ static DVresult _svm_mem_register_record_query(DVdeviceptr src_ptr, uint32_t sid
     }
 
     record_node = container_of(tmp, struct register_record_node, node);
-    if (map_type != NULL) {
-        *map_type = record_node->map_type;
-    }
     if (dst_ptr != NULL) {
         *dst_ptr = record_node->dst_ptr;
+    }
+    if (flag != NULL) {
+        *flag = record_node->flag;
     }
     return DRV_ERROR_NONE;
 }
 
-DVresult svm_mem_register_record_query(DVdeviceptr src_ptr, uint32_t devid, uint32_t side, uint32_t *map_type,
-                                       DVdeviceptr *dst_ptr)
+DVresult svm_mem_register_record_query(DVdeviceptr src_ptr, uint32_t devid, uint32_t side, DVdeviceptr *dst_ptr,
+                                       uint32_t *flag)
 {
     uint32_t tree_type = NO_DMA_MAP_RECORD_TREE;
     DVresult ret;
 
-    if ((g_record_enable == false) || (devid >= REG_RECORD_MAX_DEV_NUM) || (side >= MEM_REGISTER_MAX_SIDE)) {
+    if ((devid >= REG_RECORD_MAX_DEV_NUM) || (side >= MEM_REGISTER_MAX_SIDE)) {
         return DRV_ERROR_NOT_EXIST;
     }
 
     for (tree_type = NO_DMA_MAP_RECORD_TREE; tree_type < RECORD_TREE_MAX_TYPE; tree_type++) {
         pthread_rwlock_rdlock(&g_reg_record_lock[side][tree_type][devid]);
-        ret = _svm_mem_register_record_query(src_ptr, side, tree_type, devid, map_type, dst_ptr);
+        ret = _svm_mem_register_record_query(src_ptr, side, tree_type, devid, dst_ptr, flag);
         pthread_rwlock_unlock(&g_reg_record_lock[side][tree_type][devid]);
 
         if (ret == DRV_ERROR_NONE) {
@@ -330,7 +346,7 @@ DVresult svm_mem_register_record_range_query(DVdeviceptr src_ptr, uint32_t devid
     uint32_t tree_type = NO_DMA_MAP_RECORD_TREE;
     DVresult ret;
 
-    if ((g_record_enable == false) || (devid >= REG_RECORD_MAX_DEV_NUM) || (side >= MEM_REGISTER_MAX_SIDE)) {
+    if ((devid >= REG_RECORD_MAX_DEV_NUM) || (side >= MEM_REGISTER_MAX_SIDE)) {
         return DRV_ERROR_NOT_EXIST;
     }
 
@@ -352,8 +368,7 @@ DVresult svm_mem_register_record_range_query_single(DVdeviceptr src_ptr, uint32_
 {
     DVresult ret;
 
-    if ((g_record_enable == false) || (devid >= REG_RECORD_MAX_DEV_NUM) || (side >= MEM_REGISTER_MAX_SIDE) ||
-        (tree_type >= RECORD_TREE_MAX_TYPE)) {
+    if ((devid >= REG_RECORD_MAX_DEV_NUM) || (side >= MEM_REGISTER_MAX_SIDE) || (tree_type >= RECORD_TREE_MAX_TYPE)) {
         return DRV_ERROR_NOT_EXIST;
     }
 
@@ -368,7 +383,7 @@ bool svm_mem_register_record_is_exist(DVdeviceptr ptr, uint32_t side)
 {
     uint32_t i, j;
 
-    if ((g_record_enable == false) || (side >= MEM_REGISTER_MAX_SIDE)) {
+    if (side >= MEM_REGISTER_MAX_SIDE) {
         return false;
     }
 

@@ -33,7 +33,7 @@ signed int drv_hdc_alloc_len_check(enum drvHdcMemType mem_type, unsigned int len
     alloc_len = hdc_get_alloc_len(len, flag);
     if (((mem_type == HDC_MEM_TYPE_TX_CTRL) || (mem_type == HDC_MEM_TYPE_RX_CTRL)) &&
         (alloc_len > HDCDRV_CTRL_MEM_MAX_LEN)) {
-        HDC_LOG_ERR("alloc_len is not supported for ctrl. (alloc_len=%d)\n", alloc_len);
+        HDC_LOG_ERR("alloc_len is not support for ctrl. (alloc_len=%d)\n", alloc_len);
         return DRV_ERROR_INVALID_VALUE;
     }
     return DRV_ERROR_NONE;
@@ -48,7 +48,7 @@ bool drv_hdc_is_support_session_close(void)
 {
     bool res = hdc_is_in_ub();
     if (!res) {
-        HDC_LOG_WARN("local close is only supported in UB.\n");
+        HDC_LOG_WARN("local close only support in UB.\n");
     }
     return res;
 }

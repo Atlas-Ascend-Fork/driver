@@ -30,7 +30,9 @@
 #include "ka_errno_pub.h"
 #include "ka_task_pub.h"
 #include "dms_feature_pub.h"
+#ifdef CFG_FEATURE_GET_DEV_UUID
 #include "ascend_platform/ascend_platform.h"
+#endif
 
 typedef enum {
     CORE_NUM_A_INDEX = 1,
@@ -90,7 +92,6 @@ STATIC ka_atomic_t g_swplugin_upgrade_policy[ASCEND_PDEV_MAX_NUM] = {KA_BASE_ATO
 STATIC char g_mac_info[ASCEND_PDEV_MAX_NUM][UUID_MAX_LEN];
 STATIC ka_atomic_t g_mac_init_flag[ASCEND_PDEV_MAX_NUM] = {KA_BASE_ATOMIC_INIT(0)};
 #define UUID_VENDOR_ID 0xCC08
-#define GUID_BASE_ADDR 0x24804181E38
 #define GUID_BASE_LEN 0x04
 #endif
 
@@ -140,7 +141,7 @@ STATIC int dms_get_chip_aicore_info(unsigned int dev_id, unsigned int vfid, bool
         chip_aicore_info->num = dev_info->ai_core_num;
     }
 
-    dms_debug("(Freq level=%u; num_level=%u; num=%u; freq=%u; chip_name=0x%x; chip_ver=%u)\n",
+    dms_debug("(Freq level=%u; num_level=%u; num=%u; freq=%u Mhz; chip_name=0x%x; chip_ver=%u)\n",
               chip_aicore_info->freq_level, chip_aicore_info->num_level, chip_aicore_info->num, chip_aicore_info->freq,
               chip_aicore_info->chip_name, chip_aicore_info->chip_ver);
     return 0;
@@ -388,7 +389,8 @@ STATIC int dms_set_chip_name(devdrv_query_chip_info_t *chip_info, bool is_contai
         if (chip_aicore_info->chip_name == g_chip_value_name_map[DEV_AICORE_FREQ_LEVEL_CLOUD].chip_value) {
             ret = dms_set_chip_name_by_aicore_num_and_freq(chip_info, chip_aicore_info);
             if (ret != 0) {
-                dms_err("Set chip name by aicore number and freq fail. (dev_id=%u; ret=%d)\n", chip_info->dev_id, ret);
+                dms_err("Set chip name by aicore number and freq failed. (dev_id=%u; ret=%d)\n", chip_info->dev_id,
+                        ret);
                 return ret;
             }
         }
@@ -526,11 +528,12 @@ STATIC int dms_get_phy_device_info(void *feature, char *in, u32 in_len, char *ou
 * value(910B):  |   0  |  0xCC08   |  0   |    0    |  0xD000   |     0      |  vfid   |   0    |    mac_addr   |
 * value(910_93):|   0  |  0xCC08   |  0   |    0    |  0xD001   |     0      |  vfid   |   0    |    mac_addr   |
 ----------------------------------------------------------------------------------------------------------------|
-*  UUID format: |---0--|--1--|--2--|-------3--------|--4--|--5--|--6--|--7---|-----8-----|--9---|-10-|--11~15---|
-*     type:     |  Rsv | Vendor ID | type | version | Device id | class code | Vnpu id |    Rsv1     |    SN    |
-*     size:     | 8bit |   16bit   | 4bit |  4bit   |   16bit   |    16bit   |  6bit   |    18bit    |  40bit   |
-----------------|------|-----------|------|---------|-----------|------------|---------|-------------|----------|
-* value(950):   |   0  |  0xCC08   | type | version | Device_id | class_code |  vfid   |      0      |    sn    |
+*  UUID format: |--0--|--1--|--2--|--3--|-------4--------|----------5~7----------|---8~15---|
+*     type:     | Vendor ID | Device id | version | type | Vnpu id |    Rsv1     |    SN    |
+*     size:     |   16bit   |   16bit   |  4bit   | 4bit |  6bit   |    18bit    |  64bit   |
+----------------|-----------|-----------|---------|------|---------|-------------|----------|
+* value(950):   |  0xCC08   | Device_id | version | type |  vfid   |      0      |    sn    |
+* value(960):   |  0xCC08   | Device_id | version | type |  vfid   |      0      |    sn    |
 ----------------------------------------------------------------------------------------------------------------|
 ****************************************************************************************************************/
 #define DEVICE_VERSION 0
@@ -571,14 +574,12 @@ STATIC int dms_make_up_uuid_by_guid(unsigned int phy_id, unsigned int vfid, char
             uuid_info[UUID_MAX_LEN - GUID_BASE_LEN * i - j - 1] = guid_info[j];
         }
     }
-    /* The UUID has reserved part at index 0. */
-    uuid_info[0] = 0x00;
-    /* The UUID starts with Vnpu ID at index 8, and the vfid(6 bits in total) needs to be left-shifted by 2 bits. */
-    uuid_info[8] = (((uint8_t)vfid) & 0x3F) << 2;
-    /* The UUID has reserved part at index 9. */
-    uuid_info[9] = 0x00;
-    /* The UUID has reserved part at index 10. */
-    uuid_info[10] = 0x00;
+    /* The UUID starts with Vnpu ID at index 5, and the vfid(6 bits in total) needs to be left-shifted by 2 bits. */
+    uuid_info[5] = (((uint8_t)vfid) & 0x3F) << 2;
+    /* The UUID has reserved part at index 6. */
+    uuid_info[6] = 0x00;
+    /* The UUID has reserved part at index 7. */
+    uuid_info[7] = 0x00;
     return 0;
 }
 
@@ -605,6 +606,11 @@ STATIC int dms_make_up_uuid(unsigned int phy_id, unsigned int vfid, unsigned int
     unsigned int device_id = 0;
     int ret = 0;
 
+    if (phy_id >= ASCEND_PDEV_MAX_NUM) {
+        dms_err("Invalid phy_id. (phy_id=%u; vfid=%u)\n", phy_id, vfid);
+        return -EINVAL;
+    }
+
     if (ka_base_atomic_read(&g_mac_init_flag[phy_id]) == 0) {
         dms_err("Mac info init failed. (phy_id=%u; vfid=%u; ret=%d)\n", phy_id, vfid, ret);
         return -EINVAL;
@@ -622,7 +628,8 @@ STATIC int dms_make_up_uuid(unsigned int phy_id, unsigned int vfid, unsigned int
         return -EINVAL;
     }
 
-    if (soc_type == SOC_TYPE_CLOUD_V4) {
+    if ((soc_type == SOC_TYPE_CLOUD_V4) || (soc_type == SOC_TYPE_CLOUD_V5) || (soc_type == SOC_TYPE_MINI_V4) ||
+        (soc_type == SOC_TYPE_CLOUD_V7) || (soc_type == SOC_TYPE_MINI_V5)) {
         ret = dms_make_up_uuid_by_guid(phy_id, vfid, uuid_info);
     } else {
         ret = dms_make_up_uuid_by_devid(device_id, phy_id, vfid, uuid_info);
@@ -668,7 +675,7 @@ STATIC int dms_get_device_uuid(void *feature, char *in, u32 in_len, char *out, u
     if (!uda_is_pf_dev(input->dev_id)) {
         ret = uda_udevid_to_mia_devid(input->dev_id, &mia_para);
         if (ret != 0) {
-            dms_err("Failed to convert udevid to mia devid. (udev_id=%u; ret=%d)\n", input->dev_id, ret);
+            dms_err("Failed to convert udevid to mia_devid. (udev_id=%u; ret=%d)", input->dev_id, ret);
             return ret;
         }
         phy_id = mia_para.phy_devid;
@@ -701,7 +708,7 @@ STATIC int dms_get_uuid_thread(void *arg)
 
     ret = devdrv_config_get_mac_info(dev_id, g_mac_info[dev_id], UUID_MAX_LEN, &out_len);
     if (ret != 0) {
-        dms_err("Get mac info failed. (devid=0; ret=%d)\n", ret);
+        dms_err("Get mac info failed. (devid=%u; ret=%d)\n", dev_id, ret);
         return ret;
     }
 
@@ -781,7 +788,7 @@ STATIC int dms_get_device_index_in_group(void *feature, char *in, u32 in_len, ch
 
     ret = soc_resmng_dev_get_attr(udevid, BOARD_HW_INFO, &hw_info, sizeof(hw_info));
     if (ret != 0) {
-        devdrv_drv_err("Get board hardware info from soc res fail. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
+        devdrv_drv_err("Get board hardware info from soc res failed. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
         return ret;
     }
 
@@ -810,12 +817,12 @@ STATIC int dms_cust_board_id_check(unsigned int dev_id, unsigned int *udevid)
 
     ret = uda_devid_to_udevid(dev_id, udevid);
     if (ret != 0) {
-        dms_err("Failed to convert devid to udevid. (devid=%u; ret=%u)\n", dev_id, ret);
+        dms_err("Fail to cnvert devid to udevid. (devid=%u; ret=%u)\n", dev_id, ret);
         return -EINVAL;
     }
 
     if (*udevid >= ASCEND_PDEV_MAX_NUM) {
-        dms_err("Invalid parameter. (logic_id=%u; udevid=%u;)\n", dev_id, *udevid);
+        dms_err("Invalid parameter. (logic_id=%u; udevid=%u; udevid_max=%u)\n", dev_id, *udevid, ASCEND_PDEV_MAX_NUM);
         return -EINVAL;
     }
 
@@ -856,7 +863,7 @@ STATIC int dms_get_cust_board_info(void *feature, char *in, u32 in_len, char *ou
     ka_task_mutex_lock(&g_cust_board_info[udevid].lock);
     if (g_cust_board_info[udevid].data == NULL) {
         ka_task_mutex_unlock(&g_cust_board_info[udevid].lock);
-        return -ENOMEM;
+        return -EOPNOTSUPP;
     }
 
     if (input->buff_size < g_cust_board_info[udevid].size) {

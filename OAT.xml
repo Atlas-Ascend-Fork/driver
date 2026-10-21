@@ -26,7 +26,7 @@
 
         <filefilterlist>
             <filefilter name="defaultFilter" desc="Files not to check">
-                <filteritem type="filename" name="*.cfg|*.conf|*.config|*.csv|*.gitignore|*.info|*.list|*.lst|*nputool-log|*.map|*.md|*.png|*.xml|*.yml|*.txt" desc="desc files; config file"/>
+                <filteritem type="filename" name="*.cfg|*.conf|*.config|*.csv|*.exp|*.gitignore|*.info|*.list|*.lst|*nputool-log|*.map|*.md|*.png|*.xml|*.yml|*.txt" desc="desc files; config file"/>
                 <filteritem type="filepath" name="LICENSES/.*" desc="license files"/>
             </filefilter>
             <filefilter name="defaultPolicyFilter" desc="Filters for compatibility,license header policies">

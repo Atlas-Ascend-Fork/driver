@@ -19,6 +19,8 @@
 
 void dma_map_addr_show(struct dma_map_ctx *ctx, ka_seq_file_t *seq);
 void dma_map_addr_recycle(struct dma_map_ctx *ctx);
+int svm_dma_map_get_remap_seg_range(struct dma_map_node *map_node, u64 remap_va, u64 remap_size, u64 *start_seg_idx,
+                                    u64 *remap_seg_num);
 
 int svm_dma_map_core_init(void);
 

@@ -21,8 +21,6 @@
     ka_kmalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_QUEUE_MANAGER, KA_SUB_MODULE_TYPE_0))
 #define queue_drv_kzalloc(size, flags) \
     ka_kzalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_QUEUE_MANAGER, KA_SUB_MODULE_TYPE_0))
-#define queue_drv_kcalloc(size, flags) \
-    ka_kcalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_QUEUE_MANAGER, KA_SUB_MODULE_TYPE_0))
 #define queue_drv_kfree(addr) ka_kfree(addr, ka_get_module_id(HAL_MODULE_TYPE_QUEUE_MANAGER, KA_SUB_MODULE_TYPE_0))
 
 #define queue_drv_kvzalloc(size, flags) \

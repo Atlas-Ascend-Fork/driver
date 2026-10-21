@@ -26,6 +26,11 @@ bool hdcdrv_is_phy_dev(u32 devid)
     return uda_is_phy_dev(devid);
 }
 
+u32 hdcdrv_get_chip_type(u32 devid)
+{
+    return uda_get_chip_type(devid);
+}
+
 int hdcdrv_container_vir_to_phs_devid(u32 virtual_devid, u32 *physical_devid, u32 *vfid)
 {
     return devdrv_manager_container_logical_id_to_physical_id(virtual_devid, physical_devid, vfid);
@@ -61,7 +66,7 @@ u32 hdcdrv_get_container_id(void)
 
 void hdcdrv_init_dev(struct hdcdrv_dev *hdc_dev)
 {
-    struct hdcdrv_ctrl_msg msg;
+    struct hdcdrv_ctrl_msg msg = {0};
     u32 len = 0;
     int ret;
 
@@ -76,12 +81,13 @@ void hdcdrv_init_dev(struct hdcdrv_dev *hdc_dev)
     ret = (int)hdcdrv_ctrl_msg_send(hdc_dev->dev_id, (void *)&msg, (u32)sizeof(msg), (u32)sizeof(msg), &len);
     if ((ret != HDCDRV_OK) || (len != sizeof(msg)) || (msg.error_code != HDCDRV_OK)) {
 #ifndef DRV_UT
-        hdcdrv_info_limit("Wait for device startup. (dev_id=%d; ret=%d; code=%d; msg_len=%d; sizeof_msg=%ld)\n",
+        hdcdrv_info_limit("Wait for device startup. (dev_id=%d;ret=%d;code=%d;msg_len=%d;sizeof_msg=%ld)\n",
                           hdc_dev->dev_id, ret, msg.error_code, len, sizeof(msg));
         ka_task_schedule_delayed_work(&hdc_dev->init, 1 * KA_HZ);
         return;
 #endif
     }
+
     hdcdrv_set_peer_dev_id((int)hdc_dev->dev_id, msg.sync_msg.peer_dev_id);
 
     /* init msg channel */
@@ -113,7 +119,7 @@ void hdcdrv_init_dev(struct hdcdrv_dev *hdc_dev)
     }
     ka_task_up(&hdc_dev->hdc_instance_sem);
 
-    hdcdrv_info("Device enable work. (dev_id=%u; peer_dev_id=%d; msg_chan_count=%d; normal_chan_cnt=%u)\n",
+    hdcdrv_info("Device enable work. (dev_id=%u;peer_dev_id=%d;msg_chan_count=%d;normal_chan_cnt=%u)\n",
                 hdc_dev->dev_id, hdc_dev->peer_dev_id, hdc_dev->msg_chan_cnt, hdc_dev->normal_chan_num);
     return;
 }
@@ -142,7 +148,7 @@ STATIC int hdcdrv_host_notifier_func(u32 udevid, enum uda_notified_action action
 #endif
     }
 
-    hdcdrv_info("notifier action. (udevid=%u; action=%d; ret=%d)\n", udevid, (u32)action, ret);
+    hdcdrv_info("notifier action. (udevid=%u;action=%d;ret=%d)\n", udevid, (u32)action, ret);
 
     return ret;
 }

@@ -34,4 +34,10 @@ struct trs_mode_info {
 drvError_t trs_mode_config(struct trs_mode_info *info);
 drvError_t trs_mode_query(struct trs_mode_info *info);
 
+#ifdef CFB_BUILD_DEBUG
+DLLEXPORT bool trs_feature_is_support(uint32_t dev_id, drvFeature_t type);
+#else
+bool trs_feature_is_support(uint32_t dev_id, drvFeature_t type);
+#endif
+
 #endif /* __TRS_USER_INTERFACE_H__ */

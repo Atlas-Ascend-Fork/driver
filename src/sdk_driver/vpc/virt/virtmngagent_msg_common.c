@@ -82,11 +82,14 @@ int vmnga_msg_cluster_recv_common(void *msg_chan_in, struct vmng_msg_chan_rx_pro
         return -EINVAL;
     }
 
+    ka_task_down_read(&msg_dev->common_msg.common_fun_rwsem[common_msg_type]);
     if (msg_dev->common_msg.common_fun[common_msg_type] == NULL) {
+        ka_task_up_read(&msg_dev->common_msg.common_fun_rwsem[common_msg_type]);
         vmng_warn("msg_recv is NULL. (dev_id=%u; common_type=%u)\n", dev_id, common_msg_type);
         return -ENOSYS;
     }
     ret = msg_dev->common_msg.common_fun[common_msg_type](dev_id, 0, &client_proc_info);
+    ka_task_up_read(&msg_dev->common_msg.common_fun_rwsem[common_msg_type]);
     if (ret != 0) {
         vmng_err("Client message recv error. (dev_id=%u; cmn_type=%u; ret=%d)\n", dev_id, common_msg_type, ret);
         return ret;
@@ -135,7 +138,9 @@ int vmnga_register_common_msg_client(u32 dev_id, const struct vmng_common_msg_cl
         return -ENODEV;
     }
 
+    ka_task_down_write(&msg_dev->common_msg.common_fun_rwsem[msg_client->type]);
     msg_dev->common_msg.common_fun[msg_client->type] = msg_client->common_msg_recv;
+    ka_task_up_write(&msg_dev->common_msg.common_fun_rwsem[msg_client->type]);
 
     return 0;
 }
@@ -160,7 +165,9 @@ int vmnga_unregister_common_msg_client(u32 dev_id, const struct vmng_common_msg_
         return -ENODEV;
     }
 
+    ka_task_down_write(&msg_dev->common_msg.common_fun_rwsem[msg_client->type]);
     msg_dev->common_msg.common_fun[msg_client->type] = NULL;
+    ka_task_up_write(&msg_dev->common_msg.common_fun_rwsem[msg_client->type]);
 
     return 0;
 }
@@ -168,12 +175,16 @@ KA_EXPORT_SYMBOL(vmnga_unregister_common_msg_client);
 
 void vmnga_register_extended_common_msg_client(struct vmng_msg_dev *msg_dev)
 {
+    ka_task_down_write(&msg_dev->common_msg.common_fun_rwsem[VMNG_MSG_COMMON_TYPE_EXTENSION]);
     msg_dev->common_msg.common_fun[VMNG_MSG_COMMON_TYPE_EXTENSION] = vmnga_msg_common_recv_pcie;
+    ka_task_up_write(&msg_dev->common_msg.common_fun_rwsem[VMNG_MSG_COMMON_TYPE_EXTENSION]);
 }
 KA_EXPORT_SYMBOL(vmnga_register_extended_common_msg_client);
 
 void vmnga_unregister_extended_common_msg_client(struct vmng_msg_dev *msg_dev)
 {
+    ka_task_down_write(&msg_dev->common_msg.common_fun_rwsem[VMNG_MSG_COMMON_TYPE_EXTENSION]);
     msg_dev->common_msg.common_fun[VMNG_MSG_COMMON_TYPE_EXTENSION] = NULL;
+    ka_task_up_write(&msg_dev->common_msg.common_fun_rwsem[VMNG_MSG_COMMON_TYPE_EXTENSION]);
 }
 KA_EXPORT_SYMBOL(vmnga_unregister_extended_common_msg_client);

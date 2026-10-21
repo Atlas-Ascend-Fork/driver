@@ -18,6 +18,10 @@
 void *vmm_get_svmm(void *va_handle);
 void vmm_recycle(u32 devid);
 void vmm_restore_real_src_va(struct svm_global_va *src_info);
+/*
+ * Query the source info matching the requested VA range. The returned source VA is adjusted by the offset of va
+ * within the mapped segment, and the returned size is the requested size.
+ */
 int vmm_query_src_info(u64 va, u64 size, struct svm_global_va *src_info);
 void *vmm_get_svmm_inst(void *priv);
 void svm_vmm_svmm_destroy_priv(void *priv);
@@ -27,8 +31,8 @@ u64 vmm_get_mem_handle_va(drv_mem_handle_t *handle);
 
 /* vmm map unmap ops */
 struct svm_vmm_ops {
-    int (*post_map)(void *seg_handle, u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info);
-    int (*pre_unmap)(u32 task_bitmap, u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info);
+    int (*post_map)(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info);
+    int (*pre_unmap)(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info);
 };
 
 void svm_vmm_set_ops(struct svm_vmm_ops *ops);

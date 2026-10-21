@@ -12,6 +12,7 @@
 
 #include "securec.h"
 #include "dms_user_common.h"
+#include "devdrv_user_common.h"
 #include "dms/dms_lpm_interface.h"
 #include "dms/dms_soc_interface.h"
 #include "dms/dms_devdrv_info_comm.h"
@@ -81,8 +82,13 @@ int dms_get_aicpu_info(unsigned int dev_id, struct dmanage_aicpu_info_stru *aicp
         return DRV_ERROR_NONE;
     }
 
+    if (cpu_info.aicpu_num > TAISHAN_CORE_NUM) {
+        DMS_ERR("aicpu_num %u exceeds max value %u.\n", cpu_info.aicpu_num, TAISHAN_CORE_NUM);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
     ret = dms_get_cpu_utilization(utilRate, cpu_info.aicpu_num,
-        CORE_NUM_PER_CHIP * dev_id + cpu_info.ccpu_num + cpu_info.dcpu_num);
+                                  CORE_NUM_PER_CHIP * dev_id + cpu_info.ccpu_num + cpu_info.dcpu_num);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "dms_get_cpu_utilization fail.(devid=%u;ret=%d)\n", dev_id, ret);
         return ret;
@@ -128,7 +134,7 @@ int dms_get_aicpu_utilization(unsigned int dev_id, unsigned int *utilization)
     unsigned int i;
     int ret;
 
-    if ((dev_id >= ASCEND_PDEV_MAX_NUM) || (utilization == NULL)) {
+    if ((dev_id >= DEVDRV_PF_DEV_MAX_NUM) || (utilization == NULL)) {
         return DRV_ERROR_NOT_SUPPORT;
     }
 
@@ -148,7 +154,7 @@ int dms_get_aicpu_utilization(unsigned int dev_id, unsigned int *utilization)
         return DRV_ERROR_INVALID_VALUE;
     }
     ret = dms_get_cpu_utilization(utilRate, cpu_info.aicpu_num,
-        CORE_NUM_PER_CHIP * dev_id + cpu_info.ccpu_num + cpu_info.dcpu_num);
+                                  CORE_NUM_PER_CHIP * dev_id + cpu_info.ccpu_num + cpu_info.dcpu_num);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "dms_get_cpu_utilization fail.(devid=%u;ret=%d)\n", dev_id, ret);
         return ret;
@@ -200,4 +206,3 @@ int dms_get_ctlcpu_utilization(unsigned int dev_id, unsigned int *utilization)
 
     return DRV_ERROR_NONE;
 }
-

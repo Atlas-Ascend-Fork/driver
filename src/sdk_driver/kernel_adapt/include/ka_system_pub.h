@@ -177,8 +177,13 @@ typedef struct timezone ka_timezone_t;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
 #define ka_system_timespec u64
+// adapt for ka_system_timespec and TASK_TIME_TYPE
+#define ka_system_timespec_get_tv_sec(st) st
+#define ka_system_timespec_set_tv_sec(st, val) st = (val)
 #else
 #define ka_system_timespec ka_timespec_t
+#define ka_system_timespec_get_tv_sec(st) st.tv_sec
+#define ka_system_timespec_set_tv_sec(st, val) st.tv_sec = (val)
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 3, 0)
@@ -228,6 +233,8 @@ typedef struct kernel_param_ops ka_kernel_param_ops_t;
     request_threaded_irq(irq, handler, thread_fn, irqflags, devname, dev_id)
 #define ka_system_synchronize_rcu() synchronize_rcu()
 #define ka_system_synchronize_irq(irq) synchronize_irq(irq)
+#define ka_system_call_rcu(rcu, handler) call_rcu(rcu, handler)
+#define ka_system_rcu_barrier() rcu_barrier()
 #define __ka_system_symbol_get(symbol) __symbol_get(symbol)
 #define __ka_system_request_module __request_module
 #define __ka_system_module_get(module) __module_get(module)

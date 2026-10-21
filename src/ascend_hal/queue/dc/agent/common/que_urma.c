@@ -18,6 +18,7 @@
 #include "dms_user_interface.h"
 #include "queue_interface.h"
 #include "que_urma.h"
+#include "comm_user_interface.h"
 #include "que_platform_ub.h"
 
 #define QUE_URMA_MAX_DEVNUM MAX_DEVICE
@@ -192,7 +193,7 @@ static int que_urma_context_init(struct que_urma_ctx *urma_ctx)
     int trans_type, trans_num, ret;
     trans_num = que_get_trans_num();
     for (trans_type = TRANS_D2H_H2D; trans_type < trans_num; trans_type++) {
-        context = urma_create_context(urma_ctx->urma_dev[trans_type], urma_ctx->eid_index[trans_type]);
+        context = ascend_urma_create_context(urma_ctx->urma_dev[trans_type], urma_ctx->eid_index[trans_type]);
         if (que_unlikely(context == NULL)) {
             QUEUE_LOG_ERR("urma context create fail. (urma_devid=%u; eid_index=%u)\n", urma_ctx->urma_devid,
                           urma_ctx->eid_index[trans_type]);
@@ -207,7 +208,7 @@ static int que_urma_context_init(struct que_urma_ctx *urma_ctx)
 context_clean:
     for (trans_type = TRANS_D2H_H2D; trans_type < trans_num; trans_type++) {
         if (urma_ctx->context[trans_type] != NULL) {
-            (void)urma_delete_context(urma_ctx->context[trans_type]);
+            (void)ascend_urma_delete_context(urma_ctx->context[trans_type]);
             urma_ctx->context[trans_type] = NULL;
         }
     }
@@ -600,7 +601,7 @@ urma_target_jetty_t *que_jfr_import(unsigned int devid, urma_jfr_id_t *jfr_id, u
     if (urma_ctx->tp_list_fetched[d2d_flag] && que_urma_eid_equal(&urma_ctx->tp_peer_eid[d2d_flag], &jfr_id->eid)) {
         tpid_info = urma_ctx->stored_tpid_info[d2d_flag];
     } else {
-        status = urma_get_tp_list(urma_ctx->context[d2d_flag], &tpid_cfg, &tp_cnt, &tpid_info);
+        status = ascend_urma_get_tp_list(urma_ctx->context[d2d_flag], &tpid_cfg, &tp_cnt, &tpid_info);
         if ((status != 0) || (tp_cnt == 0)) {
             que_urma_tp_list_unlock(urma_ctx);
             QUEUE_LOG_ERR("urma get tp list failed (status=%d; tp_cnt=%u)\n", status, tp_cnt);
@@ -615,7 +616,7 @@ urma_target_jetty_t *que_jfr_import(unsigned int devid, urma_jfr_id_t *jfr_id, u
 
     active_tp_cfg.tp_handle = tpid_info.tp_handle;
     rjfr.tp_type = URMA_CTP;
-    tjetty = urma_import_jfr_ex(urma_ctx->context[d2d_flag], &rjfr, token, &active_tp_cfg);
+    tjetty = ascend_urma_import_jfr_ex(urma_ctx->context[d2d_flag], &rjfr, token, &active_tp_cfg);
 #else
     tjetty = urma_import_jfr(urma_ctx->context[d2d_flag], &rjfr, token);
 #endif

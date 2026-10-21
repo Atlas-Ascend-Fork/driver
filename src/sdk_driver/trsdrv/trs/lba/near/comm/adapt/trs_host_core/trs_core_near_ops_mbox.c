@@ -141,7 +141,7 @@ int trs_core_ops_notice_ts(struct trs_id_inst *inst, u8 *msg, u32 len)
     struct trs_mb_header *header = (struct trs_mb_header *)msg;
     int ret;
 
-    if (trs_core_ops_fill_mbox_msg[header->cmd_type] != NULL) {
+    if ((header->cmd_type < TRS_MBOX_CMD_MAX) && (trs_core_ops_fill_mbox_msg[header->cmd_type] != NULL)) {
         ret = trs_core_ops_fill_mbox_msg[header->cmd_type](inst, msg, len);
         if (ret != 0) {
             return ret;

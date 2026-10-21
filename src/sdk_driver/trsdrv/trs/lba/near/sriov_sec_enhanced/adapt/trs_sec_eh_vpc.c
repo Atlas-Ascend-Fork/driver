@@ -80,7 +80,7 @@ static void trs_sec_eh_vpc_mbox_msg_pos_proc(int cmd_type, void *vpc_data, void 
 
 static int trs_sec_eh_vpc_mbox_msg_send(struct trs_id_inst *inst, void *msg, size_t size)
 {
-    struct trs_sec_eh_mbox_info vpc_mbox;
+    struct trs_sec_eh_mbox_info vpc_mbox = {0};
     struct trs_mb_header *mb_head = (struct trs_mb_header *)vpc_mbox.data;
     int ret = 0;
 

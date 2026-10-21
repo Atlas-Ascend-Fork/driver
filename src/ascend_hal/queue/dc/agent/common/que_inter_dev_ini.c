@@ -60,13 +60,15 @@ static drvError_t queue_inter_dev_init(unsigned int dev_id)
 }
 
 static drvError_t que_inter_dev_send_tjetty(unsigned int dev_id, unsigned int qid, unsigned int remote_qid,
-                                            urma_jfr_id_t *local_tjfr_id, urma_token_t token)
+                                            unsigned int remote_que_depth, urma_jfr_id_t *local_tjfr_id,
+                                            urma_token_t token)
 {
     int ret;
-    struct que_inter_dev_attach_in_msg in = {.qid = remote_qid, .tjfr_id = *local_tjfr_id, .token = token};
+    struct que_inter_dev_attach_in_msg in = {
+        .qid = remote_qid, .depth = remote_que_depth, .tjfr_id = *local_tjfr_id, .token = token};
     struct que_event_msg event_msg = {
         .in = (char *)&in, .in_len = sizeof(struct que_inter_dev_attach_in_msg), .out = NULL, .out_len = 0};
-    ret = que_comm_event_send_ex(dev_id, qid, DRV_SUBEVENT_ATTACH_INTER_DEV_MSG, &event_msg, QUE_EVENT_TIMEOUT_MS);
+    ret = que_comm_event_send_ex(dev_id, qid, DRV_SUBEVENT_ATTACH_INTER_DEV_MSG, &event_msg, QUE_EVENT_MAX_WAIT_10S);
     if (que_unlikely(ret != DRV_ERROR_NONE)) {
         return ret;
     }
@@ -109,7 +111,7 @@ static drvError_t que_inter_dev_attach_proc(unsigned int dev_id, unsigned int qi
     }
 
     if (inter_dev_state == QUEUE_STATE_EXPORTED) {
-        ret = que_inter_dev_send_tjetty(dev_id, qid, peer_qid, &tjfr_id, token);
+        ret = que_inter_dev_send_tjetty(dev_id, qid, peer_qid, peer_que_attr.depth, &tjfr_id, token);
         if (que_unlikely(ret != DRV_ERROR_NONE)) {
             goto out;
         }
@@ -156,7 +158,7 @@ static drvError_t que_inter_dev_attach_ini(unsigned int dev_id, unsigned int qid
     if ((inter_dev_state == QUEUE_STATE_EXPORTED) || (inter_dev_state == QUEUE_STATE_IMPORTED)) {
         return que_inter_dev_attach_proc(dev_id, qid, inter_dev_state, create_time);
     }
-    QUEUE_LOG_INFO("que operation not supported. (inter_dev_state=%d)\n", inter_dev_state);
+    QUEUE_LOG_INFO("que operation not support. (inter_dev_state=%d)\n", inter_dev_state);
     return DRV_ERROR_NOT_SUPPORT;
 }
 
@@ -183,7 +185,7 @@ static drvError_t que_inter_dev_f2nf_sub(unsigned int devid, unsigned int qid, u
     in.dst_engine = que_get_sched_engine_type(devid);
     in.inner_sub_flag = QUEUE_INTER_SUB_FLAG;
 
-    ret = que_comm_event_send_ex(devid, qid, DRV_SUBEVENT_SUBF2NF_INTER_DEV_MSG, &event_msg, QUE_EVENT_TIMEOUT_MS);
+    ret = que_comm_event_send_ex(devid, qid, DRV_SUBEVENT_SUBF2NF_INTER_DEV_MSG, &event_msg, QUE_EVENT_MAX_WAIT_10S);
     if (que_unlikely(ret != DRV_ERROR_NONE)) {
         QUEUE_LOG_ERR("sub event send fail. (ret=%d; devid=%u; local_qid=%u; remote_qid=%u)\n", ret, devid, qid,
                       in.qid);
@@ -263,7 +265,7 @@ static drvError_t que_inter_dev_query_info_ini(unsigned int dev_id, unsigned int
         return DRV_ERROR_NOT_EXIST;
     }
 
-    ret = que_comm_event_send_ex(dev_id, qid, DRV_SUBEVENT_QUERY_MSG, &event_msg, QUE_EVENT_TIMEOUT_MS);
+    ret = que_comm_event_send_ex(dev_id, qid, DRV_SUBEVENT_QUERY_MSG, &event_msg, QUE_EVENT_MAX_WAIT_10S);
     if (que_unlikely(ret != DRV_ERROR_NONE)) {
         QUEUE_LOG_ERR("query info send fail. (ret=%d; devid=%u; local_qid=%u; remote_qid=%u)\n", ret, dev_id, qid,
                       in.qid);
@@ -311,7 +313,7 @@ static drvError_t que_inter_dev_get_peer_status(unsigned int dev_id, unsigned in
         return DRV_ERROR_NOT_EXIST;
     }
 
-    ret = que_comm_event_send_ex(dev_id, qid, DRV_SUBEVENT_GET_QUEUE_STATUS_MSG, &event_msg, QUE_EVENT_TIMEOUT_MS);
+    ret = que_comm_event_send_ex(dev_id, qid, DRV_SUBEVENT_GET_QUEUE_STATUS_MSG, &event_msg, QUE_EVENT_MAX_WAIT_10S);
     if (que_unlikely(ret != DRV_ERROR_NONE)) {
         QUEUE_LOG_ERR("get que status event send fail. (ret=%d; devid=%u; local_qid=%u; remote_qid=%u)\n", ret, dev_id,
                       qid, in.qid);
@@ -578,7 +580,7 @@ static drvError_t que_inter_dev_export_unexport_send(unsigned int devid, unsigne
     event_msg.in_len = sizeof(struct que_inter_dev_export_import_in_msg);
     event_msg.out_len = 0;
 
-    ret = que_comm_event_send(&attr, &event_msg, QUE_EVENT_TIMEOUT_MS);
+    ret = que_comm_event_send(&attr, &event_msg, QUE_EVENT_MAX_WAIT_10S);
     if ((ret != DRV_ERROR_NONE) && (ret != DRV_ERROR_RESUME)) {
         QUEUE_LOG_ERR("que event send fail. (ret=%d; devid=%u; qid=%u; sub_event=%d)\n", ret, devid, qid, sub_event);
     }
@@ -774,14 +776,14 @@ static drvError_t que_inter_dev_import_send(unsigned int devid, struct shareQueI
 
     if ((devid != host_dev_id) && (que_info->peerDevId != host_dev_id)) {
         ret = que_comm_event_send_d2d(host_dev_id, que_info->peerDevId, DRV_SUBEVENT_QUEUE_IMPORT_MSG, &event_msg,
-                                      QUE_EVENT_TIMEOUT_MS);
+                                      QUE_EVENT_MAX_WAIT_10S);
         if ((ret != DRV_ERROR_NONE)) {
             QUEUE_LOG_ERR("que import event send d2d fail. (ret=%d; local devid=%u; peer devid=%u)\n", ret, host_dev_id,
                           que_info->peerDevId);
         }
     } else {
         ret = que_comm_event_send_ex(devid, actual_qid, DRV_SUBEVENT_QUEUE_IMPORT_MSG, &event_msg,
-                                     QUE_EVENT_TIMEOUT_MS);
+                                     QUE_EVENT_MAX_WAIT_10S);
         if ((ret != DRV_ERROR_NONE) && (ret != DRV_ERROR_RESUME)) {
             QUEUE_LOG_ERR("que import event send fail. (ret=%d; devid=%u; qid=%u)\n", ret, devid, virtual_qid);
         }
@@ -965,7 +967,7 @@ static drvError_t que_inter_dev_import_send_h2d(unsigned int devid, struct share
     event_msg.in_len = sizeof(struct que_inter_dev_export_import_in_msg);
     event_msg.out_len = sizeof(struct que_inter_dev_import_out_msg);
 
-    ret = que_comm_event_send(&attr, &event_msg, QUE_EVENT_TIMEOUT_MS);
+    ret = que_comm_event_send(&attr, &event_msg, QUE_EVENT_MAX_WAIT_10S);
     if (que_unlikely(ret != DRV_ERROR_NONE)) {
         return ret;
     }

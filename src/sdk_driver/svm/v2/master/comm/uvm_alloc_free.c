@@ -127,12 +127,12 @@ int uvm_free_device_page(struct devmm_svm_process *svm_pro, struct uvm_page_info
         return 0;
     }
 
-    device_ids = devmm_kvzalloc(sizeof(int) * DEVMM_UVM_MAX_DEVICE_NUM);
+    device_ids = devmm_kvzalloc(sizeof(int) * BITMAP_BITS_COUNT);
     if (!device_ids) {
         return -ENOMEM;
     }
 
-    count = get_present_devices(page_info->dev_bitmap + addr_idx, device_ids);
+    count = get_present_devices(page_info->dev_bitmap + addr_idx, device_ids, BITMAP_BITS_COUNT);
     for (i = 0; i < count; i++) {
         if (is_device_present(&uvm_heap->invalid_devices, device_ids[i])) {
 #ifndef EMU_ST

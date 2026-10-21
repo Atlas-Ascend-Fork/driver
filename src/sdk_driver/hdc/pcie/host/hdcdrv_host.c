@@ -32,6 +32,8 @@
 #include "hdc_init.h"
 
 STATIC struct hdc_hotreset_task_info g_hdc_hotreset_task_info[HDCDRV_SUPPORT_MAX_DEV] = {{0}};
+STATIC struct hdcdrv_register_symbol g_hdcdrv_register_symbol = {.module_ptr = NULL, .wake_up_context_status = NULL};
+STATIC ka_rw_semaphore_t g_symbol_lock;
 
 static const ka_pci_device_id_t hdcdrv_tbl[] = {
     {KA_PCI_VDEVICE(HUAWEI, 0xd100U), 0},
@@ -47,6 +49,7 @@ static const ka_pci_device_id_t hdcdrv_tbl[] = {
     {KA_PCI_VDEVICE(HUAWEI, 0xd806U), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd807U), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd808U), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200U), 0},
     {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
@@ -180,7 +183,9 @@ STATIC void hdcdrv_sq_msg_callback(void *data, u32 trans_id, u32 status)
                                  msg_chan->tx[trans_id].latency_info.sq_dma_timestamp);
 #endif
     if (status != 0) {
-        hdcdrv_err("hdc trans send sq status fail. (dev_id=%u, status=%u)\n", msg_chan->chan_id, status);
+#ifndef DRV_UT
+        hdcdrv_err("hdc trans send sq status fail. (chan_id=%u;status=%u)\n", msg_chan->chan_id, status);
+#endif
         return;
     }
 
@@ -197,7 +202,9 @@ STATIC void hdcdrv_cq_msg_callback(void *data, u32 trans_id, u32 status)
                                  msg_chan->rx[trans_id].latency_info.cq_dma_timestamp);
 #endif
     if (status != 0) {
-        hdcdrv_err("hdc trans send cq status fail. (dev_id=%u, status=%u)\n", msg_chan->chan_id, status);
+#ifndef DRV_UT
+        hdcdrv_err("hdc trans send cq status fail. (chan_id=%u, status=%u)\n", msg_chan->chan_id, status);
+#endif
         return;
     }
 
@@ -320,20 +327,13 @@ void hdcdrv_move_r_cq_desc(void *msg_chan)
 long hdcdrv_ctrl_msg_send(u32 devid, void *data, u32 in_data_len, u32 out_data_len, u32 *real_out_len)
 {
     long ret = 0;
-    u32 peer_id;
 
     ret = hdcdrv_get_msgchan_refcnt(devid);
     if (ret != 0) {
         hdcdrv_err("Can not send ctrl message while hot reset flag is set. (dev_id=%u)\n", devid);
         return ret;
     }
-    ret = (long)hdcdrv_get_peer_id_by_devid(devid, &peer_id);
-    if (ret != 0) {
-        hdcdrv_err("devid adapt fail. (devid=%u)\n", devid);
-        goto out;
-    }
-    ret = (long)devdrv_common_msg_send(peer_id, data, in_data_len, out_data_len, real_out_len, DEVDRV_COMMON_MSG_HDC);
-out:
+    ret = (long)devdrv_common_msg_send(devid, data, in_data_len, out_data_len, real_out_len, DEVDRV_COMMON_MSG_HDC);
     (void)hdcdrv_put_msgchan_refcnt(devid);
     return ret;
 }
@@ -376,15 +376,7 @@ int hdcdrv_register_common_msg(void)
 
 int hdcdrv_unregister_common_msg_client(u32 devid)
 {
-    u32 peer_id;
-    int ret;
-
-    ret = hdcdrv_get_peer_id_by_devid(devid, &peer_id);
-    if (ret != 0) {
-        hdcdrv_err("devid adapt fail. (devid=%u)\n", devid);
-        return ret;
-    }
-    return devdrv_unregister_common_msg_client(peer_id, &hdcdrv_host_comm_msg_client);
+    return devdrv_unregister_common_msg_client(devid, &hdcdrv_host_comm_msg_client);
 }
 
 STATIC struct devdrv_non_trans_msg_chan_info hdcdrv_non_trans_msg_chan_info = {
@@ -420,19 +412,13 @@ STATIC void hdcdrv_msg_chan_level_init(u32 dev_id, u32 chan_id)
 
 STATIC int hdcdrv_alloc_trans_queue(u32 dev_id, u32 chan_num, char *chan[], u32 *alloc_chan_num)
 {
-    u32 i, peer_id;
+    u32 i;
     int ret = HDCDRV_OK;
     void *msg_chan = NULL;
 
-    ret = hdcdrv_get_peer_id_by_devid(dev_id, &peer_id);
-    if (ret != 0) {
-        hdcdrv_err("devid adapt fail. (dev_id=%d)\n", dev_id);
-        return ret;
-    }
     for (i = 0; i < chan_num; i++) {
         hdcdrv_msg_chan_level_init(dev_id, i);
-
-        msg_chan = devdrv_pcimsg_alloc_trans_queue(peer_id, &hdcdrv_msg_chan_info);
+        msg_chan = devdrv_pcimsg_alloc_trans_queue(dev_id, &hdcdrv_msg_chan_info);
         if (msg_chan == NULL) {
             hdcdrv_err("Calling devdrv_pcimsg_alloc_trans_queue failed. (dev_id=%d)\n", dev_id);
             ret = HDCDRV_ERR;
@@ -440,7 +426,6 @@ STATIC int hdcdrv_alloc_trans_queue(u32 dev_id, u32 chan_num, char *chan[], u32 
         }
 
         chan[i] = msg_chan;
-
         if (hdcdrv_add_msg_chan_to_dev(dev_id, msg_chan) != HDCDRV_OK) {
             i = i + 1;
             hdcdrv_err("Calling hdcdrv_add_msg_chan_to_dev failed. (dev_id=%d)\n", dev_id);
@@ -465,7 +450,7 @@ STATIC void hdcdrv_free_trans_queue(u32 dev_id, char *chan[], u32 chan_num)
     }
     hdcdrv_free_msg_chan(hdc_dev);
 
-    hdcdrv_info("free chan. (dev_id=%d; chan_num=%d)\n", dev_id, chan_num);
+    hdcdrv_info("free chan. (dev_id=%d;chan_num=%d)\n", dev_id, chan_num);
 }
 
 STATIC void hdcdrv_normal_chan_num_adapter(u32 dev_id, u32 msg_chan_cnt)
@@ -478,7 +463,7 @@ STATIC void hdcdrv_normal_chan_num_adapter(u32 dev_id, u32 msg_chan_cnt)
     if (msg_chan_cnt <= HDCDRV_SUPPORT_MAX_SERVICE) {
         normal_chan_cnt[dev_id] = msg_chan_cnt / DEVDRV_TRANS_CHAN_TYPE;
     }
-    hdcdrv_info("Record vfio msg_chan_cnt. (dev_id=%d; msg_chan=%d; normal_chan_cnt=%u)\n", dev_id, msg_chan_cnt,
+    hdcdrv_info("Record vfio msg_chan_cnt. (dev_id=%d;msg_chan=%d;normal_chan_cnt=%u)\n", dev_id, msg_chan_cnt,
                 normal_chan_cnt[dev_id]);
 #else
     /* Alloc suitable num for same fast and normal channel num */
@@ -490,7 +475,7 @@ STATIC void hdcdrv_normal_chan_num_adapter(u32 dev_id, u32 msg_chan_cnt)
         normal_chan_cnt[dev_id] = HDCDRV_SERVICE_TYPE_APPLY_MAX;
     }
 
-    hdcdrv_info("Record msg_chan_cnt. (dev_id=%d; msg_chan=%d; normal_chan_cnt=%u)\n", dev_id, msg_chan_cnt,
+    hdcdrv_info("Record msg_chan_cnt. (dev_id=%d;msg_chan=%d;normal_chan_cnt=%u)\n", dev_id, msg_chan_cnt,
                 normal_chan_cnt[dev_id]);
 #endif
 }
@@ -499,7 +484,7 @@ int hdcdrv_init_msg_chan(u32 dev_id)
 {
     int msg_chan_cnt = devdrv_get_support_msg_chan_cnt(dev_id, devdrv_msg_client_hdc);
     char *msgChanTmp[HDCDRV_SUPPORT_MAX_DEV_MSG_CHAN] = {NULL};
-    u32 alloc_num = 0, peer_id;
+    u32 alloc_num = 0;
     struct hdcdrv_ctrl_msg msg;
     void *msg_chan = NULL;
 #ifndef CFG_FEATURE_OVER_XCOM
@@ -508,7 +493,8 @@ int hdcdrv_init_msg_chan(u32 dev_id)
     long ret;
 
     if ((msg_chan_cnt > HDCDRV_SUPPORT_MAX_DEV_MSG_CHAN) || (msg_chan_cnt <= 0)) {
-        hdcdrv_err("msg_chan_cnt is too large. (msg_chan_cnt=%d)\n", msg_chan_cnt);
+        hdcdrv_err("msg_chan_cnt is too large. (msg_chan_cnt=%d; max_msg_chan_cnt=%d)\n", msg_chan_cnt,
+                   HDCDRV_SUPPORT_MAX_DEV_MSG_CHAN);
         return HDCDRV_ERR;
     }
     hdcdrv_normal_chan_num_adapter(dev_id, (u32)msg_chan_cnt);
@@ -531,12 +517,7 @@ int hdcdrv_init_msg_chan(u32 dev_id)
         goto alloc_err;
     }
 
-    ret = hdcdrv_get_peer_id_by_devid(dev_id, &peer_id);
-    if (ret != 0) {
-        hdcdrv_err("devid adapt fail. (dev_id=%d)\n", dev_id);
-        return HDCDRV_ERR;
-    }
-    msg_chan = devdrv_pcimsg_alloc_non_trans_queue(peer_id, &hdcdrv_non_trans_msg_chan_info);
+    msg_chan = devdrv_pcimsg_alloc_non_trans_queue(dev_id, &hdcdrv_non_trans_msg_chan_info);
     if (msg_chan == NULL) {
         hdcdrv_err("Calling devdrv_pcimsg_alloc_non_trans_queue failed. (dev_id=%d)\n", dev_id);
         goto alloc_err;
@@ -742,6 +723,11 @@ int hdcdrv_init_instance(u32 dev_id, ka_device_t *dev)
         return 0;
     }
 
+    if (hdcdrv_feature_init_by_chip(dev_id) != 0) {
+        hdcdrv_err("Calling hdcdrv_feature_init_by_chip failed\n");
+        return HDCDRV_ERR;
+    }
+
     hdc_dev = hdcdrv_add_dev(dev, dev_id);
     if (hdc_dev == NULL) {
         hdcdrv_err("Calling hdcdrv_add_dev failed. (dev_driver=\"%s\")\n", ka_driver_dev_driver_string(dev));
@@ -810,7 +796,9 @@ STATIC void hdcdrv_hotreset_stop_business(u32 dev_id)
         status = DAVINCI_INTF_DEVICE_STATUS_HEARTBIT_LOST;
 #endif
         if (ret != 0) {
-            hdcdrv_warn("Get device status warn. (dev_id=%u; ret=%d))\n", dev_id, ret);
+#ifndef DRV_UT
+            hdcdrv_warn("Get device status warn. (dev_id=%u; ret=%d)\n", dev_id, ret);
+#endif
         }
 
         if (((status & DAVINCI_INTF_DEVICE_STATUS_HEARTBIT_LOST) == DAVINCI_INTF_DEVICE_STATUS_HEARTBIT_LOST) ||
@@ -868,7 +856,7 @@ int hdcdrv_uninit_instance(u32 dev_id)
         msg.error_code = HDCDRV_OK;
         ret = hdcdrv_ctrl_msg_send(hdc_dev->dev_id, (void *)&msg, (u32)sizeof(msg), (u32)sizeof(msg), &len);
         if ((ret != HDCDRV_OK) || (len != sizeof(msg)) || (msg.error_code != HDCDRV_OK)) {
-            hdcdrv_info("Driver reset is not completed. (dev_driver=\"%s\")\n",
+            hdcdrv_info("Driver reset is not successful. (dev_driver=\"%s\")\n",
                         ka_driver_dev_driver_string(hdc_dev->dev));
         }
     }
@@ -892,6 +880,8 @@ int hdcdrv_uninit_instance(u32 dev_id)
     }
     hdcdrv_uninit_host_phy_mach_flag(hdc_dev);
     hdc_dev->is_mdev_vm_boot_mode = false;
+
+    (void)hdcdrv_feature_uninit_by_chip(dev_id);
 
     return HDCDRV_OK;
 }
@@ -922,7 +912,9 @@ void hdcdrv_module_param_init(void)
         hdc_mempool_level = HDC_MEM_POOL_LEVEL_0;
     }
 
-    hdcdrv_info("Set hdc mem pool level. (level=%d, type=%d).\n", hdc_mempool_level, devdrv_get_host_type());
+    hdcdrv_info("Set hdc mem pool level. (level=%d;type=%d).\n", hdc_mempool_level, devdrv_get_host_type());
+
+    ka_task_init_rwsem(&g_symbol_lock);
 }
 
 void hdcdrv_init_hotreset_param(void)
@@ -958,3 +950,56 @@ struct hdcdrv_dev_fmem *hdcdrv_get_dev_fmem_ex(int devid, u32 fid, u32 side)
         return &(hdc_ctrl->devices[devid].fmem);
     }
 }
+
+void hdcdrv_wake_up_context_status(const struct hdcdrv_session *session)
+{
+    u32 feature_support = HDCDRV_FEATURE_DISABLE;
+
+    if (hdcdrv_feature_is_support((u32)session->dev_id, HDCDRV_FEATURE_TSD_NOTIFY, &feature_support) != HDCDRV_OK) {
+        return;
+    }
+
+    if (feature_support == HDCDRV_FEATURE_DISABLE) {
+        return;
+    }
+    ka_task_down_read(&g_symbol_lock);
+    if ((g_hdcdrv_register_symbol.module_ptr != NULL) && (session->owner_pid != HDCDRV_INVALID_PID) &&
+        (session->service_type == HDCDRV_SERVICE_TYPE_TSD)) {
+        __ka_system_module_get(g_hdcdrv_register_symbol.module_ptr);
+        (void)g_hdcdrv_register_symbol.wake_up_context_status((int)session->owner_pid, (u32)session->dev_id,
+                                                              DEVDRV_STATUS_HDC_CLOSE_FLAG);
+        ka_system_module_put(g_hdcdrv_register_symbol.module_ptr);
+    }
+    ka_task_up_read(&g_symbol_lock);
+}
+
+void hdcdrv_register_symbol_from_tsdrv(struct hdcdrv_register_symbol *module_symbol)
+{
+    if (module_symbol == NULL) {
+        hdcdrv_err("invalid arg.\n");
+        return;
+    }
+
+    ka_task_down_write(&g_symbol_lock);
+    if (g_hdcdrv_register_symbol.module_ptr != NULL) {
+        hdcdrv_err("The module has registered symbols.\n");
+        ka_task_up_write(&g_symbol_lock);
+        return;
+    }
+
+    g_hdcdrv_register_symbol.module_ptr = module_symbol->module_ptr;
+    g_hdcdrv_register_symbol.wake_up_context_status = module_symbol->wake_up_context_status;
+    ka_task_up_write(&g_symbol_lock);
+    return;
+}
+KA_EXPORT_SYMBOL_GPL(hdcdrv_register_symbol_from_tsdrv);
+
+void hdcdrv_unregister_symbol_from_tsdrv(void)
+{
+    ka_task_down_write(&g_symbol_lock);
+    g_hdcdrv_register_symbol.module_ptr = NULL;
+    g_hdcdrv_register_symbol.wake_up_context_status = NULL;
+    ka_task_up_write(&g_symbol_lock);
+    return;
+}
+KA_EXPORT_SYMBOL_GPL(hdcdrv_unregister_symbol_from_tsdrv);

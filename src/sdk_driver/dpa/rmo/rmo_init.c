@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 #include "rmo_auto_init.h"
-#include "pbl/pbl_kernel_adapt.h"
 
 #include "rmo_fops.h"
 #include "rmo_proc_fs.h"

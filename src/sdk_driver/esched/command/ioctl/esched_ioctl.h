@@ -22,6 +22,9 @@
 
 #define SCHED_ID_MAGIC 'W'
 
+/* Maximum number of devices that the feature bitmap can represent */
+#define ESCHED_FEATURE_DEV_NUM 1140
+
 #define SCHED_SET_SCHED_CPU_ID _IOWR_BAD(SCHED_ID_MAGIC, 0, sizeof(struct sched_ioctl_para_cpu_info))
 #define SCHED_PROC_ADD_GRP_ID _IOWR_BAD(SCHED_ID_MAGIC, 1, sizeof(struct sched_ioctl_para_add_grp))
 #define SCHED_SET_EVENT_PRIORITY_ID _IOWR_BAD(SCHED_ID_MAGIC, 2, sizeof(struct sched_ioctl_para_set_event_pri))
@@ -37,6 +40,7 @@
 #define SCHED_QUERY_INFO _IOWR_BAD(SCHED_ID_MAGIC, 12, sizeof(struct sched_ioctl_para_query_info))
 #define SCHED_QUERY_SYNC_MSG_TRACE _IOWR_BAD(SCHED_ID_MAGIC, 13, sizeof(struct sched_ioctl_para_trace))
 #define SCHED_QUERY_SCHED_MODE _IOWR_BAD(SCHED_ID_MAGIC, 14, sizeof(struct sched_ioctl_para_query_sched_mode))
+#define ESCHED_FEATURE_GET _IOWR_BAD(SCHED_ID_MAGIC, 15, sizeof(struct esched_feature_get_arg))
 
 #define SCHED_GET_NODE_EVENT_TRACE _IOWR_BAD(SCHED_ID_MAGIC, 20, sizeof(struct sched_ioctl_para_get_event_trace))
 #define SCHED_TRIGGER_SCHED_TRACE_RECORD_VALUE \
@@ -196,6 +200,34 @@ struct sched_ioctl_para_trace {
 struct sched_ioctl_para_query_sched_mode {
     unsigned int dev_id;
     unsigned int sched_mode;
+};
+
+/*
+ * ESCHED per-device feature IDs
+ * Used by the runtime feature-check infrastructure (esched_has_feature)
+ * to query which capabilities are available for a given dev_id.
+ *
+ * SOC_PLATFORM entries are pseudo-features that reflect the SoC platform
+ * identity and are handled separately from CFG_FEATURE_* compile-time flags.
+ */
+enum esched_feature_id {
+    ESCHED_FEATURE_HARDWARE_SCHED = 0,
+    ESCHED_FEATURE_HARDWARE_MIA,
+    ESCHED_FEATURE_SOFT_NON_SCHED_ONLY,
+    ESCHED_FEATURE_SIA_MAP_TOPIC_TABLE,
+    ESCHED_FEATURE_REMOTE_PUB_HARD_SCHED,
+    /* SOC platform pseudo-features (chip identity) */
+    ESCHED_SOC_PLATFORM_CLOUD_V4,
+    ESCHED_SOC_PLATFORM_MINIV3,
+    ESCHED_FEATURE_MAX
+};
+#define ESCHED_FEATURE_MAX_LIMIT 10000
+
+struct esched_feature_get_arg {
+    /* input: user-space's current feature count (covers both chip and version features) */
+    unsigned int user_feature_num;
+    /* output: feature support bitmap (only indices < user_feature_num are valid) */
+    unsigned char feature_bitmaps[ESCHED_FEATURE_DEV_NUM][ESCHED_FEATURE_MAX];
 };
 
 #endif

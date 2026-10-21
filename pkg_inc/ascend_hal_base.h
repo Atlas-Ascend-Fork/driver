@@ -247,7 +247,7 @@ struct HdcSessionNotify {
  * when modify enum para, struct para add patch version.
  * this means when new API compatible with old API, change patch version
  */
-#define __HAL_API_VER_PATCH 0x18
+#define __HAL_API_VER_PATCH 0x1A
 
 /**
  * @ingroup driver
@@ -427,6 +427,9 @@ typedef enum {
     INFO_TYPE_SLOT_ID,
     INFO_TYPE_SWPLUGIN_UPGRADE_POLICY,
     INFO_TYPE_SUPER_POD_INTERCON_TYPE,
+    INFO_TYPE_REAL_TIME,
+    INFO_TYPE_L2BUFF_INVALID_CACHE = 65,
+    INFO_TYPE_PCIE_ID_INFO = 66,
 } DEV_INFO_TYPE;
 
 /**
@@ -456,6 +459,8 @@ typedef enum {
 
 typedef enum {
     DEVS_INFO_TYPE_TOPOLOGY = 0,
+    DEVS_INFO_TYPE_BOARD_LOCATION = 1,
+    DEVS_INFO_TYPE_MAX,
 } PAIR_DEVS_INFO_TYPE;
 
 #define TOPOLOGY_HCCS 0
@@ -466,6 +471,9 @@ typedef enum {
 #define TOPOLOGY_SIO 5
 #define TOPOLOGY_HCCS_SW 6
 #define TOPOLOGY_UB 7
+
+#define LOCATION_IN_BOARD 0
+#define LOCATION_CROSS_BOARD 1
 
 typedef enum {
     ADDR_MODE_INDEPENDENT = 0,
@@ -698,7 +706,17 @@ struct capability_group_info {
     unsigned int vfid;
     unsigned int poolid;
     unsigned int poolid_max;
-    unsigned int res[COMPUTE_GROUP_INFO_RES_NUM - AICORE_MASK_NUM];
+    unsigned char use_l2cache;
+    unsigned char res[(COMPUTE_GROUP_INFO_RES_NUM - AICORE_MASK_NUM - 1) * 4 + 3]; // * 4 + 3 means reserved space left
+};
+
+#define CAPABILITY_MULTI_GROUP_NUM_MAX 4
+
+struct capability_multi_group_info {
+    unsigned int ts_id;     /* TS type: 0=P die, 1=F die */
+    unsigned int rsv[2];    /* reserved */
+    unsigned int group_num; /* group count, (0, CAPABILITY_MULTI_GROUP_NUM_MAX] */
+    struct capability_group_info group_info[CAPABILITY_MULTI_GROUP_NUM_MAX];
 };
 
 #define MAX_CHIP_NAME 32
@@ -796,6 +814,9 @@ DLLEXPORT drvError_t halDeviceClose(uint32_t devid, halDevCloseIn *in);
  * @return 0 success, others for fail
  */
 DLLEXPORT drvError_t halRepairFault(uint32_t devid, halRepairFaultInfo *info);
+
+#define HAL_PROC_RES_BACKUP_INCLUDE_OPTIONAL (1ULL << 0U)
+#define HAL_PROC_RES_RESTORE_INCLUDE_OPTIONAL (1ULL << 0U)
 
 typedef struct hal_proc_res_backup_info {
     uint64_t reserve[8]; // reserved parameter
@@ -1099,7 +1120,7 @@ DLLEXPORT drvError_t halSensorNodeUpdateState(uint32_t devId, uint64_t handle, i
  * @param [in] len            soc version length
  * @return   0 for success, others for fail
  */
-drvError_t halGetSocVersion(uint32_t devId, char *socVersion, uint32_t len);
+DLLEXPORT drvError_t halGetSocVersion(uint32_t devId, char *socVersion, uint32_t len);
 
 enum hal_product_type {
     HAL_PRODUCT_TYPE_POD = 0,
@@ -1125,6 +1146,7 @@ enum hal_product_type {
  * MODULE_TYPE_SYSTEM        |  INFO_TYPE_CORE_NUM         |   ts_num                    |                |
  * MODULE_TYPE_SYSTEM        |  INFO_TYPE_SYS_COUNT        |   system count              |                |
  * MODULE_TYPE_SYSTEM        |  INFO_TYPE_MONOTONIC_RAW    |   MONOTONIC_RAW time        |                |
+ * MODULE_TYPE_SYSTEM        |  INFO_TYPE_REAL_TIME        |   kernel real time(ms count)|                |
  * MODULE_TYPE_SYSTEM        |  INFO_TYPE_PHY_CHIP_ID      |   physical chip id          |                |
  * MODULE_TYPE_SYSTEM        |  INFO_TYPE_PHY_DIE_ID       |   physical die id           |                |
  * MODULE_TYPE_SYSTEM        |  INFO_TYPE_HOST_OSC_FREQUE  |   host OSC Frequency        |                |
@@ -1202,6 +1224,8 @@ enum hal_product_type {
  *             In other cases, need to use logical device ID.
  *             Note: The physical ID used by INFO_TYPE_MASTERID is a known issue.
  *                   Currently, the log and black box modules use this function.
+ *                   The INFO_TYPE_REAL_TIME's value is affected by host to device time synchronization, please use it
+ *                   with caution.
  * @param [in] moduleType  See enum DEV_MODULE_TYPE
  * @param [in] infoType  See enum DEV_INFO_TYPE
  * @param [out] value  device info
@@ -1302,6 +1326,15 @@ typedef enum {
     HAL_CPU_WORK_MODE_MAX
 } HAL_CPU_WORK_MODE;
 
+#define PCIE_INFO_RESERVED_LEN 20
+typedef struct {
+    unsigned int domain;
+    unsigned int bus;
+    unsigned int device;
+    unsigned int function;
+    unsigned int reserved[PCIE_INFO_RESERVED_LEN];
+} HAL_PCIE_INFO;
+
 /**
 * @ingroup driver
 * @brief Get device information, CPU information and PCIe bus information.
@@ -1324,7 +1357,7 @@ typedef enum {
 * MODULE_TYPE_LP            |  INFO_TYPE_LP_AIC           |   HAL_LP_GET_CPM_STRU       |                |
 * MODULE_TYPE_LP            |  INFO_TYPE_LP_BUS           |   HAL_LP_GET_CPM_STRU       |                |
 * --------------------------------------------------------------------------------------------------------
-* MODULE_TYPE_CC            |  INFO_TYPE_CC               |   HAL_CC_INFO               | used in device |
+* MODULE_TYPE_CC            |  INFO_TYPE_CC               |   HAL_CC_INFO               |                |
 * --------------------------------------------------------------------------------------------------------
 * MODULE_TYPE_L2BUFF        | INFO_TYPE_L2BUFF_RESUME_CNT |   L2buff fault resume cnt   |                |
 * --------------------------------------------------------------------------------------------------------
@@ -1339,6 +1372,8 @@ typedef enum {
 * MODULE_TYPE_UB            |INFO_TYPE_UB_PACKET_STATISTICS|   UB packet statistics     |                |
 * MODULE_TYPE_UB            |  INFO_TYPE_UB_QOS_INFO      |    UB QOS info              |                |
 * MODULE_TYPE_UB            |  INFO_TYPE_UB_CONFIG_INFO   |    UB config info           |                |
+* --------------------------------------------------------------------------------------------------------
+* MODULE_TYPE_PCIE          |  INFO_TYPE_PCIE_ID_INFO        |    HAL_PCIE_INFO            |                |
 * --------------------------------------------------------------------------------------------------------
 * @param [in] devId  Device ID, when parameter infoType is set to INFO_TYPE_MASTERID, need to use physical device ID.
 *             In other cases, need to use logical device ID.
@@ -1378,17 +1413,15 @@ struct hal_ub_status {
  * @brief Setting the device configuration
  * @attention Each moduleType and infoType will have a different configuration.
  * if the type you input is not compatitable with the table below, then will return fail
- * --------------------------------------------------------------------------------------------------------
- * moduleType                |        infoType             |             buf             |   attention    |
- * --------------------------------------------------------------------------------------------------------
- * MODULE_TYPE_LP            |  INFO_TYPE_LP_FREQ_VOLT     | HAL_LP_SET_STRESS_TEST_STRU |                |
- * --------------------------------------------------------------------------------------------------------
- * MODULE_TYPE_L2BUFF        |  INFO_TYPE_L2BUFF_RESUME    |   L2buff fault resume       |                |
- * --------------------------------------------------------------------------------------------------------
- * MODULE_TYPE_SYSTEM        |  INFO_TYPE_SDK_EX_VERSION   |    SDK extend version       | used in device |
- * --------------------------------------------------------------------------------------------------------
- * MODULE_TYPE_SYSTEM        |  INFO_TYPE_EVENT_RESUME     |    Fault event resume       | used in host   |
- * --------------------------------------------------------------------------------------------------------
+ * ------------------------------------------------------------------------------------------------------
+ * moduleType          | infoType                       | buf                          | attention      |
+ * ------------------------------------------------------------------------------------------------------
+ * MODULE_TYPE_LP      | INFO_TYPE_LP_FREQ_VOLT         | HAL_LP_SET_STRESS_TEST_STRU  |                |
+ * MODULE_TYPE_L2BUFF  | INFO_TYPE_L2BUFF_RESUME        | drvL2buffInvalidType         |                |
+ * MODULE_TYPE_L2BUFF  | INFO_TYPE_L2BUFF_INVALID_CACHE | drvL2buffInvalidType         |                |
+ * MODULE_TYPE_SYSTEM  | INFO_TYPE_SDK_EX_VERSION       | SDK extend version           | used in device |
+ * MODULE_TYPE_SYSTEM  | INFO_TYPE_EVENT_RESUME         | Fault event resume           | used in host   |
+ * ------------------------------------------------------------------------------------------------------
  * @param [in] devId  Device ID, when parameter infoType is set to INFO_TYPE_MASTERID, need to use physical device ID.
  *             In other cases, need to use logical device ID.
  *             Note: The physical ID used by INFO_TYPE_MASTERID is a known issue.
@@ -1436,12 +1469,16 @@ DLLEXPORT drvError_t halGetPhyDeviceInfo(uint32_t phyId, int32_t moduleType, int
  * @param [in] devId  Device ID
  * @param [in] otherDevId  other device id compared
  * @param [in] infoType  See enum PAIR_DEVS_INFO_TYPE
- * @param [out] value   type of relationship
+ * @param [out] value   See below
+ * When infoType == DEVS_INFO_TYPE_TOPOLOGY:
  * *value == TOPOLOGY_HCCS, means relationship is hccs
  * *value == TOPOLOGY_PIX,  means relationship is pix
  * *value == TOPOLOGY_SIO,  means relationship is sio
  * *value == TOPOLOGY_HCCS_SW,  means relationship is hccs_sw
  * *value == TOPOLOGY_UB,  means relationship is ub
+ * When infoType == DEVS_INFO_TYPE_BOARD_LOCATION:
+ * *value == LOCATION_IN_BOARD, means two devices are in the same board
+ * *value == LOCATION_CROSS_BOARD, means two devices are in different boards
  * @return   0 for success, others for fail
  */
 DLLEXPORT drvError_t halGetPairDevicesInfo(uint32_t devId, uint32_t otherDevId, int32_t infoType, int64_t *value);
@@ -1517,6 +1554,9 @@ DLLEXPORT drvError_t drvGetProcessSign(struct process_sign *sign);
  * @brief query devpid by info
  * @attention null
  * @param [in] info: See struct halQueryDevpidInfo
+ * param hostpid in struct halQueryDevpidInfo:
+ * In Ascend950 EP, hostpid must always specify the host-side master process PID (whether called from the host or
+ * device); otherwise, the query will fail. In Ascend950 RC, hostpid use the master process PID.
  * @param [out] dev_pid: device pid correspond to info
  * @return   0 for success, others for fail
  */
@@ -1524,7 +1564,7 @@ DLLEXPORT drvError_t halQueryDevpid(struct halQueryDevpidInfo info, pid_t *dev_p
 
 struct drvBindHostpidInfo {
     pid_t host_pid;
-    uint32_t vfid;
+    uint32_t vfid; /* Ascend950 : vfid not used */
     uint32_t chip_id;
     int32_t mode; /* online:0, offline:1 */
     enum devdrv_process_type cp_type;
@@ -1625,7 +1665,7 @@ DLLEXPORT drvError_t halBindCgroup(BIND_CGROUP_TYPE bindType);
 /**
  * @ingroup driver
  * @brief Sharing memory to specific object
- * @attention null
+ * @attention This interface does not support multi-threaded invocation.
  * @param [in] para: see struct drvMemSharingPara
  * @return   0 for success, others for fail
  */
@@ -1639,6 +1679,7 @@ DLLEXPORT drvError_t halSetMemSharing(struct drvMemSharingPara *para);
  */
 DLLEXPORT pid_t drvDeviceGetBareTgid(void);
 
+/* clang-format off */
 /**
  * @ingroup driver
  * @brief read value from bbox hdr addr
@@ -1650,31 +1691,35 @@ DLLEXPORT pid_t drvDeviceGetBareTgid(void);
  * @param [out] value : read value
  * @return   0 for success, others for fail
  * ---------------------------------------------------------------------------------------------------------------------
- *     MEM_CTRL_TYPE           | log dump mode |     log location        |                   attention |
+ *     MEM_CTRL_TYPE           | log dump mode |     log location        |                   attention                  |
  * ---------------------------------------------------------------------------------------------------------------------
- * MEM_TYPE_PCIE_SRAM          | PCIe bar dump | /mntn/hbm.txt           | IMU startup log | |               |
- * /mntn/snapshot.txt      | Startup Snapshot Log Before DDR Init Success | |               | /mntn/bios_hiss-r52.txt |
- * Checkpoint logs before BIOS startup Success  | MEM_TYPE_PCIE_DDR           | PCIe bar dump | /log/kernel.log | OS
- * kernel log                                | MEM_TYPE_IMU_DDR            |    DMA dump   | /log/imu_boot.log       |
- * IMU startup log                              | |               | /log/imu_run.log        | IMU run logs |
- * MEM_TYPE_BBOX_DDR           |    DMA dump   | /bbox/                  | Bbox reserved space maintenance and test log
- * | MEM_TYPE_BBOX_HDR           | PCIe bar dump | /snapshot/hdr.log       | snapshot info log | MEM_TYPE_REG_SRAM |
- * PCIe bar dump | /mntn/chip_dfx_min.txt  | Log of Minimal Set of Chip DFX Registers     | MEM_TYPE_REG_DDR |    DMA
- * dump   | /mntn/chip_dfx_full.txt | Full Set of Chip DFX Registers               | MEM_TYPE_TS_LOG             | DMA
- * dump   | /log/ts.log             | TS info log                                  | MEM_TYPE_HBOOT_SRAM         | PCIe
- * bar dump | /mntn/hboot.txt         | Hboot Log Before HBM Init Success            | MEM_TYPE_DEBUG_OS_LOG       | DMA
- * dump   | /slog/debug/device-os   | device ccpu system process debug log         | MEM_TYPE_SEC_LOG            | DMA
- * dump   | /slog/security          | device ccpu system process security log      | MEM_TYPE_RUN_OS_LOG         | DMA
- * dump   | /slog/run/device-os     | device ccpu system process run log           | MEM_TYPE_RUN_EVENT_LOG      | DMA
- * dump   | /slog/run/event         | device ccpu system process event log         | MEM_TYPE_DEBUG_DEV_LOG      | DMA
- * dump   | /slog/debug/device-id   | device other than ccpu sys process debug log | MEM_TYPE_KDUMP_MAGIC        | | | |
- * MEM_TYPE_VMCORE_FILE        |               |                         | | MEM_TYPE_VMCORE_STAT        | | | |
- * MEM_TYPE_CHIP_LOG_PCIE_BAR  | PCIe bar dump | /mntn/chip_dfx_full.txt | Full Set of Chip DFX Registers |
- * MEM_TYPE_TS_LOG_PCIE_BAR    | PCIe bar dump | /log/ts.log             | TS info log | MEM_TYPE_BBOX_PCIE_BAR      |
- * PCIe bar dump | /bbox/                  | Bbox reserved space maintenance and test log |
+ * MEM_TYPE_PCIE_SRAM          | PCIe bar dump | /mntn/hbm.txt           | IMU startup log                              |
+ *                             |               | /mntn/snapshot.txt      | Startup Snapshot Log Before DDR Init Success |
+ *                             |               | /mntn/bios_hiss-r52.txt | Checkpoint logs before BIOS startup Success  |
+ * MEM_TYPE_PCIE_DDR           | PCIe bar dump | /log/kernel.log         | OS kernel log                                |
+ * MEM_TYPE_IMU_DDR            |    DMA dump   | /log/imu_boot.log       | IMU startup log                              |
+ *                             |               | /log/imu_run.log        | IMU run logs                                 |
+ * MEM_TYPE_BBOX_DDR           |    DMA dump   | /bbox/                  | Bbox reserved space maintenance and test log |
+ * MEM_TYPE_BBOX_HDR           | PCIe bar dump | /snapshot/hdr.log       | snapshot info log                            |
+ * MEM_TYPE_REG_SRAM           | PCIe bar dump | /mntn/chip_dfx_min.txt  | Log of Minimal Set of Chip DFX Registers     |
+ * MEM_TYPE_REG_DDR            |    DMA dump   | /mntn/chip_dfx_full.txt | Full Set of Chip DFX Registers               |
+ * MEM_TYPE_TS_LOG             |    DMA dump   | /log/ts.log             | TS info log                                  |
+ * MEM_TYPE_HBOOT_SRAM         | PCIe bar dump | /mntn/hboot.txt         | Hboot Log Before HBM Init Success            |
+ * MEM_TYPE_DEBUG_OS_LOG       |    DMA dump   | /slog/debug/device-os   | device ccpu system process debug log         |
+ * MEM_TYPE_SEC_LOG            |    DMA dump   | /slog/security          | device ccpu system process security log      |
+ * MEM_TYPE_RUN_OS_LOG         |    DMA dump   | /slog/run/device-os     | device ccpu system process run log           |
+ * MEM_TYPE_RUN_EVENT_LOG      |    DMA dump   | /slog/run/event         | device ccpu system process event log         |
+ * MEM_TYPE_DEBUG_DEV_LOG      |    DMA dump   | /slog/debug/device-id   | device other than ccpu sys process debug log |
+ * MEM_TYPE_KDUMP_MAGIC        |               |                         |                                              |
+ * MEM_TYPE_VMCORE_FILE        |               |                         |                                              |
+ * MEM_TYPE_VMCORE_STAT        |               |                         |                                              |
+ * MEM_TYPE_CHIP_LOG_PCIE_BAR  | PCIe bar dump | /mntn/chip_dfx_full.txt | Full Set of Chip DFX Registers               |
+ * MEM_TYPE_TS_LOG_PCIE_BAR    | PCIe bar dump | /log/ts.log             | TS info log                                  |
+ * MEM_TYPE_BBOX_PCIE_BAR      | PCIe bar dump | /bbox/                  | Bbox reserved space maintenance and test log |
  * ---------------------------------------------------------------------------------------------------------------------
  * In SMP scenario, devId can transfer only master id when drvMemRead is invoked to obtain OS-level log information.
  */
+/* clang-format on */
 DLLEXPORT drvError_t drvMemRead(uint32_t devId, MEM_CTRL_TYPE memType, uint32_t offset, uint8_t *value, uint32_t len);
 /**
  * @ingroup driver
@@ -2241,6 +2286,8 @@ DLLEXPORT DV_OFFLINE drvError_t halSdmaBatchCopy(void *dst[], void *src[], size_
  * @attention
  * 1. The memory management module does not verify the length of ByteCount. You need to ensure that the length is valid
  * 2. D2D convert don't support same device.
+ * 3. Each convert will occupy host memory. It needs to be destroyed promptly after use to avoid memory noise
+ * accumulation.
  * @param [in] p_src: source address (virtual address)
  * @param [in] p_dst: destination address (virtual address)
  * @param [in] len: length of the address that needs to be converted.
@@ -2310,7 +2357,7 @@ DLLEXPORT DV_ONLINE DVresult halMemcpyWait(struct DMA_ADDR *dma_addr);
  * 6. devPtr must be aligned by page size.
  * 7. Share mem addr not support prefetch, including ipc open and mem export, use may result in unexpected behavior.
  * 8. Not support vmm va, use may result in unexpected behavior.
- * 9. Prefetch addr not support sdma copy in ascend950, ascend910_96, which may lead to unpredictable behavior.
+ * 9. Prefetch addr not support sdma copy in ascend950, ascend960, which may lead to unpredictable behavior.
  * @param [in] dev_ptr: memory to prefetch
  * @param [in] len: prefetch size
  * @param [in] device: destination device for prefetching data
@@ -2337,7 +2384,7 @@ DLLEXPORT DVresult halMemManagedPrefetchBatch(DVdeviceptr *ptrs, size_t *sizes, 
  * offset.
  * 2. The length of the name array and name_len must be greater than 64.
  * 3. Not support vmm va, use may result in unexpected behavior.
- * 4. For Ascend950, Ascend910_96, should config ubmem firstly.
+ * 4. For Ascend950, Ascend960, should config ubmem firstly.
  * @param [in] vptr: virtual memory to be shared
  * @param [in] byte_count: user-defined length to be shared
  * @param [in] name_len: the maximum length of the name array
@@ -2362,7 +2409,7 @@ DLLEXPORT DV_ONLINE DVresult halShmemDestroyHandle(const char *name);
  * @brief Configure the whitelist of nodes with ipc mem shared memory
  * @attention Available online, not offline. mutually exclusive with halShmemSetAttribute interface.
  * 1. The maximum number of PIDs that can be set for a shmem is:
- *     for Ascend950, Ascend910_55, Ascend910_96, is 65535;
+ *     for Ascend950, Ascend910_55, Ascend960, is 65535;
  *     for Ascend310B, Ascend910, Ascend310P, Ascend910B, Ascend910_93, is 32768.
  * @param [in] name: name used for sharing between processes
  * @param [in] pid: host pid whitelist array
@@ -2391,7 +2438,7 @@ DLLEXPORT DV_ONLINE DVresult halShmemSetPodPid(const char *name, uint32_t sdid, 
  * @attention
  * 1. Available online, not offline.
  * 2. Ipc not support access double pgtable offset addr.
- * 3. Ipc not support sdma copy in ascend950, ascend910_96, which may lead to unpredictable behavior.
+ * 3. Ipc not support sdma copy in ascend950, ascend960, which may lead to unpredictable behavior.
  * @param [in] name: name used for sharing between processes
  * @param [out] vptr: virtual address with access to shared memory
  * @return DRV_ERROR_NONE : success
@@ -2405,7 +2452,7 @@ DLLEXPORT DV_ONLINE DVresult halShmemOpenHandle(const char *name, DVdeviceptr *v
  * @attention
  * 1. Available online, not offline.
  * 2. Ipc not support access double pgtable offset addr.
- * 3. Ipc not support sdma copy in ascend950, ascend910_96, which may lead to unpredictable behavior.
+ * 3. Ipc not support sdma copy in ascend950, ascend960, which may lead to unpredictable behavior.
  * @param [in] name: name used for sharing between processes
  * @param [in] dev_id: logic devid
  * @param [out] vptr: virtual address with access to shared memory
@@ -2420,7 +2467,7 @@ DLLEXPORT DV_ONLINE DVresult halShmemOpenHandleByDevId(DVdevice dev_id, const ch
  * @attention
  * 1. Available online, not offline.
  * 2. Ipc not support access double pgtable offset addr.
- * 3. Ipc not support sdma copy in ascend950, ascend910_96, which may lead to unpredictable behavior.
+ * 3. Ipc not support sdma copy in ascend950, ascend960, which may lead to unpredictable behavior.
  * 4. The same name can be opened repeatedly.
  * @param [in] name: name used for sharing between processes
  * @param [in] dev_id: logic devid
@@ -2510,7 +2557,8 @@ DLLEXPORT DV_ONLINE DVresult halShmemInfoGet(const char *name, struct ShmemGetIn
  * due to internal address management, it is possible to get the attributes of vptr that have not been alloced or have
  * been released.
  * 3. The devId is only valid after vptr has been mapped on the device side.
- * 4. Vptr from halMemAddressReserve function must be mapped before attribute query
+ * 4. Vptr from halMemAddressReserve function must be mapped before attribute query.
+ * 5. Not support querying the dst address returned by halHostRegister, the query result is undefined.
  * @param [in] vptr:  virtual address to be queried
  * @param [out] attr:  vptr property information corresponding to the page
  * @return DRV_ERROR_NONE : success
@@ -2575,6 +2623,9 @@ DLLEXPORT DV_ONLINE int drvMemDeviceClose(uint32_t devid);
  * 7. Not support vmm va, use may result in unexpected behavior.
  * 8. If multiple registrations are successful for overlapping addresses, halMemHostGetDevPointer will only retrieve the
  * first successful registration.
+ * 9. Host mem map to device scene, we recommend src_ptr is aligned, otherwise halHostRegister time-consuming
+ * and page_table overhead will higher.
+ * 10. In a confidential VM, MEM_REGISTER_HOST_PINNED supports host memory allocated by halMemAlloc.
  * @param [in] src_ptr: requested the src share memory pointer, srcPtr must be page aligned.
  * @param [in] size: requested byte size.
  * @param [in] flag:  requested memory parameter, the flag is made by map type and proc type.
@@ -2588,7 +2639,9 @@ DLLEXPORT drvError_t halHostRegister(void *src_ptr, UINT64 size, UINT32 flag, UI
 /**
  * @ingroup driver
  * @brief This command is used to unregister src share memory.
- * @attention null
+ * @attention For a user malloc address, halHostUnregister must not run concurrently with a synchronous memory copy
+ *            using the same address. The caller must ensure that the copy has completed before unregistering the
+ *            address.
  * @param [in] src_ptr: requested the src share memory pointer.
  * @param [in] devid:  requested input device id when srcPtr isn't in svm range.
  * @return DRV_ERROR_NONE : success
@@ -2599,7 +2652,8 @@ DLLEXPORT drvError_t halHostUnregister(void *src_ptr, UINT32 devid);
 /**
  * @ingroup driver
  * @brief This command is used to unregister src share memory.
- * @attention null
+ * @attention In UB interconnect scenario, concurrent call of halHostUnregisterEx and drvMemcpy on the same
+ *            VA is not supported.
  * @param [in] src_ptr: requested the src share memory pointer.
  * @param [in] devid:  requested input device id when srcPtr isn't in svm range.
  * @param [in] flag:   made by map_type and proc_type. Only DEV_MEM_MAP_HOST request map_type input, others judge type
@@ -2651,6 +2705,11 @@ DLLEXPORT drvError_t halHostRegisterCapabilities(uint32_t devid, uint32_t acc_mo
  * 6. For Ascend310B,Ascend910,Ascend310P,Ascend910B,Ascend910_93,
  *    The maximum virtual memory(no page) applied for at a time is 128GB.
  * 7. Sensitive information cannot be stored in this memory.
+ * 8. The maximum size of a single memory allocation request through this function must not exceed 512GB.
+ *    Exceeding this limit may result in allocation failure.
+ * 9. MEM_DEV_PRIVATE identifies device-private business data. It is supported only in a confidential VM and does
+ * not
+ * support copy interfaces.
  * @param [in] size: requested byte size.
  * @param [in] flag:  requested memory parameter.
  * @param [out] pp:  level-2 pointer that stores the address of the allocated memory pointer.
@@ -2766,6 +2825,7 @@ DLLEXPORT DV_ONLINE drvError_t halMemGetAddressReserveRange(void **ptr, size_t *
  * 2. Specified address reserve must comply with the following rules:
  *    1) If the size is greater than 512 MB, the address must be 1 GB aligned.
  *    2) If the size is less than or equal to 512 MB, the address must be aligned by power(2, ceil(log2(size))).
+ *    3) For Ascend950,Ascend960, the address and size must be 1 GB aligned.
  * 3. The halMemFree interface has a cache mechanism. The address is actually cached after be released.
  *    As a result, the specified cached address fails to be applied for.
  * 4. For Ascend310B,Ascend910,Ascend310P,Ascend910B,Ascend910_93,
@@ -2796,7 +2856,9 @@ DLLEXPORT drvError_t halMemAddressFree(void *ptr);
 /**
  * @ingroup driver
  * @brief This command is used to alloc physical memory.
- * @attention Only support ONLINE scene.
+ * @attention
+ * 1. Only support ONLINE scene.
+ * 2. For MEM_NORMAL_PAGE_TYPE on MEM_DEV_SIDE, it is recommended to call this API no more than 10,000 times per device.
  * @param [in] size: size of the allocation requested, must be aligned by 2M.
  * @param [in] prop: properties of the allocation to create.
  * @param [in] flag: currently unused, must be zero.
@@ -2837,7 +2899,8 @@ DLLEXPORT drvError_t halMemRetainAllocationHandle(drv_mem_handle_t **handle, voi
  * @attention
  * 1. Only support ONLINE scene.
  * 2. If page type is MEM_GIANT_PAGE_TYPE, size and ptr must be aligned by 1G.
- * 3. Shared scene not support sdma copy in ascend950, ascend910_96, which may lead to unpredictable behavior.
+ * 3. Shared scene not support sdma copy in ascend950, ascend960, which may lead to unpredictable behavior.
+ * 4. If page type is MEM_NORMAL_PAGE_TYPE, it is recommended that the same physical memory be mapped only once.
  * @param [in] ptr: address where memory will be mapped, must be aligned by 2M.
  * @param [in] size: size of the memory mapping, must be aligned by 2M.
  * @param [in] offset: currently unused, must be zero.
@@ -2847,6 +2910,25 @@ DLLEXPORT drvError_t halMemRetainAllocationHandle(drv_mem_handle_t **handle, voi
  * @return DV_ERROR_XXX : fail
  */
 DLLEXPORT drvError_t halMemMap(void *ptr, size_t size, size_t offset, drv_mem_handle_t *handle, uint64_t flag);
+
+/**
+ * @ingroup driver
+ * @brief This command is used to map an allocation handle to a reserved virtual address range without initial access.
+ * @attention
+ * 1. Only support ONLINE scene.
+ * 2. If page type is MEM_GIANT_PAGE_TYPE, size and ptr must be aligned by 1G.
+ * 3. Shared scene not support sdma copy in ascend950, ascend960, which may lead to unpredictable behavior.
+ * 4. The access type of all locations is MEM_ACCESS_TYPE_NONE after this command succeeds.
+ * 5. Use halMemSetAccess to make the mapped address accessible to a location.
+ * @param [in] ptr: address where memory will be mapped, must be aligned by 2M.
+ * @param [in] size: size of the memory mapping, must be aligned by 2M.
+ * @param [in] offset: currently unused, must be zero.
+ * @param [in] handle: value of handle which was returned previously by halMemCreate.
+ * @param [in] flag: currently unused, must be zero.
+ * @return DRV_ERROR_NONE : success
+ * @return DV_ERROR_XXX : fail
+ */
+DLLEXPORT drvError_t halMemMapNoAccess(void *ptr, size_t size, size_t offset, drv_mem_handle_t *handle, uint64_t flag);
 
 /**
  * @ingroup driver
@@ -2870,7 +2952,11 @@ DLLEXPORT drvError_t halMemUnmap(void *ptr);
  * 3. halMemSetAccess: ptr and size must be same with halMemMap, halMemGetAccess: ptr and size is in range of set
  * 4. after halMemMap, if handle has owner(witch location pa is created or use witch device pa handle is imported)
  *    the owner location has readwrite prop automatic, not need to set again
- * 5. repeat set ptr to same location with different type will return DRV_ERROR_BUSY
+ * 5. Repeatedly setting the same address and location to the same access type returns success without remapping.
+ * 6. An existing MEM_ACCESS_TYPE_READ or MEM_ACCESS_TYPE_READWRITE setting can be changed to
+ *    MEM_ACCESS_TYPE_NONE. Other changes to an existing non-NONE access type return DRV_ERROR_BUSY.
+ * 7. Descriptors in one call are processed in order. Repeated locations follow rules 5 and 6 based on the access
+ *    type established by the preceding descriptors.
  * @param [in] ptr: mapped address.
  * @param [in] size: mapped size.
  * @param [in] desc: va location and access type, when location is device, id is devid;
@@ -3089,6 +3175,19 @@ DLLEXPORT drvError_t halMemGetAddressRange(DVdeviceptr ptr, DVdeviceptr *pbase, 
 
 /**
  * @ingroup driver
+ * @brief Check whether the given virtual address falls within the SVM-managed device address range.
+ * @attention The interface only checks whether the VA is in the global SVM VA range;
+ *            it does not verify that the address has been actually allocated or mapped.
+ * @param [in] va - Start virtual address to check.
+ * @param [in] size - Byte size of the address range to check (must be > 0).
+ * @param [out] is_in_range - Output result: true if the VA is within the SVM-managed range, false otherwise.
+ * @return DRV_ERROR_NONE : check operation succeeded, *is_in_range is populated.
+ * @return DV_ERROR_XXX : fail (e.g., is_in_range is NULL or size is 0).
+ */
+DLLEXPORT drvError_t halMemAddressIsInSvmRange(unsigned long long va, unsigned long long size, bool *is_in_range);
+
+/**
+ * @ingroup driver
  * @brief Get memory allocation properties from handle.
  * @param [in] handle - memory handle.
  * @param [out] prop - memory allocation properties.
@@ -3205,6 +3304,58 @@ DLLEXPORT DVresult halMemGetInfoEx(DVdevice device, unsigned int type, struct Me
  * @return DV_ERROR_XXX : set fail
  */
 DLLEXPORT DVresult halMemGetInfo(DVdevice device, unsigned int type, struct MemInfo *info);
+
+struct drv_addr_range {
+    void *start_addr;
+    void *end_addr;
+};
+
+/**
+ * @ingroup driver
+ * @brief Get the count of PCIE TH VA address ranges.
+ * @attention The count is always 1 currently.
+ * @param [in]  dev_id    device id.
+ * @param [out] count     count of PCIE TH VA address ranges.
+ * @return DRV_ERROR_NONE : success
+ * @return DRV_ERROR_XXX : fail
+ */
+DLLEXPORT drvError_t halHostGetDevicePointerAddrCount(uint32_t dev_id, uint32_t *count);
+
+/**
+ * @ingroup driver
+ * @brief Get PCIE TH VA address ranges.
+ * @attention
+ * 1. User should call halHostGetDevicePointerAddrCount to get the count first,
+ *    then allocate addr_range array with that count.
+ * 2. If the input count is greater than the actual count, only the actual count
+ *    of ranges will be filled, and the remaining entries will be set to NULL.
+ *    The count parameter will be returned with the actual count value.
+ * @param [in]     dev_id     device id.
+ * @param [in/out] addr_range array of PCIE TH VA address ranges.
+ * @param [in/out] count      input: allocated array size, output: actual count of ranges.
+ * @return DRV_ERROR_NONE : success
+ * @return DRV_ERROR_XXX : fail
+ */
+DLLEXPORT drvError_t halHostGetDevicePointerAddrRange(uint32_t dev_id, struct drv_addr_range *addr_range,
+                                                      uint32_t *count);
+
+/**
+ * @ingroup driver
+ * @brief Get address ranges for async copy.
+ * @attention
+ * 1. This function finds registered segments within the given VA range,
+ *    merges continuous segments with the same token_id, and splits by 256MB.
+ * 2. The output segments can be directly used for async copy.
+ * @param [in]  dev_id  for host address: target device id; for device address: owner device id.
+ * @param [in]  addr_in input address range.
+ * @param [out] addr_out output array of address ranges.
+ * @param [in/out] cnt  input: allocated array size, output: actual count of ranges.
+ * @param [in] flag     must be 0 currently.
+ * @return DRV_ERROR_NONE : success
+ * @return DRV_ERROR_XXX : fail
+ */
+DLLEXPORT drvError_t halMemGetAddrSeg(uint32_t dev_id, struct addr_range addr_in, struct addr_range *addr_out,
+                                      uint32_t *cnt, uint64_t flag);
 
 /**
  * @ingroup driver
@@ -3782,7 +3933,8 @@ enum log_cmd_type {
  * logs.
  * @return  0 for success, others for fail
  */
-int log_read_by_type(int device_id, char *buf, unsigned int *size, int timeout, enum log_channel_type channel_type);
+DLLEXPORT int log_read_by_type(int device_id, char *buf, unsigned int *size, int timeout,
+                               enum log_channel_type channel_type);
 
 /**
  * @ingroup driver
@@ -3794,7 +3946,7 @@ int log_read_by_type(int device_id, char *buf, unsigned int *size, int timeout, 
  * @param [in] set_size   total number of channel_type_set
  * @return  0 for success, others for fail
  */
-int log_get_channel_type(int device_id, int *channel_type_set, int *channel_type_num, int set_size);
+DLLEXPORT int log_get_channel_type(int device_id, int *channel_type_set, int *channel_type_num, int set_size);
 
 /**
  * @ingroup driver
@@ -3807,7 +3959,7 @@ int log_get_channel_type(int device_id, int *channel_type_set, int *channel_type
  * @param [in] data_len : size of data
  * @return  0 for success, others for fail
  */
-int log_set_dfx_param(uint32_t devid, uint32_t chan_type, uint32_t cmd_type, void *data, uint32_t data_len);
+DLLEXPORT int log_set_dfx_param(uint32_t devid, uint32_t chan_type, uint32_t cmd_type, void *data, uint32_t data_len);
 
 /**
  * @ingroup driver
@@ -3820,7 +3972,7 @@ int log_set_dfx_param(uint32_t devid, uint32_t chan_type, uint32_t cmd_type, voi
  * @param [in] data_len : size of data
  * @return  0 for success, others for fail
  */
-int log_get_dfx_param(uint32_t devid, uint32_t chan_type, uint32_t cmd_type, void *data, uint32_t data_len);
+DLLEXPORT int log_get_dfx_param(uint32_t devid, uint32_t chan_type, uint32_t cmd_type, void *data, uint32_t data_len);
 
 /**
  * @ingroup driver
@@ -3831,7 +3983,7 @@ int log_get_dfx_param(uint32_t devid, uint32_t chan_type, uint32_t cmd_type, voi
  * @param [in/out] size   the size of mem firstly allocated
  * @return void *buff  buff mapped for user space
  */
-void *log_type_alloc_mem(uint32_t device_id, uint32_t type, uint32_t *size);
+DLLEXPORT void *log_type_alloc_mem(uint32_t device_id, uint32_t type, uint32_t *size);
 
 #ifndef dma_addr_t
 typedef unsigned long long dma_addr_t;
@@ -4758,7 +4910,8 @@ DLLEXPORT drvError_t halCqReportRecv(uint32_t devId, struct halReportRecvInfo *i
  * @param [in]  *task_cnt   task number
  * @return   0 for success, others for fail
  */
-drvError_t halStreamTaskFill(uint32_t dev_id, uint32_t stream_id, void *stream_mem, void *task_info, uint32_t task_cnt);
+DLLEXPORT drvError_t halStreamTaskFill(uint32_t dev_id, uint32_t stream_id, void *stream_mem, void *task_info,
+                                       uint32_t task_cnt);
 
 /**
  * @ingroup driver
@@ -4769,7 +4922,7 @@ drvError_t halStreamTaskFill(uint32_t dev_id, uint32_t stream_id, void *stream_m
  * @param [in] num:     sq and stream number
  * @return   0 for success, others for fail
  */
-drvError_t halSqSwitchStreamBatch(uint32_t dev_id, struct sq_switch_stream_info *info, uint32_t num);
+DLLEXPORT drvError_t halSqSwitchStreamBatch(uint32_t dev_id, struct sq_switch_stream_info *info, uint32_t num);
 
 /**
  * @ingroup driver
@@ -4834,7 +4987,8 @@ DLLEXPORT drvError_t halAsyncDmaDestory(uint32_t devId, struct halAsyncDmaDestor
  * @param [out] out:  see struct halAsyncDmaOutputPara
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaCreate2D(uint32_t devId, struct halAsyncDmaInput2DPara *in, struct halAsyncDmaOutputPara *out);
+DLLEXPORT drvError_t halAsyncDmaCreate2D(uint32_t devId, struct halAsyncDmaInput2DPara *in,
+                                         struct halAsyncDmaOutputPara *out);
 
 /**
  * @ingroup driver
@@ -4844,7 +4998,7 @@ drvError_t halAsyncDmaCreate2D(uint32_t devId, struct halAsyncDmaInput2DPara *in
  * @param [in]  para: see struct halAsyncDmaDestroy2DPara
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaDestroy2D(uint32_t devId, struct halAsyncDmaDestroy2DPara *para);
+DLLEXPORT drvError_t halAsyncDmaDestroy2D(uint32_t devId, struct halAsyncDmaDestroy2DPara *para);
 
 /**
  * @ingroup driver
@@ -4855,8 +5009,8 @@ drvError_t halAsyncDmaDestroy2D(uint32_t devId, struct halAsyncDmaDestroy2DPara 
  * @param [out] out:  see struct halAsyncDmaOutputPara
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaCreateBatch(uint32_t devId, struct halAsyncDmaInputBatchPara *in,
-                                  struct halAsyncDmaOutputPara *out);
+DLLEXPORT drvError_t halAsyncDmaCreateBatch(uint32_t devId, struct halAsyncDmaInputBatchPara *in,
+                                            struct halAsyncDmaOutputPara *out);
 
 /**
  * @ingroup driver
@@ -4866,7 +5020,7 @@ drvError_t halAsyncDmaCreateBatch(uint32_t devId, struct halAsyncDmaInputBatchPa
  * @param [in]  para: see struct halAsyncDmaDestroyBatchPara
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaDestroyBatch(uint32_t devId, struct halAsyncDmaDestroyBatchPara *para);
+DLLEXPORT drvError_t halAsyncDmaDestroyBatch(uint32_t devId, struct halAsyncDmaDestroyBatchPara *para);
 
 /**
  * @ingroup driver
@@ -4877,8 +5031,8 @@ drvError_t halAsyncDmaDestroyBatch(uint32_t devId, struct halAsyncDmaDestroyBatc
  * @param [out] out:  see struct halAsyncDmaJettyCreateOut
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaJettyCreate(uint32_t devId, struct halAsyncDmaJettyCreateIn *in,
-                                  struct halAsyncDmaJettyCreateOut *out);
+DLLEXPORT drvError_t halAsyncDmaJettyCreate(uint32_t devId, struct halAsyncDmaJettyCreateIn *in,
+                                            struct halAsyncDmaJettyCreateOut *out);
 
 /**
  * @ingroup driver
@@ -4888,7 +5042,7 @@ drvError_t halAsyncDmaJettyCreate(uint32_t devId, struct halAsyncDmaJettyCreateI
  * @param [in]  para: see struct halAsyncJettyDestroyPara
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaJettyDestroy(uint32_t devId, struct halAsyncJettyDestroyPara *para);
+DLLEXPORT drvError_t halAsyncDmaJettyDestroy(uint32_t devId, struct halAsyncJettyDestroyPara *para);
 
 /**
  * @ingroup driver
@@ -4899,8 +5053,8 @@ drvError_t halAsyncDmaJettyDestroy(uint32_t devId, struct halAsyncJettyDestroyPa
  * @param [out] out:  see struct halAsyncDmaJettyQueryOut
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaJettyQuery(uint32_t devId, struct halAsyncDmaJettyQueryIn *in,
-                                 struct halAsyncDmaJettyQueryOut *out);
+DLLEXPORT drvError_t halAsyncDmaJettyQuery(uint32_t devId, struct halAsyncDmaJettyQueryIn *in,
+                                           struct halAsyncDmaJettyQueryOut *out);
 
 /**
  * @ingroup driver
@@ -4911,8 +5065,8 @@ drvError_t halAsyncDmaJettyQuery(uint32_t devId, struct halAsyncDmaJettyQueryIn 
  * @param [out] out:  see struct halAsyncDmaWqeOutputPara
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaWqeConvert(uint32_t devId, struct halAsyncDmaWqeInputPara *in,
-                                 struct halAsyncDmaWqeOutputPara *out);
+DLLEXPORT drvError_t halAsyncDmaWqeConvert(uint32_t devId, struct halAsyncDmaWqeInputPara *in,
+                                           struct halAsyncDmaWqeOutputPara *out);
 
 /**
  * @ingroup driver
@@ -4922,7 +5076,7 @@ drvError_t halAsyncDmaWqeConvert(uint32_t devId, struct halAsyncDmaWqeInputPara 
  * @param [in]  para: see struct halAsyncDmaJettyFillInfo
  * @return   0 for success, others for fail
  */
-drvError_t halAsyncDmaJettyWqeFill(uint32_t devId, struct halAsyncDmaJettyFillInfo *para);
+DLLEXPORT drvError_t halAsyncDmaJettyWqeFill(uint32_t devId, struct halAsyncDmaJettyFillInfo *para);
 
 /**
  * @ingroup driver
@@ -5012,7 +5166,7 @@ DLLEXPORT drvError_t halEschedQueryInfo(unsigned int devId, ESCHED_QUERY_TYPE ty
  * @param [in] devId: logic devid
  * @param [in] grpId: group id
  * @param [in] eventId: event id
- * @param [in] maxNum: max event num
+ * @param [in] qos: event schedule group qos info, maxNum in qos means max event num
  * @return   0 for success, others for fail
  */
 DLLEXPORT drvError_t halEschedSetGrpEventQos(unsigned int devId, unsigned int grpId, EVENT_ID eventId,
@@ -5222,7 +5376,7 @@ DLLEXPORT drvError_t halEschedTableQueryEntryStat(unsigned int devId, unsigned i
  * @param [in] subPara: subscribe event structure
  * @return   0 for success, DRV_ERROR_REPEATED_SUBSCRIBED for Repeating subscription, others for fail
  */
-drvError_t halQueueSubEvent(struct QueueSubPara *subPara);
+DLLEXPORT drvError_t halQueueSubEvent(struct QueueSubPara *subPara);
 
 /**
  * @ingroup driver
@@ -5231,7 +5385,7 @@ drvError_t halQueueSubEvent(struct QueueSubPara *subPara);
  * @param [in] unsubPara: unsubscribe event structure
  * @return   0 for success, others for fail
  */
-drvError_t halQueueUnsubEvent(struct QueueUnsubPara *unsubPara);
+DLLEXPORT drvError_t halQueueUnsubEvent(struct QueueUnsubPara *unsubPara);
 
 /**
  * @ingroup driver
@@ -5351,6 +5505,7 @@ DLLEXPORT drvError_t halQueueGetQidbyName(unsigned int devId, const char *name, 
  * @ingroup driver
  * @Pause or recover Enqueue event in same queue-group
  * @param [in] struct QueueSubscriber subscriber: info of pause event subscriber
+ * @param [in] cmdType: QUE_EVENT_CMD command type
  * @return   0 for success, others for fail
  */
 DLLEXPORT drvError_t halQueueCtrlEvent(struct QueueSubscriber *subscriber, QUE_EVENT_CMD cmdType) ASCEND_HAL_WEAK;
@@ -5556,7 +5711,7 @@ DLLEXPORT drvError_t halQueueGetDqsQueInfo(unsigned int devId, unsigned int qid,
  * @return  0 for success, others for fail
  * @return  0xfffe means not supported
  */
-drvError_t halNotifyGetInfo(uint32_t devId, uint32_t tsId, uint32_t type, uint32_t *val);
+DLLEXPORT drvError_t halNotifyGetInfo(uint32_t devId, uint32_t tsId, uint32_t type, uint32_t *val);
 
 /**
  * @ingroup driver
@@ -5674,7 +5829,7 @@ DLLEXPORT drvError_t halGetDevIDsEx(uint32_t hw_type, uint32_t *devices, uint32_
  * @brief Support calling on device and host sides. Currently, not supported called in split mode.
  * If filter->filter_flag set to 0, it means do not filter events and get all events.
  * @attention If len equal to eventCount, some events may have been abandoned.
- * @param [in]  devId the device id
+ * @param [in]  devId the device id, not support -1
  * @param [in]  filter  Filter conditions
  * filter->filter_flag; bit0: event_id; bit1: severity; bit2: node_type; bit3: current tgid
  * @param [in]  len  the number of eventInfo
@@ -5684,6 +5839,22 @@ DLLEXPORT drvError_t halGetDevIDsEx(uint32_t hw_type, uint32_t *devices, uint32_
  */
 DLLEXPORT drvError_t halGetFaultEvent(uint32_t devId, struct halEventFilter *filter,
                                       struct halFaultEventInfo *eventInfo, uint32_t len, uint32_t *eventCount);
+
+/**
+ * @ingroup driver
+ * @brief Support calling on host sides. Currently, not supported called in split mode.
+ * If filter->filter_flag set to 0, it means do not filter events and get all events.
+ * @attention If len equal to eventCount, some events may have been abandoned.
+ * @param [in]  devId the device id, not support -1
+ * @param [in]  filter  Filter conditions
+ * filter->filter_flag; bit0: event_id; bit1: severity; bit2: node_type; bit3: current tgid
+ * @param [in]  len  the number of eventInfo
+ * @param [out] eventInfo  Notify event information
+ * @param [out] eventCount  Number of events obtained. Max 128
+ * @return   0 for success, others for fail
+ */
+DLLEXPORT drvError_t halGetNotifyEvent(uint32_t devId, struct halEventFilter *filter,
+                                       struct halFaultEventInfo *eventInfo, uint32_t len, uint32_t *eventCount);
 
 /**
  * @ingroup driver
@@ -5882,8 +6053,8 @@ DLLEXPORT DV_ONLINE drvError_t halResUnmap(unsigned int devId, struct res_map_in
 
 /**
  * @ingroup driver
- * @brief read or write value to resource reg
- * @attention null
+ * @brief read value from resource reg
+ * @attention In the host scenario, len must not exceed EVENT_PROC_RSP_LEN bytes.
  * @param [in]  dev_id  : device physical id
  * @param [in]  res_info: see struct res_map_info
  * @param [out] data : read value
@@ -5895,8 +6066,8 @@ DLLEXPORT DV_ONLINE drvError_t halResRead(unsigned int dev_id, struct res_map_in
 
 /**
  * @ingroup driver
- * @brief read or write value to resource reg
- * @attention null
+ * @brief write value to resource reg
+ * @attention In the host scenario, len must not exceed 8 bytes.
  * @param [in]  dev_id  : device physical id
  * @param [in]  res_info: see struct res_map_info
  * @param [in]  data : write value
@@ -5978,10 +6149,10 @@ enum soma_mem_pool_attr {
  * @brief create memory pool
  * @attention null
  * @param [in]  pool: pool info
- * @param [in]  prop: pool prop
+ * @param [in, out]  prop: pool prop
  * @return   0 for success, others for fail
  */
-DLLEXPORT drvError_t halMemPoolCreate(soma_mem_pool_t pool, soma_mem_pool_prop prop);
+DLLEXPORT drvError_t halMemPoolCreate(soma_mem_pool_t pool, soma_mem_pool_prop *prop);
 
 /**
  * @ingroup driver
@@ -6061,6 +6232,7 @@ DLLEXPORT drvError_t halMemPoolSetAttr(soma_mem_pool_t pool, enum soma_mem_pool_
  * @return   0 for success, others for fail
  */
 DLLEXPORT drvError_t halMemPoolGetAttr(soma_mem_pool_t pool, enum soma_mem_pool_attr attr, void *value);
+
 #ifdef __cplusplus
 }
 #endif

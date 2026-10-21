@@ -53,6 +53,11 @@ static int trs_chan_ops_stars_ops_get_valid_cq_list(struct trs_stars_cqint *cqin
             if (trs_stars_test_bit(l2_bit, l2_status) == 0) {
                 continue;
             }
+
+            if (cq_num >= num) {
+                *valid_num = cq_num;
+                return 0;
+            }
             cqid[cq_num] = cqint->group * per_grp_cq_num + mid_bit * TRS_STARS_CQINT_L2_STATUS_WIDTH + l2_bit;
             trs_debug("Clear irq group %u mid_status %u l2_status %u cqid %u\n", cqint->group, mid_status, l2_status,
                       cqid[cq_num]);

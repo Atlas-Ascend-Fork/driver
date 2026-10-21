@@ -102,8 +102,7 @@ typedef struct dmp_matrix_proc_info_stru {
     char command[MAX_COMMAND_LEN];
 } DMP_MATRIX_PORC_INFO_S;
 
-int dm_get_device_flash_info(unsigned int dev_id, unsigned int flash_index,
-                             struct dm_flash_info_stru *pflash_info);
+int dm_get_device_flash_info(unsigned int dev_id, unsigned int flash_index, struct dm_flash_info_stru *pflash_info);
 int dm_get_ecc_statistics(unsigned char dev_type, unsigned char error_type, unsigned int *ecc_count);
 int dm_ecc_config_enable(unsigned char device_type, unsigned char value);
 int dm_ecc_get_enable(unsigned char device_type, unsigned char *value);

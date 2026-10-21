@@ -351,6 +351,7 @@ static inline u32 svm_flag_to_normal_flag(u64 flag, u32 numa_id)
     normal_flag |= svm_flag_attr_is_gpage(flag) ? SVM_NORMAL_MALLOC_FLAG_PA_GPAGE : 0;
     normal_flag |= svm_flag_attr_is_p2p(flag) ? SVM_NORMAL_MALLOC_FLAG_PA_P2P : 0;
     normal_flag |= svm_flag_is_dev_cp_only(flag) ? SVM_NORMAL_MALLOC_FLAG_DEV_CP_ONLY : 0;
+    normal_flag |= svm_flag_is_dev_private(flag) ? SVM_NORMAL_MALLOC_FLAG_DEV_PRIVATE : 0;
     normal_flag |= svm_flag_attr_is_specified_va(flag) ? SVM_NORMAL_MALLOC_FLAG_SPACIFIED_VA : 0;
     normal_flag |= svm_flag_attr_is_va_without_master(flag) ? 0 : SVM_NORMAL_MALLOC_FLAG_VA_WITH_MASTER;
     normal_flag |= svm_flag_attr_is_master_uva(flag) ? SVM_NORMAL_MALLOC_FLAG_MASTER_UVA : 0;
@@ -460,7 +461,7 @@ static int free_normal(u32 devid, u64 flag, u64 align, u64 start, u64 size)
 
     ret = svm_normal_free(devid_ex, normal_flag, align, start, size);
     if ((ret != DRV_ERROR_NONE) && (ret != DRV_ERROR_BUSY)) {
-        svm_err("Normal mem can not free. (devid=%u; normal_flag=%u; start=0x%llx; size=%llu; ret=%u)\n", devid_ex,
+        svm_err("Normal mem can not be freed. (devid=%u; normal_flag=%u; start=0x%llx; size=%llu; ret=%u)\n", devid_ex,
                 normal_flag, start, size, ret);
     }
 
@@ -488,6 +489,19 @@ static int get_aligned_size(u32 devid, u64 flag, u64 align, u64 size, u64 *align
     return DRV_ERROR_NONE;
 }
 
+static u64 svm_get_master_uva_aligned_size(u32 devid, u64 size, u64 align, u64 flag)
+{
+    u64 align_size = 0;
+
+    if (svm_flag_cap_is_support_vmm_va_free(flag)) { /* vmm devid is invalid, use vmm align */
+        align_size = align;
+    } else {
+        (void)svm_dbi_query_hpage_size(devid, &align_size);
+    }
+
+    return svm_align_up(size, align_size);
+}
+
 /* size: in alloc size, out actual alloced size by page align */
 static int _svm_malloc(u64 *start, u64 *size, u64 align, u64 flag, struct svm_malloc_location *location,
                        bool *is_from_cache)
@@ -507,6 +521,10 @@ static int _svm_malloc(u64 *start, u64 *size, u64 align, u64 flag, struct svm_ma
     if (go_cache) {
         ret = malloc_cache(devid, flag, align, aligned_size, start);
     } else {
+        /* Host uva need 2M aligned size to mpl. */
+        aligned_size = svm_flag_attr_is_master_uva(flag) ?
+                           svm_get_master_uva_aligned_size(devid, aligned_size, align, flag) :
+                           aligned_size;
         ret = malloc_normal(devid, numa_id, flag, align, aligned_size, start);
     }
     if (ret == DRV_ERROR_NONE) {
@@ -526,7 +544,7 @@ static int _svm_free(u32 devid, u64 flag, u64 align, u64 start, u64 size, bool i
     }
 }
 
-static int svm_get_dev_tgid(u32 devid, int *tgid)
+int svm_get_dev_tgid(u32 devid, int *tgid)
 {
     if (devid == svm_get_host_devid()) {
         *tgid = (int)drvDeviceGetBareTgid();
@@ -742,7 +760,7 @@ int svm_recycle_mem_by_dev(u32 devid)
     pthread_rwlock_unlock(&mng.rwlock);
 
     if (recyle_num > 0) {
-        svm_info("Recycle success. (devid=%u; recycle_num=%u)\n", devid, recyle_num);
+        svm_info("Recycle success. (devid=%u; recyle_num=%u)\n", devid, recyle_num);
     }
 
     return ret;
@@ -771,6 +789,10 @@ static u32 svm_show_handle(handle_t *handle, int id, char *buf, u32 buf_len)
     } else {
         int len;
         u32 priv_format_len;
+
+        if (buf_len == 0) {
+            return 0;
+        }
 
         len = snprintf_s(buf, buf_len, buf_len - 1,
                          "id %d: ref %u task_bitmap 0x%x devid %u start 0x%llx size 0x%llx "
@@ -879,7 +901,7 @@ int svm_get_nearby_prop(u64 va, struct svm_prop *left_prop, bool *has_left, stru
 
         if (handle_is_match_state(left_handle, HANDLE_STATE_INITED)) {
             ret = handle_get_prop(left_handle, left_handle->prop.start, left_prop);
-            if (ret == DRV_ERROR_NONE) {
+            if (ret == DRV_ERROR_NONE && left_prop->devid != SVM_INVALID_DEVID) {
                 *has_left = true;
                 break;
             }
@@ -892,7 +914,7 @@ int svm_get_nearby_prop(u64 va, struct svm_prop *left_prop, bool *has_left, stru
 
         if (handle_is_match_state(right_handle, HANDLE_STATE_INITED)) {
             ret = handle_get_prop(right_handle, right_handle->prop.start, right_prop);
-            if (ret == DRV_ERROR_NONE) {
+            if (ret == DRV_ERROR_NONE && right_prop->devid != SVM_INVALID_DEVID) {
                 *has_right = true;
                 break;
             }
@@ -902,6 +924,11 @@ int svm_get_nearby_prop(u64 va, struct svm_prop *left_prop, bool *has_left, stru
     pthread_rwlock_unlock(&mng.rwlock);
 
     return DRV_ERROR_NONE;
+}
+
+void svm_add_prop_flag(void *handle, u64 flag)
+{
+    ((handle_t *)handle)->prop.flag |= flag;
 }
 
 void svm_mod_prop_flag(void *handle, u64 flag)
@@ -976,30 +1003,6 @@ void svm_set_priv_ops(void *handle, struct svm_priv_ops *priv_ops)
 void *svm_get_priv(void *handle)
 {
     return handle_get_priv((handle_t *)handle);
-}
-
-static int svm_handle_recover_va(void *va_handle, u64 start, struct svm_prop *prop, void *priv)
-{
-    u32 normal_flag = svm_flag_to_normal_flag(prop->flag, SVM_MALLOC_NUMA_NO_NODE) | SVM_NORMAL_MALLOC_FLAG_VA_ONLY |
-                      SVM_NORMAL_MALLOC_FLAG_SPACIFIED_VA;
-    handle_t *handle = va_handle;
-    u32 devid = *(u32 *)priv;
-
-    if ((prop->devid != svm_get_host_devid()) && (devid == prop->devid)) {
-        int ret = svm_normal_malloc(devid, normal_flag, handle->align, &start, prop->aligned_size);
-        if (ret != 0) {
-            svm_warn("Recover handle va failed. (devid=%u; start=0x%llx; size=%llu)\n", devid, start, prop->size);
-        }
-    }
-    return 0;
-}
-
-static int svm_malloc_mng_dev_init(u32 devid)
-{
-    if (!svm_criu_is_device_reopen(devid)) {
-        (void)svm_for_each_handle(svm_handle_recover_va, &devid);
-    }
-    return 0;
 }
 
 int svm_malloc_mng_criu_reset(u32 devid, void *data)
@@ -1084,11 +1087,6 @@ static const struct svm_criu_ops g_malloc_mng_criu_ops = {
 void __attribute__((constructor(SVM_INIT_PRI_FINAL - 2))) svm_mng_init(void)
 {
     int ret;
-
-    ret = svm_register_ioctl_dev_init_post_handle(svm_malloc_mng_dev_init);
-    if (ret != DRV_ERROR_NONE) {
-        svm_err("Register ioctl dev init post handle failed. \n");
-    }
 
     ret = svm_criu_register_ops(&g_malloc_mng_criu_ops);
     if (ret != DRV_ERROR_NONE) {

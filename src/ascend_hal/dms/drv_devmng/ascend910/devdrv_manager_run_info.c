@@ -261,14 +261,14 @@ drvError_t drvCheckDevid(unsigned int devId)
 {
     int ret;
     unsigned int num_dev = 0, i;
-    unsigned int devids[ASCEND_PDEV_MAX_NUM];
+    unsigned int devids[DEVDRV_PF_DEV_MAX_NUM];
 
-    if (devId >= ASCEND_PDEV_MAX_NUM) {
+    if (devId >= DEVDRV_PF_DEV_MAX_NUM) {
         return devdrv_check_vdevid(devId);
     }
 
     ret = drvGetDevNum(&num_dev);
-    if (ret != 0 || num_dev > ASCEND_PDEV_MAX_NUM) {
+    if (ret != 0 || num_dev > DEVDRV_PF_DEV_MAX_NUM) {
         DEVDRV_DRV_ERR("Get device num failed. (num_dev=%u; ret=%d)\n", num_dev, ret);
         return ret;
     }
@@ -310,7 +310,7 @@ drvError_t drv_get_container_dev_ids(uint32_t *devices, uint32_t len, uint32_t *
     }
 
     if (dev_info.num_dev > ASCEND_DEV_MAX_NUM) {
-        DEVDRV_DRV_ERR("wrong num_dev(%u)\n", dev_info.num_dev);
+        DEVDRV_DRV_ERR("wrong num_dev(%u) exceeds max(%u)\n", dev_info.num_dev, ASCEND_DEV_MAX_NUM);
         return DRV_ERROR_INVALID_DEVICE;
     }
 
@@ -352,7 +352,7 @@ drvError_t drv_get_h2d_dev_info(uint32_t devId, struct devdrv_device_info *info)
     urd_usr_cmd_fill(&cmd, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_H2D_DEV_INFO, NULL, 0);
     urd_usr_cmd_para_fill(&cmd_para, (void *)&devId, sizeof(uint32_t), (void *)&dev_info,
                           sizeof(struct devdrv_manager_hccl_devinfo));
-    ret = urd_dev_usr_cmd(devId, &cmd, &cmd_para);
+    ret = urd_dev_usr_cmd_ex(devId, DMS_GET_H2D_DEV_INFO, &cmd, &cmd_para);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Ioctl failed. (ret=%d; devId=%u)\n", ret, devId);
         return ret;
@@ -376,6 +376,7 @@ drvError_t drv_get_h2d_dev_info(uint32_t devId, struct devdrv_device_info *info)
     info->ts_num = dev_info.ts_num;
     info->cpu_system_count = dev_info.cpu_system_count;
     info->monotonic_raw_time_ns = dev_info.monotonic_raw_time_ns;
+    info->real_time_ms = dev_info.real_time_ms;
     info->ffts_type = dev_info.ffts_type;
     for (i = 0; i < DEVDRV_MAX_COMPUTING_POWER_TYPE; i++) {
         info->computing_power[i] = dev_info.computing_power[i];
@@ -481,12 +482,15 @@ drvError_t drv_get_system_info(uint32_t devId, int32_t info_type, int64_t *value
 
         case INFO_TYPE_SYS_COUNT:
         case INFO_TYPE_MONOTONIC_RAW:
+        case INFO_TYPE_REAL_TIME:
             ret = drv_get_h2d_dev_info(devId, &info);
             if (ret != 0) {
                 DEVDRV_DRV_ERR("drvGetDevInfo failed. (dev_id=%u; ret=%d)\n", devId, ret);
                 return ret;
             }
-            *value = (int64_t)(info_type == INFO_TYPE_SYS_COUNT ? info.cpu_system_count : info.monotonic_raw_time_ns);
+            *value = (int64_t)(info_type == INFO_TYPE_SYS_COUNT     ? info.cpu_system_count :
+                               info_type == INFO_TYPE_MONOTONIC_RAW ? info.monotonic_raw_time_ns :
+                                                                      info.real_time_ms);
             break;
 
         case INFO_TYPE_HOST_OSC_FREQUE:
@@ -530,7 +534,7 @@ drvError_t drv_get_system_info(uint32_t devId, int32_t info_type, int64_t *value
 #ifdef DRV_HOST
             ret = drvGetHostPhyMachFlag(devId, &tmp);
             if (ret != 0) {
-                DEVDRV_DRV_ERR("Get host physical machine flag fail. (dev_id=%u; ret=%d).\n", devId, ret);
+                DEVDRV_DRV_ERR("Get host physical machine flag failed. (dev_id=%u; ret=%d).\n", devId, ret);
                 return ret;
             }
 
@@ -594,7 +598,7 @@ drvError_t drv_get_system_info(uint32_t devId, int32_t info_type, int64_t *value
 #ifdef DRV_HOST
             ret = dms_get_basic_info_host(devId, &tmp, DMS_SUBCMD_GET_SLOT_ID_HOST, sizeof(unsigned int));
 #else
-            ret = DmsGetSlotId(devId, &tmp);
+            ret = (int)DmsGetSlotId(devId, &tmp);
 #endif
             if (ret != 0) {
                 DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get slot id. (dev_id=%u; ret=%d)\n", devId, ret);
@@ -603,7 +607,7 @@ drvError_t drv_get_system_info(uint32_t devId, int32_t info_type, int64_t *value
             *value = tmp;
             break;
         case INFO_TYPE_SWPLUGIN_UPGRADE_POLICY:
-            ret = DmsGetSWPluginUpgrade(devId, &tmp);
+            ret = (int)DmsGetSWPluginUpgrade(devId, &tmp);
             if (ret != 0) {
                 DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get swplugin upgrade policy. (dev_id=%u; ret=%d)\n", devId,
                                              ret);
@@ -1007,7 +1011,7 @@ drvError_t drv_get_qos_info(uint32_t devId, int32_t info_type, void *buf, unsign
 
 #ifdef CFG_FEATURE_GET_QOS_MASTER_CFG
         case INFO_TYPE_QOS_MASTER_CONFIG:
-            ret = DmsHalGetDeviceInfoEx(devId, MODULE_TYPE_QOS, info_type, buf, size);
+            ret = (int)DmsHalGetDeviceInfoEx(devId, MODULE_TYPE_QOS, info_type, buf, size);
             if (ret != 0) {
                 DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get master qos config. (dev_id=%u; ret=%d)\n", devId, ret);
                 return ret;

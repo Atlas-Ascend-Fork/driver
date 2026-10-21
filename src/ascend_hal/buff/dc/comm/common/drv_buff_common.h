@@ -125,6 +125,7 @@ typedef unsigned long long uint64;
 #define BUFF_GRP_ID_MIN 1
 
 #define ULONG_MAX 0xffffffffffffffff
+#define ULLONG_MAX 0xffffffffffffffff
 
 enum buff_inner_list_type {
     MEMZONE_LIST = 0,

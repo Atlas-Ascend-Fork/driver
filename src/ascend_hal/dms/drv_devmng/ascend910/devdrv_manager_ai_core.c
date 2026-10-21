@@ -15,9 +15,11 @@
 #include "devdrv_user_common.h"
 #include "dms/dms_drv_internal.h"
 #include "dms/dms_misc_interface.h"
+#include "dms/dms_devdrv_info_comm.h"
 #include "devdrv_manager_chip.h"
 #include "devdrv_manager_ai_core.h"
 #include "devdrv_manager_run_info.h"
+#include "ascend_inpackage_hal.h"
 #include "udis_user.h"
 
 #ifdef STATIC_SKIP
@@ -78,14 +80,12 @@ drvError_t drv_get_ai_cpu_info(uint32_t devId, int32_t info_type, int64_t *value
     struct tagDrvCpuInfo cpu_info = {0};
     struct devdrv_core_utilization aicpu_util = {0};
 
-    if ((info_type == INFO_TYPE_CORE_NUM) || (info_type == INFO_TYPE_PF_CORE_NUM) ||
-        (info_type == INFO_TYPE_OCCUPY) || (info_type == INFO_TYPE_PF_OCCUPY) ||
-        (info_type == INFO_TYPE_ID)) {
+    if ((info_type == INFO_TYPE_CORE_NUM) || (info_type == INFO_TYPE_PF_CORE_NUM) || (info_type == INFO_TYPE_OCCUPY) ||
+        (info_type == INFO_TYPE_PF_OCCUPY) || (info_type == INFO_TYPE_ID)) {
         ret = drv_get_ai_cpu_num_and_bitmap(devId, info_type, value);
         if (ret != 0) {
-            DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret,
-                "Get aicpu number or bitmap failed. (dev_id=%u; info_type=%d; ret=%d)\n",
-                devId, info_type, ret);
+            DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Get aicpu number or bitmap failed. (dev_id=%u; info_type=%d; ret=%d)\n",
+                                         devId, info_type, ret);
             return ret;
         }
     } else if (info_type == INFO_TYPE_OS_SCHED) {
@@ -251,8 +251,8 @@ drvError_t drvGetAiCoreInfo(uint32_t devId, int32_t info_type, int64_t *value)
             aicore_util.core_type = DEV_DRV_TYPE_AICORE;
             ret = drv_get_core_utilization(devId, &aicore_util);
             if (ret != 0) {
-                DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get aicore utilization. (dev_id=%u; ret=%d)\n",
-                    devId, ret);
+                DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get aicore utilization. (dev_id=%u; ret=%d)\n", devId,
+                                             ret);
                 return ret;
             }
             *value = (int64_t)aicore_util.utilization;
@@ -334,8 +334,8 @@ drvError_t drv_get_vector_core_info(uint32_t devId, int32_t info_type, int64_t *
             aivector_util.core_type = DEV_DRV_TYPE_AIVECTOR;
             ret = drv_get_core_utilization(devId, &aivector_util);
             if (ret != 0) {
-                DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get aivector utilization. (dev_id=%u; ret=%d)\n",
-                    devId, ret);
+                DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get aivector utilization. (dev_id=%u; ret=%d)\n", devId,
+                                             ret);
                 return ret;
             }
             *value = (int64_t)aivector_util.utilization;
@@ -351,7 +351,7 @@ drvError_t drv_get_vector_core_info(uint32_t devId, int32_t info_type, int64_t *
 #endif
             *value = dev_info.vector_core_freq;
             break;
-        default :
+        default:
             DEVDRV_DRV_INFO("This version does not support this type. (Type=%d)\n", info_type);
             ret = DRV_ERROR_INVALID_VALUE;
             return ret;
@@ -386,7 +386,9 @@ drvError_t drv_get_ts_cpu_info(uint32_t devId, int32_t info_type, int64_t *value
             DEVDRV_DRV_ERR("FFTS drv_get_h2d_dev_info failed ret = %d.\n", ret);
             return ret;
         }
-        if (PLAT_GET_CHIP(dev_info.hardware_version) == CHIP_CLOUD_V4) {
+        if ((PLAT_GET_CHIP(dev_info.hardware_version) == CHIP_CLOUD_V4) ||
+            (PLAT_GET_CHIP(dev_info.hardware_version) == CHIP_CLOUD_V5) ||
+            (PLAT_GET_CHIP(dev_info.hardware_version) == CHIP_MINI_V4)) {
             return DRV_ERROR_NOT_SUPPORT;
         }
         *value = dev_info.ffts_type;
@@ -410,8 +412,7 @@ drvError_t drv_get_device_computing_power(uint32_t devId, int32_t info_type, int
 
     ret = drv_get_h2d_dev_info(devId, &dev_info);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("Get device info failed. (ret=%d; dev=%u; info_type=%d)\n",
-                       ret, devId, info_type);
+        DEVDRV_DRV_ERR("Get device info failed. (ret=%d; dev=%u; info_type=%d)\n", ret, devId, info_type);
         return ret;
     }
 
@@ -442,8 +443,8 @@ drvError_t drv_get_host_aicpu_info(uint32_t devId, int32_t info_type, int64_t *v
     } else if (info_type == INFO_TYPE_FREQUE) {
         *value = (int64_t)info.frequency;
     } else if (info_type == INFO_TYPE_OCCUPY) {
-        ret = memcpy_s(value, sizeof(unsigned long long) * DSMI_HOST_AICPU_BITMAP_LEN,
-            info.bitmap, sizeof(unsigned long long) * DSMI_HOST_AICPU_BITMAP_LEN);
+        ret = memcpy_s(value, sizeof(unsigned long long) * DSMI_HOST_AICPU_BITMAP_LEN, info.bitmap,
+                       sizeof(unsigned long long) * DSMI_HOST_AICPU_BITMAP_LEN);
         if (ret != 0) {
             DEVDRV_DRV_ERR("Failed to copy the memory. (dev_id=%u; ret=%d)\n", devId, ret);
             return ret;
@@ -482,7 +483,7 @@ drvError_t drv_get_ai_core_info_by_buff(uint32_t devId, int32_t info_type, void 
     int ret = DRV_ERROR_NONE;
 #ifdef CFG_FEATURE_QUERY_AICORE_BITMAP
     struct devdrv_device_info dev_info = {0};
-    #define AICORE_BITMAP_BUF_SIZE (sizeof(unsigned long long) * 2)  /* 2 * 64 bit, max 128 bit */
+#define AICORE_BITMAP_BUF_SIZE (sizeof(unsigned long long) * 2) /* 2 * 64 bit, max 128 bit */
 #endif
 
     switch (info_type) {
@@ -490,9 +491,9 @@ drvError_t drv_get_ai_core_info_by_buff(uint32_t devId, int32_t info_type, void 
         case INFO_TYPE_CURRENT_FREQ:
             ret = dms_lpm_get_ai_core_curr_freq(devId, buf, size);
             if (ret != 0) {
-                DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret,
-                    "drv_get_ai_core_info_by_buff unsuccessful. (dev_id=%u; ret=%d; infoType=%d).\n",
-                    devId, ret, info_type);
+                DEVDRV_DRV_EX_NOTSUPPORT_ERR(
+                    ret, "drv_get_ai_core_info_by_buff unsuccessful. (dev_id=%u; ret=%d; infoType=%d).\n", devId, ret,
+                    info_type);
                 return ret;
             }
 
@@ -508,8 +509,8 @@ drvError_t drv_get_ai_core_info_by_buff(uint32_t devId, int32_t info_type, void 
 
             ret = memcpy_s(buf, *size, &dev_info.aicore_bitmap[0], AICORE_BITMAP_BUF_SIZE);
             if (ret != 0) {
-                DEVDRV_DRV_ERR("Copy aicore bitmap failed. (dev_id=%u; ret=%d; src_size=%u; dst_size=%u)\n",
-                    devId, ret, AICORE_BITMAP_BUF_SIZE, *size);
+                DEVDRV_DRV_ERR("Copy aicore bitmap failed. (dev_id=%u; ret=%d; src_size=%u; dst_size=%u)\n", devId, ret,
+                               AICORE_BITMAP_BUF_SIZE, *size);
                 return DRV_ERROR_INVALID_VALUE;
             }
 
@@ -555,11 +556,13 @@ STATIC int dms_cal_core_avg_util(unsigned char *core, unsigned int core_num, uns
         if (core[i] == 0xEF) { /* 0xEF: means conflict with profiling */
             *utilization = 0xEF;
             return 0;
-        } else if (core[i] == 0xEE || core[i] > 100) { /* 0xEE: means the damaged core; 100: utilization can never over 100% */
+        } else if (core[i] == 0xEE ||
+                   core[i] > 100) { /* 0xEE: means the damaged core; 100: utilization can never over 100% */
             continue;
+        } else {
+            total_rate += (unsigned int)core[i];
+            valid_num++;
         }
-        total_rate += (unsigned int)core[i];
-        valid_num++;
     }
     if (valid_num != 0) {
         *utilization = (unsigned int)(total_rate / valid_num);
@@ -578,11 +581,12 @@ STATIC int dms_cal_core_max_util(unsigned char *core, unsigned int core_num, uns
         if (core[i] == 0xEF) { /* 0xEF: means conflict with profiling */
             *utilization = 0xEF;
             return 0;
-        } else if (core[i] == 0xEE || core[i] > 100) { /* 0xEE: means the damaged core; 100: utilization can never over 100% */
+        } else if (core[i] == 0xEE ||
+                   core[i] > 100) { /* 0xEE: means the damaged core; 100: utilization can never over 100% */
             continue;
-        }
-        if ((unsigned int)core[i] > *utilization) {
+        } else if ((unsigned int)core[i] > *utilization) {
             *utilization = (unsigned int)core[i];
+        } else {
         }
     }
 
@@ -603,26 +607,27 @@ STATIC int dms_get_core_bitmap_by_name(unsigned int dev_id, const char *name, un
     if (strcmp(name, "aic_util") == 0) {
         ret = memcpy_s(bitmap, sizeof(dev_info.aicore_bitmap), dev_info.aicore_bitmap, sizeof(dev_info.aicore_bitmap));
     } else if (strcmp(name, "aiv_util") == 0) {
-        ret = memcpy_s(bitmap, sizeof(dev_info.vector_core_bitmap), dev_info.vector_core_bitmap, sizeof(dev_info.vector_core_bitmap));
+        ret = memcpy_s(bitmap, sizeof(dev_info.vector_core_bitmap), dev_info.vector_core_bitmap,
+                       sizeof(dev_info.vector_core_bitmap));
     } else {
         return DRV_ERROR_PARA_ERROR;
     }
 
     if (ret != 0) {
-        DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy bitmap. (dev_id=%d; name=%s; ret=%d)\n",
-            dev_id, name, ret);
+        DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy bitmap. (dev_id=%d; name=%s; ret=%d)\n", dev_id, name, ret);
         return DRV_ERROR_INVALID_VALUE;
     }
 
     return 0;
 }
 
-STATIC int dms_trans_core_util_2_buf(unsigned int dev_id, struct udis_core_util_info *core_util, void *buf, unsigned int *size)
+STATIC int dms_trans_core_util_2_buf(unsigned int dev_id, struct udis_core_util_info *core_util, void *buf,
+                                     unsigned int *size)
 {
     int ret = 0;
     if (*size < core_util->core_num) {
-        DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n",
-            dev_id, *size, core_util->core_num);
+        DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n", dev_id, *size,
+                       core_util->core_num);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -633,8 +638,7 @@ STATIC int dms_trans_core_util_2_buf(unsigned int dev_id, struct udis_core_util_
 
     ret = memcpy_s(buf, *size, core_util->core, core_util->core_num);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy core_util. (dev_id=%d; ret=%d)\n",
-            dev_id, ret);
+        DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy core_util. (dev_id=%d; ret=%d)\n", dev_id, ret);
         return DRV_ERROR_INVALID_HANDLE;
     }
 
@@ -644,14 +648,15 @@ STATIC int dms_trans_core_util_2_buf(unsigned int dev_id, struct udis_core_util_
 STATIC int dms_filter_core_by_bitmap(unsigned int dev_id, struct udis_dev_info *info, void *buf, unsigned int *size)
 {
     int ret = 0;
-    unsigned int i, phy_id;
+    unsigned int i, phy_id, hostflag;
     unsigned long long core_bitmap[2];
     struct udis_core_util_info origin_core_util = {0};
     struct udis_core_util_info filter_core_util = {0};
 
     ret = memcpy_s(&origin_core_util, sizeof(origin_core_util), info->data, info->data_len);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy origin_core_util. (dev_id=%d; module_type=%u; name=%s; ret=%d)\n",
+        DEVDRV_DRV_ERR(
+            "Failed to invoke memcpy_s to copy origin_core_util. (dev_id=%d; module_type=%u; name=%s; ret=%d)\n",
             dev_id, info->module_type, info->name, ret);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -662,10 +667,17 @@ STATIC int dms_filter_core_by_bitmap(unsigned int dev_id, struct udis_dev_info *
         return ret;
     }
 
-    if (phy_id < ASCEND_VDEV_ID_START) { /* If is pf, no need to filter */
+    ret = drvGetHostPhyMachFlag(dev_id, &hostflag);
+    if (ret != 0) {
+        DEVDRV_DRV_ERR("Get hostflag failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
+        return ret;
+    }
+
+    if ((phy_id < ASCEND_VDEV_ID_START) &&
+        (hostflag != DEVDRV_HOST_VM_MACH_FLAG)) { /* If not in VM split, it is pf, no need to filter */
         return dms_trans_core_util_2_buf(dev_id, &origin_core_util, buf, size);
     }
- 
+
     ret = dms_get_core_bitmap_by_name(dev_id, info->name, core_bitmap);
     if (ret != 0) {
         return ret;
@@ -673,7 +685,8 @@ STATIC int dms_filter_core_by_bitmap(unsigned int dev_id, struct udis_dev_info *
 
     filter_core_util.core_num = 0;
     for (i = 0; i < origin_core_util.core_num; i++) {
-        if (((core_bitmap[i / 64] >> (i % 64)) & 1) == 0) { /* Support max 128 bits, needs to use core_bitmap[1] if the index exceeds 64. */
+        /* Support max 128 bits, needs to use core_bitmap[1] if the index exceeds 64. */
+        if (((core_bitmap[i / 64] >> (i % 64)) & 1) == 0) {
             continue;
         }
         filter_core_util.core[filter_core_util.core_num] = origin_core_util.core[i];
@@ -689,23 +702,23 @@ int dms_get_ts_info_from_udis(unsigned int dev_id, const char *name, void *buf, 
     struct udis_dev_info info = {0};
 
     if (buf == NULL || size == NULL) {
-        DEVDRV_DRV_ERR("Invalid parameter. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n",
-            dev_id, (buf == NULL), (size == NULL));
+        DEVDRV_DRV_ERR("Invalid parameter. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n", dev_id, (buf == NULL),
+                       (size == NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 
     info.module_type = UDIS_MODULE_TS;
     ret = strcpy_s(info.name, UDIS_MAX_NAME_LEN, name);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("Failed to invoke strcpy_s to copy info name. (dev_id=%d; name=%s; ret=%d)\n",
-            dev_id, name, ret);
+        DEVDRV_DRV_ERR("Failed to invoke strcpy_s to copy info name. (dev_id=%d; name=%s; ret=%d)\n", dev_id, name,
+                       ret);
         return DRV_ERROR_PARA_ERROR;
     }
 
-    ret = udis_get_device_info(dev_id, &info);
+    ret = halUdisGetDeviceInfo(dev_id, &info);
     if (ret != 0) {
         DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get udis info. (dev_id=%d; module_type=%u; name=%s; ret=%d)\n",
-            dev_id, info.module_type, info.name, ret);
+                                     dev_id, info.module_type, info.name, ret);
         return ret;
     }
 
@@ -714,17 +727,17 @@ int dms_get_ts_info_from_udis(unsigned int dev_id, const char *name, void *buf, 
     }
 
     if (*size < info.data_len) {
-        DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n",
-            dev_id, *size, info.data_len);
+        DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n", dev_id, *size,
+                       info.data_len);
         return DRV_ERROR_PARA_ERROR;
     }
 
     *size = info.data_len;
     ret = memcpy_s(buf, *size, info.data, info.data_len);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy data. (dev_id=%d; module_type=%u; name=%s; ret=%d)\n",
-            dev_id, info.module_type, info.name, ret);
-        return DRV_ERROR_INVALID_HANDLE; 
+        DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy data. (dev_id=%d; module_type=%u; name=%s; ret=%d)\n", dev_id,
+                       info.module_type, info.name, ret);
+        return DRV_ERROR_INVALID_HANDLE;
     }
 
     return 0;
@@ -739,30 +752,32 @@ int dms_get_util_from_udis(unsigned int dev_id, const char *name, unsigned int *
     *result_data = 0;
     ret = dms_get_ts_info_from_udis(dev_id, name, core, &core_size);
     if (ret != 0) {
-        return ret; 
+        return ret;
     }
     if (strcmp(name, "aic_util") == 0 || strcmp(name, "aiv_util") == 0) {
         return dms_cal_core_avg_util(core, core_size, result_data);
     }
 
     if (core_size != 1) {
-        DEVDRV_DRV_ERR("Data len is not equal to bufsize. (dev_id=%d; module_type=%u; name=%s; data_len=%u; buf_size=1)\n",
-            dev_id, UDIS_MODULE_TS, name, core_size);
+        DEVDRV_DRV_ERR(
+            "Data len is not equal to bufsize. (dev_id=%d; module_type=%u; name=%s; data_len=%u; buf_size=1)\n", dev_id,
+            UDIS_MODULE_TS, name, core_size);
         return DRV_ERROR_PARA_ERROR;
     }
 
     ret = memcpy_s(result_data, core_size, core, core_size);
     if (ret != 0) {
         DEVDRV_DRV_ERR("Failed to invoke memcpy_s to copy result_data. (dev_id=%d; module_type=%u; name=%s; ret=%d)\n",
-            dev_id, UDIS_MODULE_TS, name, ret);
-        return DRV_ERROR_INVALID_HANDLE; 
+                       dev_id, UDIS_MODULE_TS, name, ret);
+        return DRV_ERROR_INVALID_HANDLE;
     }
 
     return 0;
 }
 
 #define NPU_MULTI_UTIL_INFO_NUM 4
-static char *g_npu_multi_util_info_table[NPU_MULTI_UTIL_INFO_NUM] = {"aic_util", "aiv_util", "aicore_util", "stars_util"};
+static char *g_npu_multi_util_info_table[NPU_MULTI_UTIL_INFO_NUM] = {"aic_util", "aiv_util", "aicore_util",
+                                                                     "stars_util"};
 /* UDIS_QUERY_INTERVAL 105000us = 105ms. */
 #define UDIS_QUERY_INTERVAL 105000
 STATIC int dms_check_info_time_consistent_from_udis(unsigned int dev_id, struct udis_dev_info *info, unsigned int size)
@@ -771,56 +786,56 @@ STATIC int dms_check_info_time_consistent_from_udis(unsigned int dev_id, struct 
     int ret = 0;
     unsigned long long last_update_time = 0;
     for (i = 0; i < size; i++) {
-        ret = udis_get_device_info(dev_id, &info[i]);
+        ret = halUdisGetDeviceInfo(dev_id, &info[i]);
         if (ret != 0) {
             DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get udis info. (dev_id=%d; module_type=%u; name=%s; ret=%d)\n",
-                dev_id, info[i].module_type, info[i].name, ret);
+                                         dev_id, info[i].module_type, info[i].name, ret);
             return ret;
         }
         if (i == 0) {
             last_update_time = info[i].last_update_time;
             continue;
         }
-    #ifdef DRV_HOST
+#ifdef DRV_HOST
         /* Check time consistency. */
         if (info[i].last_update_time < last_update_time) {
             usleep(UDIS_QUERY_INTERVAL);
-            ret = udis_get_device_info(dev_id, &info[i]);
+            ret = halUdisGetDeviceInfo(dev_id, &info[i]);
             if (ret != 0) {
                 return ret;
             }
             if (last_update_time != info[i].last_update_time) {
-                DEVDRV_DRV_WARN("Failed to get_multi_util, the timestamps are inconsistent. (dev_id=%d; ret=%d)\n", 
-                    dev_id, ret);
+                DEVDRV_DRV_WARN("Failed to get_multi_util, the timestamps are inconsistent. (dev_id=%d; ret=%d)\n",
+                                dev_id, ret);
                 return DRV_ERROR_INNER_ERR;
             }
         } else if (info[i].last_update_time > last_update_time) {
             last_update_time = info[i].last_update_time;
             for (j = 0; j < i; j++) {
-                ret = udis_get_device_info(dev_id, &info[j]);
+                ret = halUdisGetDeviceInfo(dev_id, &info[j]);
                 if (ret != 0) {
                     return ret;
                 }
                 if (last_update_time != info[j].last_update_time) {
-                    DEVDRV_DRV_WARN("Failed to get_multi_util, the timestamps are inconsistent. (dev_id=%d; ret=%d)\n", 
-                        dev_id, ret);
+                    DEVDRV_DRV_WARN("Failed to get_multi_util, the timestamps are inconsistent. (dev_id=%d; ret=%d)\n",
+                                    dev_id, ret);
                     return DRV_ERROR_INNER_ERR;
                 }
             }
         }
-    #endif
+#endif
     }
 
     return 0;
 }
 
-STATIC int dms_get_aicore_and_stars_util(unsigned int dev_id, struct udis_dev_info *info,
-    unsigned char *aicore_util, unsigned char *npu_util)
+STATIC int dms_get_aicore_and_stars_util(unsigned int dev_id, struct udis_dev_info *info, unsigned char *aicore_util,
+                                         unsigned char *npu_util)
 {
     /* Check data_len from info[2] and info[3] */
     if (info[2].data_len != 1 || info[3].data_len != 1) {
         DEVDRV_DRV_ERR("Data len is not equal to bufsize. (dev_id=%d; data_len1=%u; data_len2=%u; buf_size=1)\n",
-            dev_id, info[2].data_len, info[3].data_len); /* info[2]: aicore_util; info[3]: stars_util. */
+                       dev_id, info[2].data_len, info[3].data_len); /* info[2]: aicore_util; info[3]: stars_util. */
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -831,8 +846,8 @@ STATIC int dms_get_aicore_and_stars_util(unsigned int dev_id, struct udis_dev_in
     return 0;
 }
 
-
-STATIC int dms_get_npu_multi_util_struct(unsigned int dev_id, struct udis_dev_info *info, NPU_MULTI_UTIL_INFO *result_data)
+STATIC int dms_get_npu_multi_util_struct(unsigned int dev_id, struct udis_dev_info *info,
+                                         NPU_MULTI_UTIL_INFO *result_data)
 {
     unsigned int i;
     int ret = 0;
@@ -844,7 +859,7 @@ STATIC int dms_get_npu_multi_util_struct(unsigned int dev_id, struct udis_dev_in
         core_util[i].core_num = sizeof(core_util[i].core);
         ret = dms_filter_core_by_bitmap(dev_id, &info[i], core_util[i].core, &core_util[i].core_num);
         if (ret != 0) {
-            return ret; 
+            return ret;
         }
     }
 
@@ -856,40 +871,41 @@ STATIC int dms_get_npu_multi_util_struct(unsigned int dev_id, struct udis_dev_in
     return dms_get_aicore_and_stars_util(dev_id, info, &result_data->aicore_util, &result_data->npu_util);
 }
 
-STATIC int dms_get_npu_multi_util_v2_struct(unsigned int dev_id, struct udis_dev_info *info, NPU_MULTI_UTIL_INFO_V2 *result_data)
+STATIC int dms_get_npu_multi_util_v2_struct(unsigned int dev_id, struct udis_dev_info *info,
+                                            NPU_MULTI_UTIL_INFO_V2 *result_data)
 {
     int ret;
 
     /* info[0]: aicube_util. */
     result_data->aicube_count = *((u32 *)(info[0].data));
     if (result_data->aicube_count > sizeof(result_data->aicube_util)) {
-        DEVDRV_DRV_ERR("Data len is not equal to bufsize. (dev_id=%d; data_len=%u; buf_size=1)\n",
-            dev_id, result_data->aicube_count, sizeof(result_data->aicube_util));
+        DEVDRV_DRV_ERR("Data len is not equal to bufsize. (dev_id=%d; data_len=%u; buf_size=1)\n", dev_id,
+                       result_data->aicube_count, sizeof(result_data->aicube_util));
         return DRV_ERROR_PARA_ERROR;
     }
 
     ret = dms_filter_core_by_bitmap(dev_id, &info[0], result_data->aicube_util, &result_data->aicube_count);
     if (ret != 0) {
-        return ret; 
+        return ret;
     }
 
     /* info[1]: vector_util. */
     result_data->vector_count = *((u32 *)(info[1].data));
     if (result_data->vector_count > sizeof(result_data->vector_util)) {
-        DEVDRV_DRV_ERR("Data len is not equal to bufsize. (dev_id=%d; data_len=%u; buf_size=1)\n",
-            dev_id, result_data->vector_count, sizeof(result_data->vector_util));
+        DEVDRV_DRV_ERR("Data len is not equal to bufsize. (dev_id=%d; data_len=%u; buf_size=1)\n", dev_id,
+                       result_data->vector_count, sizeof(result_data->vector_util));
         return DRV_ERROR_PARA_ERROR;
     }
     ret = dms_filter_core_by_bitmap(dev_id, &info[1], result_data->vector_util, &result_data->vector_count);
     if (ret != 0) {
-        return ret; 
+        return ret;
     }
 
     return dms_get_aicore_and_stars_util(dev_id, info, &result_data->aicore_util, &result_data->npu_total_util);
 }
 
-static int dms_get_npu_multi_util_result(unsigned int dev_id, const char *name,
-    struct udis_dev_info *info, void *buf, unsigned int *size)
+static int dms_get_npu_multi_util_result(unsigned int dev_id, const char *name, struct udis_dev_info *info, void *buf,
+                                         unsigned int *size)
 {
     int ret = 0;
     NPU_MULTI_UTIL_INFO result_data = {0};
@@ -902,8 +918,8 @@ static int dms_get_npu_multi_util_result(unsigned int dev_id, const char *name,
         }
 
         if (*size < sizeof(NPU_MULTI_UTIL_INFO_V2)) {
-            DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n",
-                dev_id, *size, sizeof(NPU_MULTI_UTIL_INFO_V2));
+            DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n", dev_id, *size,
+                           sizeof(NPU_MULTI_UTIL_INFO_V2));
             return DRV_ERROR_PARA_ERROR;
         }
 
@@ -916,8 +932,8 @@ static int dms_get_npu_multi_util_result(unsigned int dev_id, const char *name,
         }
 
         if (*size < sizeof(NPU_MULTI_UTIL_INFO)) {
-            DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n",
-                dev_id, *size, sizeof(NPU_MULTI_UTIL_INFO));
+            DEVDRV_DRV_ERR("The input parameters are incorrect. (dev_id=%u; size=%u; data_len=%u)\n", dev_id, *size,
+                           sizeof(NPU_MULTI_UTIL_INFO));
             return DRV_ERROR_PARA_ERROR;
         }
 
@@ -940,8 +956,8 @@ int dms_get_npu_multi_util_from_udis(unsigned int dev_id, const char *name, void
     struct udis_dev_info info[NPU_MULTI_UTIL_INFO_NUM] = {0};
 
     if (buf == NULL || size == NULL) {
-        DEVDRV_DRV_ERR("Invalid parameter. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n",
-            dev_id, (buf == NULL), (size == NULL));
+        DEVDRV_DRV_ERR("Invalid parameter. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n", dev_id, (buf == NULL),
+                       (size == NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -949,8 +965,8 @@ int dms_get_npu_multi_util_from_udis(unsigned int dev_id, const char *name, void
         info[i].module_type = UDIS_MODULE_TS;
         ret = strcpy_s(info[i].name, UDIS_MAX_NAME_LEN, g_npu_multi_util_info_table[i]);
         if (ret != 0) {
-            DEVDRV_DRV_ERR("Failed to invoke strcpy_s to copy info name. (dev_id=%d; name=%s; ret=%d)\n",
-                dev_id, g_npu_multi_util_info_table[i], ret);
+            DEVDRV_DRV_ERR("Failed to invoke strcpy_s to copy info name. (dev_id=%d; name=%s; ret=%d)\n", dev_id,
+                           g_npu_multi_util_info_table[i], ret);
             return DRV_ERROR_PARA_ERROR;
         }
     }
@@ -964,7 +980,7 @@ int dms_get_npu_multi_util_from_udis(unsigned int dev_id, const char *name, void
 }
 
 STATIC int dms_udis_cal_cpu_utilization(unsigned int dev_id, int module_type, const struct udis_dev_info *get_info,
-                                    unsigned int* utilization)
+                                        unsigned int *utilization)
 {
     int ret = 0, i;
     int64_t cpu_num = 0;
@@ -972,7 +988,7 @@ STATIC int dms_udis_cal_cpu_utilization(unsigned int dev_id, int module_type, co
     unsigned int util_rate[TAISHAN_CORE_NUM] = {0};
 
     ret = halGetDeviceInfo((unsigned int)dev_id, module_type, INFO_TYPE_CORE_NUM, &cpu_num);
-    if (ret != 0 ) {
+    if (ret != 0) {
         DEVDRV_DRV_WARN("Dms get cpu info not success.(dev_id=%u;ret=%d)\n", dev_id, ret);
         return ret;
     }
@@ -982,15 +998,18 @@ STATIC int dms_udis_cal_cpu_utilization(unsigned int dev_id, int module_type, co
     }
 
     if ((unsigned int)cpu_num * sizeof(unsigned int) != get_info->data_len) {
-        DEVDRV_DRV_WARN("Expected data_len not equal actual data_len for cpu-util. (dev_id=%u; module_type=%u;)\n",
-                                dev_id, module_type);
+        DEVDRV_DRV_WARN("Expected data_len not equal actual data_len for cpu-util. (dev_id=%u; module_type=%u; "
+                        "expected_data_len=%u; actual_data_len=%u)\n",
+                        dev_id, module_type, (unsigned int)((unsigned long)(cpu_num) * sizeof(unsigned int)),
+                        get_info->data_len);
         return DRV_ERROR_INNER_ERR;
     }
 
-    ret = memcpy_s(util_rate, (unsigned int)((unsigned long)(cpu_num) * sizeof(unsigned int)), get_info->data, get_info->data_len);
+    ret = memcpy_s(util_rate, (unsigned int)((unsigned long)(cpu_num) * sizeof(unsigned int)), get_info->data,
+                   get_info->data_len);
     if (ret != 0) {
-        DEVDRV_DRV_WARN("Memcpy to util_rate not success. (dev_id=%u; module_type=%u; cpu_num=%u)\n",
-                        dev_id, module_type, cpu_num);
+        DEVDRV_DRV_WARN("Memcpy to util_rate not success. (dev_id=%u; module_type=%u; cpu_num=%u)\n", dev_id,
+                        module_type, cpu_num);
         return DRV_ERROR_INVALID_HANDLE;
     }
 
@@ -1010,7 +1029,7 @@ int dms_get_cpu_rate_from_udis(unsigned int dev_id, const char *name, unsigned i
 
     ret = strcpy_s(get_info.name, UDIS_MAX_NAME_LEN, name);
     if (ret != 0) {
-        DEVDRV_DRV_WARN("sprintf to udis_get_info_user name not success. (dev_id=%u;)\n", dev_id);
+        DEVDRV_DRV_WARN("sprintf to udis_get_info_user name failed. (dev_id=%u)\n", dev_id);
         return DRV_ERROR_INVALID_HANDLE;
     }
     if (strcmp(name, "ccpu_util") == 0) {
@@ -1022,10 +1041,10 @@ int dms_get_cpu_rate_from_udis(unsigned int dev_id, const char *name, unsigned i
     }
 
     get_info.module_type = UDIS_MODULE_DEVMNG;
-    ret = udis_get_device_info((unsigned int)dev_id, &get_info);
-    if (ret != 0){
-        DEVDRV_DRV_WARN("call udis_get_device_info not success. (dev_id=%u; name=%s; ret=%d)\n",
-                        dev_id, get_info.name, ret);
+    ret = halUdisGetDeviceInfo((unsigned int)dev_id, &get_info);
+    if (ret != 0) {
+        DEVDRV_DRV_WARN("call udis_get_device_info not success. (dev_id=%u; name=%s; ret=%d)\n", dev_id, get_info.name,
+                        ret);
         return ret;
     }
 

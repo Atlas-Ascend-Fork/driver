@@ -12,6 +12,9 @@
 
 #include "ascend_hal_define.h"
 
+#define TRS_2D_HEIGHT_MAX (5ULL * 1024 * 1024)
+#define TRS_CPY_BATCH_MAX_COUNT 2048ULL
+
 struct trs_async_addr_pack {
     uint64_t src;
     uint64_t dst;

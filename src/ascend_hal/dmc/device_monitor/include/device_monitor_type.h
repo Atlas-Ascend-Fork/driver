@@ -71,7 +71,7 @@
 #endif
 
 #ifndef MAX_OUTPUT_LEN
-#define MAX_OUTPUT_LEN 0X7FFFU
+#define MAX_OUTPUT_LEN 0XC000U
 #endif
 
 #pragma pack(1)
@@ -157,20 +157,20 @@ typedef struct dev_mon_request_tag_value {
 #define REQ_D_INFO_INFO_TYPE_HBM_USAGE 3
 
 enum davinchi_info_enum {
-    REQ_D_INFO_DEV_TYPE_MEM = 1,  // DDR
-    REQ_D_INFO_DEV_TYPE_CPU = 2,  // AI core and AI Vector accelerator old util
+    REQ_D_INFO_DEV_TYPE_MEM = 1, // DDR
+    REQ_D_INFO_DEV_TYPE_CPU = 2, // AI core and AI Vector accelerator old util
     REQ_D_INFO_DEV_TYPE_AI_CPU = 3,
     REQ_D_INFO_DEV_TYPE_CTRL_CPU = 4,
     REQ_D_INFO_DEV_TYPE_MEM_BANDWIDTH = 5,
     REQ_D_INFO_DEV_TYPE_HBM = 6,
-    REQ_D_INFO_DEV_TYPE_AICORE0 = 7,  // cloud only use this
+    REQ_D_INFO_DEV_TYPE_AICORE0 = 7, // cloud only use this
     REQ_D_INFO_DEV_TYPE_DDR = 8,
     REQ_D_INFO_DEV_TYPE_AICORE1 = 9,
     REQ_D_INFO_DEV_TYPE_HBM_BW = 10,
     REQ_D_INFO_DEV_TYPE_AICORE = 11,
     REQ_D_INFO_DEV_TYPE_VECTOR = 12,
-    REQ_D_INFO_DEV_TYPE_ACC = 13, // AI core and AI vector accelerator new util
- 	REQ_D_INFO_DEV_TYPE_AI_CUBE = 14, // AI cube accelerator
+    REQ_D_INFO_DEV_TYPE_ACC = 13,     // AI core and AI vector accelerator new util
+    REQ_D_INFO_DEV_TYPE_AI_CUBE = 14, // AI cube accelerator
     REQ_D_INFO_DEV_TYPE_MAX_INVALID_VALUE
 };
 
@@ -260,7 +260,6 @@ typedef struct notify_mcu_device_status_data {
 } NOTIFY_MCU_ST;
 
 #pragma pack()
-
 
 #define DMP_ONE_STATICSTIC_PERIOD 64U /* The duration of each period is 64 seconds, it must be 2^n */
 #define DMP_STATICSTIC_PERIOD_NUM 4U  /* DMP_STATICSTIC_PERIOD_NUM must be 2^n */

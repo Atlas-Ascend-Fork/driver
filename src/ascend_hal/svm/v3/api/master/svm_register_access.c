@@ -131,6 +131,12 @@ static void access_local_mem_init(void)
 static void access_local_mem_uninit(void)
 {
     (void)pthread_mutex_lock(&access_local_mem_mutex);
+    if (register_num == 0) {
+        svm_warn("Access local mem is not initialized.\n");
+        (void)pthread_mutex_unlock(&access_local_mem_mutex);
+        return;
+    }
+
     register_num--;
     if (register_num == 0) {
         access_local_mem_uninit_locked();
@@ -238,7 +244,7 @@ static int svm_register_unregister_common_para_check(u32 devid, u64 va, u64 flag
     }
 
     if (!svm_register_flag_is_support(flag)) {
-        svm_run_info("Flag does not support. (flag=0x%llx)\n", flag);
+        svm_run_info("Flag is not supported. (flag=0x%llx)\n", flag);
         return DRV_ERROR_NOT_SUPPORT;
     }
 
@@ -267,7 +273,7 @@ static int svm_register_with_access_va(u32 devid, u64 va, u64 size, u64 flag, u6
         svm_dst_va_pack(devid, DEVDRV_PROCESS_CP1, va, size, &register_va);
         ret = svm_register_to_master(host_devid, &register_va, register_flag);
         if (ret != DRV_ERROR_NONE) {
-            svm_err("Register to master fail. (ret=%d; devid=%u; va=0x%llx; size=%llu)\n", ret, devid, va, size);
+            svm_err("Register to master failed. (ret=%d; devid=%u; va=0x%llx; size=%llu)\n", ret, devid, va, size);
             return ret;
         }
 
@@ -276,7 +282,7 @@ static int svm_register_with_access_va(u32 devid, u64 va, u64 size, u64 flag, u6
     } else {
         bool is_svm_va = svm_va_is_in_range(va, size);
         if (is_svm_va) {
-            ret = svm_register_to_peer(va, size, host_devid, &dst_va);
+            ret = svm_register_to_peer(va, size, host_devid, 0, &dst_va);
             if (ret == DRV_ERROR_NONE) { /* if register to peer failed, try register_to_master and use access api to
                                             read write */
                 *access_va = va;
@@ -348,7 +354,7 @@ static int svm_register_raw(u32 devid, u64 va, u64 size)
     svm_dst_va_pack(devid, DEVDRV_PROCESS_CP1, svm_align_down(va, page_size), aligned_size, &register_va);
     ret = svm_register_to_master(devid, &register_va, flag);
     if ((ret != DRV_ERROR_NONE) && (ret != DRV_ERROR_NOT_SUPPORT)) {
-        svm_err("Register to master fail. (ret=%d; devid=%u; va=0x%llx; size=%llu)\n", ret, devid, va, aligned_size);
+        svm_err("Register to master failed. (ret=%d; devid=%u; va=0x%llx; size=%llu)\n", ret, devid, va, aligned_size);
     }
 
     return ret;
@@ -372,7 +378,7 @@ static int svm_unregister_raw(u32 devid, u64 va)
     svm_dst_va_pack(devid, DEVDRV_PROCESS_CP1, svm_align_down(va, page_size), 0, &register_va);
     ret = svm_unregister_to_master(devid, &register_va, flag);
     if ((ret != DRV_ERROR_NONE) && (ret != DRV_ERROR_NOT_SUPPORT)) {
-        svm_err("Unregister to master fail. (ret=%d; devid=%u; va=0x%llx)\n", ret, devid, va);
+        svm_err("Unregister to master failed. (ret=%d; devid=%u; va=0x%llx)\n", ret, devid, va);
     }
 
     return ret;
@@ -382,6 +388,8 @@ drvError_t halSvmAccessRegister(uint32_t devid, uint64_t va, uint64_t size, uint
 {
     bool is_svm_va = svm_va_is_in_range(va, size);
     int ret = DRV_ERROR_INVALID_VALUE;
+
+    DRV_CURRENT_API_SCOPE();
 
     ret = svm_register_unregister_common_para_check(devid, va, flag, is_svm_va);
     if (ret != DRV_ERROR_NONE) {
@@ -476,7 +484,7 @@ static int svm_access_check_local_svm_va(u64 local_va, u64 size)
         }
 
         if ((prop.flag & SVM_FLAG_CAP_SYNC_COPY) == 0) {
-            svm_err("Va does not support cur cap. (va=0x%llx; prop.flag=0x%llx)\n", va, prop.flag);
+            svm_err("Va not support cur cap. (va=0x%llx; prop.flag=0x%llx)\n", va, prop.flag);
             return DRV_ERROR_PARA_ERROR;
         }
         if (prop.devid != host_devid) {
@@ -533,7 +541,7 @@ static int svm_access_by_dma(u32 devid, u64 access_va, u64 local_va, u64 size, u
         }
 
         if (prop.devid != host_devid) {
-            svm_err("va does not belong to host. (va=0x%llx; prop.devid=%u)\n", local_va, prop.devid);
+            svm_err("Va does not belong to host. (va=0x%llx; prop.devid=%u)\n", local_va, prop.devid);
             return DRV_ERROR_INVALID_VALUE;
         }
 
@@ -629,7 +637,7 @@ drvError_t halSvmAccess(uint32_t devid, uint64_t access_va, uint64_t local_va, u
         }
 
         if (prop.devid != devid) {
-            svm_err("va does not belong to device. (va=0x%llx; devid=%u; prop.devid=%u)\n", access_va, devid,
+            svm_err("Va does not belong to device. (va=0x%llx; devid=%u; prop.devid=%u)\n", access_va, devid,
                     prop.devid);
             return DRV_ERROR_INVALID_VALUE;
         }

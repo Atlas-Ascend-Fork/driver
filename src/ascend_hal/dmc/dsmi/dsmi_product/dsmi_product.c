@@ -78,6 +78,11 @@ int dsmi_cmd_passthru_mcu(int device_id, unsigned char pass_para, struct passthr
     DM_COMMAND_ADD_REQ(&(passthru_message->src_message.data.req), (passthru_message->src_len))
     DM_COMMAND_SEND()
     DM_COMMAND_GET_RSP_LEN(&pass_rsp_len)
+    if (pass_rsp_len > DSMI_RSP_MSG_DATA_LEN) {
+        DEV_MON_ERR("devid %d passthru rsp len %u is out of compliance\n", device_id, pass_rsp_len);
+        dsmi_cmd_req_free(dm_dmp);
+        return DRV_ERROR_PARA_ERROR;
+    }
     DM_COMMAND_PUSH_OUT(&(passthru_message->dest_message.data.rsp), (pass_rsp_len + (unsigned int)DMP_MSG_HEAD_LENGTH))
     DM_COMMAND_END()
 }
@@ -128,7 +133,7 @@ int dsmi_passthru_mcu(int device_id, struct passthru_message_stru *passthru_mess
     }
 
     if (passthru_message->rw_flag > 1) { // 1 rw_flag support  0 read ,1 write , if greater than 1, then not support
-        DEV_MON_WARNING("rw_flag is out of compliance. (device_id=%d; rw_flag=%u; valid_range=[0, 1])\n", device_id,
+        DEV_MON_WARNING("rw_flag is out of compliance. (device_id=%d; rw_flag=%u)\n", device_id,
                         passthru_message->rw_flag);
         return DRV_ERROR_NOT_SUPPORT;
     }

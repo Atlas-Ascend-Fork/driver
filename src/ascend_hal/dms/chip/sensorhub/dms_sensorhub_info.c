@@ -49,8 +49,8 @@ int dms_get_sensor_hub_status(int device_id, struct dsmi_sensorhub_status_stru *
         return errno_to_user_errno(ret);
     }
 
-    ret = memcpy_s(sensorhub_status_data, sizeof(struct dsmi_sensorhub_status_stru),
-                   &local_sensorhub_status, sizeof(struct dsmi_sensorhub_status_stru));
+    ret = memcpy_s(sensorhub_status_data, sizeof(struct dsmi_sensorhub_status_stru), &local_sensorhub_status,
+                   sizeof(struct dsmi_sensorhub_status_stru));
     if (ret != 0) {
         DMS_ERR("memcpy_s failed, ret(%d).\n", ret);
         return DRV_ERROR_INNER_ERR;
@@ -92,8 +92,8 @@ int dms_get_sensor_hub_config(int device_id, struct dsmi_sensorhub_config_stru *
         return errno_to_user_errno(ret);
     }
 
-    ret = memcpy_s(sensorhub_config_data, sizeof(struct dsmi_sensorhub_config_stru),
-                   &sensorhub_config, sizeof(struct dsmi_sensorhub_config_stru));
+    ret = memcpy_s(sensorhub_config_data, sizeof(struct dsmi_sensorhub_config_stru), &sensorhub_config,
+                   sizeof(struct dsmi_sensorhub_config_stru));
     if (ret != 0) {
         DMS_ERR("memcpy_s failed, ret(%d).\n", ret);
         return DRV_ERROR_INNER_ERR;

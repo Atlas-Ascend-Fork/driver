@@ -25,7 +25,7 @@
 
 struct cdqm_adapt_ops {
     int (*send_sync_msg)(u32 devid, void *msg, size_t size);
-    int (*ssid_query)(struct trs_id_inst *inst, int *ssid);
+    int (*ssid_query)(struct trs_id_inst *inst, int *user_visible_flag, int *ssid);
 };
 int cdqm_proc_sync_msg(u32 devid, struct trs_msg_data *msg);
 

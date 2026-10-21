@@ -24,7 +24,7 @@
 static int trs_host_alloc_id_batch(struct trs_id_inst *inst, int type, u32 flag, u32 id[], u32 *id_num)
 {
     struct trs_msg_id_sync *id_sync = NULL;
-    struct trs_msg_data msg;
+    struct trs_msg_data msg = {0};
     int ret;
     u32 i;
 

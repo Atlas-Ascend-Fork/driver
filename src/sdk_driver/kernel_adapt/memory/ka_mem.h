@@ -15,7 +15,9 @@
 
 #define PRINT_MACRO_HELPER(x) #x
 #define PRINT_MACRO(x) #x "=" PRINT_MACRO_HELPER(x)
-
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0)
+#define IORES_DESC_NONE (0)
+#endif
 int ka_mm_ram_record_init(void);
 void ka_mm_ram_record_uninit(void);
 

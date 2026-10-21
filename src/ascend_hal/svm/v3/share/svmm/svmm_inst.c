@@ -153,24 +153,47 @@ int svm_svmm_add_seg(void *svmm_inst, u32 devid, u64 start, u64 svm_flag, struct
     }
 }
 
-int svm_svmm_del_seg(void *svmm_inst, u32 devid, u64 start, u64 size, bool force)
+int svm_svmm_can_add_seg(void *svmm_inst, u32 devid, u64 start, u64 size)
 {
     struct svmm_inst *inst = (struct svmm_inst *)svmm_inst;
     int ret;
 
     ret = svmm_seg_para_check(inst, start, size);
     if (ret != 0) {
-        svm_err("Invalid seg para. (svmma_start0x=%llx; svmma_size=0x%llx; seg_start=0x%llx; seg_size=0x%llx)\n",
+        svm_err("Invalid seg para. (svmma_start=0x%llx; svmma_size=0x%llx; seg_start=0x%llx; seg_size=0x%llx)\n",
                 inst->svmma_start, inst->svmma_size, start, size);
         return ret;
     }
 
     if (inst->overlap_type == SVMM_OVERLAP) {
-        return svmm_overlap_del_seg(inst, devid, start, size);
+        return svmm_overlap_can_add_seg(inst, devid, start, size);
     } else if (inst->overlap_type == SVMM_NON_OVERLAP) {
-        return svmm_non_overlap_del_seg(inst, devid, start, size, force);
+        return svmm_non_overlap_can_add_seg(inst, start, size);
     } else if (inst->overlap_type == SVMM_DEV_NON_OVERLAP) {
-        return svmm_dev_non_overlap_del_seg(inst, devid, start, size, force);
+        return svmm_dev_non_overlap_can_add_seg(inst, devid, start, size);
+    } else {
+        return DRV_ERROR_INNER_ERR;
+    }
+}
+
+int svm_svmm_del_seg_with_flag(void *svmm_inst, u32 devid, u64 start, u64 size, bool force, u64 *svm_flag)
+{
+    struct svmm_inst *inst = (struct svmm_inst *)svmm_inst;
+    int ret;
+
+    ret = svmm_seg_para_check(inst, start, size);
+    if (ret != 0) {
+        svm_err("Invalid seg para. (svmma_start=0x%llx; svmma_size=0x%llx; seg_start=0x%llx; seg_size=0x%llx)\n",
+                inst->svmma_start, inst->svmma_size, start, size);
+        return ret;
+    }
+
+    if (inst->overlap_type == SVMM_OVERLAP) {
+        return svmm_overlap_del_seg(inst, devid, start, size, svm_flag);
+    } else if (inst->overlap_type == SVMM_NON_OVERLAP) {
+        return svmm_non_overlap_del_seg(inst, devid, start, size, force, svm_flag);
+    } else if (inst->overlap_type == SVMM_DEV_NON_OVERLAP) {
+        return svmm_dev_non_overlap_del_seg(inst, devid, start, size, force, svm_flag);
     } else {
         return DRV_ERROR_INNER_ERR;
     }
@@ -292,16 +315,6 @@ void svm_svmm_mod_seg_src_tgid(void *seg_handle, int tgid)
     } else if (head->overlap_type == SVMM_DEV_NON_OVERLAP) {
         svmm_dev_non_overlap_mod_seg_src_tgid(seg_handle, tgid);
     }
-}
-
-void svm_svmm_set_seg_task_bitmap(void *seg_handle, u32 task_bitmap)
-{
-    svmm_set_seg_task_bitmap(seg_handle, task_bitmap);
-}
-
-u32 svm_svmm_get_seg_task_bitmap(void *seg_handle)
-{
-    return svmm_get_seg_task_bitmap(seg_handle);
 }
 
 void svm_svmm_del_seg_handle(void *svmm_inst, void *seg_handle)

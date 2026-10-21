@@ -17,7 +17,6 @@
 #include "dms/dms_notifier.h"
 #include "devdrv_common.h"
 #include "dms_define.h"
-#include "ascend_platform.h"
 #include "heart_beat.h"
 
 #define HEART_BEAT_NOTIFIER "heart_beat"
@@ -63,6 +62,9 @@ int heart_beat_device_down(u32 udevid)
 {
     heart_beat_read_item_uninit(udevid);
     heart_beat_write_status_uninit(udevid);
+#ifdef CFG_HOST_ENV /* host side */
+    heart_beat_unregister_urgent_timer(udevid);
+#endif
 
     return 0;
 }
@@ -120,7 +122,7 @@ STATIC int heart_beat_uda_notifier_func(u32 udevid, enum uda_notified_action act
     int ret = 0;
 
     if (udevid >= (u32)ASCEND_DEV_MAX_NUM) {
-        dms_warn("Device id invalid. (udev_id=%u).\n", udevid);
+        dms_warn("Device id invalid. (udev_id=%u; valid range=[0, %u)).\n", udevid, ASCEND_DEV_MAX_NUM);
         return -EINVAL;
     }
 
@@ -216,7 +218,7 @@ DMS_REGISTER_FAIL:
 }
 DECLAER_FEATURE_AUTO_INIT(dms_heartbeat_init, FEATURE_LOADER_STAGE_6);
 
-STATIC void dms_heartbeat_exit(void)
+STATIC void dms_heartbeat_uninit(void)
 {
     u32 i;
     struct uda_dev_type type = {0};
@@ -249,5 +251,5 @@ STATIC void dms_heartbeat_exit(void)
 #endif
     (void)dms_unregister_notifier(&g_heart_beat_notifier);
 }
-DECLAER_FEATURE_AUTO_UNINIT(dms_heartbeat_exit, FEATURE_LOADER_STAGE_6);
+DECLAER_FEATURE_AUTO_UNINIT(dms_heartbeat_uninit, FEATURE_LOADER_STAGE_6);
 #endif

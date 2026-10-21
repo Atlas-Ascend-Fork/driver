@@ -16,6 +16,7 @@
 #include <sys/types.h>
 
 #include "ascend_hal.h"
+#include "ascend_inpackage_hal.h"
 #include "drv_type.h"
 #include "dsmi_common.h"
 #include "dms_cmd_def.h"
@@ -241,7 +242,7 @@ int check_component_type(DSMI_COMPONENT_TYPE component_type, int device_id)
     }
     ret = check_component_type_validity(component_list, component_type, component_num);
     if (ret != 0) {
-        dev_upgrade_debug("Component type is not valid. (dev_id=%d; ret=0x%x)\n", device_id, ret);
+        dev_upgrade_debug("Component type is not valid. (dev_id=%d, ret=0x%x)\n", device_id, ret);
         return ret;
     }
     return ret;
@@ -327,10 +328,10 @@ int dsmi_upgrade_cmd_send(int device_id, DSMI_COMPONENT_TYPE component_type, con
 
     ret = check_upgrade_component_type_and_state(device_id, &upgrade_schedule, &upgrade_status, component_type);
     if (ret != 0) {
-        dev_upgrade_ex_notsupport_err(
-            ret,
-            "check upgrade state fail, current status not support upgrade. (device=0x%x; ret=%d; upgrade_status=%u)\n",
-            device_id, ret, upgrade_status);
+        dev_upgrade_ex_notsupport_err(ret,
+                                      "check upgrade state fail, current status does not support upgrade. "
+                                      "(device=0x%x; ret=%d; upgrade_status=%u)\n",
+                                      device_id, ret, upgrade_status);
         return ret;
     }
 
@@ -539,9 +540,11 @@ int _dsmi_get_device_info(unsigned int device_id, DSMI_MAIN_CMD main_cmd, unsign
     }
 #endif
 
+#ifndef CFG_FEATURE_UDIS_UTIL_FROM_TS
     if ((main_cmd == DSMI_MAIN_CMD_TS) && (sub_cmd == DSMI_TS_SUB_CMD_NPU_MULTI_UTILIZATION_RATE_V2)) {
         return DRV_ERROR_NOT_SUPPORT;
     }
+#endif
 
     cmd_type = dsmi_get_dev_info_main_cmd_type(main_cmd, sub_cmd);
     switch (cmd_type) {

@@ -16,6 +16,8 @@
 
 #include "ascend_kernel_hal.h"
 
+#define UBMM_INVALID_SERVER_ID 0x3FFU
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -49,20 +51,20 @@ int ubmm_map(u32 udevid, u64 uba, u64 size, struct ubmm_pa_seg *pa_seg, u64 seg_
 int ubmm_unmap(u32 udevid, u64 uba, u64 size);
 
 int ubmm_get_hpa(u32 udevid, u32 peer_udevid, u32 mem_id, u64 offset, u32 map_route, u64 *hpa);
-bool ubmm_map_route_is_exist(u32 udevid, u32 peer_udevid, u32 mem_id, u32 map_route);
+bool ubmm_map_route_is_exist(u32 dst_udevid, u32 src_server_id, u32 src_mem_id, u32 map_route);
 
-/* Note: the following interfaces will go to sleep and cannot be called	 
-  * in an atomic context	 
-  */	 
- int ubmem_dev_init(void);	 
- void ubmem_dev_exit(void);	 
- int ubmem_dev_add_task(u32 udevid, int tgid);	 
- int ubmem_dev_delete_task(u32 udevid, int tgid, bool *is_idle);	 
- bool ubmem_dev_task_is_idle(u32 udevid);	 
- bool ubmem_dev_is_fault(u32 udevid);	 
- int ubmem_dev_set_task_status(u32 udevid, int tgid, enum ubmem_dev_task_status status, bool *is_idle);	 
- int ubmem_dev_set_dev_status(u32 udevid, enum ubmem_dev_status status);	 
- 
+/* Note: the following interfaces will go to sleep and cannot be called
+ * in an atomic context
+ */
+int ubmem_dev_init(void);
+void ubmem_dev_exit(void);
+int ubmem_dev_add_task(u32 udevid, int tgid);
+int ubmem_dev_delete_task(u32 udevid, int tgid, bool *is_idle);
+bool ubmem_dev_task_is_idle(u32 udevid);
+bool ubmem_dev_is_fault(u32 udevid);
+int ubmem_dev_set_task_status(u32 udevid, int tgid, enum ubmem_dev_task_status status, bool *is_idle);
+int ubmem_dev_set_dev_status(u32 udevid, enum ubmem_dev_status status);
+
 #ifdef __cplusplus
 }
 #endif

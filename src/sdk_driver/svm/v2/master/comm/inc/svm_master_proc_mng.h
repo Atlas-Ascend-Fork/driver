@@ -65,6 +65,12 @@ struct devmm_master_p2p_mem_mng {
 };
 
 #define DMA_DESC_RB_INFO_CNT 64
+struct devmm_pagefault_info_slot {
+    ka_rwlock_t rwlock;           /* Kernel rwlock; write on record/clear, read on query */
+    struct svmPagefaultInfo info; /* Latest pagefault failure info for this device */
+    bool has_record;              /* Whether a record exists for this device */
+};
+
 struct devmm_svm_proc_master {
     ka_semaphore_t dev_setup_sem[SVM_MAX_AGENT_NUM];
     struct devmm_task_dev_res_info task_dev_res_info;
@@ -79,6 +85,16 @@ struct devmm_svm_proc_master {
     struct devmm_register_dma_mng register_dma_mng[SVM_MAX_AGENT_NUM];
     struct devmm_mem_stats_va_mng mem_stats_va_mng[SVM_MAX_AGENT_NUM];
     struct devmm_master_p2p_mem_mng p2p_mem_mng[SVM_MAX_AGENT_NUM];
+
+    /* Per-device pagefault info records -- per-process, stored in priv_data.
+     * halMemCtl query is per-process, so records must be in priv_data. */
+    struct devmm_pagefault_info_slot pagefault_info_records[SVM_MAX_AGENT_NUM];
+    ka_mnt_namespace_t *mnt_ns;
+
+    /* Timed-out DMA copy tasks that were not freed (callbacks may still fire).
+     * Cleaned up during process release. */
+    struct list_head timeout_task_list;
+    ka_mutex_t timeout_task_lock;
 };
 
 u32 devmm_get_proc_dev_async_task_cnt(struct devmm_svm_process *svm_proc, u32 devid);
@@ -87,5 +103,6 @@ bool devmm_proc_dev_async_task_is_empty(struct devmm_svm_process *svm_proc, u32 
 bool devmm_proc_async_task_is_empty(struct devmm_svm_process *svm_proc);
 void devmm_proc_dev_set_async_allow(struct devmm_svm_process *svm_proc, u32 devid, bool value);
 bool devmm_proc_dev_is_async_allow(struct devmm_svm_process *svm_proc, u32 devid);
+void devmm_timeout_task_add(struct devmm_svm_process *svm_proc, struct devmm_dma_copy_task *copy_task);
 
 #endif /* SVM_MASTER_PROC_MNG_H */

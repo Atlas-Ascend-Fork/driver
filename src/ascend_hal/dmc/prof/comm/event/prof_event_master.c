@@ -165,7 +165,7 @@ drvError_t prof_user_host_sample_event_start(uint32_t dev_id, uint32_t chan_id, 
 
     if (outdata->outdata_len > PROF_START_OUTDATA_SIZE_MAX) {
         (void)prof_user_host_sample_event_stop(dev_id, chan_id, &stop_para, PROF_STOP_STAGE_PAUSE_AND_RELEASE);
-        PROF_ERR("Out data len is out of range. (dev_id=%u, chan_id=%u, outdata_len=%d, max=%d)\n", dev_id, chan_id,
+        PROF_ERR("Out data len is out of range. (dev_id=%u, chan_id=%u, outdata_len=%d, max=%u)\n", dev_id, chan_id,
                  outdata->outdata_len, PROF_START_OUTDATA_SIZE_MAX);
         return DRV_ERROR_PARA_ERROR;
     }

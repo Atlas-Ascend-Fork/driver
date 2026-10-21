@@ -15,15 +15,14 @@
 #include "ao_log_collect_fs.h"
 #endif
 
-
 int dms_product_init(void)
 {
 #ifdef CFG_FEATURE_AO_LOG_COLLECT
     u32 i;
     dms_ao_log_top_fs_init();
-    for (i = 0; i < AO_LOG_MAX_DEV_NUM; i++){
+    for (i = 0; i < AO_LOG_MAX_DEV_NUM; i++) {
         dms_ao_log_fs_init(i);
-        dms_ao_uart_fs_init(i); //串口录音
+        dms_ao_uart_fs_init(i); // 串口录音
         dms_ao_cnt_fs_init(i);
     }
 

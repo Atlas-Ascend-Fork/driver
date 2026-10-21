@@ -96,7 +96,7 @@ static int devmm_insert_register_dma_node(struct devmm_register_dma_mng *mng, st
     if (ret != 0) {
         devmm_drv_err("Insert register dma node fail. (va=0x%llx; size=%llu; devid=%u)\n", node->src_va, node->src_size,
                       node->devid);
-        return ret;
+        return -EBUSY;
     }
     return 0;
 }
@@ -170,7 +170,7 @@ static int devmm_get_host_addr_pa_list(struct devmm_svm_process *svm_proc, u32 d
     if (devmm_va_is_in_svm_range(va)) {
         ret = devmm_svm_addr_pa_list_get(svm_proc, va, size, side);
         if (ret != 0) {
-            return ret;
+            return -EFAULT;
         }
     } else {
         ret = devmm_get_non_svm_addr_pa_list(svm_proc, va, size, side, write);
@@ -311,13 +311,6 @@ int devmm_ioctl_register_dma(struct devmm_svm_process *svm_proc, struct devmm_io
     struct devmm_register_dma_node *node = NULL;
     u32 devid = arg->head.devid;
     int ret;
-
-    if (!ka_mm_is_support_pin_user_memory() && devmm_va_is_in_svm_range(para->vaddr) == false) {
-        devmm_drv_run_info("Devmm register os malloc va to dma is not supported in Linux versions below 5.19."
-                           "(va=0x%llx; size=0x%llx; devid=%u)\n",
-                           para->vaddr, para->size, devid);
-        return -EOPNOTSUPP;
-    }
 
     ret = devmm_register_dma_para_check(svm_proc, para->vaddr, para->size);
     if (ret != 0) {

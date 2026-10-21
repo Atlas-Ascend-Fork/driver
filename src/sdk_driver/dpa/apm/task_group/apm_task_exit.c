@@ -39,6 +39,7 @@
 #define APM_TASK_EXIT_RETRY_DELAY_SHORT_MS 1
 #define APM_TASK_EXIT_RETRY_DELAY_LONG_MS 200
 #define APM_TASK_EXIT_RETRY_SHORT_NUM 150
+#define APM_TASK_EXIT_LOG_INTERVAL 100 /* log every 100 retries */
 
 static ka_list_head_t exit_ctrl_head;
 static ka_mutex_t exit_ctrl_mutex;
@@ -82,7 +83,7 @@ static void apm_task_exit_finish(struct apm_task_exit_ctrl *exit_ctrl)
 
 static int apm_task_exit_work_get_delay_time(struct apm_task_exit_ctrl *exit_ctrl)
 {
-    if ((exit_ctrl->sched_num <= APM_TASK_EXIT_RETRY_SHORT_NUM) || (exit_ctrl->stage >= APM_STAGE_RECYCLE_RES)) {
+    if ((exit_ctrl->sched_num <= APM_TASK_EXIT_RETRY_SHORT_NUM) || (exit_ctrl->stage > APM_STAGE_RECYCLE_RES)) {
         return APM_TASK_EXIT_RETRY_DELAY_SHORT_MS;
     } else {
         return APM_TASK_EXIT_RETRY_DELAY_LONG_MS;
@@ -112,6 +113,13 @@ static void apm_task_exit_work(ka_work_struct_t *p_work)
     ka_task_mutex_unlock(&exit_ctrl_mutex);
 
     exit_ctrl->sched_num++;
+
+    /* Periodically log exit progress to help diagnose which stage is stuck */
+    if ((exit_ctrl->sched_num % APM_TASK_EXIT_LOG_INTERVAL) == 0) {
+        apm_info("Exit in progress. (tgid=%d; stage=%d; sync_flag=%d; sched_num=%d)\n", exit_ctrl->tgid,
+                 exit_ctrl->stage, exit_ctrl->sync_flag, exit_ctrl->sched_num);
+    }
+
     if (exit_ctrl->sync_flag == 1) {
         if (exit_ctrl->is_tasks_in_group_exit_synchronized(exit_ctrl->tgid, exit_ctrl->stage)) {
             exit_ctrl->sync_flag = 0;
@@ -123,11 +131,14 @@ static void apm_task_exit_work(ka_work_struct_t *p_work)
         ret = apm_task_exit_notify_handle(exit_ctrl->nh, exit_ctrl->tgid, exit_ctrl->stage, false);
         if (ret == 0) {
             /* recycle res and post recycle res not need sync */
-            if (exit_ctrl->stage >= APM_STAGE_RECYCLE_RES) {
+            if (exit_ctrl->stage >= APM_STAGE_POST_RECYCLE_RES) {
                 exit_ctrl->stage++;
             } else {
                 exit_ctrl->sync_flag = 1;
             }
+        } else {
+            apm_warn("Exit notify not success. (tgid=%d; stage=%d; sched_num=%d; ret=%d)\n", exit_ctrl->tgid,
+                     exit_ctrl->stage, exit_ctrl->sched_num, ret);
         }
     }
 

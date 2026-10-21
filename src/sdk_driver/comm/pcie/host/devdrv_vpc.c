@@ -65,8 +65,7 @@ int devdrv_vpc_dma_iova_addr_check(struct devdrv_pci_ctrl *pci_ctrl, struct devd
     u32 dma_len;
 
     /* only vf's mdev pm need check, others no need check */
-    if ((pci_ctrl->env_boot_mode != DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT) &&
-        (pci_ctrl->env_boot_mode != DEVDRV_MDEV_VF_PM_BOOT)) {
+    if (pci_ctrl->ops.is_mdev_vf_pm == false) {
         return 0;
     }
 
@@ -99,7 +98,7 @@ int devdrv_vpc_dma_iova_addr_check(struct devdrv_pci_ctrl *pci_ctrl, struct devd
             return -EINVAL;
         }
     } else {
-        devdrv_err_spinlock("DMA direction is invalid. (devid=%u)\n", pci_ctrl->dev_id);
+        devdrv_err_spinlock("DMA direction is invalid. (devid=%u;direction=%d)\n", pci_ctrl->dev_id, direction);
         return -EINVAL;
     }
 
@@ -428,7 +427,7 @@ STATIC int devdrv_vpc_msg_para_check(u32 dev_id, u32 fid, const struct vmng_rx_m
     }
 
     if ((out_data_len < sizeof(struct devdrv_vpc_msg)) || (out_data_len >= max_len)) {
-        devdrv_err("Vpc_msg_in_data_len_check. (devid=%u; fid=%u; in_data_len=%u)\n", dev_id, fid, out_data_len);
+        devdrv_err("Vpc_msg_in_data_len_check. (devid=%u; fid=%u; out_data_len=%u)\n", dev_id, fid, out_data_len);
         return -EINVAL;
     }
     return 0;
@@ -484,7 +483,7 @@ STATIC int devdrv_vpc_msg_recv(u32 dev_id, u32 fid, struct vmng_rx_msg_proc_info
     int ret = -1;
 
     if (devdrv_vpc_msg_para_check(dev_id, fid, proc_info) != 0) {
-        devdrv_err("Vpc msg check is fail. (dev_id=%u)\n", dev_id);
+        devdrv_err("Vpc msg check failed. (dev_id=%u)\n", dev_id);
         return -EINVAL;
     }
 
@@ -579,11 +578,6 @@ int devdrv_mdev_pm_init(struct devdrv_pci_ctrl *pci_ctrl)
 {
     int ret;
 
-    if ((pci_ctrl->env_boot_mode != DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT) &&
-        (pci_ctrl->env_boot_mode != DEVDRV_MDEV_VF_PM_BOOT)) {
-        return 0;
-    }
-
     ret = devdrv_mdev_dma_iova_addr_range_init(pci_ctrl);
     if (ret != 0) {
         devdrv_err("Iova addr range init fail. (dev_id=%u)\n", pci_ctrl->dev_id);
@@ -599,11 +593,6 @@ int devdrv_mdev_vm_init(struct devdrv_pci_ctrl *pci_ctrl)
 #ifdef CFG_FEATURE_SRIOV
     struct vmng_vpc_unit vpc_info;
     int ret;
-
-    if ((pci_ctrl->env_boot_mode != DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT) &&
-        (pci_ctrl->env_boot_mode != DEVDRV_MDEV_VF_VM_BOOT)) {
-        return 0;
-    }
 
     vpc_info.pdev = pci_ctrl->pdev;
     vpc_info.dev_id = pci_ctrl->dev_id;
@@ -635,16 +624,20 @@ int devdrv_mdev_vpc_init(struct devdrv_pci_ctrl *pci_ctrl)
 {
     int ret;
 
-    ret = devdrv_mdev_pm_init(pci_ctrl);
-    if (ret != 0) {
-        devdrv_err("Calling mdev_pm_init fail. (ret=%d)\n", ret);
-        return ret;
+    if (pci_ctrl->ops.mdev_pm_init != NULL) {
+        ret = pci_ctrl->ops.mdev_pm_init(pci_ctrl);
+        if (ret != 0) {
+            devdrv_err("Calling mdev_pm_init fail. (ret=%d)\n", ret);
+            return ret;
+        }
     }
 
-    ret = devdrv_mdev_vm_init(pci_ctrl);
-    if (ret != 0) {
-        devdrv_err("Calling mdev_vm_init fail. (ret=%d)\n", ret);
-        return ret;
+    if (pci_ctrl->ops.mdev_vm_init != NULL) {
+        ret = pci_ctrl->ops.mdev_vm_init(pci_ctrl);
+        if (ret != 0) {
+            devdrv_err("Calling mdev_vm_init fail. (ret=%d)\n", ret);
+            return ret;
+        }
     }
 
     devdrv_info("Calling mdev_vpc_init success\n");
@@ -653,11 +646,6 @@ int devdrv_mdev_vpc_init(struct devdrv_pci_ctrl *pci_ctrl)
 
 void devdrv_mdev_pm_uninit(struct devdrv_pci_ctrl *pci_ctrl)
 {
-    if ((pci_ctrl->env_boot_mode != DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT) &&
-        (pci_ctrl->env_boot_mode != DEVDRV_MDEV_VF_PM_BOOT)) {
-        return;
-    }
-
     devdrv_mdev_dma_iova_addr_range_uninit(pci_ctrl);
     devdrv_info("Calling mdev_pm_uninit success. (dev_id=%u)\n", pci_ctrl->dev_id);
 }
@@ -667,11 +655,6 @@ void devdrv_mdev_vm_uninit(struct devdrv_pci_ctrl *pci_ctrl)
 #ifdef CFG_FEATURE_SRIOV
     struct vmng_vpc_unit vpc_info = {0};
     int ret;
-
-    if ((pci_ctrl->env_boot_mode != DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT) &&
-        (pci_ctrl->env_boot_mode != DEVDRV_MDEV_VF_VM_BOOT)) {
-        return;
-    }
 
     vpc_info.pdev = pci_ctrl->pdev;
     vpc_info.dev_id = pci_ctrl->dev_id;
@@ -688,8 +671,13 @@ void devdrv_mdev_vm_uninit(struct devdrv_pci_ctrl *pci_ctrl)
 
 void devdrv_mdev_vpc_uninit(struct devdrv_pci_ctrl *pci_ctrl)
 {
-    devdrv_mdev_pm_uninit(pci_ctrl);
-    devdrv_mdev_vm_uninit(pci_ctrl);
+    if (pci_ctrl->ops.mdev_pm_uninit != NULL) {
+        pci_ctrl->ops.mdev_pm_uninit(pci_ctrl);
+    }
 
-    return;
+    if (pci_ctrl->ops.mdev_vm_uninit != NULL) {
+        pci_ctrl->ops.mdev_vm_uninit(pci_ctrl);
+    }
+
+    devdrv_info("Calling mdev_vpc_uninit success\n");
 }

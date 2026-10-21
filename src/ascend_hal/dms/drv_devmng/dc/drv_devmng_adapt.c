@@ -15,6 +15,11 @@
 
 drvError_t drv_get_info_type_version_adapt(uint32_t devId, int32_t info_type, int64_t *value)
 {
+    if (value == NULL) {
+        DEVDRV_DRV_ERR("Input value is null. (dev_id=%u)\n", devId);
+        return DRV_ERROR_INVALID_HANDLE;
+    }
+
     return drv_get_info_from_dev_info(devId, info_type, value);
 }
 
@@ -37,7 +42,7 @@ drvError_t drvGetPlatformInfo(uint32_t *info)
     }
 
     if (para > DEVDRV_MANAGER_HOST_ENV) {
-        DEVDRV_DRV_ERR("wrong platform type = %u.\n", para);
+        DEVDRV_DRV_ERR("wrong platform type = %u, max = %u.\n", para, DEVDRV_MANAGER_HOST_ENV);
         return DRV_ERROR_INVALID_DEVICE;
     }
 

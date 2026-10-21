@@ -59,13 +59,18 @@ static int ubmem_map_local_client(u32 udevid, struct svm_global_va *src_va, u64 
 
     ret = ubmm_do_map(udevid, src_va->tgid, src_va->va, src_va->size, &uba);
     if (ret != 0) {
-        svm_err("Ub mem map failed. (ret=%d; udevid=%u; tgid=%d; va=0x%llx; size=0x%llx)\n", ret, udevid, src_va->tgid,
-                src_va->va, src_va->size);
+        svm_err_if((ret != -ENOTSUPP), "Ub mem map failed. (ret=%d; udevid=%u; tgid=%d; va=0x%llx; size=0x%llx)\n", ret,
+                   udevid, src_va->tgid, src_va->va, src_va->size);
         return ret;
     }
 
     ret = ubmem_query_host_mem_id(udevid, &mem_id);
-    ret |= ubmm_query_uba_base(udevid, &uba_base);
+    if (ret != 0) {
+        (void)ubmm_do_unmap(udevid, src_va->tgid, src_va->va, src_va->size);
+        return ret;
+    }
+
+    ret = ubmm_query_uba_base(udevid, &uba_base);
     if (ret != 0) {
         (void)ubmm_do_unmap(udevid, src_va->tgid, src_va->va, src_va->size);
         return ret;
@@ -88,12 +93,12 @@ static int ubmem_unmap_local_client(u32 udevid, struct svm_global_va *src_va)
 #else
 static int ubmem_map_local_client(u32 udevid, struct svm_global_va *src_va, u64 *maped_va)
 {
-    return -EINVAL;
+    return -ENOTSUPP;
 }
 
 static int ubmem_unmap_local_client(u32 udevid, struct svm_global_va *src_va)
 {
-    return -EINVAL;
+    return -ENOTSUPP;
 }
 #endif
 
@@ -109,7 +114,7 @@ static int ubmem_map_remote_client(u32 udevid, struct svm_global_va *src_va, u64
 
     ret = svm_kmc_h2d_send(udevid, &msg, (u32)sizeof(msg), (u32)sizeof(msg), &reply_len);
     if (ret != 0) {
-        svm_err("Kmc h2d failed. (ret=%d; udevid=%u)\n", ret, udevid);
+        svm_err_if((ret != -ENOTSUPP), "Kmc h2d failed. (ret=%d; udevid=%u)\n", ret, udevid);
         return ret;
     }
 
@@ -139,16 +144,13 @@ static int ubmem_unmap_remote_client(u32 udevid, struct svm_global_va *src_va)
 
 int ubmem_map_client(u32 udevid, struct svm_global_va *src_va, u64 *maped_va)
 {
-    if (!svm_dbi_kern_is_support_ubmem(udevid)) {
+    int ret = (udevid == uda_get_host_id()) ? ubmem_map_local_client(udevid, src_va, maped_va) :
+                                              ubmem_map_remote_client(udevid, src_va, maped_va);
+    if (ret == -ENOTSUPP) {
         *maped_va = 0;
         return 0;
     }
-
-    if (udevid == uda_get_host_id()) {
-        return ubmem_map_local_client(udevid, src_va, maped_va);
-    } else {
-        return ubmem_map_remote_client(udevid, src_va, maped_va);
-    }
+    return ret;
 }
 
 int ubmem_unmap_client(u32 udevid, struct svm_global_va *src_va)

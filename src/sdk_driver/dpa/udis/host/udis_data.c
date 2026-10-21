@@ -252,16 +252,16 @@ STATIC int udis_update_load_info_block(struct udis_ctrl_block *ucb, u32 udevid, 
     info_block = udis_find_info_block(ucb, module_type, info_request->name, UDIS_INFO_ALL_SPACE);
     if (info_block == NULL) {
         ret = -ENODATA;
-        udis_err("This module has no such name. (udevid=%u; module_type=%u; name=%s)\n", udevid, module_type,
-                 info_request->name);
+        udis_warn("This module has no such name. (udevid=%u; module_type=%u; name=%s)\n", udevid, module_type,
+                  info_request->name);
         goto out;
     }
 
     ret = udis_check_info_block_valid(udevid, info_block);
     if (ret != UDIS_DATA_VALID && ret != UDIS_DATA_UPDATE_IMMEDIATELY) {
-        ret = -EINVAL;
-        udis_err("udis info_block's data is invalid. (udevid=%u; module_type=%u; name=%s; ret=%d)\n", udevid,
-                 module_type, info_block->name, ret);
+        udis_warn("udis info_block's data is invalid. (udevid=%u; module_type=%u; name=%s; ret=%d)\n", udevid,
+                  module_type, info_block->name, ret);
+        ret = -ENODATA;
         goto out;
     }
 
@@ -542,8 +542,8 @@ STATIC int udis_alloc_discrete_info_block(unsigned int udevid, const struct udis
     ret = udis_fill_info_block(udevid, addr_node, info_block);
     if (ret != 0) {
         ka_task_up_write(&udis_cb->udis_info_lock);
-        udis_err("Failed to fill info block's name. (udevid=%u; module_type=%u; name=%s; ret=%d)\n", udevid,
-                 addr_node->module_type, addr_node->name, ret);
+        udis_err("Failed to fill info block's name. (udevid=%u; module_type=%u; name=%s, ret=%d)\n", udevid,
+                 addr_node->module_type, addr_node->name);
         return ret;
     }
 
@@ -804,6 +804,7 @@ int udis_sync_copy(unsigned int udevid, struct udis_ctrl_block *udis_cb, const s
             udevid, node->data_len, node->host_va_addr - (va_addr_t)(uintptr_t)(udis_cb->udis_info_buf),
             node->host_segment);
         if (host_urma_copy == NULL) {
+            ka_task_up_write(&udis_cb->udis_info_lock);
             udis_err("udis_alloc_devdrv_urma_copy host failed. (udevid=%u)\n", udevid);
             return -EINVAL;
         }
@@ -812,6 +813,7 @@ int udis_sync_copy(unsigned int udevid, struct udis_ctrl_block *udis_cb, const s
                                                        node->device_segment_import);
         if (device_urma_copy == NULL) {
             udis_free_devdrv_urma_copy(host_urma_copy);
+            ka_task_up_write(&udis_cb->udis_info_lock);
             udis_err("udis_get_devdrv_urma_copy device failed. (udevid=%u)\n", udevid);
             return -EINVAL;
         }

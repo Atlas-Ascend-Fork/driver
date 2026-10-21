@@ -22,16 +22,10 @@
 #include "queue_user_interface.h"
 #include "queue_interface.h"
 #include "que_platform.h"
+#include "queue_feature.h"
 
 static struct queue_comm_interface_list *queue_comm_interface[DEPLOYMENT_MAX_TYPE] = {NULL};
 
-#ifdef CFG_FEATURE_HOST_DEFAULT_CLIENT_QUEUE
-static bool g_enable_local_queue = false;
-static bool g_default_client_queue = true;
-#else
-static bool g_enable_local_queue = true;
-static bool g_default_client_queue = false;
-#endif
 static bool g_queue_init_call_flag[MAX_DEVICE] = {false};
 
 unsigned int que_get_unified_devid(unsigned int dev_id)
@@ -46,8 +40,7 @@ void queue_set_comm_interface(QUEUE_DEPLOYMENT_TYPE type, struct queue_comm_inte
 
 unsigned int queue_get_virtual_qid(unsigned int actual_qid, QUEUE_DEPLOYMENT_TYPE type)
 {
-    if ((g_default_client_queue == true) && (g_enable_local_queue == true) &&
-        ((type == LOCAL_QUEUE) || (type == INTER_DEV_QUEUE))) {
+    if (g_default_client_queue && g_enable_local_queue && ((type == LOCAL_QUEUE) || (type == INTER_DEV_QUEUE))) {
         return (actual_qid + CLIENT_QID_OFFSET);
     }
 
@@ -56,7 +49,7 @@ unsigned int queue_get_virtual_qid(unsigned int actual_qid, QUEUE_DEPLOYMENT_TYP
 
 unsigned int queue_get_actual_qid(unsigned int virtual_qid)
 {
-    if ((g_default_client_queue == true) && (g_enable_local_queue == true)) {
+    if (g_default_client_queue && g_enable_local_queue) {
         return (virtual_qid < CLIENT_QID_OFFSET) ? virtual_qid : virtual_qid - CLIENT_QID_OFFSET;
     }
 
@@ -73,8 +66,8 @@ unsigned int queue_get_actual_qid(unsigned int virtual_qid)
  */
 QUEUE_DEPLOYMENT_TYPE queue_get_deployment_type_by_qid(unsigned int qid)
 {
-    if (g_default_client_queue == true) {
-        if (g_enable_local_queue == true) {
+    if (g_default_client_queue) {
+        if (g_enable_local_queue) {
             return qid < CLIENT_QID_OFFSET ? CLIENT_QUEUE : LOCAL_QUEUE;
         }
         return CLIENT_QUEUE;
@@ -86,8 +79,8 @@ static QUEUE_DEPLOYMENT_TYPE queue_get_deployment_type(void)
 {
     QUEUE_DEPLOYMENT_TYPE type = LOCAL_QUEUE;
 
-    if (g_default_client_queue == true) {
-        if (g_enable_local_queue == true) {
+    if (g_default_client_queue) {
+        if (g_enable_local_queue) {
             type = LOCAL_QUEUE;
         } else {
             type = CLIENT_QUEUE;
@@ -171,8 +164,8 @@ QUEUE_DEPLOYMENT_TYPE que_get_deploy_type_for_inter_dev(unsigned int dev_id, uns
     (void)dev_id;
     (void)op_type;
     QUEUE_DEPLOYMENT_TYPE type = LOCAL_QUEUE;
-    if (g_default_client_queue == true) {
-        if (g_enable_local_queue == true) {
+    if (g_default_client_queue) {
+        if (g_enable_local_queue) {
             type = (qid < CLIENT_QID_OFFSET) ? CLIENT_QUEUE : LOCAL_QUEUE;
         } else {
             type = CLIENT_QUEUE;
@@ -219,15 +212,15 @@ drvError_t halQueueInit(unsigned int devId)
 
     if (que_unlikely(devId >= MAX_DEVICE)) {
         QUEUE_LOG_ERR("para is error. (devid=%u; max_devid=%u)\n", devId, (unsigned int)MAX_DEVICE);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, (unsigned int)MAX_DEVICE);
         return DRV_ERROR_INVALID_DEVICE;
     }
+
     /*
      * if enable local_queue, client queue will be initialized in halQueueCreate or halQueueAttach.
      * because client queue may fail to initialize when the device side process is not pulled up.
      */
-    if (g_default_client_queue == true) {
-        if (g_enable_local_queue == true) {
+    if (g_default_client_queue) {
+        if (g_enable_local_queue) {
             g_queue_init_call_flag[devId] = true;
             return DRV_ERROR_NONE;
         }
@@ -246,7 +239,7 @@ drvError_t halQueueInit(unsigned int devId)
 void queue_uninit(unsigned int dev_id, unsigned int scene)
 {
     if (que_likely(dev_id < MAX_DEVICE)) {
-        QUEUE_DEPLOYMENT_TYPE type = (g_default_client_queue == true) ? CLIENT_QUEUE : LOCAL_QUEUE;
+        QUEUE_DEPLOYMENT_TYPE type = g_default_client_queue ? CLIENT_QUEUE : LOCAL_QUEUE;
         if (queue_comm_interface[type] != NULL && queue_comm_interface[type]->queue_uninit != NULL) {
             queue_comm_interface[type]->queue_uninit(dev_id, scene);
         }
@@ -256,9 +249,13 @@ void queue_uninit(unsigned int dev_id, unsigned int scene)
 static drvError_t queue_real_init_iner(unsigned int dev_id, QUEUE_DEPLOYMENT_TYPE type)
 {
     QUEUE_DEPLOYMENT_TYPE _type = type;
-    if (g_default_client_queue == true) {
-        if ((g_enable_local_queue == true) && (dev_id < MAX_DEVICE) && (g_queue_init_call_flag[dev_id] == true)) {
+    if (g_default_client_queue) {
+        if (g_enable_local_queue && (dev_id < MAX_DEVICE) && (g_queue_init_call_flag[dev_id] == true)) {
             que_get_init_deploy_type(dev_id, &_type);
+            if (queue_comm_interface[_type] == NULL) {
+                QUEUE_LOG_INFO("queue comm interface not set. (deploy_type=%u)\n", _type);
+                return DRV_ERROR_NOT_SUPPORT;
+            }
             drvError_t ret = queue_comm_interface[_type]->queue_dc_init(dev_id);
             if (ret != DRV_ERROR_NONE && ret != DRV_ERROR_REPEATED_INIT) {
                 QUEUE_LOG_ERR("queue init failed. (devid=%u; deploy=%u; ret=%d)\n", dev_id, _type, ret);
@@ -276,7 +273,6 @@ drvError_t halQueueCreate(unsigned int devId, const QueueAttr *queAttr, unsigned
 
     if (que_unlikely(devId >= MAX_DEVICE)) {
         QUEUE_LOG_ERR("invalid para.(devid=%u;max_devid=%u;)\n", devId, (unsigned int)MAX_DEVICE);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_VALUE;
     }
     if (que_unlikely(queAttr == NULL)) {
@@ -290,9 +286,9 @@ drvError_t halQueueCreate(unsigned int devId, const QueueAttr *queAttr, unsigned
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if (g_default_client_queue == true) {
+    if (g_default_client_queue) {
         type = CLIENT_QUEUE;
-        if (g_enable_local_queue == true) {
+        if (g_enable_local_queue) {
             type = (queAttr->deploy_type == CLIENT_QUEUE_DEPLOY) ? CLIENT_QUEUE : LOCAL_QUEUE;
         }
         /*
@@ -317,7 +313,7 @@ drvError_t halQueueCreate(unsigned int devId, const QueueAttr *queAttr, unsigned
         return ret;
     }
 
-    QUEUE_LOG_INFO("not set queue_create_inner. (deploy_type=%u)\n", type);
+    QUEUE_LOG_INFO("not set queue_create_iner. (deploy_type=%u)\n", type);
     return DRV_ERROR_NOT_SUPPORT;
 }
 
@@ -327,7 +323,6 @@ drvError_t halQueueGrant(unsigned int devId, int qid, int pid, QueueShareAttr at
     unsigned int actualqid = queue_get_actual_qid((unsigned int)qid);
     if (que_unlikely(devId >= MAX_DEVICE)) {
         QUEUE_LOG_ERR("invalid para.(devid=%u;max_devid=%u;)\n", devId, (unsigned int)MAX_DEVICE);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_VALUE;
     }
     if (que_unlikely(actualqid >= MAX_SURPORT_QUEUE_NUM)) {
@@ -386,7 +381,6 @@ drvError_t halQueueDestroy(unsigned int devId, unsigned int qid)
 
     if (que_unlikely(devId >= MAX_DEVICE)) {
         QUEUE_LOG_ERR("invalid para.(devid=%u;max_devid=%u;)\n", devId, (unsigned int)MAX_DEVICE);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_VALUE;
     }
     if (que_unlikely(actualqid >= MAX_SURPORT_QUEUE_NUM)) {
@@ -421,7 +415,6 @@ drvError_t halQueueReset(unsigned int devId, unsigned int qid)
     unsigned int actualqid = queue_get_actual_qid(qid);
     if (que_unlikely(devId >= MAX_DEVICE)) {
         QUEUE_LOG_ERR("invalid para.(devid=%u;max_devid=%u;)\n", devId, (unsigned int)MAX_DEVICE);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_DEVICE;
     }
     if (que_unlikely(actualqid >= MAX_SURPORT_QUEUE_NUM)) {
@@ -585,7 +578,6 @@ drvError_t halQueueQueryInfo(unsigned int devId, unsigned int qid, QueueInfo *qu
 
     if (que_unlikely(devId >= MAX_DEVICE)) {
         QUEUE_LOG_ERR("invalid para.(devid=%u;max_devid=%u;)\n", devId, (unsigned int)MAX_DEVICE);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_VALUE;
     }
     if (que_unlikely(actualqid >= MAX_SURPORT_QUEUE_NUM)) {
@@ -681,12 +673,11 @@ static drvError_t queue_query_para_check(unsigned int dev_id, QueueQueryCmdType 
 {
     if (cmd >= QUEUE_QUERY_CMD_MAX) {
         QUEUE_LOG_ERR("Input para error.(cmd=%d)\n", cmd);
-        report_arg_out_of_range(func_name, "cmd", cmd, 0, QUEUE_QUERY_CMD_MAX);
+        report_enum_arg_out_of_range(func_name, "cmd", cmd, QUEUE_QUERY_CMD_TYPE_NAME);
         return DRV_ERROR_NOT_SUPPORT;
     }
     if (dev_id >= MAX_DEVICE) {
         QUEUE_LOG_ERR("Input para error.(devId=%u)\n", dev_id);
-        report_arg_out_of_range(func_name, "device ID", dev_id, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_VALUE;
     }
     if ((in_put == NULL)) {
@@ -835,21 +826,20 @@ drvError_t halQueuePeekData(unsigned int devId, unsigned int qid, unsigned int f
 
 static drvError_t queue_enable_local_queue(void)
 {
-    if (g_enable_local_queue == true) {
+    if (g_enable_local_queue) {
         return DRV_ERROR_NONE;
     }
-
-#if (defined CFG_FEATURE_HOST_DEFAULT_CLIENT_QUEUE) && (defined CFG_FEATURE_HOST_SUPPORT_LOCAL_QUEUE)
+#ifdef CFG_FEATURE_HOST_SUPPORT_LOCAL_QUEUE
     unsigned int split_mode;
     drvError_t ret;
-
-    ret = halGetDeviceSplitMode(0, &split_mode);
-    if ((ret == DRV_ERROR_NONE) && (split_mode == VMNG_NORMAL_NONE_SPLIT_MODE)) {
-        g_enable_local_queue = true;
-        QUEUE_RUN_LOG_INFO("enable local queue succ.\n");
-        return DRV_ERROR_NONE;
+    if (queue_is_client_queue_deploy()) {
+        ret = halGetDeviceSplitMode(0, &split_mode);
+        if ((ret == DRV_ERROR_NONE) && (split_mode == VMNG_NORMAL_NONE_SPLIT_MODE)) {
+            g_enable_local_queue = true;
+            QUEUE_RUN_LOG_INFO("enable local queue succ.\n");
+            return DRV_ERROR_NONE;
+        }
     }
-
 #endif
     QUEUE_RUN_LOG_INFO("no support enable local queue.\n");
     return DRV_ERROR_NOT_SUPPORT;
@@ -886,7 +876,7 @@ drvError_t halQueueSet(unsigned int devId, QueueSetCmdType cmd, QueueSetInputPar
     } else if (cmd == QUEUE_SET_WORK_MODE) {
         if ((type == LOCAL_QUEUE) && (input != NULL)) {
             in_buff = (QueueSetInput *)(input->inBuff);
-            if (in_buff != NULL) {
+            if ((in_buff != NULL) && (input->inLen >= sizeof(QueueSetInput))) {
                 type = que_get_deploy_type_for_inter_dev(devId, in_buff->queSetWorkMode.qid, EXPORT_SUPPORT);
             }
         }
@@ -982,20 +972,19 @@ void queue_finish_callback(unsigned int devid, unsigned int grp_id, esched_event
                       qid, (unsigned int)MAX_SURPORT_QUEUE_NUM);
         return;
     }
-
-#ifdef CFG_FEATURE_HOST_DEFAULT_CLIENT_QUEUE
-    struct QueueEventMsg *que_msg = (struct QueueEventMsg *)event_info.msg;
-    type = (que_msg->src_location == EVENT_SRC_LOCATION_DEVICE) ? CLIENT_QUEUE : LOCAL_QUEUE;
-    if (type == CLIENT_QUEUE) {
-        int ret = uda_get_devid_by_udevid(que_msg->src_udevid, &notify_dev);
-        if (ret) {
-            QUEUE_LOG_ERR("uda_get_devid_by_udevid failed. (src_udevid=%u; ret=%d)\n", que_msg->src_udevid, ret);
-            return;
+    if (queue_is_client_queue_deploy()) {
+        struct QueueEventMsg *que_msg = (struct QueueEventMsg *)event_info.msg;
+        type = (que_msg->src_location == EVENT_SRC_LOCATION_DEVICE) ? CLIENT_QUEUE : LOCAL_QUEUE;
+        if (type == CLIENT_QUEUE) {
+            int ret = uda_get_devid_by_udevid(que_msg->src_udevid, &notify_dev);
+            if (ret) {
+                QUEUE_LOG_ERR("uda_get_devid_by_udevid failed. (src_udevid=%u; ret=%d)\n", que_msg->src_udevid, ret);
+                return;
+            }
         }
+    } else {
+        type = LOCAL_QUEUE;
     }
-#else
-    type = LOCAL_QUEUE;
-#endif
 
     if (queue_comm_interface[type] != NULL && queue_comm_interface[type]->queue_finish_cb != NULL) {
         queue_comm_interface[type]->queue_finish_cb(notify_dev, qid, grp_id, event_info.event_id);

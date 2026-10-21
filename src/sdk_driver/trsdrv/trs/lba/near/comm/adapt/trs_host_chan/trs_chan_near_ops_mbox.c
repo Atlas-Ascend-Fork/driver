@@ -28,11 +28,12 @@ static int trs_chan_update_dev_mem_addr(struct trs_id_inst *inst, struct trs_cha
     int ret;
 
     /* when set TSDRV_FLAG_ONLY_SQCQ_ID flag, no sq mem, but sq_mem_side is 0 */
-    if ((chan_info->sq_info.sq_vaddr != NULL) && (trs_chan_mem_is_dev_mem(sq_mem_side))) {
+    if (((chan_info->sq_info.sq_vaddr != NULL) || (chan_info->sq_info.vmap_pfn_handle != NULL)) &&
+        (trs_chan_mem_is_dev_mem(sq_mem_side) && !(chan_info->sq_addr_is_virtual))) {
         ret = trs_chan_near_sqcq_mem_h2d(inst, chan_info->sq_info.sq_phy_addr, &chan_info->sq_info.sq_phy_addr,
                                          sq_mem_side);
         if (ret != 0) {
-            trs_err("Rsv mem h2d failed. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
+            trs_err("Reserve sq mem h2d failed. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
             return ret;
         }
     }
@@ -41,33 +42,12 @@ static int trs_chan_update_dev_mem_addr(struct trs_id_inst *inst, struct trs_cha
         ret = trs_chan_near_sqcq_mem_h2d(inst, chan_info->cq_info.cq_phy_addr, &chan_info->cq_info.cq_phy_addr,
                                          cq_mem_side);
         if (ret != 0) {
-            trs_err("Rsv mem h2d failed. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
+            trs_err("Reserve cq mem h2d failed. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
             return ret;
         }
     }
 
     return 0;
-}
-
-static void trs_chan_update_phy_addr_check(u32 devid)
-{
-    if (devdrv_get_connect_protocol(devid) == CONNECT_PROTOCOL_HCCS) {
-        u32 host_flag = 0;
-        int ret;
-
-        ret = devdrv_get_host_phy_mach_flag(devid, &host_flag);
-        if (ret != 0) {
-#ifndef EMU_ST
-            trs_warn("Get phy mach flag warn. (devid=%u; ret=%d)\n", devid, ret);
-#endif
-            return;
-        }
-
-        /* not support passthrough virtual machine */
-        if (host_flag != DEVDRV_HOST_PHY_MACH_FLAG) {
-            trs_warn("Sqcq mem not support hccs. (devid=%u)\n", devid);
-        }
-    }
 }
 
 int trs_chan_near_ops_mbox_send(struct trs_id_inst *inst, struct trs_chan_info *chan_info)
@@ -84,8 +64,6 @@ int trs_chan_near_ops_mbox_send(struct trs_id_inst *inst, struct trs_chan_info *
     if (ret != 0) {
         return ret;
     }
-
-    trs_chan_update_phy_addr_check(inst->devid);
 
     return trs_chan_mbox_send(inst, chan_info, &adapt);
 }

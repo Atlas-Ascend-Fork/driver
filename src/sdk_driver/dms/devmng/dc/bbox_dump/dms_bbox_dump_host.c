@@ -100,7 +100,7 @@ STATIC int dms_get_bbox_addr_info(u32 dev_id, enum bbox_data_type type, u64 *add
             ret = devdrv_get_addr_info(dev_id, DEVDRV_ADDR_HBOOT_SRAM_MEM, 0, addr, size);
             break;
         default:
-            dms_err("Parameter type is error. (type=%d)\n", (int)type);
+            dms_err("Parameter type is invalid. (type=%d)\n", (int)type);
             ret = -EINVAL;
             break;
     }
@@ -162,9 +162,9 @@ STATIC int dms_bbox_region_get(struct mem_mng *ctx, unsigned int type, unsigned 
     const struct ub_dump_select region_map[] = {
         {MEM_TYPE_PCIE_SRAM, &ctx->sram, DEVDRV_RAO_CLIENT_BBOX_SRAM, *offset},
         {MEM_TYPE_PCIE_DDR, &ctx->klog, DEVDRV_RAO_CLIENT_BBOX_KLOG, *offset},
-        {MEM_TYPE_BBOX_DDR, &ctx->ddr, DEVDRV_RAO_CLIENT_BBOX_DDR, DDR_BASE_OFFSET},
+        {MEM_TYPE_BBOX_DDR, &ctx->ddr, DEVDRV_RAO_CLIENT_BBOX_DDR, DDR_BASE_OFFSET + *offset},
         {MEM_TYPE_BBOX_HDR, &ctx->ddr, DEVDRV_RAO_CLIENT_BBOX_DDR, DDR_HDR_OFFSET},
-        {MEM_TYPE_REG_DDR, &ctx->ddr, DEVDRV_RAO_CLIENT_BBOX_DDR, DDR_REG_OFFSET},
+        {MEM_TYPE_REG_DDR, &ctx->ddr, DEVDRV_RAO_CLIENT_BBOX_DDR, DDR_REG_OFFSET + *offset},
         {MEM_TYPE_DEBUG_OS_LOG, &ctx->persistent.booked, DEVDRV_RAO_CLIENT_BBOX_DEBUG_RUN_OS, *offset},
         {MEM_TYPE_SEC_LOG, &ctx->persistent.sec_log, DEVDRV_RAO_CLIENT_BBOX_SEC_OS, *offset},
         {MEM_TYPE_RUN_OS_LOG, &ctx->persistent.booked, DEVDRV_RAO_CLIENT_BBOX_DEBUG_RUN_OS, *offset},
@@ -738,10 +738,12 @@ int bbox_register_persistent_export(u32 udevid, struct mem_mng *ctx)
 
 int bbox_unregister_persistent_export(u32 udevid, struct mem_mng *ctx)
 {
-    struct persistent_export_region *persistent = &ctx->persistent;
+    struct persistent_export_region *persistent = NULL;
     int ret = 0;
 
     ka_task_cancel_delayed_work_sync(&g_reg_work[udevid].reg_work);
+    ka_task_down_write(&ctx->sem);
+    persistent = &ctx->persistent;
     if (persistent->booked.reg_flag == true) {
         ret = devdrv_unregister_rao_client(udevid, DEVDRV_RAO_CLIENT_BBOX_DEBUG_RUN_OS);
         if (ret != 0) {
@@ -770,6 +772,7 @@ int bbox_unregister_persistent_export(u32 udevid, struct mem_mng *ctx)
     }
 
     bbox_persistent_export_free(ctx);
+    ka_task_up_write(&ctx->sem);
 
     return ret;
 }

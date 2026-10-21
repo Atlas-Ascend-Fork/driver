@@ -46,8 +46,7 @@ static int trs_id_get_num_per_bit(struct trs_id_inst *inst, int type, u32 *num_p
 
     ret = soc_resmng_get_mia_res_ex(&res_inst, res_type, &info);
     if ((ret != 0) || (info.unit_per_bit == 0)) {
-        trs_err("Failed to get number on per bit. (ret=%d; devid=%u; unit_per_bit=%u)\n", ret, inst->devid,
-                info.unit_per_bit);
+        trs_err("Failed to get mia res. (ret=%d; devid=%u; unit_per_bit=%u)\n", ret, inst->devid, info.unit_per_bit);
         return ret;
     }
     *num_per_bit = info.unit_per_bit;
@@ -64,7 +63,7 @@ static int trs_id_get_res_bitmap(struct trs_id_inst *inst, int type, u32 vfid, u
     for (grp_id = 0; grp_id < SOC_MAX_MIA_GROUP_NUM; grp_id++) {
         ret = soc_resmng_dev_get_mia_grp_info(inst->devid, grp_id, &grp_info);
         if (ret != 0) {
-            trs_err("Failed to get bitmap. (devid=%u; grp_id=%u)\n", inst->devid, grp_id);
+            trs_err("Failed to get mia group info. (devid=%u; grp_id=%u)\n", inst->devid, grp_id);
             return ret;
         }
         if ((grp_info.valid == 1) && (vfid == grp_info.vfid)) {

@@ -17,11 +17,9 @@
 
 static int dms_get_offset_from_fault_status(unsigned int fault_status)
 {
-    int trans_table[] = {
-        DMS_SENSOR_FAULT_LEVEL_LOW_MINOR,    DMS_SENSOR_FAULT_LEVEL_LOW_MAJOR,
-        DMS_SENSOR_FAULT_LEVEL_LOW_CRITICAL, DMS_SENSOR_FAULT_LEVEL_UP_MINOR,
-        DMS_SENSOR_FAULT_LEVEL_UP_MAJOR,     DMS_SENSOR_FAULT_LEVEL_UP_CRITICAL
-    };
+    int trans_table[] = {DMS_SENSOR_FAULT_LEVEL_LOW_MINOR,    DMS_SENSOR_FAULT_LEVEL_LOW_MAJOR,
+                         DMS_SENSOR_FAULT_LEVEL_LOW_CRITICAL, DMS_SENSOR_FAULT_LEVEL_UP_MINOR,
+                         DMS_SENSOR_FAULT_LEVEL_UP_MAJOR,     DMS_SENSOR_FAULT_LEVEL_UP_CRITICAL};
 
     if ((fault_status >= DMS_GEN_SEN_STATUS_LOW_MINOR_FAULT) &&
         (fault_status <= DMS_GEN_SEN_STATUS_UP_CRITICAL_FAULT)) {
@@ -40,7 +38,7 @@ unsigned int dms_sensor_class_init_general(struct dms_sensor_object_cb *psensor_
 }
 
 static void dms_get_general_sensor_fault_type(int current_value, unsigned int *fault_status,
-    const struct dms_general_sensor thres_info)
+                                              const struct dms_general_sensor thres_info)
 {
     if ((current_value > thres_info.up_minor) && (current_value <= thres_info.up_major)) {
         *fault_status = DMS_GEN_SEN_STATUS_UP_MINOR_FAULT;
@@ -64,7 +62,7 @@ static void dms_get_general_sensor_fault_type(int current_value, unsigned int *f
 }
 
 static __inline unsigned int dms_sensor_check_status_good(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+                                                          unsigned int pre_status, int curr_value)
 {
     if ((curr_value <= thres_info->up_minor) && (curr_value >= thres_info->low_minor)) {
         return DMS_SENSOR_STATUS_NO_CHANGE;
@@ -74,7 +72,7 @@ static __inline unsigned int dms_sensor_check_status_good(const struct dms_gener
 }
 
 static __inline unsigned int dms_sensor_check_status_low_minor(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+                                                               unsigned int pre_status, int curr_value)
 {
     if (((thres_info->thres_series & DMS_SENSOR_THRES_LOW_MINOR_SERIES) != 0) &&
         (curr_value < (thres_info->low_minor + thres_info->pos_thd_hysteresis)) &&
@@ -86,7 +84,7 @@ static __inline unsigned int dms_sensor_check_status_low_minor(const struct dms_
 }
 
 static __inline unsigned int dms_sensor_check_status_low_major(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+                                                               unsigned int pre_status, int curr_value)
 {
     if (((thres_info->thres_series & DMS_SENSOR_THRES_LOW_MAJOR_SERIES) != 0) &&
         (curr_value < (thres_info->low_major + thres_info->pos_thd_hysteresis)) &&
@@ -98,12 +96,12 @@ static __inline unsigned int dms_sensor_check_status_low_major(const struct dms_
 }
 
 static __inline unsigned int dms_sensor_check_status_low_critical(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+                                                                  unsigned int pre_status, int curr_value)
 {
     if (((thres_info->thres_series & DMS_SENSOR_THRES_LOW_CRITICAL_SERIES) != 0) &&
         (curr_value < (thres_info->low_critical + thres_info->pos_thd_hysteresis))) {
-        dms_debug("!!!!!!not changed, (low_critical: %d, pos_thd_hysteresis: %d)\n",
-            thres_info->low_critical, thres_info->pos_thd_hysteresis);
+        dms_debug("!!!!!!not changed, (low_critical: %d, pos_thd_hysteresis: %d)\n", thres_info->low_critical,
+                  thres_info->pos_thd_hysteresis);
         return DMS_SENSOR_STATUS_NO_CHANGE;
     }
 
@@ -111,10 +109,9 @@ static __inline unsigned int dms_sensor_check_status_low_critical(const struct d
 }
 
 static __inline unsigned int dms_sensor_check_status_up_minor(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+                                                              unsigned int pre_status, int curr_value)
 {
-    if (((thres_info->thres_series & DMS_SENSOR_THRES_UP_MINOR_SERIES) != 0) &&
-        (curr_value <= thres_info->up_major) &&
+    if (((thres_info->thres_series & DMS_SENSOR_THRES_UP_MINOR_SERIES) != 0) && (curr_value <= thres_info->up_major) &&
         (curr_value > thres_info->up_minor - thres_info->neg_thd_hysteresis)) {
         return DMS_SENSOR_STATUS_NO_CHANGE;
     }
@@ -123,7 +120,7 @@ static __inline unsigned int dms_sensor_check_status_up_minor(const struct dms_g
 }
 
 static __inline unsigned int dms_sensor_check_status_up_major(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+                                                              unsigned int pre_status, int curr_value)
 {
     if (((thres_info->thres_series & DMS_SENSOR_THRES_UP_MAJOR_SERIES) != 0) &&
         (curr_value <= thres_info->up_critical) &&
@@ -135,7 +132,7 @@ static __inline unsigned int dms_sensor_check_status_up_major(const struct dms_g
 }
 
 static __inline unsigned int dms_sensor_check_status_up_critical(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+                                                                 unsigned int pre_status, int curr_value)
 {
     if (((thres_info->thres_series & DMS_SENSOR_THRES_UP_MAJOR_SERIES) != 0) &&
         (curr_value > thres_info->up_critical - thres_info->neg_thd_hysteresis)) {
@@ -145,8 +142,8 @@ static __inline unsigned int dms_sensor_check_status_up_critical(const struct dm
     return DMS_SENSOR_STATUS_CHANGED;
 }
 
-static int dms_get_sensor_status_changed(const struct dms_general_sensor *thres_info,
-    unsigned int pre_status, int curr_value)
+static int dms_get_sensor_status_changed(const struct dms_general_sensor *thres_info, unsigned int pre_status,
+                                         int curr_value)
 {
     dms_debug("(pre_status: %u, curr_value: %d)\n", pre_status, curr_value);
     switch (pre_status) {
@@ -171,22 +168,22 @@ static int dms_get_sensor_status_changed(const struct dms_general_sensor *thres_
     return DMS_SENSOR_STATUS_CHANGED;
 }
 
-static int dms_process_general_sensor_check_result(struct dms_sensor_object_cb *pobject,
-    unsigned int *status, int *event_offset)
+static int dms_process_general_sensor_check_result(struct dms_sensor_object_cb *pobject, unsigned int *status,
+                                                   int *event_offset)
 {
     unsigned int new_fault_status;
-    struct dms_general_sensor thres_info = { 0 };
+    struct dms_general_sensor thres_info = {0};
     unsigned int pre_status;
 
     if (pobject == NULL || status == NULL || event_offset == NULL) {
-        dms_err("NULL pointer. (pobject=%d; status=%d; event_offset=%d)\n", pobject != NULL, status != NULL,
-            event_offset != NULL);
+        dms_err("NULL pointer. (pobject_is_null=%d; status_is_null=%d; event_offset_is_null=%d)\n", pobject == NULL,
+                status == NULL, event_offset == NULL);
         return DRV_ERROR_INVALID_VALUE;
     }
 
     pre_status = pobject->class_cb.general_cb.pre_status;
     if (pre_status > DMS_GEN_SEN_STATUS_UP_CRITICAL_FAULT) {
-        dms_err("invalid fault status:%u\n", pobject->fault_status);
+        dms_err("invalid fault status. (pre_status=%u; max=%u)\n", pre_status, DMS_GEN_SEN_STATUS_UP_CRITICAL_FAULT);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -201,7 +198,7 @@ static int dms_process_general_sensor_check_result(struct dms_sensor_object_cb *
     thres_info.thres_series = pobject->sensor_object_cfg.sensor_class_cfg.general_sensor.thres_series;
 
     if ((thres_info.thres_series & DMS_GENERAL_SENSOR_THRESSERIES_MASK) == 0) {
-        dms_err("threshold series[0x%x] error!\n", thres_info.thres_series);
+        dms_err("threshold series is wrong. (series=0x%x)\n", thres_info.thres_series);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -214,7 +211,7 @@ static int dms_process_general_sensor_check_result(struct dms_sensor_object_cb *
     }
 
     dms_debug("general sensor check finish, (curr_val: %d, change_status: %u, event_offset: %d, fault_status: %u)\n",
-        pobject->current_value, *status, *event_offset, pobject->class_cb.general_cb.pre_status);
+              pobject->current_value, *status, *event_offset, pobject->class_cb.general_cb.pre_status);
 
     return DRV_ERROR_NONE;
 }
@@ -321,18 +318,22 @@ static void dms_adjust_general_sensor_thres(struct dms_general_sensor *thres_inf
     dms_adjust_general_sensor_up_thres(thres_info);
     dms_adjust_general_sensor_low_thres(thres_info);
 
-    return ;
+    return;
 }
 
 static int dms_compare_thres(int big_thres, int small_thres, int thdhysteresis)
 {
-    if (big_thres <= small_thres) {
-        dms_err("Threshold NOT in Valid Scope!\n");
+    if (big_thres <= small_thres || thdhysteresis < 0) {
+        dms_err("Threshold is NOT in Valid Scope! (big_thres=%d; small_thres=%d; thdhysteresis=%d; "
+                "expect: big_thres > small_thres, thdhysteresis >= 0)\n",
+                big_thres, small_thres, thdhysteresis);
         return DRV_ERROR_PARA_ERROR;
     }
 
-    if (thdhysteresis >= (big_thres - small_thres)) {
-        dms_err("Threshold NOT in Valid Scope!\n");
+    if (thdhysteresis >= (big_thres - small_thres) || (big_thres - small_thres) > INT_MAX - thdhysteresis) {
+        dms_err("Threshold is NOT in Valid Scope! (big_thres=%d; small_thres=%d; thdhysteresis=%d; "
+                "expect: thdhysteresis < big_thres - small_thres)\n",
+                big_thres, small_thres, thdhysteresis);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -343,21 +344,24 @@ static int dms_thres_scope_check_up_series(const struct dms_general_sensor *thre
 {
     if ((thres_info->thres_series & DMS_SENSOR_THRES_UP_MINOR_SERIES) != 0) {
         if ((thres_info->up_minor < thres_info->min_thres) || (thres_info->up_minor > thres_info->max_thres)) {
-            dms_err("UpMinor Threshold NOT in Valid Scope!\n");
+            dms_err("UpMinor Threshold NOT in Valid Scope! (up_minor=%d; min_thres=%d; max_thres=%d)\n",
+                    thres_info->up_minor, thres_info->min_thres, thres_info->max_thres);
             return DRV_ERROR_PARA_ERROR;
         }
     }
 
     if ((thres_info->thres_series & DMS_SENSOR_THRES_UP_MAJOR_SERIES) != 0) {
         if ((thres_info->up_major < thres_info->min_thres) || (thres_info->up_major > thres_info->max_thres)) {
-            dms_err("UpMajor Threshold NOT in Valid Scope!\n");
+            dms_err("UpMajor Threshold NOT in Valid Scope! (up_major=%d; min_thres=%d; max_thres=%d)\n",
+                    thres_info->up_major, thres_info->min_thres, thres_info->max_thres);
             return DRV_ERROR_PARA_ERROR;
         }
     }
 
     if ((thres_info->thres_series & DMS_SENSOR_THRES_UP_CRITICAL_SERIES) != 0) {
         if ((thres_info->up_critical < thres_info->min_thres) || (thres_info->up_critical > thres_info->max_thres)) {
-            dms_err("UpCritical Threshold NOT in Valid Scope!\n");
+            dms_err("UpCritical Threshold NOT in Valid Scope! (up_critical=%d; min_thres=%d; max_thres=%d)\n",
+                    thres_info->up_critical, thres_info->min_thres, thres_info->max_thres);
             return DRV_ERROR_PARA_ERROR;
         }
     }
@@ -369,21 +373,24 @@ static int dms_thres_scope_check_low_series(const struct dms_general_sensor *thr
 {
     if ((thres_info->thres_series & DMS_SENSOR_THRES_LOW_MINOR_SERIES) != 0) {
         if ((thres_info->low_minor < thres_info->min_thres) || (thres_info->low_minor > thres_info->max_thres)) {
-            dms_err("LowMinor Threshold NOT in Valid Scope!\n");
+            dms_err("LowMinor Threshold NOT in Valid Scope! (low_minor=%d; min_thres=%d; max_thres=%d)\n",
+                    thres_info->low_minor, thres_info->min_thres, thres_info->max_thres);
             return DRV_ERROR_PARA_ERROR;
         }
     }
 
     if ((thres_info->thres_series & DMS_SENSOR_THRES_LOW_MAJOR_SERIES) != 0) {
         if ((thres_info->low_major < thres_info->min_thres) || (thres_info->low_major > thres_info->max_thres)) {
-            dms_err("LowMajor Threshold NOT in Valid Scope!\n");
+            dms_err("LowMajor Threshold NOT in Valid Scope! (low_major=%d; min_thres=%d; max_thres=%d)\n",
+                    thres_info->low_major, thres_info->min_thres, thres_info->max_thres);
             return DRV_ERROR_PARA_ERROR;
         }
     }
 
     if ((thres_info->thres_series & DMS_SENSOR_THRES_LOW_CRITICAL_SERIES) != 0) {
         if ((thres_info->low_critical < thres_info->min_thres) || (thres_info->low_critical > thres_info->max_thres)) {
-            dms_err("LowCritical Threshold NOT in Valid Scope!\n");
+            dms_err("LowCritical Threshold NOT in Valid Scope! (low_critical=%d; min_thres=%d; max_thres=%d)\n",
+                    thres_info->low_critical, thres_info->min_thres, thres_info->max_thres);
             return DRV_ERROR_PARA_ERROR;
         }
     }
@@ -423,8 +430,8 @@ static int dms_is_general_sonsor_up_thres_valid(const struct dms_general_sensor 
             }
 
             if ((thres_info->thres_series & DMS_SENSOR_THRES_UP_CRITICAL_SERIES) != 0) {
-                result =
-                    dms_compare_thres(thres_info->up_critical, thres_info->up_major, thres_info->neg_thd_hysteresis);
+                result = dms_compare_thres(thres_info->up_critical, thres_info->up_major,
+                                           thres_info->neg_thd_hysteresis);
                 if (result != DRV_ERROR_NONE) {
                     dms_err("Compare UpCritical with UpMajor failed! result: %d\n", result);
                     return result;
@@ -465,8 +472,8 @@ static int dms_is_general_sonsor_low_thres_valid(const struct dms_general_sensor
             }
 
             if ((thres_info->thres_series & DMS_SENSOR_THRES_LOW_CRITICAL_SERIES) != 0) {
-                result =
-                    dms_compare_thres(thres_info->low_major, thres_info->low_critical, thres_info->pos_thd_hysteresis);
+                result = dms_compare_thres(thres_info->low_major, thres_info->low_critical,
+                                           thres_info->pos_thd_hysteresis);
                 if (result != DRV_ERROR_NONE) {
                     dms_err("Compare LowMajor with LowCritical failed! result: %d\n", result);
                     return result;
@@ -494,7 +501,6 @@ static int dms_is_general_sonsor_low_thres_valid(const struct dms_general_sensor
     return DRV_ERROR_NONE;
 }
 
-
 static int dms_is_general_sensor_thres_valid(const struct dms_general_sensor *thres_info)
 {
     int result;
@@ -506,14 +512,14 @@ static int dms_is_general_sensor_thres_valid(const struct dms_general_sensor *th
 
     if (thres_info->min_thres >= thres_info->max_thres) {
         dms_err("Invalid Threshold! Min Threshold: %d, Max Threshold: %d\n", thres_info->min_thres,
-            thres_info->max_thres);
+                thres_info->max_thres);
         return DRV_ERROR_PARA_ERROR;
     }
 
     /* Hysteresis must be non negative */
     if ((thres_info->pos_thd_hysteresis < 0) || (thres_info->neg_thd_hysteresis < 0)) {
         dms_err("Invalid Threshold! PosThdHysteresis: %d, NegThdHysteresis: %d\n", thres_info->pos_thd_hysteresis,
-            thres_info->neg_thd_hysteresis);
+                thres_info->neg_thd_hysteresis);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -560,14 +566,14 @@ int dms_sensor_class_check_general(struct dms_sensor_object_cfg *psensor_obj_cfg
     if ((psensor_obj_cfg->sensor_class_cfg.general_sensor.attribute != DMS_SENSOR_ATTRIB_THRES_SET_ENABLE) &&
         (psensor_obj_cfg->sensor_class_cfg.general_sensor.attribute != DMS_SENSOR_ATTRIB_THRES_NONE)) {
         dms_err("Invalid sensor attribute, (attribute: 0x%x, sensor_type: 0x%x)\n",
-            psensor_obj_cfg->sensor_class_cfg.general_sensor.attribute, psensor_obj_cfg->sensor_type);
+                psensor_obj_cfg->sensor_class_cfg.general_sensor.attribute, psensor_obj_cfg->sensor_type);
         return DRV_ERROR_PARA_ERROR;
     }
 
     result = dms_is_general_sensor_thres_valid(thres_info);
     if (result != DRV_ERROR_NONE) {
-        dms_err("Thres of general sensor invalid! (sensor_type: 0x%x, result: %d)\n",
-            psensor_obj_cfg->sensor_type, result);
+        dms_err("Thres of general sensor is invalid! (sensor_type=0x%x; result=%d)\n", psensor_obj_cfg->sensor_type,
+                result);
         return result;
     }
 
@@ -577,7 +583,7 @@ int dms_sensor_class_check_general(struct dms_sensor_object_cfg *psensor_obj_cfg
 }
 
 static void get_new_event_list(DMS_EVENT_LIST_ITEM **pp_event_list, struct dms_sensor_object_cb *psen_obj_cb,
-    struct dms_sensor_event_data_item *event_item)
+                               struct dms_sensor_event_data_item *event_item)
 {
     DMS_EVENT_LIST_ITEM *p_event = NULL;
     unsigned int fault_status, fault_status_start;
@@ -596,9 +602,9 @@ static void get_new_event_list(DMS_EVENT_LIST_ITEM **pp_event_list, struct dms_s
     for (; fault_status_start <= fault_status; fault_status_start++) {
         event_item->current_value = dms_get_offset_from_fault_status(fault_status_start);
         if (!dms_sensor_check_mask_enable(psen_obj_cb->sensor_object_cfg.assert_event_mask,
-            event_item->current_value)) {
-            dms_warn("event_offset is disable. (offset=%d; sen_num=%u; sen_type=%#x)\n", event_item->current_value,
-                psen_obj_cb->sensor_num, psen_obj_cb->sensor_object_cfg.sensor_type);
+                                          event_item->current_value)) {
+            dms_warn("event_offset is disabled. (offset=%d; sen_num=%u; sen_type=%#x)\n", event_item->current_value,
+                     psen_obj_cb->sensor_num, psen_obj_cb->sensor_object_cfg.sensor_type);
             continue;
         }
         p_event = sensor_add_event_to_list(pp_event_list, event_item, psen_obj_cb);
@@ -610,7 +616,8 @@ static void get_new_event_list(DMS_EVENT_LIST_ITEM **pp_event_list, struct dms_s
 }
 
 unsigned int dms_process_general_result_report(struct dms_node_sensor_cb *node_sensor_cb,
-    struct dms_sensor_object_cb *psen_obj_cb, struct dms_sensor_event_data *pevent_data)
+                                               struct dms_sensor_object_cb *psen_obj_cb,
+                                               struct dms_sensor_event_data *pevent_data)
 {
     unsigned int status = DMS_SENSOR_STATUS_NO_CHANGE;
     struct dms_sensor_event_data_item event_item = {0};
@@ -619,7 +626,7 @@ unsigned int dms_process_general_result_report(struct dms_node_sensor_cb *node_s
     DMS_EVENT_LIST_ITEM *p_new_event_list = NULL;
 
     result = memcpy_s(psen_obj_cb->event_paras, DMS_MAX_EVENT_DATA_LENGTH, pevent_data->sensor_data[0].event_data,
-        pevent_data->sensor_data[0].data_size);
+                      pevent_data->sensor_data[0].data_size);
     if (result != 0) {
         dms_err("memcpy_s fail, (result: %d)\n", result);
         return result;
@@ -636,7 +643,7 @@ unsigned int dms_process_general_result_report(struct dms_node_sensor_cb *node_s
         (pevent_data->sensor_data[0].data_size <= DMS_MAX_EVENT_DATA_LENGTH)) {
         event_item.data_size = pevent_data->sensor_data[0].data_size;
         result = memcpy_s(event_item.event_data, DMS_MAX_EVENT_DATA_LENGTH, pevent_data->sensor_data[0].event_data,
-            pevent_data->sensor_data[0].data_size);
+                          pevent_data->sensor_data[0].data_size);
         if (result != 0) {
             dms_err("memcpy_s fail, (result: %d)\n", result);
             return result;
@@ -651,4 +658,3 @@ unsigned int dms_process_general_result_report(struct dms_node_sensor_cb *node_s
 
     return 0;
 }
-

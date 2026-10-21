@@ -40,6 +40,7 @@ STATIC int vmngh_vpc_safe_mode_process(void *msg_chan_in, struct vmng_msg_chan_r
     struct vmng_msg_dev *msg_dev = (struct vmng_msg_dev *)msg_chan->msg_dev;
     u32 dev_id = msg_dev->dev_id;
     u32 fid = msg_dev->fid;
+    u32 real_out_len;
     int ret;
 
     ret = memcpy_s(msg_chan->sq_rx_safe_data, client_proc_info->in_data_len, proc_info->data,
@@ -56,16 +57,17 @@ STATIC int vmngh_vpc_safe_mode_process(void *msg_chan_in, struct vmng_msg_chan_r
                  msg_chan->chan_type, ret);
         return ret;
     }
-    if (*(client_proc_info->real_out_len) > client_proc_info->out_data_len) {
+
+    real_out_len = *(client_proc_info->real_out_len);
+    if (real_out_len > client_proc_info->out_data_len) {
         vmng_err("Real out len check failed. (dev_id=%u; fid=%u; chan_type=%u; real_out_len=%u; out_data_len=%u)\n",
-                 dev_id, fid, msg_chan->chan_type, *(client_proc_info->real_out_len), client_proc_info->out_data_len);
+                 dev_id, fid, msg_chan->chan_type, real_out_len, client_proc_info->out_data_len);
         return -EINVAL;
     }
-    if (*(client_proc_info->real_out_len) == 0) {
+    if (real_out_len == 0) {
         return 0;
     }
-    ret = memcpy_s(proc_info->data, *(client_proc_info->real_out_len), client_proc_info->data,
-                   *(client_proc_info->real_out_len));
+    ret = memcpy_s(proc_info->data, real_out_len, client_proc_info->data, real_out_len);
     if (ret != 0) {
         vmng_err("Memcpy_s failed. (dev_id=%u; fid=%u; vpc_type=%u; ret=%d)\n", dev_id, fid, vpc_client->vpc_type, ret);
         return ret;
@@ -123,7 +125,7 @@ STATIC int vmngh_vpc_msg_recv(void *msg_chan_in, struct vmng_msg_chan_rx_proc_in
     } else if (vmng_is_vpc_chan(msg_cluster->chan_type) == true) {
         vpc_type = vmng_msg_chan_type_to_vpc_type(msg_cluster->chan_type);
     } else {
-        vmng_err("chan_type is not match vpc. (dev_id=%u; fid=%u; chan_type=%u)\n", dev_id, fid,
+        vmng_err("chan_type does not match vpc. (dev_id=%u; fid=%u; chan_type=%u)\n", dev_id, fid,
                  msg_cluster->chan_type);
         return -EINVAL;
     }

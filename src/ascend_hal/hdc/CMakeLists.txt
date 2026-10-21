@@ -15,6 +15,7 @@ target_include_directories(hdc_obj PRIVATE
     ${C_SEC_INCLUDE}/
     ${DRIVER_HAL_INC_DIR}
     ${DRIVER_USER_DIR}/msnpureport/inc/slog/
+    ${DRIVER_USER_DIR}/pbl/commlib
     ${DRIVER_USER_DIR}/inc
     ${DRIVER_USER_DIR}/inc/dmc
     ${DRIVER_USER_DIR}/inc/mmpa_sdk

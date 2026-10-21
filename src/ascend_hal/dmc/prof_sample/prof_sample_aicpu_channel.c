@@ -14,7 +14,7 @@
 #include "prof_common.h"
 
 #define AICPU_HAL_MODULE_ID 36
-#define AICPU_HOST_MOVE_BUFFER_SIZE (4 * 1024 * 1024ULL)
+#define AICPU_HOST_MOVE_BUFFER_SIZE (16 * 1024 * 1024ULL)
 
 struct host_user_aicpu_buffer_info g_aicpu_host_user_prof_buff_info[DEV_NUM][HOST_MOVE_AICPU_CHANNEL_COUNT];
 
@@ -40,7 +40,7 @@ static void aicpu_prof_hal_mem_free(void *ptr)
 /* ========== Common helper functions ========== */
 
 static drvError_t aicpu_prof_sample_para_check(const struct prof_sample_para *para,
-    const host_user_aicpu_buffer_info *host_info, uint32_t buf_unit)
+                                               const host_user_aicpu_buffer_info *host_info, uint32_t buf_unit)
 {
     if ((para == NULL) || (para->buff == NULL) || buf_unit == 0) {
         PROF_ERR("Invalid para. (para=%p, buf_unit=%u)", para, buf_unit);
@@ -66,8 +66,8 @@ static drvError_t aicpu_prof_sample_para_check(const struct prof_sample_para *pa
 }
 
 static drvError_t aicpu_prof_sample_copy_data(struct prof_sample_para *para,
-    const host_user_aicpu_buffer_info *host_info,
-    uint32_t read_index, uint32_t write_index, uint32_t *copy_size)
+                                              const host_user_aicpu_buffer_info *host_info, uint32_t read_index,
+                                              uint32_t write_index, uint32_t *copy_size)
 {
     if (read_index == write_index) {
         PROF_DEBUG("No new data to report.");
@@ -82,14 +82,14 @@ static drvError_t aicpu_prof_sample_copy_data(struct prof_sample_para *para,
         uint32_t first_copy = host_info->user_profile_buffer_info.buffer_size - read_index;
         *copy_size = first_copy + write_index;
         if (*copy_size > para->buff_len) {
-            PROF_WARN("Ring buffer wrap-around: data too large. (read=%u, write=%u, used=%u)",
-                read_index, write_index, *copy_size);
+            PROF_WARN("Ring buffer wrap-around: data too large. (read=%u, write=%u, used=%u)", read_index, write_index,
+                      *copy_size);
             *copy_size = para->buff_len;
             first_copy = *copy_size > first_copy ? first_copy : *copy_size;
         }
 
         ret = drvMemcpy((DVdeviceptr)(uintptr_t)para->buff, (size_t)para->buff_len,
-            (DVdeviceptr)(dev_buf_va + (uint64_t)read_index), (size_t)first_copy);
+                        (DVdeviceptr)(dev_buf_va + (uint64_t)read_index), (size_t)first_copy);
         if (ret != DRV_ERROR_NONE) {
             PROF_ERR("D2H copy first segment failed. (dev_id=%u, ret=%d)", para->dev_id, ret);
             return ret;
@@ -98,8 +98,7 @@ static drvError_t aicpu_prof_sample_copy_data(struct prof_sample_para *para,
         if (*copy_size > first_copy) {
             uint32_t second_copy = *copy_size - first_copy;
             ret = drvMemcpy((DVdeviceptr)((uintptr_t)para->buff + (size_t)first_copy),
-                (size_t)(para->buff_len - first_copy),
-                (DVdeviceptr)dev_buf_va, (size_t)second_copy);
+                            (size_t)(para->buff_len - first_copy), (DVdeviceptr)dev_buf_va, (size_t)second_copy);
             if (ret != DRV_ERROR_NONE) {
                 PROF_ERR("D2H copy second segment failed. (dev_id=%u, ret=%d)", para->dev_id, ret);
                 return ret;
@@ -108,13 +107,12 @@ static drvError_t aicpu_prof_sample_copy_data(struct prof_sample_para *para,
     } else {
         *copy_size = write_index - read_index;
         if (*copy_size > para->buff_len) {
-            PROF_WARN("Normal case: data too large. (read=%u, write=%u, used=%u)",
-                read_index, write_index, *copy_size);
+            PROF_WARN("Normal case: data too large. (read=%u, write=%u, used=%u)", read_index, write_index, *copy_size);
             *copy_size = para->buff_len;
         }
 
         ret = drvMemcpy((DVdeviceptr)(uintptr_t)para->buff, (size_t)para->buff_len,
-            (DVdeviceptr)(dev_buf_va + (uint64_t)read_index), (size_t)(*copy_size));
+                        (DVdeviceptr)(dev_buf_va + (uint64_t)read_index), (size_t)(*copy_size));
         if (ret != DRV_ERROR_NONE) {
             PROF_ERR("D2H copy failed. (dev_id=%u, ret=%d)", para->dev_id, ret);
             return ret;
@@ -127,8 +125,8 @@ static drvError_t aicpu_prof_sample_copy_data(struct prof_sample_para *para,
 
 static int aicpu_start_phase1(struct prof_sample_start_para *para, uint32_t channel_idx)
 {
-    PROF_INFO("Phase 1 enter: phease=%u, is_support_host_move=%u, dev_id=%u",
-        para->phease, para->is_support_host_move, para->dev_id);
+    PROF_INFO("Phase 1 enter: phase=%u, is_support_host_move=%u, dev_id=%u", para->phease, para->is_support_host_move,
+              para->dev_id);
 
     void *buffer_ptr = NULL;
     void *wptr_ptr = NULL;
@@ -171,28 +169,26 @@ static int aicpu_start_phase1(struct prof_sample_start_para *para, uint32_t chan
     g_aicpu_host_user_prof_buff_info[para->dev_id][channel_idx].read_index = 0;
 
     PROF_INFO("Phase 1: halMemAlloc done. base=0x%llx, size=%u, wptr=0x%llx, rptr=0x%llx, out_data_len=%u",
-        info->buffer_base_user_va, info->buffer_size,
-        info->buffer_write_ptr_user_va, info->buffer_read_ptr_user_va, para->out_data_len);
+              info->buffer_base_user_va, info->buffer_size, info->buffer_write_ptr_user_va,
+              info->buffer_read_ptr_user_va, para->out_data_len);
     return DRV_ERROR_NONE;
 }
 
 static int aicpu_start_phase2(struct prof_sample_start_para *para, uint32_t channel_idx)
 {
     if (para->out_data_len != sizeof(aicpu_user_profile_buffer_info_t)) {
-        PROF_ERR("Out data len mismatch. (out_data_len=%u, expected=%zu.)",
-            para->out_data_len, sizeof(aicpu_user_profile_buffer_info_t));
+        PROF_ERR("Out data len mismatch. (out_data_len=%u, expected=%zu.)", para->out_data_len,
+                 sizeof(aicpu_user_profile_buffer_info_t));
         return DRV_ERROR_INVALID_VALUE;
     }
 
     aicpu_user_profile_buffer_info_t *info = (aicpu_user_profile_buffer_info_t *)para->out_data;
     PROF_INFO("Phase 2: AICPU host move start: base=0x%llx, size=%u, wptr=0x%llx, rptr=0x%llx",
-        info->buffer_base_user_va, info->buffer_size,
-        info->buffer_write_ptr_user_va, info->buffer_read_ptr_user_va);
+              info->buffer_base_user_va, info->buffer_size, info->buffer_write_ptr_user_va,
+              info->buffer_read_ptr_user_va);
 
     (void)memcpy_s(&g_aicpu_host_user_prof_buff_info[para->dev_id][channel_idx].user_profile_buffer_info,
-                   sizeof(aicpu_user_profile_buffer_info_t),
-                   info,
-                   sizeof(aicpu_user_profile_buffer_info_t));
+                   sizeof(aicpu_user_profile_buffer_info_t), info, sizeof(aicpu_user_profile_buffer_info_t));
     g_aicpu_host_user_prof_buff_info[para->dev_id][channel_idx].read_index = 0;
     g_aicpu_host_user_prof_buff_info[para->dev_id][channel_idx].host_pid = getpid();
 
@@ -219,7 +215,7 @@ static int prof_sample_common_start_func(struct prof_sample_start_para *para, ui
 
     if (para->out_data_max_len < sizeof(aicpu_user_profile_buffer_info_t)) {
         PROF_ERR("Out data max len too small. (max_len=%u, need=%zu)", para->out_data_max_len,
-            sizeof(aicpu_user_profile_buffer_info_t));
+                 sizeof(aicpu_user_profile_buffer_info_t));
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -227,8 +223,8 @@ static int prof_sample_common_start_func(struct prof_sample_start_para *para, ui
         return aicpu_start_phase1(para, channel_idx);
     }
 
-    PROF_INFO("Phase enter: phease=%u, is_support_host_move=%u, dev_id=%u, out_data_len=%u",
-        para->phease, para->is_support_host_move, para->dev_id, para->out_data_len);
+    PROF_INFO("Phase enter: phase=%u, is_support_host_move=%u, dev_id=%u, out_data_len=%u", para->phease,
+              para->is_support_host_move, para->dev_id, para->out_data_len);
 
     if (para->out_data_len == 0) {
         PROF_ERR("Out data len is 0 for non-phase1 start.");
@@ -288,8 +284,8 @@ static int prof_sample_common_sample_func(struct prof_sample_para *para, uint32_
     }
 
     uint64_t wptr_dev_va = user_info->buffer_write_ptr_user_va;
-    ret = drvMemcpy((DVdeviceptr)(uintptr_t)(&wptr), (size_t)sizeof(uint32_t),
-        (DVdeviceptr)wptr_dev_va, (size_t)sizeof(uint32_t));
+    ret = drvMemcpy((DVdeviceptr)(uintptr_t)(&wptr), (size_t)sizeof(uint32_t), (DVdeviceptr)wptr_dev_va,
+                    (size_t)sizeof(uint32_t));
     if (ret != DRV_ERROR_NONE) {
         PROF_ERR("Get write pointer failed. (dev_id=%u, ret=%d)", para->dev_id, ret);
         return ret;
@@ -310,12 +306,13 @@ static int prof_sample_common_sample_func(struct prof_sample_para *para, uint32_
     }
 
     host_info->read_index = (copy_size == para->buff_len) ?
-            ((read_index + copy_size) % g_aicpu_host_user_prof_buff_info[para->dev_id][channel_idx].user_profile_buffer_info.buffer_size) :
-            write_index;
+                                ((read_index + copy_size) % g_aicpu_host_user_prof_buff_info[para->dev_id][channel_idx]
+                                                                .user_profile_buffer_info.buffer_size) :
+                                write_index;
     uint32_t rptr = (copy_size == para->buff_len) ? (host_info->read_index / buf_unit) : wptr;
     uint64_t rptr_dev_va = user_info->buffer_read_ptr_user_va;
-    ret = drvMemcpy((DVdeviceptr)rptr_dev_va, (size_t)sizeof(uint32_t),
-        (DVdeviceptr)(uintptr_t)(&rptr), (size_t)sizeof(uint32_t));
+    ret = drvMemcpy((DVdeviceptr)rptr_dev_va, (size_t)sizeof(uint32_t), (DVdeviceptr)(uintptr_t)(&rptr),
+                    (size_t)sizeof(uint32_t));
     if (ret != DRV_ERROR_NONE) {
         PROF_ERR("Update read pointer failed. (dev_id=%u, ret=%d)", para->dev_id, ret);
     }
@@ -347,6 +344,29 @@ static int aicpu_sample_func(struct prof_sample_para *para)
     return prof_sample_common_sample_func(para, AICPU_CHANNEL_IDX, AICPU_BUF_UNIT);
 }
 
+/* ========== CUSTOM AICPU channel callbacks ========== */
+
+static int cus_aicpu_start_func(struct prof_sample_start_para *para)
+{
+    PROF_INFO("start cus_aicpu_start_func");
+    return prof_sample_common_start_func(para, CUS_AICPU_CHANNEL_IDX);
+}
+
+static int cus_aicpu_stop_func(struct prof_sample_stop_para *para)
+{
+    PROF_INFO("start cus_aicpu_stop_func");
+    return prof_sample_common_stop_func(para, CUS_AICPU_CHANNEL_IDX);
+}
+
+static int cus_aicpu_sample_func(struct prof_sample_para *para)
+{
+    if (para == NULL) {
+        PROF_ERR("Para is NULL.");
+        return DRV_ERROR_INVALID_VALUE;
+    }
+    return prof_sample_common_sample_func(para, CUS_AICPU_CHANNEL_IDX, AICPU_BUF_UNIT);
+}
+
 /* ========== Register interfaces ========== */
 int register_aicpu_channel(unsigned int devid)
 {
@@ -361,12 +381,11 @@ int register_aicpu_channel(unsigned int devid)
 
     ret = halProfSampleRegisterEx(devid, PROF_CHANNEL_AICPU, &prof_ops);
     if (ret != DRV_ERROR_NONE) {
-        PROF_ERR("143 channel aicpu register error. (devid=%u, channel_id=%u, ret=%d.)\n",
-            devid, PROF_CHANNEL_AICPU, ret);
+        PROF_ERR("aicpu channel register error. (devid=%u, channel_id=%u, ret=%d.)\n", devid, PROF_CHANNEL_AICPU, ret);
         return ret;
     }
 
-    PROF_INFO("register aicpu channel success.devid=%d\n", devid);
+    PROF_INFO("register aicpu channel success. devid=%d\n", devid);
     return DRV_ERROR_NONE;
 }
 
@@ -376,19 +395,19 @@ int register_cus_aicpu_channel(unsigned int devid)
     drvError_t ret;
 
     prof_ops.sub_chan_num = PROFILE_BUFFER_NUM;
-    prof_ops.ops.start_func = aicpu_start_func;
-    prof_ops.ops.sample_func = aicpu_sample_func;
+    prof_ops.ops.start_func = cus_aicpu_start_func;
+    prof_ops.ops.sample_func = cus_aicpu_sample_func;
     prof_ops.ops.flush_func = NULL;
-    prof_ops.ops.stop_func = aicpu_stop_func;
+    prof_ops.ops.stop_func = cus_aicpu_stop_func;
 
     ret = halProfSampleRegisterEx(devid, PROF_CHANNEL_CUS_AICPU, &prof_ops);
     if (ret != DRV_ERROR_NONE) {
-        PROF_ERR("144 channel aicpu register error. (devid=%u, channel_id=%u, ret=%d.)\n",
-            devid, PROF_CHANNEL_CUS_AICPU, ret);
+        PROF_ERR("cus aicpu channel register error. (devid=%u, channel_id=%u, ret=%d.)\n", devid,
+                 PROF_CHANNEL_CUS_AICPU, ret);
         return ret;
     }
 
-    PROF_INFO("register custom aicpu channel success.devid=%d\n", devid);
+    PROF_INFO("register custom aicpu channel success. devid=%d\n", devid);
     return DRV_ERROR_NONE;
 }
 #else

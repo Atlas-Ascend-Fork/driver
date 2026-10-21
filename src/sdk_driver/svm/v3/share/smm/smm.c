@@ -25,6 +25,7 @@
 #include "dpa_kernel_interface.h"
 #include "pbl_uda.h"
 
+#include "svm_dev_topology.h"
 #include "svm_addr_desc.h"
 #include "svm_pgtable.h"
 #include "svm_kern_log.h"
@@ -39,16 +40,11 @@
 #include "smm_ctx.h"
 #include "smm_ioctl.h"
 #include "smm_flag.h"
+#include "smm_ctrl.h"
 #include "pmm.h"
 #include "smm.h"
 
-struct smm_addr {
-    u64 dst_va;
-    u64 dst_size;
-    struct svm_pa_seg *src_pa_seg;
-    u64 seg_num;
-    u64 dst_page_size;
-};
+static int svm_munmap_check_dst(struct smm_ctx *ctx, u32 src_udevid, u64 dst_va, u64 dst_size);
 
 static void (*smm_exterrnal_handle)(enum smm_external_op_type op_type, u32 udevid, int tgid, u64 va, u64 size) = NULL;
 void svm_smm_register_external_handle(void (*handle)(enum smm_external_op_type op_type, u32 udevid, int tgid, u64 va,
@@ -62,14 +58,6 @@ static void smm_external_handle_proc(enum smm_external_op_type op_type, u32 udev
     if (smm_exterrnal_handle != NULL) {
         smm_exterrnal_handle(op_type, udevid, tgid, va, size);
     }
-}
-
-static void smm_addr_packet(struct smm_addr *sa, u64 dst_va, u64 dst_size, struct svm_pa_seg *src_pa_seg, u64 seg_num)
-{
-    sa->dst_va = dst_va;
-    sa->dst_size = dst_size;
-    sa->src_pa_seg = src_pa_seg;
-    sa->seg_num = seg_num;
 }
 
 static int smm_slave_permission_check(u32 udevid, int tgid, struct svm_global_va *src_info)
@@ -114,7 +102,7 @@ static int smm_slave_permission_check(u32 udevid, int tgid, struct svm_global_va
     }
 
     if (slave_tgid != src_info->tgid) {
-        svm_err("Tgid does not match. (udevid=%u; tgid=%d; slave_tgid=%d; src_tgid=%d)\n", udevid, tgid, slave_tgid,
+        svm_err("Tgid not match. (udevid=%u; tgid=%d; slave_tgid=%d; src_tgid=%d)\n", udevid, tgid, slave_tgid,
                 src_info->tgid);
         return -EACCES;
     }
@@ -155,20 +143,34 @@ static int smm_para_check(u32 udevid, int tgid, u64 dst_size, struct svm_global_
     return 0;
 }
 
+static void smm_align_pa_seg_boundary(struct svm_pa_seg *pa_seg, u64 seg_num)
+{
+    u64 pa = pa_seg[0].pa;
+
+    pa_seg[0].pa = svm_align_down(pa, KA_MM_PAGE_SIZE);
+    pa_seg[0].size = svm_align_up(pa % KA_MM_PAGE_SIZE + pa_seg[0].size, KA_MM_PAGE_SIZE);
+    if (seg_num > 1) {
+        pa_seg[seg_num - 1].size = svm_align_up(pa_seg[seg_num - 1].pa % KA_MM_PAGE_SIZE + pa_seg[seg_num - 1].size,
+                                                KA_MM_PAGE_SIZE);
+    }
+}
+
 static int smm_external_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 src_udevid, struct smm_addr *sa, u64 flag)
 {
     struct smm_ops *ops = ctx->ops[src_udevid];
     unsigned long stamp = (unsigned long)ka_jiffies;
     struct svm_pa_seg *pa_seg = sa->src_pa_seg;
-    u64 seg_num = sa->seg_num;
-    u64 dst_va = sa->dst_va;
-    u64 dst_size = sa->dst_size;
+    u64 seg_num;
+    u64 dst_va = svm_align_down(sa->dst_va, KA_MM_PAGE_SIZE);
+    u64 dst_size = svm_align_up(sa->dst_va % KA_MM_PAGE_SIZE + sa->dst_size, KA_MM_PAGE_SIZE);
     u64 va = dst_va, remap_size = 0;
     u64 page_size;
     int tgid = ka_task_get_tgid_for_task(task);
     u64 i;
 
-    /* the call will check pa seg */
+    smm_align_pa_seg_boundary(pa_seg, sa->seg_num);
+    seg_num = svm_make_pa_continues(pa_seg, sa->seg_num);
+
     page_size = svm_get_page_size_by_pa_seg(dst_va, dst_size, pa_seg, seg_num);
     if (page_size == 0) {
         return -EINVAL;
@@ -196,8 +198,8 @@ static int smm_external_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 sr
 static int smm_external_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 src_udevid, struct smm_addr *sa)
 {
     struct smm_ops *ops = ctx->ops[src_udevid];
-    u64 dst_va = sa->dst_va;
-    u64 dst_size = sa->dst_size;
+    u64 dst_va = svm_align_down(sa->dst_va, KA_MM_PAGE_SIZE);
+    u64 dst_size = svm_align_up(sa->dst_va % KA_MM_PAGE_SIZE + sa->dst_size, KA_MM_PAGE_SIZE);
     int tgid = ka_task_get_tgid_for_task(task);
     int ret;
 
@@ -210,7 +212,8 @@ static int smm_external_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 
     return 0;
 }
 
-static int smm_internal_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 src_udevid, struct smm_addr *sa, u64 flag)
+static int smm_internal_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 src_udevid, u32 src_server_id,
+                             struct smm_addr *sa, u64 flag)
 {
     ka_vm_area_struct_t *vma = NULL;
     struct svm_pa_seg *pa_seg = sa->src_pa_seg;
@@ -222,7 +225,7 @@ static int smm_internal_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 sr
 
     attr.is_noncache = flag & SVM_SMM_FLAG_PG_NC;
     attr.is_rdonly = flag & SVM_SMM_FLAG_PG_RDONLY;
-    attr.is_writecombine = (smm_get_pa_location(ctx, src_udevid) != SMM_LOCAL_PA);
+    attr.is_writecombine = (smm_get_pa_location(ctx, src_udevid, src_server_id) != SMM_LOCAL_PA);
     attr.page_size = svm_get_page_size_by_pa_seg(dst_va, dst_size, pa_seg, seg_num);
     if (attr.page_size == 0) {
         return -EINVAL;
@@ -253,6 +256,32 @@ static int smm_internal_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 sr
     return 0;
 }
 
+static int smm_unmap_addr_by_pa_seg(ka_vm_area_struct_t *vma, u64 va, struct svm_pa_seg *pa_seg, u64 seg_num)
+{
+    u64 cur_size, page_size, i;
+    u64 cur_va = va;
+    int ret;
+
+    for (i = 0; i < seg_num;) {
+        u64 cur_seg_num = svm_get_same_page_size_seg_num_by_pa_seg(cur_va, &pa_seg[i], seg_num - i, &cur_size,
+                                                                   &page_size);
+        if (cur_seg_num == 0) {
+            svm_warn("Invalid pa seg. (va=0x%llx; size=0x%llx; cur_seg_num=%llu)\n", cur_va, pa_seg[i].size,
+                     seg_num - i);
+            return -EINVAL;
+        }
+
+        ret = svm_unmap_addr(vma, cur_va, cur_size, page_size);
+        if (ret != 0) {
+            return ret;
+            ;
+        }
+        cur_va += cur_size;
+        i += cur_seg_num;
+    }
+
+    return 0;
+}
 static int smm_internal_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 src_udevid, struct smm_addr *sa)
 {
     ka_vm_area_struct_t *vma = NULL;
@@ -261,7 +290,7 @@ static int smm_internal_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 
     u32 udevid = ctx->udevid;
     u64 dst_va = sa->dst_va;
     u64 dst_size = sa->dst_size;
-    u64 query_size, page_size;
+    u64 query_size;
     int ret;
 
     /* vma query and unmap must be locked together */
@@ -280,14 +309,8 @@ static int smm_internal_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, u32 
 
     sa->seg_num = seg_num; /* update for later pa put */
 
-    page_size = svm_get_page_size_by_pa_seg(dst_va, dst_size, pa_seg, seg_num);
-    if (page_size == 0) {
-        return -EINVAL;
-    }
-    sa->dst_page_size = page_size;
-
     svm_set_vma_status(vma, VMA_STATUS_NORMAL_OP);
-    ret = svm_unmap_addr(vma, dst_va, dst_size, page_size);
+    ret = smm_unmap_addr_by_pa_seg(vma, dst_va, pa_seg, seg_num);
     svm_set_vma_status(vma, VMA_STATUS_IDLE);
     if (ret == 0) {
         (void)pmm_del_seg(ctx->udevid, dst_va, dst_size, 0);
@@ -320,102 +343,134 @@ static void smm_try_complement_pa_ref(struct svm_pa_seg *src_pa_seg, u64 seg_num
 #endif
 }
 
-static int _smm_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, struct svm_global_va *src_info, u64 *dst_va, u64 flag)
+static int smm_single_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, struct svm_global_va *src_info,
+                           struct smm_addr *sa, u64 flag)
 {
-#define MIN_PAGE_SIZE (4ULL * SVM_BYTES_PER_KB)
-    struct smm_addr sa = {0};
-    struct svm_pa_seg *pa_seg = NULL;
-    u32 udevid = ctx->udevid;
-    u64 dst_size = src_info->size;
-    u64 seg_num;
     int ret;
 
-    /* use MIN_PAGE_SIZE is reserve enough seg num, real seg num will get in pmq */
-    seg_num = svm_get_align_up_num(src_info->va, src_info->size, MIN_PAGE_SIZE);
-    pa_seg = (struct svm_pa_seg *)svm_kvmalloc(sizeof(struct svm_pa_seg) * seg_num, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-    if (pa_seg == NULL) {
-        svm_err("Smm kvmalloc pa_seg failed. (alloc_seg_num=%llu)\n", seg_num);
-        return -ENOMEM;
-    }
-
-    ret = smm_pa_get(ctx, src_info, pa_seg, &seg_num, flag);
+    ret = smm_pa_get(ctx, src_info, sa->src_pa_seg, &sa->seg_num, flag);
     if (ret != 0) {
-        svm_err("Smm get pa failed. (ret=%d; udev=%u; src_udev=%u)\n", ret, udevid, src_info->udevid);
-        svm_kvfree(pa_seg);
+        svm_err("Smm get pa failed. (ret=%d; udev=%u; src_udev=%u)\n", ret, ctx->udevid, src_info->udevid);
         return ret;
     }
-
-    ret = smm_alloc_va(ctx, ka_task_get_tgid_for_task(task), src_info->udevid, dst_size, dst_va);
-    if (ret != 0) {
-        svm_err("Malloc va failed. (ret=%d; udevid=%u; size=0x%llx)\n", ret, udevid, dst_size);
-        smm_pa_put(ctx, src_info, pa_seg, seg_num);
-        svm_kvfree(pa_seg);
-        return ret;
-    }
-
-    smm_addr_packet(&sa, *dst_va, dst_size, pa_seg, seg_num);
 
     if (smm_is_ops_support_remap(ctx, src_info->udevid)) {
-        ret = smm_external_mmap(ctx, task, src_info->udevid, &sa, flag);
+        ret = smm_external_mmap(ctx, task, src_info->udevid, sa, flag);
     } else {
         ka_task_down_write(get_mmap_sem(ka_task_get_mm(task)));
-        ret = smm_internal_mmap(ctx, task, src_info->udevid, &sa, flag);
+        ret = smm_internal_mmap(ctx, task, src_info->udevid, src_info->server_id, sa, flag);
         if (ret == 0) {
             /*
              * Complement the asymmetry ops of pa ref:
              * - smm_map->smm_pa_get() pin pages by src page_size.
              * - smm_munmap->smm_pa_put() unpin pages by dst page_size (<= src page_size).
              */
-            smm_try_complement_pa_ref(sa.src_pa_seg, sa.seg_num, sa.dst_page_size);
+            smm_try_complement_pa_ref(sa->src_pa_seg, sa->seg_num, sa->dst_page_size);
         }
         ka_task_up_write(get_mmap_sem(ka_task_get_mm(task)));
     }
     if (ret != 0) {
-        (void)smm_free_va(ctx, ka_task_get_tgid_for_task(task), src_info->udevid, *dst_va, dst_size);
-        smm_pa_put(ctx, src_info, pa_seg, seg_num);
+        smm_pa_put(ctx, src_info, sa->src_pa_seg, sa->seg_num);
     }
 
-    svm_kvfree(pa_seg);
+    return ret;
+}
+
+static int smm_single_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, struct svm_global_va *src_info,
+                             struct smm_addr *sa, u64 flag)
+{
+    int ret;
+
+    SVM_UNUSED(flag);
+
+    ret = svm_munmap_check_dst(ctx, src_info->udevid, sa->dst_va, sa->dst_size);
+    if (ret != 0) {
+        return ret;
+    }
+
+    if (smm_is_ops_support_remap(ctx, src_info->udevid)) {
+        ret = smm_external_munmap(ctx, task, src_info->udevid, sa);
+    } else {
+        ka_task_down_write(get_mmap_sem(ka_task_get_mm_for_task(task)));
+        ret = smm_internal_munmap(ctx, task, src_info->udevid, sa);
+        ka_task_up_write(get_mmap_sem(ka_task_get_mm_for_task(task)));
+    }
+
+    if (ret == 0) {
+        smm_pa_put(ctx, src_info, sa->src_pa_seg, sa->seg_num);
+    }
+
+    return ret;
+}
+
+static int smm_split_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, struct svm_global_va *src_info, u64 dst_va,
+                          u64 flag, bool need_pa_seg)
+{
+    struct smm_split_target target = {.ctx = ctx, .task = task, .src_info = *src_info, .dst_va = dst_va, .flag = flag};
+    struct smm_split_policy policy = {
+        .min_page_size = 4ULL * SVM_BYTES_PER_KB, /* Get pa seg by src page size which may not local os PAGE_SIZE */
+        .max_single_size = SVM_BYTES_PER_GB,
+        .need_pa_seg = need_pa_seg};
+
+    return smm_split_walk(&target, &policy, smm_single_mmap, smm_single_munmap);
+}
+
+static int smm_split_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, struct svm_global_va *src_info, u64 dst_va,
+                            u64 flag, bool need_pa_seg)
+{
+    struct smm_split_target target = {.ctx = ctx, .task = task, .src_info = *src_info, .dst_va = dst_va, .flag = flag};
+    struct smm_split_policy policy = {
+        .min_page_size = KA_MM_PAGE_SIZE, .max_single_size = SVM_BYTES_PER_GB, .need_pa_seg = need_pa_seg};
+
+    return smm_split_walk(&target, &policy, smm_single_munmap, NULL);
+}
+
+static int _smm_mmap(struct smm_ctx *ctx, ka_task_struct_t *task, struct svm_global_va *src_info, u64 *dst_va, u64 flag)
+{
+    u64 dst_size = svm_align_up(src_info->va % KA_MM_PAGE_SIZE + src_info->size, KA_MM_PAGE_SIZE);
+    u64 alloc_va = svm_align_down(*dst_va, KA_MM_PAGE_SIZE);
+    u32 src_udevid = src_info->udevid;
+    int tgid = ka_task_get_tgid_for_task(task);
+    int ret;
+
+    ret = smm_alloc_va(ctx, tgid, src_udevid, dst_size, &alloc_va);
+    if (ret != 0) {
+        svm_err("Malloc va failed. (ret=%d; src_udevid=%u; size=0x%llx)\n", ret, src_udevid, dst_size);
+        return ret;
+    }
+
+    /* dst_va = alloc_va + offset, non-aligned */
+    *dst_va = alloc_va + (src_info->va % KA_MM_PAGE_SIZE);
+
+    ret = smm_split_mmap(ctx, task, src_info, *dst_va, flag, true);
+    if (ret != 0) {
+        svm_err("Split map failed. (ret=%d; src_udevid=%u; dst_size=0x%llx)\n", ret, src_udevid, dst_size);
+        (void)smm_free_va(ctx, tgid, src_udevid, alloc_va, dst_size);
+    }
 
     return ret;
 }
 
 static int _smm_munmap(struct smm_ctx *ctx, ka_task_struct_t *task, struct svm_global_va *src_info, u64 dst_va)
 {
-    struct smm_addr sa = {0};
-    struct svm_pa_seg *pa_seg = NULL;
-    u64 seg_num = 0;
-    u64 dst_size = src_info->size;
+    u64 dst_size = svm_align_up(src_info->va % KA_MM_PAGE_SIZE + src_info->size, KA_MM_PAGE_SIZE);
+    u64 alloc_va = svm_align_down(dst_va, KA_MM_PAGE_SIZE);
+    u64 flag = 0;
+    u32 src_udevid = src_info->udevid;
+    bool need_pa_seg = !smm_is_ops_support_remap(ctx, src_udevid);
+    int tgid = ka_task_get_tgid_for_task(task);
     int ret;
 
-    if (smm_is_ops_support_remap(ctx, src_info->udevid)) {
-        smm_addr_packet(&sa, dst_va, dst_size, NULL, 0ULL);
-        ret = smm_external_munmap(ctx, task, src_info->udevid, &sa);
-    } else {
-        seg_num = svm_get_align_up_num(src_info->va, src_info->size, KA_MM_PAGE_SIZE);
-        pa_seg = (struct svm_pa_seg *)svm_kvmalloc(sizeof(struct svm_pa_seg) * seg_num,
-                                                   KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-        if (pa_seg == NULL) {
-            svm_err("Smm kvmalloc pa_seg failed. (alloc_seg_num=%llu)\n", seg_num);
-            return -ENOMEM;
-        }
-        smm_addr_packet(&sa, dst_va, dst_size, pa_seg, seg_num);
-        ka_task_down_write(get_mmap_sem(ka_task_get_mm_for_task(task)));
-        ret = smm_internal_munmap(ctx, task, src_info->udevid, &sa);
-        ka_task_up_write(get_mmap_sem(ka_task_get_mm_for_task(task)));
-    }
-    if (ret == 0) {
-        ret = smm_free_va(ctx, ka_task_get_tgid_for_task(task), src_info->udevid, dst_va, dst_size);
-        if (ret != 0) {
-            svm_warn("Free va failed. (va=0x%llx; size=0x%llx)\n", dst_va, dst_size);
-            ret = 0; /* ignore the error, return success */
-        }
-
-        smm_pa_put(ctx, src_info, sa.src_pa_seg, sa.seg_num);
+    ret = smm_split_munmap(ctx, task, src_info, dst_va, flag, need_pa_seg);
+    if (ret != 0) {
+        svm_warn("Smm try split munmap failed. (ret=%d; src_udevid=%u; dst_size=0x%llx)\n", ret, src_udevid, dst_size);
+        return ret;
     }
 
-    if (pa_seg != NULL) {
-        svm_kvfree(pa_seg);
+    ret = smm_free_va(ctx, tgid, src_udevid, alloc_va, dst_size);
+    if (ret != 0) {
+        svm_warn("Free va failed. (va=0x%llx; size=0x%llx)\n", alloc_va, dst_size);
+        ret = 0; /* ignore the error, return success */
     }
 
     return ret;
@@ -536,28 +591,19 @@ static int svm_get_munmap_page_size(u64 va, u64 size, u64 *page_size)
     return 0;
 }
 
-static int svm_munmap_check_dst(u32 udevid, u32 src_udevid, u64 dst_va, u64 dst_size)
+static int svm_munmap_check_dst(struct smm_ctx *ctx, u32 src_udevid, u64 dst_va, u64 dst_size)
 {
-    struct smm_ctx *ctx = NULL;
     u64 page_size = KA_MM_PAGE_SIZE;
     int ret = 0;
 
-    ctx = smm_ctx_get(udevid);
-    if (ctx == NULL) {
-        svm_warn("Invalid udevid. (udevid=%u)\n", udevid);
-        return -EINVAL;
-    }
-
     if (!smm_is_ops_support_remap(ctx, src_udevid)) {
         ret = svm_get_munmap_page_size(dst_va, dst_size, &page_size);
-    }
 
-    smm_ctx_put(ctx);
-
-    if ((SVM_IS_ALIGNED(dst_va, page_size) == 0) || (SVM_IS_ALIGNED(dst_size, page_size) == 0)) {
-        svm_err("Smm va or size isn't aligned by page_size. (va=0x%llx; size=%llu; page_size=%llu)\n", dst_va, dst_size,
-                page_size);
-        return -EINVAL;
+        if ((SVM_IS_ALIGNED(dst_va, page_size) == 0) || (SVM_IS_ALIGNED(dst_size, page_size) == 0)) {
+            svm_err("Smm va isn't aligned by page_size. (va=0x%llx; size=%llu; page_size=%llu)\n", dst_va, dst_size,
+                    page_size);
+            return -EINVAL;
+        }
     }
 
     return ret;
@@ -589,11 +635,6 @@ static int svm_smm_ioctl_munmap(u32 udevid, u32 cmd, unsigned long arg)
 
     src_info = &para.src_info;
     ret = smm_para_check(udevid, tgid, para.dst_size, src_info);
-    if (ret != 0) {
-        return ret;
-    }
-
-    ret = svm_munmap_check_dst(udevid, src_info->udevid, para.dst_va, para.dst_size);
     if (ret != 0) {
         return ret;
     }

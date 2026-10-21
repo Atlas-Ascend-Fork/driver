@@ -13,15 +13,13 @@
 
 #include "dms_sensor_type.h"
 
-
 #define DMS_DECLARE_SEN_TYPE_START(type) static struct dms_sensor_type_string _g_event_type_##type[] = {
 #define DMS_DECLARE_SEN_TYPE_END }
 
-#define DMS_ADD_SENSOR_TYPE(type, name)                                                                        \
-    {                                                                                                          \
-        type, name, sizeof(_g_event_type_##type) / sizeof(struct dms_sensor_type_string), _g_event_type_##type \
-    }
+#define DMS_ADD_SENSOR_TYPE(type, name) \
+    {type, name, sizeof(_g_event_type_##type) / sizeof(struct dms_sensor_type_string), _g_event_type_##type}
 
+// clang-format off
 /* Temperature sensor tryp:01h,offset:00H-0BH,all:12,(de)asserted */
 DMS_DECLARE_SEN_TYPE_START(0x01)
     {0x00, 0x01, "Crossed Lower non-critical going low. "},
@@ -157,20 +155,20 @@ DMS_DECLARE_SEN_TYPE_END;
 
     /* 0x0c: Memory  Sensor,type:0CH,offset:00H-08h,all:9 */
     DMS_DECLARE_SEN_TYPE_START(0x0C)
-        {0x00, 0x00, "Correctable ECC / other correctable memory error. "},
-        {0x01, 0x03, "Uncorrectable ECC / other uncorrectable memory error. "},
-        {0x02, 0x03, "Parity. "},
-        {0x03, 0x03, "Memory Scrub Failed (stuck bit). "},
-        {0x04, 0x03, "Memory Device Disabled. "},
-        {0x05, 0x01, "Correctable ECC / other correctable memory error logging limit reached. "},
-        {0x06, 0x00, "Presence detected. "},
-        {0x07, 0x03, "Configuration error. "},
-        {0x08, 0x02, "Spare. "},
-        {0x09, 0x02, "Scrub Uncorrectable ECC / other uncorrectable memory error. "},
-        {0x0A, 0x01, "Scrub Correctable ECC / other correctable memory error logging limit reached. "},
-        {0x0B, 0x00, "Link-ECC 1 bit error. "},
-        {0x0C, 0x02, "Link-ECC 2 bit error. "},
-        {0x0D, 0x00, "Mirror sub error. "},
+        {0x00, 0x00, "Correctable ECC / other correctable memory error"},
+        {0x01, 0x03, "Uncorrectable ECC / other uncorrectable memory error"},
+        {0x02, 0x03, "Parity"},
+        {0x03, 0x03, "Memory Scrub Failed (stuck bit)"},
+        {0x04, 0x03, "Memory Device Disabled"},
+        {0x05, 0x01, "Correctable ECC / other correctable memory error logging limit reached"},
+        {0x06, 0x00, "Presence detected"},
+        {0x07, 0x03, "Configuration error"},
+        {0x08, 0x02, "Spare"},
+        {0x09, 0x02, "Scrub Uncorrectable ECC / other uncorrectable memory error"},
+        {0x0A, 0x01, "Scrub Correctable ECC / other correctable memory error logging limit reached"},
+        {0x0B, 0x00, "Link-ECC 1 bit error"},
+        {0x0C, 0x02, "Link-ECC 2 bit error"},
+        {0x0D, 0x00, "Mirror sub error"},
 DMS_DECLARE_SEN_TYPE_END;
 
     /* 0x0f:  System Firmware Progress(formerly POST Error) Sensor,type:0Fh,offset:00h-02h,all:3 */
@@ -419,11 +417,11 @@ DMS_DECLARE_SEN_TYPE_END;
 
 /* Memory Error Record sensor */
     DMS_DECLARE_SEN_TYPE_START(0xC2)
-        {0x00, 0x01, "New uncorrectable ECC / other uncorrectable memory error."},
-        {0x01, 0x01, "Uncorrectable ECC address count reached normal threshold."},
-        {0x02, 0x03, "Uncorrectable ECC address count reached the upper limits."},
-        {0x03, 0x03, "single bit ecc error exceeding the threshold(worse)."},
-        {0x04, 0x02, "Memory UCE Interrupt mask."},
+        {0x00, 0x01, "New uncorrectable ECC / other uncorrectable memory error"},
+        {0x01, 0x01, "Uncorrectable ECC address count reached normal threshold"},
+        {0x02, 0x03, "Uncorrectable ECC address count reached the upper limits"},
+        {0x03, 0x03, "single bit ecc error exceeding the threshold(worse)"},
+        {0x04, 0x02, "Memory UCE Interrupt mask"},
 		{0x05, 0x01, "Memory in sub-health"},
 DMS_DECLARE_SEN_TYPE_END;
 
@@ -616,12 +614,14 @@ static struct tag_dms_sensor_type g_dms_sensor_type[] = {
     DMS_ADD_SENSOR_TYPE(0xD1, "Chip Hardware"),
     DMS_ADD_SENSOR_TYPE(0xD5, "UB Sensor"),
 };
+// clang-format on
 
 int dms_get_sensor_type_count(void)
 {
     return sizeof(g_dms_sensor_type) / sizeof(struct tag_dms_sensor_type);
 }
-struct tag_dms_sensor_type* dms_get_sensor_type(void)
+
+struct tag_dms_sensor_type *dms_get_sensor_type(void)
 {
     return g_dms_sensor_type;
 }

@@ -8,28 +8,14 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <pthread.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "securec.h"
-#include "ascend_hal.h"
-#include "esched_ioctl.h"
-#include "event_sched.h"
-#include "esched_user_interface.h"
-#include "dpa_user_interface.h"
-
+#include "esched_platform.h"
 
 #define UNINITED_STATUS 0
 #define INITED_STATUS 1
 
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-#define SVM_SMM_MMAP_EVENT     (DRV_SUBEVENT_SVM_DEV_OPEN_MSG + 6)
-#define SVM_SMM_MUNMAP_EVENT   (DRV_SUBEVENT_SVM_DEV_OPEN_MSG + 7)
-#define SVM_VA_RESERVE_EVENT   (DRV_SUBEVENT_SVM_DEV_OPEN_MSG + 13)
-#endif
-
-THREAD__ int32_t sync_init_status[ESCHED_DEV_NUM] = {0, };
+THREAD__ int32_t sync_init_status[ESCHED_DEV_NUM] = {
+    0,
+};
 THREAD__ pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct sync_event_res {
@@ -43,14 +29,6 @@ struct sync_event_aicpu_res {
     struct sync_event_res thead_res;
 };
 
-struct sync_event_wait_info {
-    uint32_t grp_id;
-    uint32_t thread_id;
-    int32_t pid;
-    EVENT_ID event_id;
-    uint32_t subevent_id;
-    int32_t timeout;
-};
 #define DRV_MSG_EVENT_RES_MAX_NUM 128
 THREAD__ struct sync_event_res drv_sync_res[ESCHED_DEV_NUM][DRV_MSG_EVENT_RES_MAX_NUM];
 
@@ -59,19 +37,8 @@ THREAD__ struct sync_event_res ccpu_sync_res[ESCHED_DEV_NUM][COMM_EVENT_TYPE_MAX
 THREAD__ struct sync_event_aicpu_res aicpu_sync_res[ESCHED_DEV_NUM][EVENT_RES_MAX_NUM];
 THREAD__ uint32_t aicpu_sync_res_grp[ESCHED_DEV_NUM];
 
-STATIC bool esched_is_svm_alloc_event(uint32_t event_id, uint32_t sub_event_id)
-{
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-    return ((event_id == EVENT_DRV_MSG_EX) && ((sub_event_id == SVM_SMM_MMAP_EVENT) ||
-        (sub_event_id == SVM_SMM_MUNMAP_EVENT) || (sub_event_id == SVM_VA_RESERVE_EVENT)));
-#else
-    (void)event_id;
-    (void)sub_event_id;
-    return false;
-#endif
-}
-
-STATIC int32_t esched_init_thread_res(uint32_t dev_id, uint32_t gid, uint32_t event_id, uint32_t tid, struct sync_event_res *res)
+STATIC int32_t esched_init_thread_res(uint32_t dev_id, uint32_t gid, uint32_t event_id, uint32_t tid,
+                                      struct sync_event_res *res)
 {
     int32_t ret = 0;
     struct event_info back_event_info = {0};
@@ -98,8 +65,8 @@ static inline void esched_grp_para_cfg(struct esched_grp_para *grp_para, uint32_
 {
     grp_para->type = GRP_TYPE_BIND_CP_CPU;
     grp_para->threadNum = SCHED_MAX_SYNC_THREAD_NUM_PER_GRP;
-    (void)snprintf_s(grp_para->grp_name, EVENT_MAX_GRP_NAME_LEN, EVENT_MAX_GRP_NAME_LEN - 1,
-        "%s_%u", "ESCHED_GRP", grp_index);
+    (void)snprintf_s(grp_para->grp_name, EVENT_MAX_GRP_NAME_LEN, EVENT_MAX_GRP_NAME_LEN - 1, "%s_%u", "ESCHED_GRP",
+                     grp_index);
 }
 
 STATIC int32_t esched_init_ccpu_grp_res(uint32_t dev_id, uint32_t gid, uint32_t event_type, uint32_t grp_index)
@@ -117,7 +84,7 @@ STATIC int32_t esched_init_ccpu_grp_res(uint32_t dev_id, uint32_t gid, uint32_t 
             sched_err("Failed to init sync thread. (ret=%d; dev_id=%d; gid=%d;)\n", ret, dev_id, gid);
             return ret;
         }
-        thread_idx ++;
+        thread_idx++;
     }
     return DRV_ERROR_NONE;
 }
@@ -141,7 +108,7 @@ STATIC struct sync_event_res *esched_get_aicpu_res(uint32_t dev_id)
         sched_err("cpu id is invalid. (dev_id=%u; cpu_id=%u)\n", dev_id, cpu_id);
         return NULL;
     }
-    
+
     (void)pthread_mutex_lock(&init_mutex);
     sync_res = &aicpu_sync_res[dev_id][cpu_id];
     if (sync_res->sync_init_status == INITED_STATUS) {
@@ -347,7 +314,7 @@ STATIC struct sync_event_res *esched_get_event_res_pool(uint32_t dev_id, int32_t
             thread_num = 1;
             res = esched_get_aicpu_res(dev_id);
             break;
-        default :
+        default:
             thread_num = EVENT_RES_MAX_NUM;
             res = &ccpu_sync_res[dev_id][event_type][0];
             break;
@@ -365,7 +332,8 @@ STATIC int32_t esched_find_idle_res(struct sync_event_res *res, int32_t max_thre
         (void)pthread_mutex_lock(&res[i].res_lock);
         if (res[i].occupied_flag == false) {
             res[i].res.subevent_id++;
-            res[i].res.subevent_id = (res[i].res.subevent_id >= SCHED_SYNC_MAX_SUB_EVENT_ID) ? 0 : res[i].res.subevent_id;
+            res[i].res.subevent_id = (res[i].res.subevent_id >= SCHED_SYNC_MAX_SUB_EVENT_ID) ? 0 :
+                                                                                               res[i].res.subevent_id;
             *e_res = res[i].res;
             res[i].occupied_flag = true;
             (void)pthread_mutex_unlock(&res[i].res_lock);
@@ -461,7 +429,6 @@ STATIC void esched_drv_res_free(uint32_t dev_id, const struct event_res *e_res)
     (void)pthread_mutex_unlock(&res->res_lock);
 }
 
-
 void esched_free_event_res(uint32_t dev_id, int32_t event_type, const struct event_res *e_res)
 {
     if ((esched_device_check(dev_id) != 0) || (event_type >= EVENT_TYPE_BUTT)) {
@@ -476,7 +443,7 @@ void esched_free_event_res(uint32_t dev_id, int32_t event_type, const struct eve
         case QUEUE_ACPU_EVENT:
             esched_aicpu_res_free(dev_id);
             break;
-        default :
+        default:
             esched_ccpu_res_free(dev_id, event_type, e_res);
             break;
     }
@@ -489,96 +456,26 @@ void esched_fill_sync_msg(struct event_summary *event, const struct event_res *r
 
     (void)dst_engine;
     dst_engine = event->dst_engine;
-    ((struct event_sync_msg *)event->msg)->pid = (uint32_t)GETPID() & 0x3FFFFF;
+    ((struct event_sync_msg *)event->msg)->pid = (uint32_t)esched_get_sync_pid(dst_engine) & 0x3FFFFF;
 
-#if !defined (CFG_SOC_PLATFORM_HELPER)
-#ifdef CFG_ENV_HOST
-    if ((dst_engine == ACPU_DEVICE) || (dst_engine == CCPU_DEVICE) || (dst_engine == DCPU_DEVICE)) {
-        ((struct event_sync_msg *)event->msg)->pid = (uint32_t)drvDeviceGetBareTgid() & 0x3FFFFF;
-    }
-#else
-    if ((dst_engine == ACPU_HOST) || (dst_engine == CCPU_HOST)) {
-        ((struct event_sync_msg *)event->msg)->pid = drvDeviceGetBareTgid();
-    }
-#endif
-#endif
-
-#ifdef CFG_ENV_HOST
-    ((struct event_sync_msg *)event->msg)->dst_engine = CCPU_HOST;
-#else
-#ifdef CFG_SOC_PLATFORM_HELPER
-    ((struct event_sync_msg *)event->msg)->dst_engine = CCPU_HOST;
-#else
-    ((struct event_sync_msg *)event->msg)->dst_engine = CCPU_DEVICE;
-#endif
-#endif
+    ((struct event_sync_msg *)event->msg)->dst_engine = (uint32_t)esched_get_sync_dst_engine() & 0xF;
     ((struct event_sync_msg *)event->msg)->gid = (uint32_t)res->gid & 0x3F;
     ((struct event_sync_msg *)event->msg)->event_id = (uint32_t)res->event_id & 0x3F;
     ((struct event_sync_msg *)event->msg)->subevent_id = res->subevent_id;
     ((struct event_sync_msg *)event->msg)->tid = (uint32_t)res->tid & 0xFF;
 }
 
-void esched_fill_sync_msg_for_peer_que(uint32_t dev_id, uint32_t phy_dev_id, struct event_summary *event, const struct event_res *res)
+void esched_fill_sync_msg_for_peer_que(uint32_t dev_id, uint32_t phy_dev_id, struct event_summary *event,
+                                       const struct event_res *res)
 {
     esched_fill_sync_msg(event, res);
 
-#ifdef CFG_ENV_HOST
-    uint32_t host_id = ESCHED_DEV_NUM;
-    drvError_t ret = halGetHostID(&host_id);
-    if (ret != DRV_ERROR_NONE) {
-        sched_err("drv update host_id failed. (ret=%d)\n", ret);
-    }
-    if (dev_id == host_id) {
-        ((struct event_sync_msg *)event->msg)->dst_engine = VIRTUAL_CCPU_HOST;
-    }
-#else
-    unsigned int sched_mode = esched_get_cpu_mode(dev_id);
-    ((struct event_sync_msg *)event->msg)->dst_engine = (sched_mode) ? SPECIFYED_ACPU_DEVICE : SPECIFYED_CCPU_DEVICE;
-    ((struct event_sync_msg *)event->msg)->tid = res->tid;
-#endif
+    esched_fill_sync_msg_peer_platform(dev_id, event, res);
     ((struct event_sync_msg *)event->msg)->dev_id = (uint32_t)phy_dev_id & 0x3F;
 }
 
-#if defined(CFG_ENV_HOST) && defined(CFG_SOC_PLATFORM_CLOUD_V4)
-#define SVM_SYNC_EVENT_SINGLE_WAIT_TIME (10 * 1000)  /* 10s */
-#endif
-static int esched_wait_sync_event(uint32_t dev_id, struct sync_event_wait_info *wait_info, struct event_info *back_event_info)
-{
-#if defined(CFG_ENV_HOST) && defined(CFG_SOC_PLATFORM_CLOUD_V4)
-    int32_t ret;
-    int32_t timeout = wait_info->timeout;
-    int32_t wait_time;
-    int32_t query_ret;
-
-    if ((wait_info->subevent_id >= DRV_SUBEVENT_SVM_DEV_OPEN_MSG) && (wait_info->subevent_id < DRV_SUBEVENT_HDC_CREATE_LINK_MSG)) {
-        if (timeout > SVM_SYNC_EVENT_SINGLE_WAIT_TIME) {
-            while (timeout > 0) {
-                wait_time = timeout > SVM_SYNC_EVENT_SINGLE_WAIT_TIME ? SVM_SYNC_EVENT_SINGLE_WAIT_TIME : timeout;
-                timeout = timeout - wait_time;
-                ret = (int)esched_wait_event_ex(dev_id, wait_info->grp_id, wait_info->thread_id, wait_time, back_event_info);
-                if (ret != DRV_ERROR_WAIT_TIMEOUT) {
-                    return ret;
-                }
-                query_ret = halQueryMasterPidByDeviceSlave(dev_id, wait_info->pid, NULL, NULL);
-                if (query_ret != 0) {
-                    sched_run_info("Query device pid not success. (devid=%d, pid=%d; ret=%d)\n", dev_id, wait_info->pid, query_ret);
-                    return query_ret;
-                }
-            }
-        } else {
-            ret = (int)esched_wait_event_ex(dev_id, wait_info->grp_id, wait_info->thread_id, timeout, back_event_info);
-        }
-    } else {
-        ret = (int)esched_wait_event_ex(dev_id, wait_info->grp_id, wait_info->thread_id, timeout, back_event_info);
-    }
-    return ret;
-#else
-    return (int)esched_wait_event_ex(dev_id, wait_info->grp_id, wait_info->thread_id, wait_info->timeout, back_event_info);
-#endif
-}
-
 static void esched_fill_wait_info(struct sync_event_wait_info *wait_info, struct event_summary *event,
-    struct event_res *res, int32_t timeout)
+                                  struct event_res *res, int32_t timeout)
 {
     wait_info->grp_id = res->gid;
     wait_info->thread_id = res->tid;
@@ -590,7 +487,7 @@ static void esched_fill_wait_info(struct sync_event_wait_info *wait_info, struct
 }
 
 drvError_t halEschedSubmitEventSync(uint32_t devId, struct event_summary *event, int32_t timeout,
-    struct event_reply *reply)
+                                    struct event_reply *reply)
 {
     int wait_succ_cnt = 0;
     int32_t ret, event_type;
@@ -634,8 +531,8 @@ drvError_t halEschedSubmitEventSync(uint32_t devId, struct event_summary *event,
     ret = (int)halEschedSubmitEvent(devId, event);
     if (ret != 0) {
         /* flowgw maybe not ready, client will retry. */
-        sched_warn("Unable to invoke the halEschedSubmitEvent. (devId=%u, event_id=%u; ret=%d)\n",
-            devId, event->event_id, ret);
+        sched_warn("Unable to invoke the halEschedSubmitEvent. (devId=%u, event_id=%u; ret=%d)\n", devId,
+                   event->event_id, ret);
         esched_free_event_res(devId, event_type, &res);
         return ret;
     }
@@ -647,14 +544,19 @@ drvError_t halEschedSubmitEventSync(uint32_t devId, struct event_summary *event,
         esched_fill_wait_info(&wait_info, event, &res, timeout);
         ret = esched_wait_sync_event(devId, &wait_info, &back_event_info);
         if (ret != 0) {
-            if ((ret == DRV_ERROR_WAIT_TIMEOUT) || (esched_is_svm_alloc_event(event->event_id, event->subevent_id))) {
+            if ((ret == DRV_ERROR_WAIT_TIMEOUT) ||
+                (esched_is_svm_alloc_event(devId, event->event_id, event->subevent_id))) {
                 sched_run_info("Sync event not success. (ret=%d; dst_pid=%d; event_id=%u; subevent_id=%u; "
-                    "sync_gid=%u; sync_event_id=%u; sync_subevent_id=%u; sync_tid=%u; timeout=%dms; current_tick=%llu)\n",
-                    ret, event->pid, event->event_id, event->subevent_id, res.gid, res.event_id, res.subevent_id, res.tid, timeout, timestamp);
+                               "sync_gid=%u; sync_event_id=%u; sync_subevent_id=%u; sync_tid=%u; timeout=%dms; "
+                               "current_tick=%llu)\n",
+                               ret, event->pid, event->event_id, event->subevent_id, res.gid, res.event_id,
+                               res.subevent_id, res.tid, timeout, timestamp);
             } else {
                 sched_err("Sync event failed. (ret=%d; dst_pid=%d; event_id=%u; subevent_id=%u; "
-                    "sync_gid=%u; sync_event_id=%u; sync_subevent_id=%u; sync_tid=%u; timeout=%dms; current_tick=%llu)\n",
-                    ret, event->pid, event->event_id, event->subevent_id, res.gid, res.event_id, res.subevent_id, res.tid, timeout, timestamp);
+                          "sync_gid=%u; sync_event_id=%u; sync_subevent_id=%u; sync_tid=%u; timeout=%dms; "
+                          "current_tick=%llu)\n",
+                          ret, event->pid, event->event_id, event->subevent_id, res.gid, res.event_id, res.subevent_id,
+                          res.tid, timeout, timestamp);
             }
             if (ret == DRV_ERROR_WAIT_TIMEOUT) {
                 esched_query_sync_msg_trace(devId, event, res.gid, res.tid);
@@ -670,9 +572,9 @@ drvError_t halEschedSubmitEventSync(uint32_t devId, struct event_summary *event,
         }
 
         sched_run_info("Successfully waited for an event but the condition was not met. (devid=%u; gid=%u; "
-            "tid=%u; cnt=%d; check_time=%llu; back_time=%llu; check_subevent=%u; back_subevent=%u)\n",
-            devId, res.gid, res.tid, wait_succ_cnt, timestamp, back_event_info.comm.submit_timestamp,
-            res.subevent_id, back_event_info.comm.subevent_id);
+                       "tid=%u; cnt=%d; check_time=%llu; back_time=%llu; check_subevent=%u; back_subevent=%u)\n",
+                       devId, res.gid, res.tid, wait_succ_cnt, timestamp, back_event_info.comm.submit_timestamp,
+                       res.subevent_id, back_event_info.comm.subevent_id);
     } while (1);
 
     esched_free_event_res(devId, event_type, &res);

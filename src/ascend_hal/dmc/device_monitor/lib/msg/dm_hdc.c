@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -23,6 +23,7 @@
 #include "dev_mon_log.h"
 #include "device_monitor_type.h"
 #include "mmpa_api.h"
+#include "ascend_inpackage_hal.h"
 #include "dms_user_interface.h"
 #include "dm_hdc.h"
 
@@ -223,7 +224,7 @@ STATIC void hdc_thread_num_limit(void)
 
     while (g_hdc_thread_num >= HDC_ACCEPT_THREAD_MAX) {
         if (log_cnt % HDC_THREAD_WAIT_LOG_CNT == 0) {
-            DEV_MON_WARNING("HDC thread_num exceeds limit. (thread_num=%d)\n", g_hdc_thread_num);
+            DEV_MON_WARNING("HDC thread_num exceed limit, (thread_num=%d)\n", g_hdc_thread_num);
         }
         log_cnt++;
         (void)usleep(HDC_THREAD_WAIT_INTERVAL);
@@ -546,14 +547,14 @@ STATIC int __dm_hdc_server_send(DM_INTF_S *intf, DM_MSG_TYPE msg_type, DM_ADDR_S
     session = (HDC_SESSION)(uintptr_t)dstaddr->session;
 
     if (dstaddr->hdc_work_status == HDC_ADDR_CLOSE) {
-        DEV_MON_WARNING("__dm_hdc_server_send: session already close. (hdc_work_status=%d)\n",
+        DEV_MON_WARNING("__dm_hdc_server_send: session already close. hdc_work_status = %d\n",
                         dstaddr->hdc_work_status);
         return DRV_ERROR_INNER_ERR;
     }
 
     hdc_msg = (HDC_MSG_ST *)calloc(1, sizeof(HDC_MSG_ST));
     if (hdc_msg == NULL) {
-        DEV_MON_ERR("__dm_hdc_server_send: malloc fail.errno=%d\n", errno);
+        DEV_MON_ERR("__dm_hdc_server_send: malloc failed. (errno=%d)\n", errno);
         (void)drvHdcSessionClose(session);
         dstaddr->hdc_work_status = HDC_ADDR_CLOSE;
         return DRV_ERROR_INNER_ERR;
@@ -856,9 +857,11 @@ int dm_hdc_init(DM_INTF_S **my_intf, DM_CB_S *cb, DM_MSG_TIMEOUT_HNDL_T timeout_
     intf->retries = 0;
     intf->retry_time_ms = DSMI_MSG_TIMEOUT;
     /* Data frame format: | dm: hdc msg head | dm msg head | dm cmd payload | */
-    channel_max_trans_len = capacity.maxSegment > DM_MSG_DATA_MAX ? DM_MSG_DATA_MAX : capacity.maxSegment;
+    channel_max_trans_len = capacity.maxSegment > (unsigned int)DM_MSG_DATA_MAX ? (unsigned int)DM_MSG_DATA_MAX :
+                                                                                  capacity.maxSegment;
     DRV_CHECK_RETV_DO_SOMETHING((channel_max_trans_len > (unsigned int)HDCMSG_HEAD_SIZE), -EINVAL,
-                                DEV_MON_ERR("Hdc channel length is abnormal.\n");
+                                DEV_MON_ERR("Hdc channel length is abnormal. (len=%u, min=%u)\n", channel_max_trans_len,
+                                            (unsigned int)HDCMSG_HEAD_SIZE);
                                 __dm_hdc_close(intf); free(intf); intf = NULL);
     intf->max_trans_len = (unsigned int)(channel_max_trans_len - HDCMSG_HEAD_SIZE);
     intf->recv_msg = __dm_hdc_recv;

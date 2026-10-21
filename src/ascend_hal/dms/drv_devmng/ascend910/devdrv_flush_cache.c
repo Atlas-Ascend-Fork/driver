@@ -54,6 +54,5 @@ void devdrv_flush_cache(uint64_t base, uint32_t len)
 }
 #else
 void drvFlushCache2(uint64_t base, uint32_t len)
-{
-}
+{}
 #endif

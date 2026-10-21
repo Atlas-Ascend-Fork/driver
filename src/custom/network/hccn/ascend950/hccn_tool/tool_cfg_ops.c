@@ -48,10 +48,10 @@ int tool_read_conf(int slot_id, const char *conf_name, char *conf_value, unsigne
 
 #ifndef ENABLE_BUILD_PRODUCT
 STATIC int tool_cfg_cmdline_recovery(struct command_context *ctx, const char *cmd_prefix,
-    int (*cmdline_recovery)(struct command_context *, const char *))
+                                     int (*cmdline_recovery)(struct command_context *, const char *))
 #else
 EXPORT_FUNCTION int tool_cfg_cmdline_recovery(struct command_context *ctx, const char *cmd_prefix,
-    int (*cmdline_recovery)(struct command_context *, const char *))
+                                              int (*cmdline_recovery)(struct command_context *, const char *))
 #endif
 {
     char line_buf[CONFLINE_LENGTH] = {0};
@@ -61,8 +61,8 @@ EXPORT_FUNCTION int tool_cfg_cmdline_recovery(struct command_context *ctx, const
 
 #ifndef CONFIG_LLT
     fp = fopen(CFGFILE_NAME, "r");
-    CHK_PRT_RETURN(fp == NULL, hccn_err("open configure file failed, errno:%d real_conf_path:%s",
-        errno, CFGFILE_NAME), errno);
+    CHK_PRT_RETURN(fp == NULL, hccn_err("open configure file failed, errno:%d real_conf_path:%s", errno, CFGFILE_NAME),
+                   errno);
 
     ret = flock(fileno(fp), LOCK_EX);
     if (ret != 0) {
@@ -101,8 +101,8 @@ close_fd:
     return ret != 0 ? ret : t_ret;
 }
 
-STATIC int tool_inner_write_conf_byfd(FILE *fp, const char *conf_name,
-    const char *conf_value, char *sum_buf, int sum_buf_len)
+STATIC int tool_inner_write_conf_byfd(FILE *fp, const char *conf_name, const char *conf_value, char *sum_buf,
+                                      int sum_buf_len)
 {
     char line_buf[CONFLINE_LENGTH] = {0};
     char new_conf[CONFLINE_LENGTH] = {0};
@@ -121,8 +121,9 @@ STATIC int tool_inner_write_conf_byfd(FILE *fp, const char *conf_name,
     }
 
     ret = sprintf_s(new_conf, CONFLINE_LENGTH, "%s=%s\n", conf_name, conf_value);
-    CHK_PRT_RETURN(ret <= 0, hccn_err("sprintf str op failed, ret:%d conf_name:%s conf_value:%s",
-        ret, conf_name, conf_value), -EIO);
+    CHK_PRT_RETURN(ret <= 0,
+                   hccn_err("sprintf str op failed, ret:%d conf_name:%s conf_value:%s", ret, conf_name, conf_value),
+                   -EIO);
 
     ret = strcat_s(sum_buf, sum_buf_len, new_conf);
     CHK_PRT_RETURN(ret < 0, hccn_err("sum_buf str op failed, ret:%d new_conf:%s", ret, new_conf), -ENOENT);
@@ -149,7 +150,7 @@ STATIC int tool_inner_write_conf_byfd(FILE *fp, const char *conf_name,
 
 STATIC int tool_inner_write_conf(const char *conf_path, const char *conf_name, const char *conf_value)
 {
-    char real_conf_path[PATH_MAX + 1] = {0};//lint !e813
+    char real_conf_path[PATH_MAX + 1] = {0}; // lint !e813
     char *sum_buf = NULL;
     int ret, ret_val;
     FILE *fp = NULL;
@@ -233,7 +234,7 @@ bool tool_check_conf_udhcpc_enable(int slot_id)
     int ret;
 
     ret = tool_read_conf(slot_id, "udhcpc_enable", udhcpc_flag, sizeof(udhcpc_flag));
-    CHK_PRT_RETURN(ret == 0, hccn_info("[Ipv4]hccn.conf have udhcpc_enable flag"), true);
+    CHK_PRT_RETURN(ret == 0, hccn_info("[Ipv4]hccn.conf has udhcpc_enable flag"), true);
 
     return false;
 }
@@ -257,7 +258,7 @@ STATIC int rule_list_match(char list[][CONFLINE_LENGTH], int list_cnt, const cha
 }
 
 STATIC int handle_conf_to_file_proc_buf(FILE *fp, int op_type, char match_list[][CONFLINE_LENGTH], int list_cnt,
-    char *file_buf)
+                                        char *file_buf)
 {
     char line_buf[CONFLINE_LENGTH] = {0};
     bool found_flag = false;
@@ -439,8 +440,8 @@ int tool_del_conf(int slot_id, const char *conf_name)
     CHK_PRT_RETURN(conf_name == NULL, hccn_err("conf_name is NULL"), -EINVAL);
 
     ret = sprintf_s(conf, CONFLINE_LENGTH, "%s_%d", conf_name, slot_id);
-    CHK_PRT_RETURN(ret <= 0,
-        hccn_err("conf str op failed! ret[%d] conf_name[%s] slot_id[%d]", ret, conf_name, slot_id), -EIO);
+    CHK_PRT_RETURN(ret <= 0, hccn_err("conf str op failed! ret[%d] conf_name[%s] slot_id[%d]", ret, conf_name, slot_id),
+                   -EIO);
 
 #ifndef CONFIG_LLT
     ret = hccn_inner_del_conf(CFGFILE_NAME, conf);
@@ -476,23 +477,23 @@ STATIC int tool_get_cfg_exec(struct command_context *ctx)
 
     ret = tool_get_cfg_status(ctx, &status);
     CHK_PRT_RETURN(ret != 0, hccn_err("tool_get_cfg_status failed, logic_id:%d, ret:%d", ctx->npu_info.logic_id, ret),
-        ret);
+                   ret);
 
     switch (status) {
         case TOOL_NET_CFG_NONE:
-            TOOL_PRINT_INFO("config status:NONE");     /* not config */
+            TOOL_PRINT_INFO("config status:NONE"); /* not config */
             break;
         case TOOL_NET_CFG_START:
-            TOOL_PRINT_INFO("config status:START");    /* start to config and not finish */
+            TOOL_PRINT_INFO("config status:START"); /* start to config and not finish */
             break;
         case TOOL_NET_CFG_FAIL:
-            TOOL_PRINT_INFO("config status:FAIL");     /* config fail */
+            TOOL_PRINT_INFO("config status:FAIL"); /* config fail */
             break;
         case TOOL_NET_CFG_SUCCESS:
-            TOOL_PRINT_INFO("config status:SUCCESS");  /* config success */
+            TOOL_PRINT_INFO("config status:SUCCESS"); /* config success */
             break;
         default:
-            TOOL_PRINT_INFO("config status:FAULT");    /* unexpected fault. Maybe software coding error */
+            TOOL_PRINT_INFO("config status:FAULT"); /* unexpected fault. Maybe software coding error */
             break;
     }
 
@@ -524,19 +525,20 @@ STATIC int tool_cfg_bond_attr_recovery(struct command_context *ctx)
     ret = tool_read_conf(ctx->slot_id, "bond_attr", bond_attr_val, sizeof(bond_attr_val));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf bond_attr do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf bond_attr do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             return 0;
         } else {
-            hccn_err("tool_read_conf bond_attr set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf bond_attr set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
             return ret;
         }
     }
 
     bond_attr_args.lacp_rate = (int)strtoul(bond_attr_val, &tmp_ptr, STR_NUM_BASE_10);
     CHK_PRT_RETURN(tmp_ptr == bond_attr_val || *tmp_ptr != '\0',
-        hccn_err("lacp_rate must be int, lacp_rate:%d ptr_tail:%s)", bond_attr_args.lacp_rate, tmp_ptr), -EINVAL);
+                   hccn_err("lacp_rate must be int, lacp_rate:%d ptr_tail:%s)", bond_attr_args.lacp_rate, tmp_ptr),
+                   -EINVAL);
 
     ctx->cmd_args = (void *)(&bond_attr_args);
     ret = tool_exec_with_link_status(ctx, tool_bond_attr_set, false);
@@ -558,19 +560,19 @@ STATIC int tool_cfg_mtu_recovery(struct command_context *ctx)
     ret = tool_read_conf(ctx->slot_id, "mtu", mtu_val, sizeof(mtu_val));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf mtu do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf mtu do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             return 0;
         } else {
-            hccn_err("tool_read_conf mtu set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf mtu set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
             return ret;
         }
     }
 
     mtu_args.mtu_size = (int)strtoul(mtu_val, &tmp_ptr, STR_NUM_BASE_10);
     CHK_PRT_RETURN(tmp_ptr == mtu_val || *tmp_ptr != '\0',
-        hccn_err("mtu_size must be int, mtu_size:%d ptr_tail:%s)", mtu_args.mtu_size, tmp_ptr), -EINVAL);
+                   hccn_err("mtu_size must be int, mtu_size:%d ptr_tail:%s)", mtu_args.mtu_size, tmp_ptr), -EINVAL);
 
     ctx->cmd_args = (void *)(&mtu_args);
     ret = tool_exec_with_link_status(ctx, tool_set_mtu_exec, false);
@@ -615,12 +617,12 @@ STATIC int tool_cfg_mac_addr_recovery(struct command_context *ctx)
     ret = tool_read_conf(ctx->slot_id, "mac_addr", mac_addr_val, sizeof(mac_addr_val));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf mac_addr do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf mac_addr do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             return 0;
         } else {
-            hccn_err("tool_read_conf mac_addr set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf mac_addr set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
             return ret;
         }
     }
@@ -629,11 +631,12 @@ STATIC int tool_cfg_mac_addr_recovery(struct command_context *ctx)
     CHK_PRT_RETURN(ret != 0, hccn_err("parse_mac failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     (void)memcpy_s(&mac_args, sizeof(struct mac_val), &type_val.mac, sizeof(type_val.mac));
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)&mac_args, sizeof(struct mac_val),
-        NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)&mac_args, sizeof(struct mac_val), NULL,
+                   &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_MAC_ADDR, &info);
-    CHK_PRT_RETURN(ret != 0,
+    CHK_PRT_RETURN(
+        ret != 0,
         hccn_err("set mac failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
 
     return 0;
@@ -646,18 +649,18 @@ STATIC int tool_cfg_pfc_recovery(struct command_context *ctx)
     int ret = 0;
 
     ctx->cmd_args = calloc(1, sizeof(struct pfc_cmd_args));
-    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc pfc_cmd_args failed, logic_id:%d",
-        ctx->npu_info.logic_id), -ENOMEM);
+    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc pfc_cmd_args failed, logic_id:%d", ctx->npu_info.logic_id),
+                   -ENOMEM);
 
     ret = tool_read_conf(ctx->slot_id, "bitmap", (char *)ctx->cmd_args, sizeof(struct pfc_cmd_args));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf pfc do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf pfc do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             ret = 0;
         } else {
-            hccn_err("tool_read_conf pfc set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf pfc set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
         }
         goto err_read_conf;
     }
@@ -705,20 +708,21 @@ STATIC int tool_tc_cfg_recovery(struct command_context *ctx)
     ret = tool_read_conf(ctx->slot_id, "tc_cfg", tc_cfg_str, sizeof(tc_cfg_str));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf tc_cfg do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf tc_cfg do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             return 0;
         } else {
-            hccn_err("tool_read_conf tc_cfg set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf tc_cfg set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
             return ret;
         }
     }
 
     tc_param_str = strtok_s(tc_cfg_str, " ", &next_token);
     for (; tc_param_i < ARGC_ID_4; tc_param_i++) {
-        CHK_PRT_RETURN(tc_param_str == NULL, hccn_err("tc cfg file is error, logic_id:%d tc_param_i:%d",
-            ctx->npu_info.logic_id, tc_param_i), -EINVAL);
+        CHK_PRT_RETURN(tc_param_str == NULL,
+                       hccn_err("tc cfg file is error, logic_id:%d tc_param_i:%d", ctx->npu_info.logic_id, tc_param_i),
+                       -EINVAL);
 
         if (tc_param_i == TC_BUFF_INDEX) {
             (void)memcpy_s(&tc_cfg_args.tc_buff, INPUT_TC_CFG_LEN, tc_param_str, INPUT_TC_CFG_LEN);
@@ -730,18 +734,18 @@ STATIC int tool_tc_cfg_recovery(struct command_context *ctx)
     }
 
     ret = tool_tc_cfg_get_size(tc_cfg_args.tc_buff, &tc_cfg);
-    CHK_PRT_RETURN(ret != 0, hccn_err("tool_tc_cfg_get_size failed, ret:%d logic_id:%d", ret,
-        ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("tool_tc_cfg_get_size failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     ret = tool_tc_cfg_get_waterline(tc_cfg_args.waterline, &tc_cfg);
-    CHK_PRT_RETURN(ret != 0, hccn_err("tool_tc_cfg_get_waterline failed, ret:%d logic_id:%d", ret,
-        ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("tool_tc_cfg_get_waterline failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context),
-        (char *)(&tc_cfg), sizeof(struct tc_cfg_info), NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)(&tc_cfg), sizeof(struct tc_cfg_info),
+                   NULL, &size);
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_TC_CFG_INFO, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set tc_cfg info failed, ret:%d logic_id:%d", ret,
-        ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set tc_cfg info failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     return 0;
 }
@@ -753,18 +757,18 @@ STATIC int tool_cfg_prio_tc_recovery(struct command_context *ctx)
     int ret = 0;
 
     ctx->cmd_args = calloc(1, sizeof(struct prio_tc_cmd_args));
-    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc prio_tc_cmd_args failed, logic_id:%d",
-        ctx->npu_info.logic_id), -ENOMEM);
+    CHK_PRT_RETURN(ctx->cmd_args == NULL,
+                   hccn_err("calloc prio_tc_cmd_args failed, logic_id:%d", ctx->npu_info.logic_id), -ENOMEM);
 
     ret = tool_read_conf(ctx->slot_id, "prio_tc", (char *)ctx->cmd_args, sizeof(struct prio_tc_cmd_args));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf prio_tc do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf prio_tc do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             ret = 0;
         } else {
-            hccn_err("tool_read_conf prio_tc set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf prio_tc set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
         }
         goto err_read_conf;
     }
@@ -807,20 +811,20 @@ STATIC int tool_cfg_tls_enable_recovery(struct command_context *ctx)
     ret = tool_read_conf(ctx->slot_id, "tls_enable", tls_enable, sizeof(tls_enable));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf tls_enable do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf tls_enable do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             return 0;
         } else {
-            hccn_err("tool_read_conf tls_enable set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf tls_enable set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
             return ret;
         }
     }
 
     enable_info.enable = (unsigned int)strtoul(tls_enable, &tmp_ptr, STR_NUM_BASE_10);
     CHK_PRT_RETURN(tmp_ptr == tls_enable || *tmp_ptr != '\0',
-        hccn_err("enable status must be unsigned int, enable:%u; ptr_tail:%s)", enable_info.enable, tmp_ptr),
-        -EINVAL);
+                   hccn_err("enable status must be unsigned int, enable:%u; ptr_tail:%s)", enable_info.enable, tmp_ptr),
+                   -EINVAL);
 
     ret = set_tls_flash_enable(ctx, &enable_info);
     CHK_PRT_RETURN(ret != 0, hccn_err("set tls flash enable failed, logic_id:%d", ctx->npu_info.logic_id), ret);
@@ -848,8 +852,8 @@ STATIC int tool_cfg_ip_recovery(struct command_context *ctx)
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
             missing_args_num++;
         } else {
-            hccn_err("tool_read_conf ip address set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf ip address set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
             return ret;
         }
     }
@@ -857,20 +861,23 @@ STATIC int tool_cfg_ip_recovery(struct command_context *ctx)
     ret = tool_read_conf(ctx->slot_id, "netmask", mask_val, sizeof(mask_val));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            CHK_PRT_RETURN(missing_args_num != 0,
+            CHK_PRT_RETURN(
+                missing_args_num != 0,
                 hccn_warn("Both ip and netmask are missing, do not need recover ip cfg, logic_id:%d slot_id:%d",
-                    ctx->npu_info.logic_id, ctx->slot_id), 0);
+                          ctx->npu_info.logic_id, ctx->slot_id),
+                0);
             missing_args_num++;
         } else {
-            hccn_err("tool_read_conf ip netmask set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf ip netmask set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
             return ret;
         }
     }
 
     CHK_PRT_RETURN(missing_args_num != 0,
-        hccn_err("Invalid missing_args_num:%u, need both ip and netmask for recovery logic_id:%d slot_id:%d",
-            missing_args_num, ctx->npu_info.logic_id, ctx->slot_id), -EINVAL);
+                   hccn_err("Invalid missing_args_num:%u, need both ip and netmask for recovery logic_id:%d slot_id:%d",
+                            missing_args_num, ctx->npu_info.logic_id, ctx->slot_id),
+                   -EINVAL);
 
     ret = parse_ip(NULL, ip_val, &type_val);
     CHK_PRT_RETURN(ret != 0, hccn_err("parse_ip ip_val failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
@@ -878,16 +885,16 @@ STATIC int tool_cfg_ip_recovery(struct command_context *ctx)
 
     (void)memset_s(&type_val, sizeof(value_union), 0, sizeof(value_union));
     ret = parse_ip(NULL, mask_val, &type_val);
-    CHK_PRT_RETURN(ret != 0, hccn_err("parse_ip mask_val failed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("parse_ip mask_val failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
     (void)memcpy_s(&cfg_ip_args.netmask, sizeof(struct ip_val), &type_val.ip, sizeof(struct ip_val));
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)&cfg_ip_args, sizeof(struct ip_cmd_args),
-        NULL, &size);
+                   NULL, &size);
 
     ctx->cmd_args = (void *)(&cfg_ip_args);
     CHK_PRT_RETURN(is_ipaddr_conflict(ctx), hccn_err("ipaddr conflict, addr:%s netmask:%s", ip_val, mask_val),
-        DEV_EXE_CONFLICT_IP_ADDR_ERR);
+                   DEV_EXE_CONFLICT_IP_ADDR_ERR);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_IP, &info);
     if (ret != 0) {
@@ -908,19 +915,20 @@ STATIC int tool_cfg_netdetect_recovery(struct command_context *ctx)
     ret = tool_read_conf(ctx->slot_id, "netdetect", ip_val, sizeof(ip_val));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf netdetect ip address do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf netdetect ip address do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             return 0;
         } else {
-            hccn_err("tool_read_conf netdetect ip address set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf netdetect ip address set failed! ret:%d logic_id:%d slot_id:%d", ret,
+                     ctx->npu_info.logic_id, ctx->slot_id);
             return ret;
         }
     }
 
     ret = parse_ip(NULL, ip_val, &type_val);
-    CHK_PRT_RETURN(ret != 0, hccn_err("parse_ip netdetect ip address failed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("parse_ip netdetect ip address failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     (void)memcpy_s(&netdetect_args.address, sizeof(struct ip_val), &type_val.ip, sizeof(struct ip_val));
     ctx->cmd_args = (void *)(&netdetect_args);
@@ -947,18 +955,18 @@ int tool_cfg_gateway_recovery(struct command_context *ctx)
     }
 
     ctx->cmd_args = calloc(1, sizeof(struct gateway_cmd_args));
-    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc gateway_cmd_args failed, logic_id:%d",
-        ctx->npu_info.logic_id), -ENOMEM);
+    CHK_PRT_RETURN(ctx->cmd_args == NULL,
+                   hccn_err("calloc gateway_cmd_args failed, logic_id:%d", ctx->npu_info.logic_id), -ENOMEM);
 
     ret = tool_read_conf(ctx->slot_id, "gateway", gateway_val, sizeof(gateway_val));
     if (ret != 0) {
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-            hccn_warn("tool_read_conf gateway do not need recover cfg, ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_warn("tool_read_conf gateway do not need recover cfg, ret:%d logic_id:%d slot_id:%d", ret,
+                      ctx->npu_info.logic_id, ctx->slot_id);
             ret = 0;
         } else {
-            hccn_err("tool_read_conf gateway set failed! ret:%d logic_id:%d slot_id:%d",
-                ret, ctx->npu_info.logic_id, ctx->slot_id);
+            hccn_err("tool_read_conf gateway set failed! ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                     ctx->slot_id);
         }
         goto err_read_conf;
     }
@@ -1002,8 +1010,8 @@ STATIC int tool_cfg_arp_cmd(struct command_context *ctx, const char *cmd)
     CHK_PRT_RETURN(ret != 0, hccn_err("parse_mac failed, ret:%d", ret), ret);
 
     ctx->cmd_args = calloc(1, sizeof(struct arp_cmd_args));
-    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc arp_cmd_args failed, logic_id:%d",
-        ctx->npu_info.logic_id), -ENOMEM);
+    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc arp_cmd_args failed, logic_id:%d", ctx->npu_info.logic_id),
+                   -ENOMEM);
 
     arp_args = (struct arp_cmd_args *)ctx->cmd_args;
     (void)memcpy_s(&arp_args->ip, sizeof(arp_args->ip), &ip_type_val.ip, sizeof(ip_type_val.ip));
@@ -1064,8 +1072,10 @@ int tool_cfg_arp_recovery(struct command_context *ctx)
     }
 
     ret = sprintf_s(arp_prefix, CONFLINE_LENGTH, "%s_%d", "arp", ctx->slot_id);
-    CHK_PRT_RETURN(ret <= 0, hccn_err("sprintf_s arp_prefix failed, ret:%d logic_id:%d slot_id:%d",
-        ret, ctx->npu_info.logic_id, ctx->slot_id), -EIO);
+    CHK_PRT_RETURN(ret <= 0,
+                   hccn_err("sprintf_s arp_prefix failed, ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id,
+                            ctx->slot_id),
+                   -EIO);
 
     return tool_cfg_cmdline_recovery(ctx, arp_prefix, tool_cfg_arp_cmd_recovery);
 }
@@ -1078,20 +1088,21 @@ STATIC int tool_cfg_qos_dscp_recovery(struct command_context *ctx)
     int i, ret = 0;
 
     ctx->cmd_args = calloc(1, sizeof(struct qos_dscp_args));
-    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc qos_dscp_args failed, logic_id:%d",
-        ctx->npu_info.logic_id), -ENOMEM);
+    CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("calloc qos_dscp_args failed, logic_id:%d", ctx->npu_info.logic_id),
+                   -ENOMEM);
 
     qos_args = (struct qos_dscp_args *)ctx->cmd_args;
 
     ret = tool_read_conf(ctx->slot_id, "qos_dscp", qos_dscp_cfg_string, QOS_DSCP_CFG_LEN);
-    if(ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
-        hccn_warn("not save qos_map before, ret:%d logic_id:%d slot_id:%d",
-            ret, ctx->npu_info.logic_id, ctx->slot_id);
+    if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND || ret == FILE_OPT_INNER_PARAM_ERR) {
+        hccn_warn("not save qos_map before, ret:%d logic_id:%d slot_id:%d", ret, ctx->npu_info.logic_id, ctx->slot_id);
         ret = 0;
         goto out;
     }
-    CHK_PRT_GOTO(ret != 0, hccn_err("read %s for qos_dscp_cfg failed! ret:%d logic_id:%d slot_id:%d",
-        CFGFILE_NAME, ret, ctx->npu_info.logic_id, ctx->slot_id), out);
+    CHK_PRT_GOTO(ret != 0,
+                 hccn_err("read %s for qos_dscp_cfg failed! ret:%d logic_id:%d slot_id:%d", CFGFILE_NAME, ret,
+                          ctx->npu_info.logic_id, ctx->slot_id),
+                 out);
 
     ret = parse_qos_cfg(qos_cfg, HCCL_QOS_LEVEL_CNT, qos_dscp_cfg_string);
     CHK_PRT_GOTO(ret != 0, hccn_err("parse_qos_cfg failed! ret:%d slot_id:%d", ret, ctx->slot_id), out);
@@ -1143,8 +1154,7 @@ STATIC recovery_cmd_t *tool_get_recovery_dependent_cmd_list(unsigned int *size)
     return tool_get_full_dependent_cmd_list(g_recovery_dependent_cmd_list, size);
 }
 
-STATIC int tool_run_recovery_cmd(int (*recovery_cmd_execute)(struct command_context *),
-    struct command_context *ctx)
+STATIC int tool_run_recovery_cmd(int (*recovery_cmd_execute)(struct command_context *), struct command_context *ctx)
 {
     int retry_times = 0;
     int ret = 0;
@@ -1159,7 +1169,7 @@ STATIC int tool_run_recovery_cmd(int (*recovery_cmd_execute)(struct command_cont
 }
 
 STATIC unsigned int tool_recover_cfg_func(struct command_context *ctx, recovery_cmd_t *cmd_list, unsigned int cmd_size,
-    const char *cmd_list_desc, bool is_independent)
+                                          const char *cmd_list_desc, bool is_independent)
 {
     unsigned int error_flag = 0;
     unsigned int op_index = 0;
@@ -1169,9 +1179,9 @@ STATIC unsigned int tool_recover_cfg_func(struct command_context *ctx, recovery_
         ret = tool_run_recovery_cmd(cmd_list[op_index].recovery_cmd_execute, ctx);
         if (ret != 0) {
             hccn_err("[%s]the recovery of the %s configuration file has failed. ret:%d logic_id:%d op_index:%u)",
-                cmd_list_desc, cmd_list[op_index].recovery_cmd_name, ret, ctx->npu_info.logic_id, op_index);
+                     cmd_list_desc, cmd_list[op_index].recovery_cmd_name, ret, ctx->npu_info.logic_id, op_index);
             LOG_PROMPT(ctx, "recover %s failed, logic_id:%d", cmd_list[op_index].recovery_cmd_name,
-                ctx->npu_info.logic_id);
+                       ctx->npu_info.logic_id);
             error_flag += 1;
 
             if (is_independent == false && op_index == 0) {
@@ -1227,11 +1237,13 @@ STATIC int tool_cfg_cmd_recovery(struct command_context *ctx)
     }
 
     CHK_PRT_RETURN(boot_status != DSMI_SYSTEM_START_FINISH,
-        hccn_err("dsmi_get_device_boot_status timeout after %d attempts, boot_status:%d",
-            MAX_BOOT_STATUS_RETRY, boot_status), -ETIMEDOUT);
+                   hccn_err("dsmi_get_device_boot_status timeout after %d attempts, boot_status:%d",
+                            MAX_BOOT_STATUS_RETRY, boot_status),
+                   -ETIMEDOUT);
 
     ret = sprintf_s(dev_name, MAX_DEV_NAME_LEN, "bond%d", ctx->slot_id);
-    CHK_PRT_RETURN(ret <= 0,
+    CHK_PRT_RETURN(
+        ret <= 0,
         hccn_err("sprintf_s failed, logic_id:%d slot_id:%d ret:%d", ctx->npu_info.logic_id, ctx->slot_id, ret), -EIO);
 
     (void)tool_set_cfg_status(ctx, TOOL_NET_CFG_START);
@@ -1240,8 +1252,8 @@ STATIC int tool_cfg_cmd_recovery(struct command_context *ctx)
     error_flag += tool_recover_independent_cfg(ctx);
     error_flag += tool_recover_dependent_cfg(ctx);
     if (error_flag > 0) {
-        hccn_err("start to recover failed, error_flag:%u logic_id:%d slot_id:%d",
-            error_flag, ctx->npu_info.logic_id, ctx->slot_id);
+        hccn_err("start to recover failed, error_flag:%u logic_id:%d slot_id:%d", error_flag, ctx->npu_info.logic_id,
+                 ctx->slot_id);
         (void)tool_set_cfg_status(ctx, TOOL_NET_CFG_FAIL);
         return -1;
     }
@@ -1275,7 +1287,7 @@ STATIC int tool_check_dev_health(int logic_id)
 #endif
 
     if (health == DEV_NO_EXIST) {
-        hccn_err("device not exist, logic_id:%d health:%u", logic_id, health);
+        hccn_err("device does not exist, logic_id:%d health:%u", logic_id, health);
         return -1;
     }
 
@@ -1287,12 +1299,12 @@ STATIC int tool_cfg_cmd_recovery_get_info(struct command_context *ctx)
     int ret = 0;
 
     ret = tool_check_dev_health(ctx->npu_info.logic_id);
-    CHK_PRT_RETURN(ret != 0, hccn_err("tool_check_dev_health failed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("tool_check_dev_health failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     ret = get_other_id_from_logic_id(ctx);
-    CHK_PRT_RETURN(ret != 0, hccn_err("get_other_id_from_logic_id failed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("get_other_id_from_logic_id failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     return 0;
 }
@@ -1307,7 +1319,7 @@ STATIC int tool_cfg_cmd_recovery_all(struct command_context *ctx)
 
     ret = dsmi_get_device_count(&dev_num);
     CHK_PRT_RETURN(ret != 0 || dev_num <= 0 || dev_num > DEV_LIST_MAX,
-        hccn_err("dsmi_get_device_count failed, ret:%d dev_num:%d", ret, dev_num), ret);
+                   hccn_err("dsmi_get_device_count failed, ret:%d dev_num:%d", ret, dev_num), ret);
 
     ret = dsmi_list_device(dev_list, dev_num);
     CHK_PRT_RETURN(ret != 0, hccn_err("dsmi_list_device failed, ret:%d dev_num:%d", ret, dev_num), ret);
@@ -1345,12 +1357,15 @@ STATIC int tool_set_cfg_exec(struct command_context *ctx)
     int ret = 0;
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     CHK_PRT_RETURN(access(CFGFILE_NAME, F_OK) != 0,
-        hccn_err("the config file(%s) does not exist, failed to recover the configuration. errno:%d",
-        CFGFILE_NAME, errno), -EINVAL);
+                   hccn_err("the config file(%s) does not exist, failed to recover the configuration. errno:%d",
+                            CFGFILE_NAME, errno),
+                   -EINVAL);
 
     if (ctx->global_flag) {
         return tool_cfg_cmd_recovery_all(ctx);
@@ -1393,10 +1408,16 @@ STATIC void tool_cfg_print_help(struct command_context *ctx, unsigned int mode)
 
 STATIC struct cmd_entry g_cfg_cmds[] = {
     {
-        "-cfg_recovery", NULL, MODE_BOTH,
-        NULL, NULL, tool_cfg_exec,
-        {DEV_NPU_ATTR, DEV_GLOBAL_ATTR}, tool_cfg_print_help,
-        NULL, 0,
+        "-cfg_recovery",
+        NULL,
+        MODE_BOTH,
+        NULL,
+        NULL,
+        tool_cfg_exec,
+        {DEV_NPU_ATTR, DEV_GLOBAL_ATTR},
+        tool_cfg_print_help,
+        NULL,
+        0,
     },
 };
 

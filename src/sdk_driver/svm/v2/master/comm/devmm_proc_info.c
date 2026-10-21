@@ -60,6 +60,7 @@
 #include "svm_master_query.h"
 #include "svm_master_soma_pool_mng.h"
 #include "svm_ioctl.h"
+#include "devmm_pagefault_info.h"
 #ifndef UVM_OPEN
 #include "uvm_heap_mng.h"
 #include "uvm_master_prefetch.h"
@@ -116,7 +117,7 @@ int devmm_remap_giant_pages(struct devmm_svm_process *svm_proc, u64 va, ka_page_
     int ret;
 
     if (has_interval) {
-        devmm_drv_err("does not support interval. (va=0x%llx; page_num=%llu)\n", va, pg_num);
+        devmm_drv_err("not support interval. (va=0x%llx; page_num=%llu)\n", va, pg_num);
         return -EINVAL;
     }
 
@@ -527,14 +528,14 @@ int devmm_dev_page_fault_get_vaflgs(struct devmm_svm_process *svm_process, struc
     page_bitmap = devmm_get_page_bitmap_with_heap(heap, va);
     if (page_bitmap == NULL) {
         devmm_drv_err_if((svm_process->device_fault_printf != 0),
-                         "Va doesn't allow fault by device, bitmap is null. (hostpid=%d; va=0x%lx; devid=%u)\n",
+                         "Va don't allow fault by device, bitmap is null. (hostpid=%d; va=0x%lx; devid=%u)\n",
                          process_id->hostpid, va, dev_id);
         return -EINVAL;
     }
 #ifndef EMU_ST
     if (devmm_dev_page_fault_check_va_bitmap(svm_process, page_bitmap, va) != 0) {
         devmm_drv_err_if((svm_process->device_fault_printf != 0),
-                         "Va error doesn't allow fault by device. (hostpid=%d; va=0x%lx; devid=%u; bitmap=0x%x)\n",
+                         "Va error don't allow fault by device. (hostpid=%d; va=0x%lx; devid=%u; bitmap=0x%x)\n",
                          process_id->hostpid, va, dev_id, devmm_page_read_bitmap(page_bitmap));
         devmm_print_pre_alloced_va(svm_process, va);
         return -EINVAL;
@@ -583,21 +584,23 @@ int devmm_dev_page_fault_get_vaflgs(struct devmm_svm_process *svm_process, struc
 }
 
 STATIC u32 devmm_setup_device_get_heap_info(struct devmm_svm_process *svm_pro,
-                                            struct devmm_chan_setup_device *chan_setup, u32 idx_start)
+                                            struct devmm_chan_setup_device *chan_setup, u32 idx_start, bool is_host_pin)
 {
     u32 i;
+    u32 max_heap_use = is_host_pin ? svm_pro->max_host_pin_heap_use : svm_pro->max_heap_use;
 
     chan_setup->heap_cnt = 0;
-    for (i = idx_start; i < svm_pro->max_heap_use; i++) {
-        struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_pro, i);
+    for (i = idx_start; i < max_heap_use; i++) {
+        struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_pro, i, is_host_pin);
         if (devmm_check_heap_is_entity(heap) == true) {
             chan_setup->heap_info[chan_setup->heap_cnt].heap_idx = heap->heap_idx;
             chan_setup->heap_info[chan_setup->heap_cnt].heap_type = heap->heap_type;
             chan_setup->heap_info[chan_setup->heap_cnt].heap_sub_type = heap->heap_sub_type;
+            chan_setup->heap_info[chan_setup->heap_cnt].is_host_pin = is_host_pin;
             chan_setup->heap_info[chan_setup->heap_cnt].heap_size = heap->heap_size;
 
-            devmm_drv_debug("Update heap info. (heap_type=0x%x; heap_idx=%u; heap_size=%llu; i=%u)\n", heap->heap_type,
-                            heap->heap_idx, heap->heap_size, i);
+            devmm_drv_debug("Update heap info. (heap_type=0x%x; heap_idx=%u; heap_size=%llu; i=%u; is_host_pin=%u)\n",
+                            heap->heap_type, heap->heap_idx, heap->heap_size, i, is_host_pin);
             chan_setup->heap_cnt++;
             if (chan_setup->heap_cnt >= DEVMM_CHAN_MAX_HEAP_INFO_NUM) {
                 break;
@@ -610,24 +613,24 @@ STATIC u32 devmm_setup_device_get_heap_info(struct devmm_svm_process *svm_pro,
 }
 
 STATIC int devmm_setup_update_other_device_heap(struct devmm_svm_process *svm_pro,
-                                                struct devmm_chan_setup_device *chan_setup, u32 devid, u32 updated_idx,
-                                                u32 heap_cnt)
+                                                struct devmm_chan_setup_device *chan_setup, u32 devid, int updated_idx,
+                                                u32 heap_cnt, bool is_host_pin)
 {
     u32 updated_heap_cnt = chan_setup->heap_cnt;
-    u32 index = updated_idx;
+    int index = updated_idx;
     int ret;
 
     while (updated_heap_cnt < heap_cnt) {
         chan_setup->head.dev_id = (u16)devid;
         chan_setup->cmd = DEVMM_POLLING_CMD_UPDATE_HEAP;
-        index = devmm_setup_device_get_heap_info(svm_pro, chan_setup, index + 1);
+        index = (int)devmm_setup_device_get_heap_info(svm_pro, chan_setup, index + 1, is_host_pin);
         updated_heap_cnt += chan_setup->heap_cnt;
         ret = devmm_chan_msg_send(
             chan_setup,
             sizeof(struct devmm_chan_setup_device) + chan_setup->heap_cnt * sizeof(struct devmm_chan_heap_info),
             sizeof(struct devmm_chan_setup_device));
         if (ret != 0) {
-            devmm_drv_err("Update heap error. (devid=%u; ret=0x%x; updated_idx=%u; updated_heap_cnt=%u)\n", devid, ret,
+            devmm_drv_err("Update heap error. (devid=%u; ret=0x%x; updated_idx=%d; updated_heap_cnt=%u)\n", devid, ret,
                           index, updated_heap_cnt);
             return ret;
         }
@@ -657,11 +660,69 @@ STATIC int devmm_setup_device_msg_send(struct devmm_svm_process *svm_pro, struct
     return 0;
 }
 
+static int devmm_setup_device_proc_heap_info(struct devmm_svm_process *svm_pro, struct devmm_ioctl_arg *arg,
+                                             bool is_host_pin, bool is_need_create)
+{
+    struct devmm_chan_setup_device *chan_setup = NULL;
+    u32 max_heap_use = (is_host_pin ? svm_pro->max_host_pin_heap_use : svm_pro->max_heap_use);
+    int updated_idx = -1;
+    u32 updated_heap_cnt = 0;
+    u32 i, heap_cnt;
+    u32 logical_devid = arg->head.logical_devid;
+    u32 phy_devid = arg->head.devid;
+    int ret = 0;
+
+    for (i = 0, heap_cnt = 0; i < max_heap_use; i++) {
+        struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_pro, i, is_host_pin);
+        if (devmm_check_heap_is_entity(heap) == true) {
+            i = (u32)(heap->heap_size / DEVMM_HEAP_SIZE - 1 + i);
+            heap_cnt++;
+        }
+    }
+
+    chan_setup = (struct devmm_chan_setup_device *)devmm_kzalloc_ex(
+        sizeof(struct devmm_chan_setup_device) +
+            (ka_base_min(heap_cnt, (u32)DEVMM_CHAN_MAX_HEAP_INFO_NUM)) * sizeof(struct devmm_chan_heap_info),
+        KA_GFP_KERNEL);
+    if (chan_setup == NULL) {
+        devmm_drv_err("Kzalloc chan_setup failed. (is_host_pin=%u)\n", is_host_pin);
+        return -ENOMEM;
+    }
+
+    chan_setup->head.process_id.hostpid = svm_pro->process_id.hostpid;
+    chan_setup->head.process_id.vfid = (u16)arg->head.vfid;
+    chan_setup->head.msg_id = DEVMM_CHAN_SETUP_DEVICE_H2D;
+    chan_setup->head.dev_id = (u16)phy_devid;
+    chan_setup->logic_devid = logical_devid;
+
+    if (is_need_create) {
+        updated_idx = (int)devmm_setup_device_get_heap_info(svm_pro, chan_setup, 0, is_host_pin);
+        updated_heap_cnt = chan_setup->heap_cnt;
+        ret = devmm_setup_device_msg_send(svm_pro, arg, chan_setup);
+        if (ret != 0) {
+            devmm_drv_err("Setup device failed. (is_host_pin=%u)\n", is_host_pin);
+            goto out_free;
+        }
+
+        svm_pro->deviceinfo[logical_devid].devpid = chan_setup->devpid;
+        svm_pro->deviceinfo[logical_devid].ssid = chan_setup->ssid;
+    }
+
+    chan_setup->heap_cnt = updated_heap_cnt;
+    ret = devmm_setup_update_other_device_heap(svm_pro, chan_setup, phy_devid, updated_idx, heap_cnt, is_host_pin);
+    if (ret != 0) {
+        devmm_drv_err("Update device heap failed. (ret=%d; is_host_pin=%u)\n", ret, is_host_pin);
+        goto out_free;
+    }
+
+out_free:
+    devmm_kfree_ex(chan_setup);
+    return ret;
+}
+
 static int devmm_setup_device_proc(struct devmm_svm_process *svm_pro, struct devmm_ioctl_arg *arg)
 {
     struct svm_id_inst id_inst = {.devid = arg->head.devid, arg->head.vfid};
-    struct devmm_chan_setup_device *chan_setup = NULL;
-    u32 i, updated_idx, updated_heap_cnt, heap_cnt;
     struct devmm_task_dev_res_node *node = NULL;
     u32 logical_devid = arg->head.logical_devid;
     u32 phy_devid = arg->head.devid;
@@ -681,42 +742,16 @@ static int devmm_setup_device_proc(struct devmm_svm_process *svm_pro, struct dev
         }
     }
 
-    for (i = 0, heap_cnt = 0; i < svm_pro->max_heap_use; i++) {
-        struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_pro, i);
-        if (devmm_check_heap_is_entity(heap) == true) {
-            i = (u32)(heap->heap_size / DEVMM_HEAP_SIZE - 1 + i);
-            heap_cnt++;
-        }
-    }
-    chan_setup = (struct devmm_chan_setup_device *)devmm_kzalloc_ex(
-        sizeof(struct devmm_chan_setup_device) +
-            (ka_base_min(heap_cnt, (u32)DEVMM_CHAN_MAX_HEAP_INFO_NUM)) * sizeof(struct devmm_chan_heap_info),
-        KA_GFP_KERNEL);
-    if (chan_setup == NULL) {
-        devmm_drv_err("Kzalloc chan_setup failed. (logical_devid=%u)\n", logical_devid);
-        ret = -ENOMEM;
+    ret = devmm_setup_device_proc_heap_info(svm_pro, arg, false, true); /* non host pin heap update */
+    if (ret != 0) {
+        devmm_drv_err("Setup device normal heap failed. (logical_devid=%u)\n", logical_devid);
         goto remove_pid_from_business;
     }
 
-    updated_idx = devmm_setup_device_get_heap_info(svm_pro, chan_setup, 0);
-    updated_heap_cnt = chan_setup->heap_cnt;
-    chan_setup->head.process_id.hostpid = svm_pro->process_id.hostpid;
-    chan_setup->head.process_id.vfid = (u16)arg->head.vfid;
-    chan_setup->head.msg_id = DEVMM_CHAN_SETUP_DEVICE_H2D;
-    ret = devmm_setup_device_msg_send(svm_pro, arg, chan_setup);
+    ret = devmm_setup_device_proc_heap_info(svm_pro, arg, true, false); /* host pin heap update */
     if (ret != 0) {
-        devmm_drv_err("Setup device failed. (logical_devid=%u)\n", logical_devid);
-        goto setup_device_free_chan_setup_ptr;
-    }
-
-    svm_pro->deviceinfo[logical_devid].devpid = chan_setup->devpid;
-    svm_pro->deviceinfo[logical_devid].ssid = chan_setup->ssid;
-
-    chan_setup->heap_cnt = updated_heap_cnt;
-    ret = devmm_setup_update_other_device_heap(svm_pro, chan_setup, phy_devid, updated_idx, heap_cnt);
-    if (ret != 0) {
-        devmm_drv_err("Update device heap failed. (ret=%d; updated_idx=%d; heap_cnt=%d)\n", ret, updated_idx, heap_cnt);
-        goto setup_device_free_chan_setup_ptr;
+        devmm_drv_err("Setup device host_pin heap failed. (logical_devid=%u)\n", logical_devid);
+        goto remove_pid_from_business;
     }
 
     if (devmm_current_is_vdev() == false) {
@@ -725,23 +760,17 @@ static int devmm_setup_device_proc(struct devmm_svm_process *svm_pro, struct dev
             devmm_drv_err("Create task_dev_res_node failed. (devid=%u; vfid=%u)\n", id_inst.devid, id_inst.vfid);
 #ifndef EMU_ST
             ret = -ENXIO;
-            goto setup_device_free_chan_setup_ptr;
+            goto remove_pid_from_business;
 #endif
         }
     }
 
     devmm_proc_dev_set_async_allow(svm_pro, phy_devid, true);
-    devmm_drv_run_info("Setup device succeeded. (logical_devid=%d; devid=%d; vfid=%u; hostpid=%d; devpid=%d)\n",
-                       logical_devid, phy_devid, arg->head.vfid, svm_pro->process_id.hostpid, chan_setup->devpid);
-
-    devmm_kfree_ex(chan_setup);
+    devmm_drv_run_info("Setup device succeeded. (logical_devid=%d; devid=%d; vfid=%u; hostpid=%d)\n", logical_devid,
+                       phy_devid, arg->head.vfid, svm_pro->process_id.hostpid);
 
     return 0;
 
-setup_device_free_chan_setup_ptr:
-#ifndef EMU_ST
-    devmm_kfree_ex(chan_setup);
-#endif
 remove_pid_from_business:
 #ifndef EMU_ST
     if (logical_devid < DEVMM_MAX_PHY_DEVICE_NUM) {
@@ -897,7 +926,7 @@ int devmm_alloc_host_range(struct devmm_svm_process *svm_proc, u64 va, u64 page_
     ret = devmm_alloc_with_page_type(svm_proc, &attr, pages, page_num);
     if (ret != 0) {
 #ifndef EMU_ST
-        devmm_drv_run_info("Alloc pages completed. (pg_num=%llu)\n", page_num);
+        devmm_drv_run_info("Alloc pages completed. (ret=%d; page_num=%llu)\n", ret, page_num);
 #endif
         devmm_kvfree_ex(pages);
         return ret;
@@ -996,7 +1025,7 @@ int devmm_get_local_dev_mem_attrs(struct devmm_svm_process *svm_proc, u64 addr, 
     }
 
     if ((!devmm_is_in_share_pool_range(addr, size)) && (!devmm_is_in_dcache_range(addr, size))) {
-        devmm_drv_run_info("Dev local addr copy supports sharepool addr or dcache addr. (addr=0x%llx)\n", addr);
+        devmm_drv_run_info("Dev local addr copy support sharepool addr or dcache addr. (addr=0x%llx)\n", addr);
         return -EOPNOTSUPP;
     }
 
@@ -1234,6 +1263,63 @@ int devmm_get_soma_mem_attrs(struct devmm_svm_process *svm_proc, u64 addr, struc
     return ret;
 }
 
+static void devmm_soma_update_best_run(u64 cur_chunks, u64 cur_start, u64 need_chunks, u64 *best_start,
+                                       u64 *best_chunks)
+{
+    if ((cur_chunks >= need_chunks) && ((*best_chunks == 0) || (cur_chunks < *best_chunks) ||
+                                        ((cur_chunks == *best_chunks) && (cur_start < *best_start)))) {
+        *best_start = cur_start;
+        *best_chunks = cur_chunks;
+    }
+}
+
+int devmm_soma_find_best_va(struct devmm_svm_heap *heap, u64 size, u64 *best_va)
+{
+    u64 chunk_page_size;
+    u64 total_chunks;
+    u64 need_chunks;
+    u64 i;
+    u64 best_start = 0;
+    u64 best_chunks = 0;
+    u64 cur_start;
+    u64 cur_chunks;
+
+    chunk_page_size = (u64)heap->chunk_page_size;
+    total_chunks = heap->heap_size / chunk_page_size;
+    need_chunks = (size + chunk_page_size - 1) / chunk_page_size;
+    best_start = 0;
+    best_chunks = 0;
+    cur_start = 0;
+    cur_chunks = 0;
+    for (i = 0; i < total_chunks; i++) {
+        if (devmm_page_bitmap_is_page_alloced(&heap->page_bitmap[i])) {
+            /* chunk is allocated, end current run */
+            devmm_soma_update_best_run(cur_chunks, cur_start, need_chunks, &best_start, &best_chunks);
+            cur_start = 0;
+            cur_chunks = 0;
+        } else {
+            if (cur_chunks == 0) {
+                cur_start = i;
+            }
+            cur_chunks++;
+        }
+    }
+    /* Check the last free run (reaches to the end of heap) */
+    devmm_soma_update_best_run(cur_chunks, cur_start, need_chunks, &best_start, &best_chunks);
+    if (best_chunks == 0) {
+        devmm_drv_err("No suitable contiguous VA region found. (need_chunks=%llu; total_chunks=%llu; "
+                      "last_free_start=%llu; last_free_chunks=%llu)\n",
+                      need_chunks, total_chunks, cur_start, cur_chunks);
+        return -ENOMEM;
+    }
+
+    *best_va = heap->start + best_start * chunk_page_size;
+    devmm_drv_info("devmm_soma_find_best_va: heap_start=0x%llx, best_start_chunk=%llu, chunk_page_size=%llu, "
+                   "best_va=0x%llx, need_chunks=%llu, best_chunks=%llu\n",
+                   heap->start, best_start, chunk_page_size, *best_va, need_chunks, best_chunks);
+    return 0;
+}
+
 void devmm_soma_set_heap_bits(struct devmm_svm_heap *heap, u64 addr, u64 size, uint32_t devId)
 {
     u32 *page_bitmap = NULL;
@@ -1247,6 +1333,24 @@ void devmm_soma_set_heap_bits(struct devmm_svm_heap *heap, u64 addr, u64 size, u
         devmm_page_bitmap_set_devid(page_bitmap + i, devId);
         devmm_page_bitmap_set_flag(
             page_bitmap + i, (DEVMM_PAGE_LOCKED_DEVICE_MASK | DEVMM_PAGE_DEV_MAPPED_MASK | DEVMM_PAGE_ALLOCED_MASK));
+        devmm_try_cond_resched(&stamp);
+    }
+}
+
+void devmm_soma_unset_heap_bits(struct devmm_svm_heap *heap, u64 addr, u64 size)
+{
+    u32 *page_bitmap = NULL;
+    u64 chunk_cnt;
+    u64 i;
+    u32 stamp = (u32)ka_jiffies;
+    const u32 unset_flags = DEVMM_PAGE_LOCKED_DEVICE_MASK | DEVMM_PAGE_DEV_MAPPED_MASK | DEVMM_PAGE_ALLOCED_MASK;
+
+    page_bitmap = devmm_get_page_bitmap_with_heap(heap, addr);
+    chunk_cnt = size / heap->chunk_page_size;
+
+    for (i = 0; i < chunk_cnt; i++) {
+        devmm_page_bitmap_set_value(page_bitmap + i, DEVMM_PAGE_DEVID_SHIT, DEVMM_PAGE_DEVID_WID, 0);
+        devmm_page_bitmap_clear_flag(page_bitmap + i, unset_flags);
         devmm_try_cond_resched(&stamp);
     }
 }
@@ -1317,7 +1421,7 @@ int devmm_insert_host_page_range(struct devmm_svm_process *svm_pro, u64 dst, u64
     adjust_order = fst_attr->is_svm_huge ? devmm_host_hugepage_fault_adjust_order() : 0;
     ret = devmm_check_status_va_info(svm_pro, aligned_addr, aligned_count);
     if (ret != 0) {
-        devmm_drv_err("Va may be out of the size of heap. (ret=%d; aligned_addr=0x%llx; aligned_count=%llu)\n", ret,
+        devmm_drv_err("Va may out of the size of heap. (ret=%d; aligned_addr=0x%llx; aligned_count=%llu)\n", ret,
                       aligned_addr, aligned_count);
         return ret;
     }
@@ -1507,8 +1611,8 @@ STATIC int devmm_ioctl_translate(struct devmm_svm_process *svm_pro, struct devmm
     }
 
     if (devmm_is_host_agent(attr.devid)) {
-        devmm_drv_err("Vaddr attr_devid is host agent, does not support translate. (vaddr=0x%lx; attr_devid=%d)\n",
-                      vaddr, attr.devid);
+        devmm_drv_err("Vaddr attr_devid is host agent, not support translate. (vaddr=0x%lx; attr_devid=%d)\n", vaddr,
+                      attr.devid);
         return -EINVAL;
     }
 
@@ -1647,7 +1751,7 @@ STATIC int devmm_check_can_free(struct devmm_svm_process *svm_pro, struct devmm_
 {
     if (devmm_check_is_translate(svm_pro, va, page_bitmap, heap->chunk_page_size, page_num)) {
 #ifndef EMU_ST
-        devmm_drv_err("Va can't free, is translated by RUNTIME, must delete task first.\n");
+        devmm_drv_err("Va can't be freed, is translated by RUNTIME, must delete task first.\n");
 #endif
         return -EINVAL;
     }
@@ -1763,7 +1867,7 @@ STATIC int devmm_free_page_process(struct devmm_svm_process *svm_pro, struct dev
     devmm_drv_debug("Free va. (va=0x%llx; page_num=%llu)\n", va, page_num);
     if (devmm_check_can_free(svm_pro, heap, page_bitmap, va, page_num) != 0) {
 #ifndef EMU_ST
-        devmm_drv_err("Va can't free, is used by RUNTIME, must call destroy api first. (va=0x%llx)\n", va);
+        devmm_drv_err("Va can't be freed, is used by RUNTIME, must call destroy api first. (va=0x%llx)\n", va);
 #endif
         return -EBUSY;
     }
@@ -1809,7 +1913,7 @@ STATIC int devmm_free_page_process(struct devmm_svm_process *svm_pro, struct dev
                                                  (free_info.head.dev_id < SVM_MAX_AGENT_NUM));
             if (ret == -EBUSY) {
                 ka_task_up_read(&svm_pro->bitmap_sem);
-                devmm_drv_err("Addr is get by cp, cp must call put first. (addr=0x%llx)\n", free_va);
+                devmm_drv_err("Addr is held by cp, cp must call put first. (addr=0x%llx)\n", free_va);
                 return ret;
             }
             devmm_update_free_dev_mem_info(&dev_mem_info);
@@ -1889,24 +1993,31 @@ STATIC void devmm_free_heap_pagebitmap(struct devmm_svm_process *svm_proc, struc
     devmm_svm_bitmap_writeunlock(svm_proc);
 }
 
-void devmm_destory_all_heap_by_proc(struct devmm_svm_process *svm_pro)
+STATIC void devmm_destroy_heaps_in_array(struct devmm_svm_process *svm_pro, u32 max_num, bool is_host_pin)
 {
     struct devmm_svm_heap *heap = NULL;
     u32 stamp = (u32)ka_jiffies;
     u32 heap_idx, heap_num;
 
-    for (heap_idx = 0; heap_idx < svm_pro->max_heap_use; heap_idx++) {
-        heap = devmm_get_heap_by_idx(svm_pro, heap_idx);
+    for (heap_idx = 0; heap_idx < max_num; heap_idx++) {
+        heap = devmm_get_heap_by_idx(svm_pro, heap_idx, is_host_pin);
         if (devmm_check_heap_is_entity(heap) == false) {
             continue;
         }
         heap_num = (u32)(heap->heap_size / DEVMM_HEAP_SIZE);
         /* host memory is freed by self mem destroy api */
         devmm_free_heap_pagebitmap(svm_pro, heap);
-        devmm_free_heap_struct(svm_pro, heap->heap_idx, heap_num);
+        devmm_free_heap_struct(svm_pro, heap->heap_idx, heap_num, is_host_pin);
         heap_idx += ((heap_num > 0) ? (heap_num - 1) : 0);
         devmm_try_cond_resched(&stamp);
     }
+}
+
+void devmm_destory_all_heap_by_proc(struct devmm_svm_process *svm_pro)
+{
+    devmm_destroy_heaps_in_array(svm_pro, svm_pro->max_heap_use, false);
+    devmm_destroy_heaps_in_array(svm_pro, svm_pro->max_host_pin_heap_use, true);
+
     devmm_drv_debug("Destroy all heap end. (hostpid=%d)\n", svm_pro->process_id.hostpid);
     devmm_page_cnt_stats_show(&svm_pro->pg_cnt_stats);
 }
@@ -1987,20 +2098,25 @@ STATIC void devmm_destory_all_self_mem_by_proc(struct devmm_svm_process *svm_pro
     struct devmm_svm_heap *heap = NULL;
     u32 stamp = (u32)ka_jiffies;
     u32 heap_idx;
+    u32 is_host_pin;
 
     /* unpin host page and del txatu when process exit */
     devmm_destory_shm_pro_node(svm_proc);
 
-    for (heap_idx = 0; heap_idx < svm_proc->max_heap_use; heap_idx++) {
-        devmm_try_cond_resched(&stamp);
-        heap = devmm_get_heap_by_idx(svm_proc, heap_idx);
-        if (devmm_check_heap_is_entity(heap) == false) {
-            continue;
-        }
+    for (is_host_pin = 0; is_host_pin <= 1; is_host_pin++) {
+        u32 max_use = (is_host_pin ? svm_proc->max_host_pin_heap_use : svm_proc->max_heap_use);
+        for (heap_idx = 0; heap_idx < max_use; heap_idx++) {
+            devmm_try_cond_resched(&stamp);
+            heap = devmm_get_heap_by_idx(svm_proc, heap_idx, is_host_pin);
+            if (devmm_check_heap_is_entity(heap) == false) {
+                continue;
+            }
 
-        devmm_destory_heap_mem(svm_proc, heap);
-        heap_idx += (u32)(heap->heap_size / DEVMM_HEAP_SIZE - 1);
+            devmm_destory_heap_mem(svm_proc, heap);
+            heap_idx += (u32)(heap->heap_size / DEVMM_HEAP_SIZE - 1);
+        }
     }
+
     if (svm_proc->host_pin_heap != NULL) {
         devmm_destory_heap_mem(svm_proc, svm_proc->host_pin_heap);
     }
@@ -2013,7 +2129,6 @@ void devmm_notifier_release_private(struct devmm_svm_process *svm_proc)
 {
     devmm_mem_free_preprocess_by_dev(svm_proc, SVM_MAX_AGENT_NUM);
     devmm_destory_all_self_mem_by_proc(svm_proc);
-    devmm_phy_addr_blks_destroy(svm_proc);
 }
 
 STATIC void devmm_update_heap_broadcast(struct devmm_svm_process *svm_pro, struct devmm_chan_update_heap *update_heap)
@@ -2071,7 +2186,7 @@ static int devmm_destory_svm_heap_bitmap(struct devmm_svm_process *svm_pro, stru
         page_num = (u32)devmm_get_page_num_from_va(heap, heap_start_addr);
         ret = devmm_free_page_process(svm_pro, heap, page_bitmap, heap_start_addr, false);
         if (ret != 0) {
-            devmm_drv_err("Va heap_start_addr can't free, is being used by RUNTIME, must call release api first. "
+            devmm_drv_err("Va heap_start_addr can't be freed, is being used by RUNTIME, must call release api first. "
                           "(heap_start_addr=0x%lx)\n",
                           heap_start_addr);
             return -ETXTBSY;
@@ -2175,7 +2290,7 @@ static int devmm_check_dev_read_only_heap_size(struct devmm_update_heap_para *cm
 static int devmm_check_reserve_heap_size(struct devmm_svm_process *svm_proc, struct devmm_update_heap_para *cmd)
 {
     /* dynamic heap */
-    if (cmd->heap_idx >= DEVMM_MAX_HEAP_NUM) {
+    if ((!cmd->is_host_pin) && (cmd->heap_idx >= DEVMM_MAX_HEAP_NUM)) {
         /* 128T */
         return (cmd->heap_size > (DEVMM_DYN_HEAP_USED_BITS_NUM_MAX * HEAP_USED_PER_MASK_SIZE)) ? -EINVAL : 0;
     }
@@ -2216,10 +2331,11 @@ STATIC int devmm_ioctl_enable_heap(struct devmm_svm_process *svm_pro, u32 devid,
     struct devmm_chan_update_heap update_heap = {{{0}}};
     struct devmm_update_heap_para *update_cmd = NULL;
     struct devmm_svm_heap *heap = NULL;
-    u64 start = svm_pro->start_addr + cmd->heap_idx * DEVMM_HEAP_SIZE;
+    u64 start;
     int da_del_flag = 0;
     int ret;
 
+    start = ((cmd->is_host_pin ? svm_pro->host_pin_start_addr : svm_pro->start_addr) + cmd->heap_idx * DEVMM_HEAP_SIZE);
     ret = devmm_check_input_heap_size(svm_pro, cmd, devid);
     if (ret != 0) {
         devmm_drv_err("Input error. (ret=%d; op=0x%x; heap_type=0x%x; heap_sub_type=0x%x; "
@@ -2263,13 +2379,14 @@ STATIC int devmm_ioctl_enable_heap(struct devmm_svm_process *svm_pro, u32 devid,
         return ret;
     }
 
-    heap = devmm_get_heap_by_idx(svm_pro, cmd->heap_idx);
+    heap = devmm_get_heap_by_idx(svm_pro, cmd->heap_idx, cmd->is_host_pin);
     update_cmd = &update_heap.cmd;
     update_cmd->op = cmd->op;
     update_cmd->heap_idx = cmd->heap_idx;
     update_cmd->heap_type = heap->heap_type;
     update_cmd->heap_sub_type = heap->heap_sub_type;
     update_cmd->heap_size = cmd->heap_size;
+    update_cmd->is_host_pin = cmd->is_host_pin;
     devmm_update_heap_broadcast(svm_pro, &update_heap);
 
     return 0;
@@ -2280,10 +2397,11 @@ STATIC int devmm_ioctl_disable_heap(struct devmm_svm_process *svm_pro, struct de
     struct devmm_chan_update_heap update_heap = {{{0}}};
     struct devmm_update_heap_para *update_cmd = NULL;
     struct devmm_svm_heap *heap = NULL;
-    u64 start = svm_pro->start_addr + cmd->heap_idx * DEVMM_HEAP_SIZE;
+    u64 start;
     u32 heap_num;
 
-    heap = devmm_get_heap_by_idx(svm_pro, cmd->heap_idx);
+    start = ((cmd->is_host_pin ? svm_pro->host_pin_start_addr : svm_pro->start_addr) + cmd->heap_idx * DEVMM_HEAP_SIZE);
+    heap = devmm_get_heap_by_idx(svm_pro, cmd->heap_idx, cmd->is_host_pin);
     if ((heap == NULL)) {
         devmm_drv_err("Heap is already destroyed. (op=0x%x; heap_type=0x%x; heap_idx=%u)\n", cmd->op, cmd->heap_type,
                       cmd->heap_idx);
@@ -2303,7 +2421,7 @@ STATIC int devmm_ioctl_disable_heap(struct devmm_svm_process *svm_pro, struct de
 
     heap_num = (u32)(cmd->heap_size / DEVMM_HEAP_SIZE);
     ka_task_down_write(&svm_pro->heap_sem);
-    devmm_clear_svm_heap_struct(svm_pro, cmd->heap_idx, heap_num);
+    devmm_clear_svm_heap_struct(svm_pro, cmd->heap_idx, heap_num, cmd->is_host_pin);
     ka_task_up_write(&svm_pro->heap_sem);
 
     if (!devmm_is_static_reserve_addr(svm_pro, start)) {
@@ -2322,6 +2440,7 @@ STATIC int devmm_ioctl_disable_heap(struct devmm_svm_process *svm_pro, struct de
     update_cmd->heap_idx = cmd->heap_idx;
     update_cmd->heap_type = DEVMM_HEAP_IDLE;
     update_cmd->heap_size = heap->heap_size;
+    update_cmd->is_host_pin = cmd->is_host_pin;
     cmd->heap_size = heap->heap_size;
     cmd->heap_sub_type = heap->heap_sub_type;
     devmm_update_heap_broadcast(svm_pro, &update_heap);
@@ -2395,7 +2514,7 @@ static int devmm_ioctl_init_process(struct devmm_svm_process *svm_process, struc
 
     err = devmm_add_svm_proc_pid(svm_process, &process_id, devmm_get_current_pid());
     if (err != 0) {
-        devmm_drv_err("Set svm proc pid failed. (err=%d)\n", err);
+        devmm_drv_err("Set svm proc pid fail. (err=%d)\n", err);
         ka_task_mutex_unlock(&svm_process->proc_lock);
         return err;
     }
@@ -2424,7 +2543,7 @@ static int devmm_ioctl_init_process(struct devmm_svm_process *svm_process, struc
         err = (err == -EINTR) ? -EAGAIN : err; // Interrupted by signals. Retry in user mode.
         devmm_drv_no_err_if(
             (err == -EAGAIN),
-            "Mmu_notifier_register not success, recycle function will be invalid. (err=%d; hostpid=%d)\n", err,
+            "Mmu_notifier_register not successful, recycle function will be invalid. (err=%d; hostpid=%d)\n", err,
             devmm_get_current_pid());
         goto mmu_notifier_register_failed;
     }
@@ -2557,7 +2676,7 @@ static int devmm_check_mem_info_para_check(struct devmm_check_mem_info *info)
     }
 
     if ((info->cnt == 0) || (info->cnt > DEVMM_DEV_ADDR_NUM_MAX)) {
-        devmm_drv_err("Cnt is out of range.\n");
+        devmm_drv_err("Cnt is out of range. (cnt=%u; max_cnt=%u)\n", info->cnt, DEVMM_DEV_ADDR_NUM_MAX);
         return -EINVAL;
     }
 
@@ -2618,18 +2737,18 @@ static int devmm_check_meminfo(struct devmm_svm_process *svm_proc, struct devmm_
 
         page_bitmap = devmm_get_page_bitmap_with_heap(heap, info->va[i]);
         if (page_bitmap == NULL) {
-            devmm_drv_err("Invalid addr. (i=%u; va=0x%llx)\n", i, info->va[i]);
+            devmm_drv_err("Invalid addr, page bitmap is NULL. (i=%u; va=0x%llx)\n", i, info->va[i]);
             goto invalid_addr;
         }
 
         if (devmm_page_bitmap_is_advise_populate(page_bitmap) == false) {
-            devmm_drv_err("Invalid addr. (i=%u; va=0x%llx)\n", i, info->va[i]);
+            devmm_drv_err("Invalid addr, not advise populate. (i=%u; va=0x%llx)\n", i, info->va[i]);
             goto invalid_addr;
         }
 
         if (devmm_heap_subtype_is_matched(heap->heap_sub_type, info->heap_subtype_mask) == false) {
-            devmm_drv_err("Heap type does not match. (i=%u; va=0x%llx; heap_subtype_mask=0x%llx; heap_sub_type=%u)\n",
-                          i, info->va[i], (u64)info->heap_subtype_mask, heap->heap_sub_type);
+            devmm_drv_err("Heap type is not match. (i=%u; va=0x%llx; heap_subtype_mask=0x%llx; heap_sub_type=%u)\n", i,
+                          info->va[i], (u64)info->heap_subtype_mask, heap->heap_sub_type);
             goto invalid_addr;
         }
 #ifndef EMU_ST
@@ -2730,6 +2849,7 @@ STATIC int devmm_ioctl_close_device(struct devmm_svm_process *svm_proc, struct d
     devmm_notify_wait_device_close_process(svm_proc, logical_devid, phy_devid, arg->head.vfid);
     devmm_modify_process_status(svm_proc, phy_devid, arg->head.vfid, STATUS_SVM_PAGE_FALUT_ERR_OCCUR, false);
     devmm_modify_process_status(svm_proc, phy_devid, arg->head.vfid, STATUS_SVM_PAGE_FALUT_ERR_CNT, false);
+    devmm_pagefault_info_clear_by_devid(svm_proc, phy_devid);
     svm_proc->deviceinfo[logical_devid].devpid = DEVMM_SETUP_INVAL_PID;
     devmm_remove_pid_from_business(phy_devid, svm_proc->process_id.hostpid);
 
@@ -2857,6 +2977,12 @@ struct devmm_ioctl_handlers_st devmm_ioctl_handlers[DEVMM_SVM_CMD_MAX_CMD] = {
     [_KA_IOC_NR(DEVMM_UVM_PREFETCH)] = {devmm_uvm_ioctl_prefetch, 0},
     [_KA_IOC_NR(DEVMM_UVM_PREFETCH_BATCH)] = {devmm_uvm_ioctl_prefetch_batch, 0},
 #endif
+    [_KA_IOC_NR(DEVMM_SVM_PAGEFAULT_INFO_QUERY)] = {devmm_ioctl_pagefault_info_query,
+                                                    DEVMM_CONVERT_ID | DEVMM_CMD_NOT_SURPORT_VDEV |
+                                                        DEVMM_CMD_NOT_SURPORT_HOST_AGENT},
+    [_KA_IOC_NR(DEVMM_SVM_PAGEFAULT_INFO_CLEAR)] = {devmm_ioctl_pagefault_info_clear,
+                                                    DEVMM_CONVERT_ID | DEVMM_CMD_NOT_SURPORT_VDEV |
+                                                        DEVMM_CMD_NOT_SURPORT_HOST_AGENT},
     [DEVMM_SVM_CMD_USE_PRIVATE_MAX_CMD] = {NULL}, /* above this svm process must inited */
     [_KA_IOC_NR(DEVMM_SVM_QUERY_MEM_USEDINFO)] = {devmm_ioctl_query_device_mem_info,
                                                   DEVMM_CONVERT_ID | DEVMM_CMD_NOLOCK |
@@ -3368,12 +3494,12 @@ int devmm_convert_id_from_vir_to_phy(struct devmm_svm_process *process, struct d
     if ((cmd_flag & DEVMM_CMD_SURPORT_HOST_ID) == 0) {
         if ((((cmd_flag & DEVMM_CMD_NOT_SURPORT_HOST_AGENT) != 0) && (logic_id >= DEVMM_MAX_DEVICE_NUM)) ||
             (((cmd_flag & DEVMM_CMD_NOT_SURPORT_HOST_AGENT) == 0) && (logic_id >= SVM_MAX_AGENT_NUM))) {
-            devmm_drv_err("Logic_id is invalid or process is NULL. (logic_id=%d)\n", logic_id);
+            devmm_drv_err("Logic_id check failed. (logic_id=%d)\n", logic_id);
             return -ENODEV;
         }
     } else {
         if ((logic_id >= DEVMM_MAX_DEVICE_NUM) && (logic_id != uda_get_host_id())) {
-            devmm_drv_err("Logic_id is invalid or process is NULL. (logic_id=%d)\n", logic_id);
+            devmm_drv_err("Logic_id check failed when surport host id. (logic_id=%d)\n", logic_id);
             return -ENODEV;
         }
     }

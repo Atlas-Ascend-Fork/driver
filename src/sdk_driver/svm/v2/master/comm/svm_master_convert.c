@@ -421,12 +421,12 @@ static int devmm_convert_check_addr_attr(struct devmm_memory_attributes *src_att
                                          struct devmm_memory_attributes *dst_attr)
 {
     if (src_attr->is_svm_non_page) {
-        devmm_drv_err("Src addr has no data, should access first. (src_va=0x%llx)\n", src_attr->va);
+        devmm_drv_err("Src addr have no data, should access first. (src_va=0x%llx)\n", src_attr->va);
         return -EINVAL;
     }
 
     if ((src_attr->is_svm_device == false) && (dst_attr->is_svm_device == false)) {
-        devmm_drv_err("Src and dst are both not device addr. (src_va=0x%llx; dst_va=0x%llx)\n", src_attr->va,
+        devmm_drv_err("Src and dst are both no device addr. (src_va=0x%llx; dst_va=0x%llx)\n", src_attr->va,
                       dst_attr->va);
         return -EINVAL;
     }
@@ -977,7 +977,7 @@ int devmm_destroy_addr_batch_async(struct devmm_svm_process *svm_proc, struct de
 
     ret = devmm_convert_nodes_get_by_batch_para(svm_proc, batch_para, node);
     if (ret != 0) {
-        devmm_drv_err("Get convert node failed. (ret=%d)\n", ret);
+        devmm_drv_err("Get convert node fail. (ret=%d)\n", ret);
         goto free_node;
     }
 

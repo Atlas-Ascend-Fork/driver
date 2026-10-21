@@ -18,7 +18,17 @@
 #include <linux/iova.h>
 #include <linux/eventfd.h>
 #include <linux/kvm_host.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
 #include <kvm/iodev.h>
+typedef struct kvm_io_device_ops ka_kvm_io_device_ops_t;
+#else
+struct ka_kvm_io_device_ops_t {
+    int (*read)(struct kvm_vcpu *vcpu, struct kvm_io_device *this, gpa_t addr, int len, void *val);
+    int (*write)(struct kvm_vcpu *vcpu, struct kvm_io_device *this, gpa_t addr, int len, const void *val);
+    void (*destructor)(struct kvm_io_device *this);
+};
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
 #include <linux/overflow.h>
 #endif
@@ -34,7 +44,6 @@ typedef struct kvm ka_kvm_t;
 typedef enum kvm_bus ka_kvm_bus_t;
 typedef struct kvm_vcpu ka_kvm_vcpu_t;
 typedef struct kvm_io_device ka_kvm_io_device_t;
-typedef struct kvm_io_device_ops ka_kvm_io_device_ops_t;
 typedef struct kvm_io_range ka_kvm_io_range_t;
 typedef struct kvm_memory_slot ka_kvm_memory_slot_t;
 typedef struct kvm_memslots ka_kvm_memslots_t;

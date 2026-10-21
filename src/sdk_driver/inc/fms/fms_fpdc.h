@@ -17,27 +17,16 @@
 
 #include "dms_device_node_type.h"
 
-#define CPER_SEC_HISI_OEM_2 \
-    GUID_INIT(0x45534EA6, 0xCE23, 0x4115, 0x85, 0x35, 0xE0, 0x7A, \
-        0xB3, 0xAE, 0xF9, 0x1D)
-#define CPER_SEC_HISI_PCIE_LOCAL \
-    GUID_INIT(0xb2889fc9, 0xe7d7, 0x4f9d, 0xa8, 0x67, 0xaf, 0x42, \
-        0xe9, 0x8b, 0xe7, 0x72)
-#define CPER_SEC_HISI_COMMON \
-    GUID_INIT(0xC8B328A8, 0x9917, 0x4AF6, 0x9A, 0x13, 0x2E, 0x08, \
-        0xAB, 0x2E, 0x75, 0x86)
-#define CPER_SEC_PCIE_AER_ERROR \
-    GUID_INIT(0xD995E954, 0xBBC1, 0x430F, 0xAD, 0x91, 0xB4, 0x4D, \
-        0xCB, 0x3C, 0x6F, 0x35)
-#define CPER_SEC_UB_AER_ERROR \
-    GUID_INIT(0x74D255B0, 0x73E8, 0x488A, 0xB8, 0x67, 0x90, 0x65, \
-        0x4A, 0x35, 0x86, 0x5E)
-#define CPER_SEC_PCIE_LOCAL_RESV_LEN        2
-
+#define CPER_SEC_HISI_OEM_2 GUID_INIT(0x45534EA6, 0xCE23, 0x4115, 0x85, 0x35, 0xE0, 0x7A, 0xB3, 0xAE, 0xF9, 0x1D)
+#define CPER_SEC_HISI_PCIE_LOCAL GUID_INIT(0xb2889fc9, 0xe7d7, 0x4f9d, 0xa8, 0x67, 0xaf, 0x42, 0xe9, 0x8b, 0xe7, 0x72)
+#define CPER_SEC_HISI_COMMON GUID_INIT(0xC8B328A8, 0x9917, 0x4AF6, 0x9A, 0x13, 0x2E, 0x08, 0xAB, 0x2E, 0x75, 0x86)
+#define CPER_SEC_PCIE_AER_ERROR GUID_INIT(0xD995E954, 0xBBC1, 0x430F, 0xAD, 0x91, 0xB4, 0x4D, 0xCB, 0x3C, 0x6F, 0x35)
+#define CPER_SEC_UB_AER_ERROR GUID_INIT(0x74D255B0, 0x73E8, 0x488A, 0xB8, 0x67, 0x90, 0x65, 0x4A, 0x35, 0x86, 0x5E)
+#define CPER_SEC_PCIE_LOCAL_RESV_LEN 2
 
 /* OEM RAS */
 struct sec_oem_error {
-    unsigned int  valid_fields;
+    unsigned int valid_fields;
     unsigned char version;
     unsigned char soc_id;
     unsigned char socket_id;
@@ -46,18 +35,18 @@ struct sec_oem_error {
     unsigned char submodule_id;
     unsigned char error_severity;
     unsigned char reserve;
-    unsigned int  err_fr_l;
-    unsigned int  err_fr_h;
-    unsigned int  err_ctrl_l;
-    unsigned int  err_ctrl_h;
-    unsigned int  err_status_l;
-    unsigned int  err_status_h;
-    unsigned int  err_addr_l;
-    unsigned int  err_addr_h;
-    unsigned int  err_misc0_l;
-    unsigned int  err_misc0_h;
-    unsigned int  err_misc1_l;
-    unsigned int  err_misc1_h;
+    unsigned int err_fr_l;
+    unsigned int err_fr_h;
+    unsigned int err_ctrl_l;
+    unsigned int err_ctrl_h;
+    unsigned int err_status_l;
+    unsigned int err_status_h;
+    unsigned int err_addr_l;
+    unsigned int err_addr_h;
+    unsigned int err_misc0_l;
+    unsigned int err_misc0_h;
+    unsigned int err_misc1_l;
+    unsigned int err_misc1_h;
 };
 
 struct cper_sec_pcie_local {
@@ -158,13 +147,12 @@ struct notify_data {
     FPDC_SRC_TYPE src_type;
     const ka_guid_t *section_type;
     DMS_DEVICE_NODE_TYPE node_type;
-    unsigned int chip_id; /* physical device id in device side */
+    unsigned int chip_id;      /* physical device id in device side */
     unsigned long long sub_id; /* optional */
     const void *origin_data;
     unsigned int data_len;
     unsigned int arm_error_idx;
 };
-
 
 #pragma pack(1)
 struct vendor_specific_error_info {

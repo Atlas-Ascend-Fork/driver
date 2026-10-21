@@ -94,6 +94,8 @@ typedef struct drv_mem_handle {
     bool support_restore;
     uint64_t ref;
     uint64_t map_ref; /* halMemMap, map_ref+1 */
+    uint64_t pa_pg_size;
+    bool is_share;
 } drv_mem_handle_t;
 
 struct devmm_com_heap_ops {
@@ -138,10 +140,6 @@ DVdeviceptr devmm_alloc_from_tree(struct devmm_virt_com_heap *heap, size_t bytes
                                   uint32_t tree_type, uint64_t va);
 DVdeviceptr devmm_alloc_from_size_tree(struct devmm_virt_com_heap *heap, size_t size, DVmem_advise advise, uint64_t va);
 
-DVresult devmm_save_map_info(uint64_t va, uint32_t side, uint32_t devid);
-void devmm_clear_map_info(uint64_t va);
-drvError_t devmm_get_map_info(uint64_t va, uint32_t *side, uint32_t *devid);
-drvError_t _devmm_get_map_info(struct devmm_virt_com_heap *heap, uint64_t va, uint32_t *side, uint32_t *devid);
 void devmm_get_addr_module_id(uint64_t va, uint32_t *module_id, uint64_t *module_id_size);
 
 void devmm_rbtree_free_node_resources(struct devmm_rbtree_node *rbtree_node);

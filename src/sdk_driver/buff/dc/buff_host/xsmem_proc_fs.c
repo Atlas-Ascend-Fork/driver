@@ -67,7 +67,7 @@ STATIC_PROCFS_FILE_FUNC_OPS_OPEN(task_node_ops, task_node_open);
 static void proc_fs_format_task_dir_name(const struct xsm_task *task, char *name, int len)
 {
     if (sprintf_s(name, (u32)len, "%d", task->pid) <= 0) {
-        xsmem_warn("pid %d sprintf_s not success\n", task->pid);
+        xsmem_warn("pid %d sprintf_s not successful\n", task->pid);
     }
 }
 
@@ -250,4 +250,7 @@ void xsmem_proc_fs_uninit(void)
     if (top_entry != NULL) {
         (void)ka_fs_remove_proc_subtree("xsmem", NULL);
     }
+    top_entry = NULL;
+    xp_entry = NULL;
+    task_entry = NULL;
 }

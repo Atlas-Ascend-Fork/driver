@@ -30,6 +30,7 @@ static const ka_pci_device_id_t xsmem_device_tbl[] = {
     {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
     {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},

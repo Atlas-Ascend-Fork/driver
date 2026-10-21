@@ -75,7 +75,8 @@ void devdrv_set_s2s_chan_pre_reset(u32 dev_id)
 
     chan_num = devdrv_get_s2s_host_chan_num(pci_ctrl);
     if (chan_num >= DEVDRV_S2S_SUPPORT_MAX_CHAN_NUM) {
-        devdrv_err("Channel number is out of range. (dev_id=%u; chan_num=%u)\n", dev_id, chan_num);
+        devdrv_err("Channel number is out of range. (dev_id=%u; chan_num=%u; max_chan_num=%u)\n", dev_id, chan_num,
+                   DEVDRV_S2S_SUPPORT_MAX_CHAN_NUM);
         return;
     }
 
@@ -89,7 +90,7 @@ void devdrv_set_s2s_chan_pre_reset(u32 dev_id)
 int devdrv_pci_register_s2s_msg_proc_func(enum devdrv_s2s_msg_type msg_type, s2s_msg_recv func)
 {
     if ((u32)msg_type >= DEVDRV_S2S_MSG_TYPE_MAX) {
-        devdrv_err("Msg type is not support yet. (msg_type=%d)\n", (int)msg_type);
+        devdrv_err("Msg type is not supported yet. (msg_type=%d)\n", (int)msg_type);
         return -EOPNOTSUPP;
     }
 
@@ -294,13 +295,13 @@ s2s_retry:
         }
 
         if (chan->msg_dev->pci_ctrl->is_sriov_enabled == DEVDRV_SRIOV_ENABLE) {
-            devdrv_info("Sriov enabled, s2s break.(devid=%u; msg_type=%d)\n", chan->devid, msg_type);
+            devdrv_info("Sriov enabled, s2s break.(devid=%u;msg_type=%d)\n", chan->devid, msg_type);
             return -EPERM;
         }
 
         if ((chan->msg_dev->pci_ctrl->device_status == DEVDRV_DEVICE_DEAD) ||
             (chan->msg_dev->pci_ctrl->device_status == DEVDRV_DEVICE_UDA_RM)) {
-            devdrv_info("Device is abnormal. (devid=%u; msg_type=%d)\n", chan->devid, msg_type);
+            devdrv_info("Device is abnormal. (devid=%u;msg_type=%d)\n", chan->devid, msg_type);
             return -ENODEV;
         }
 
@@ -671,7 +672,8 @@ STATIC int devdrv_s2s_msg_edge_check(u32 devid, void *data, u32 in_data_len, u32
     phys_addr_t cq_phy_addr;
 
     if ((devid >= DEVDRV_S2S_MAX_DEV_NUM) || (data == NULL) || (p_real_out_len == NULL)) {
-        devdrv_err("Input parameter is invalid. (devid=%u)\n", devid);
+        devdrv_err("Input parameter is invalid. (devid=%u;data_is_null=%d;p_real_out_len_is_null=%d;)\n", devid,
+                   (data == NULL), (p_real_out_len == NULL));
         return -EINVAL;
     }
 
@@ -752,13 +754,14 @@ int devdrv_s2s_non_trans_msg_recv(void *msg_chan, void *data, u32 in_data_len, u
         ret = g_s2s_msg_recv_proc[msg_type](devid, recv_msg->head_info.sdid, &data_info);
         resq_time = ka_system_jiffies_to_msecs(ka_jiffies - call_start);
         if (resq_time > DEVDRV_S2S_CB_TIME) {
-            devdrv_info("Get resq_time. (dev_id=%u; msg_type=%u; resq_time=%ums; cpu=%d)\n", devid, msg_type, resq_time,
+            devdrv_info("Get resq_time. (dev_id=%u;msg_type=%u;resq_time=%ums;cpu=%d)\n", devid, msg_type, resq_time,
                         ka_system_raw_smp_processor_id());
         }
         ka_task_up_read(&g_register_func_sem[msg_type]);
 
         recv_msg->head_info.out_len = data_info.out_len;
-        if ((ret != 0) || (recv_msg->head_info.out_len > recv_msg->head_info.buf_len)) {
+        if ((ret != 0) || (recv_msg->head_info.out_len > recv_msg->head_info.buf_len) ||
+            (recv_msg->head_info.out_len > DEVDRV_S2S_HOST_MSG_SIZE - sizeof(struct devdrv_s2s_msg))) {
             devdrv_err("S2S msg process failed.(devid=%u; msg_type=%u; out_len=%u; buf_len=%u; in_len=%u; ret=%d)\n",
                        devid, msg_type, recv_msg->head_info.out_len, recv_msg->head_info.buf_len,
                        recv_msg->head_info.in_len, ret);
@@ -1074,7 +1077,7 @@ int devdrv_s2s_msg_chan_init(struct devdrv_pci_ctrl *pci_ctrl)
     u32 real_support_chan_num_host;
 
     if ((pci_ctrl->addr_mode != DEVDRV_ADMODE_FULL_MATCH) || (pci_ctrl->virtfn_flag == DEVDRV_SRIOV_TYPE_VF)) {
-        devdrv_warn("Only full match pf support this func. (dev_id=%u, addr_mode=%d, virtfn_flag=%u)\n",
+        devdrv_warn("Only full match pf supports this func. (dev_id=%u;addr_mode=%d;virtfn_flag=%u)\n",
                     pci_ctrl->dev_id, pci_ctrl->addr_mode, pci_ctrl->virtfn_flag);
         return 0;
     }
@@ -1100,7 +1103,7 @@ int devdrv_s2s_msg_chan_init(struct devdrv_pci_ctrl *pci_ctrl)
             goto s2s_non_trans_msg_fail;
         }
     }
-    devdrv_info("alloc trans queue for s2s success.(dev_id=%u; chan_num=%d)\n", pci_ctrl->dev_id, k);
+    devdrv_info("alloc trans queue for s2s success.(dev_id=%u;chan_num=%d)\n", pci_ctrl->dev_id, k);
 
     real_support_chan_num_host = devdrv_get_s2s_host_chan_num(pci_ctrl);
     for (i = 0; i < real_support_chan_num_host; i++) {
@@ -1191,8 +1194,8 @@ int devdrv_s2s_npu_link_check(u32 dev_id, u32 sdid)
 
     if ((pci_ctrl->addr_mode != DEVDRV_ADMODE_FULL_MATCH) || (pci_ctrl->virtfn_flag == DEVDRV_SRIOV_TYPE_VF)) {
         devdrv_pci_ctrl_put(pci_ctrl);
-        devdrv_warn("Only full match pf support this func. (dev_id=%u, addr_mode=%d, virtfn_flag=%u)\n",
-                    pci_ctrl->dev_id, pci_ctrl->addr_mode, pci_ctrl->virtfn_flag);
+        devdrv_warn("Only full match pf support this func. (dev_id=%u;addr_mode=%d;virtfn_flag=%u)\n", pci_ctrl->dev_id,
+                    pci_ctrl->addr_mode, pci_ctrl->virtfn_flag);
         return -EOPNOTSUPP;
     }
 

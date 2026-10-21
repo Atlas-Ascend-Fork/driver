@@ -123,6 +123,7 @@ drvError_t dpa_res_map(unsigned int dev_id, struct res_map_info *res_info, unsig
     struct event_reply reply;
     struct event_summary event_info;
     struct rmo_map_msg msg = {0};
+    struct rmo_map_msg map_msg = {0};
     drvError_t ret;
 
     reply.buf_len = sizeof(struct rmo_map_msg) + sizeof(int);
@@ -142,20 +143,22 @@ drvError_t dpa_res_map(unsigned int dev_id, struct res_map_info *res_info, unsig
     if (ret != DRV_ERROR_NONE) {
         rmo_err("Sync failed.  (ret=%d; dev_id=%u).\n", ret, dev_id);
         dpa_clear_event(&event_info);
-        return DRV_ERROR_INNER_ERR;
+        return ret;
     }
 
     if ((reply.reply_len != reply.buf_len) || (result.ret != 0)) {
         dpa_clear_event(&event_info);
         rmo_err("Remote map failed. (reply_len=%u; buf_len=%u; result=%d)\n", reply.reply_len, reply.buf_len,
                 result.ret);
-        return DRV_ERROR_INNER_ERR;
+        ret = (result.ret == 0) ? DRV_ERROR_INNER_ERR : result.ret;
+        return ret;
     }
 
     dpa_clear_event(&event_info);
 
-    *va = ((struct rmo_map_msg *)(&result.data))->va;
-    *len = ((struct rmo_map_msg *)(&result.data))->len;
+    (void)memcpy_s(&map_msg, sizeof(struct rmo_map_msg), result.data, sizeof(struct rmo_map_msg));
+    *va = map_msg.va;
+    *len = map_msg.len;
     return DRV_ERROR_NONE;
 }
 
@@ -185,14 +188,115 @@ drvError_t dpa_res_unmap(unsigned int dev_id, struct res_map_info *res_info)
     if (ret != DRV_ERROR_NONE) {
         rmo_err("Sync failed.  (ret=%d; dev_id=%u).\n", ret, dev_id);
         dpa_clear_event(&event_info);
-        return DRV_ERROR_INNER_ERR;
+        return ret;
     }
 
     if ((reply.reply_len != reply.buf_len) || (result.ret != 0)) {
         dpa_clear_event(&event_info);
         rmo_err("Remote unmap failed. (reply_len=%u; buf_len=%u; result=%d)\n", reply.reply_len, reply.buf_len,
                 result.ret);
-        return DRV_ERROR_INNER_ERR;
+        ret = (result.ret == 0) ? DRV_ERROR_INNER_ERR : result.ret;
+        return ret;
+    }
+
+    dpa_clear_event(&event_info);
+    return DRV_ERROR_NONE;
+}
+
+drvError_t dpa_res_read(unsigned int dev_id, struct res_map_info *res_info, void *data, unsigned int len)
+{
+    struct event_proc_result result;
+    struct event_reply reply;
+    struct event_summary event_info;
+    struct rmo_read_msg msg = {0};
+    drvError_t ret;
+
+    if (len > RMO_EVENT_PROC_READ_LEN) {
+        rmo_err("Input para invalid. (len=%u, max_len=%u)\n", len, RMO_EVENT_PROC_READ_LEN);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    reply.buf_len = len + (unsigned int)sizeof(int);
+    reply.buf = (char *)&result;
+
+    msg.res_info.target_proc_type = res_info->target_proc_type;
+    msg.res_info.res_type = res_info->res_type;
+    msg.res_info.res_id = res_info->res_id;
+    msg.res_info.flag = res_info->flag;
+    msg.len = len;
+    ret = dpa_fill_event(&event_info, dev_id, DRV_SUBEVENT_DPA_RES_READ_MSG, (char *)&msg, sizeof(struct rmo_read_msg));
+    if (ret != DRV_ERROR_NONE) {
+        rmo_err("DpaFillEvent failed, ret=%d.\n", ret);
+        return ret;
+    }
+
+    ret = halEschedSubmitEventSync(dev_id, &event_info, DPA_EVENT_SUBMIT_SYNC_TMOUT, &reply);
+    if (ret != DRV_ERROR_NONE) {
+        rmo_err("Sync failed.  (ret=%d; dev_id=%u).\n", ret, dev_id);
+        dpa_clear_event(&event_info);
+        return ret;
+    }
+
+    if ((reply.reply_len != reply.buf_len) || (result.ret != 0)) {
+        dpa_clear_event(&event_info);
+        rmo_err("Remote read failed. (reply_len=%u; buf_len=%u; result=%d)\n", reply.reply_len, reply.buf_len,
+                result.ret);
+        ret = (result.ret == 0) ? DRV_ERROR_INNER_ERR : result.ret;
+        return ret;
+    }
+
+    dpa_clear_event(&event_info);
+
+    (void)memcpy_s(data, (size_t)len, result.data, (size_t)len);
+    return DRV_ERROR_NONE;
+}
+
+drvError_t dpa_res_write(unsigned int dev_id, struct res_map_info *res_info, void *data, unsigned int len)
+{
+    struct event_proc_result result;
+    struct event_reply reply;
+    struct event_summary event_info;
+    struct rmo_write_msg msg = {0};
+    drvError_t ret;
+
+    if (len > RMO_EVENT_PROC_WRITE_LEN) {
+        rmo_err("Input para invalid. (len=%u, max_len=%u)\n", len, RMO_EVENT_PROC_WRITE_LEN);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    reply.buf_len = sizeof(int);
+    reply.buf = (char *)&result;
+
+    msg.res_info.target_proc_type = res_info->target_proc_type;
+    msg.res_info.res_type = res_info->res_type;
+    msg.res_info.res_id = res_info->res_id;
+    msg.res_info.flag = res_info->flag;
+    msg.len = len;
+    ret = (drvError_t)memcpy_s(msg.data, sizeof(msg.data), data, len);
+    if (ret != DRV_ERROR_NONE) {
+        rmo_err("Memcpy data failed. (ret=%d; len=%u; max_len=%u)\n", ret, len, RMO_EVENT_PROC_WRITE_LEN);
+        return DRV_ERROR_PARA_ERROR;
+    }
+    ret = dpa_fill_event(&event_info, dev_id, DRV_SUBEVENT_DPA_RES_WRITE_MSG, (char *)&msg,
+                         sizeof(struct rmo_write_msg));
+    if (ret != DRV_ERROR_NONE) {
+        rmo_err("DpaFillEvent failed, ret=%d.\n", ret);
+        return ret;
+    }
+
+    ret = halEschedSubmitEventSync(dev_id, &event_info, DPA_EVENT_SUBMIT_SYNC_TMOUT, &reply);
+    if (ret != DRV_ERROR_NONE) {
+        rmo_err("Sync failed.  (ret=%d; dev_id=%u).\n", ret, dev_id);
+        dpa_clear_event(&event_info);
+        return ret;
+    }
+
+    if ((reply.reply_len != reply.buf_len) || (result.ret != 0)) {
+        dpa_clear_event(&event_info);
+        rmo_err("Remote write failed. (reply_len=%u; buf_len=%u; result=%d)\n", reply.reply_len, reply.buf_len,
+                result.ret);
+        ret = (result.ret == 0) ? DRV_ERROR_INNER_ERR : result.ret;
+        return ret;
     }
 
     dpa_clear_event(&event_info);

@@ -41,10 +41,6 @@ int devdrv_smmu_iova_to_phys_proc(struct devdrv_pci_ctrl *pci_ctrl, ka_dma_addr_
     int ret;
     int i;
 
-    if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_AGENT_SMMU)) {
-        return 0;
-    }
-
     if (pci_ctrl->connect_protocol != CONNECT_PROTOCOL_HCCS) {
         for (i = 0; i < va_cnt; i++) {
             pa[i] = va[i];
@@ -85,6 +81,15 @@ int devdrv_smmu_iova_to_phys_proc(struct devdrv_pci_ctrl *pci_ctrl, ka_dma_addr_
     return 0;
 }
 
+int devdrv_peh_smmu_iova_to_phys(struct devdrv_pci_ctrl *pci_ctrl, ka_dma_addr_t *va, u32 va_cnt, phys_addr_t *pa)
+{
+    int ret = 0;
+    if (pci_ctrl->ops.peh != NULL) {
+        ret = pci_ctrl->ops.peh->smmu_iova_to_phys_proc(pci_ctrl, va, va_cnt, pa);
+    }
+    return ret;
+}
+
 int devdrv_smmu_iova_to_phys(u32 dev_id, ka_dma_addr_t *va, u32 va_cnt, phys_addr_t *pa)
 {
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
@@ -98,10 +103,6 @@ int devdrv_smmu_iova_to_phys(u32 dev_id, ka_dma_addr_t *va, u32 va_cnt, phys_add
         return -EINVAL;
     }
 
-    if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_AGENT_SMMU)) {
-        return 0;
-    }
-
     if ((va == NULL) || (pa == NULL)) {
         devdrv_err("va or pa is null. (dev_id=%d)\n", dev_id);
         return -EINVAL;
@@ -111,7 +112,7 @@ int devdrv_smmu_iova_to_phys(u32 dev_id, ka_dma_addr_t *va, u32 va_cnt, phys_add
         return -EINVAL;
     }
 
-    ret = devdrv_smmu_iova_to_phys_proc(pci_ctrl, va, va_cnt, pa);
+    ret = devdrv_peh_smmu_iova_to_phys(pci_ctrl, va, va_cnt, pa);
     if (ret != 0) {
         devdrv_err("devdrv_smmu_iova_to_phys_proc failed. (dev_id=%d, ret=%d)\n", dev_id, ret);
         return ret;
@@ -125,21 +126,6 @@ void devdrv_pdev_sid_init(struct devdrv_pci_ctrl *pci_ctrl)
 {
     struct devdrv_pci_ctrl *pci_ctrl_pf = NULL;
     int pf_dev_id, ret;
-
-    if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_AGENT_SMMU)) {
-        return;
-    }
-
-    if (pci_ctrl->connect_protocol != CONNECT_PROTOCOL_HCCS) {
-        pci_ctrl->shr_para->sid = 0;
-        return;
-    }
-
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT)) {
-        devdrv_info("In vm, get host pdev sid=0x%x, devid=%u.\n", pci_ctrl->shr_para->sid, pci_ctrl->dev_id);
-        return;
-    }
 
     ret = ka_pci_get_dev_iommu_fwspec(ka_pci_get_dev(pci_ctrl->pdev));
     if (ret == -EOPNOTSUPP) {
@@ -186,23 +172,18 @@ void devdrv_pdev_sid_init(struct devdrv_pci_ctrl *pci_ctrl)
         }
     }
 
-    devdrv_info("Get host pdev sid=0x%x, devid=%u.\n", pci_ctrl->shr_para->sid, pci_ctrl->dev_id);
+    devdrv_info("Get host pdev sid=0x%x;devid=%u;.\n", pci_ctrl->shr_para->sid, pci_ctrl->dev_id);
+}
+
+void devdrv_pdev_sid_no_init(struct devdrv_pci_ctrl *pci_ctrl)
+{
+    devdrv_info("In vm, get host pdev sid=0x%x;devid=%u.\n", pci_ctrl->shr_para->sid, pci_ctrl->dev_id);
 }
 
 void devdrv_pdev_sid_uninit(struct devdrv_pci_ctrl *pci_ctrl)
 {
-    if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_AGENT_SMMU)) {
-        return;
-    }
-
-    if (pci_ctrl->connect_protocol != CONNECT_PROTOCOL_HCCS) {
-        return;
-    }
-
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT)) {
-        return;
-    }
-
     pci_ctrl->shr_para->sid = 0;
 }
+
+void devdrv_pdev_sid_no_uninit(struct devdrv_pci_ctrl *pci_ctrl)
+{}

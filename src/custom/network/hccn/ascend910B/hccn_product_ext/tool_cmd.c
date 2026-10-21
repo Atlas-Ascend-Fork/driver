@@ -29,7 +29,7 @@
 #include "ds_net_ext.h"
 #include "hccn_dfx_struct.h"
 
-#define PRI_NUM                            8
+#define PRI_NUM 8
 
 STATIC int tool_get_pfc(int argc, char **argv, struct tool_param *param)
 {
@@ -48,10 +48,8 @@ STATIC int tool_get_pfc(int argc, char **argv, struct tool_param *param)
 
     TOOL_PRINT_INFO("PFC configuration:");
     TOOL_PRINT_INFO("priority   0 1 2 3 4 5 6 7");
-    TOOL_PRINT_INFO("enabled    %d %d %d %d %d %d %d %d",
-                    pfc_enabled[0x0], pfc_enabled[0x1], pfc_enabled[0x2],
-                    pfc_enabled[0x3], pfc_enabled[0x4], pfc_enabled[0x5],
-                    pfc_enabled[0x6], pfc_enabled[0x7]);
+    TOOL_PRINT_INFO("enabled    %d %d %d %d %d %d %d %d", pfc_enabled[0x0], pfc_enabled[0x1], pfc_enabled[0x2],
+                    pfc_enabled[0x3], pfc_enabled[0x4], pfc_enabled[0x5], pfc_enabled[0x6], pfc_enabled[0x7]);
     return 0;
 }
 
@@ -61,7 +59,7 @@ STATIC int tool_pfc_str2char(const char pfc_str[], int str_len, char pfc_enabled
     int count = 0;
     int str_i;
 
-#define PFC_CONF_INDEX  2
+#define PFC_CONF_INDEX 2
     for (str_i = 0; str_i < str_len && priority_i < PRIORITY_NUM; str_i++) {
         if (str_i % PFC_CONF_INDEX == 1) {
             if (pfc_str[str_i] != ',') {
@@ -190,7 +188,7 @@ int tool_cfg_pfc_recovery(struct tool_param *param)
 STATIC int tool_get_tc_cfg(int argc, char **argv, struct tool_param *param)
 {
     int ret;
-    struct tc_cfg_get tc_cfg = { {0}, {0}, {0} };
+    struct tc_cfg_get tc_cfg = {{0}, {0}, {0}};
 
     if (argc != 1) {
         roce_err("Err argc[%d]", argc);
@@ -205,18 +203,15 @@ STATIC int tool_get_tc_cfg(int argc, char **argv, struct tool_param *param)
 
     TOOL_PRINT_INFO("TC configuration:");
     TOOL_PRINT_INFO("TC id          0 1 2 3 4 5 6 7");
-    TOOL_PRINT_INFO("Buffer         %u %u %u %u %u %u %u %u",
-                    tc_cfg.tc_buff[0x0], tc_cfg.tc_buff[0x1], tc_cfg.tc_buff[0x2],
-                    tc_cfg.tc_buff[0x3], tc_cfg.tc_buff[0x4], tc_cfg.tc_buff[0x5],
+    TOOL_PRINT_INFO("Buffer         %u %u %u %u %u %u %u %u", tc_cfg.tc_buff[0x0], tc_cfg.tc_buff[0x1],
+                    tc_cfg.tc_buff[0x2], tc_cfg.tc_buff[0x3], tc_cfg.tc_buff[0x4], tc_cfg.tc_buff[0x5],
                     tc_cfg.tc_buff[0x6], tc_cfg.tc_buff[0x7]);
-    TOOL_PRINT_INFO("Up waterline   %u %u %u %u %u %u %u %u",
-                    tc_cfg.up_waterline[0x0], tc_cfg.up_waterline[0x1], tc_cfg.up_waterline[0x2],
-                    tc_cfg.up_waterline[0x3], tc_cfg.up_waterline[0x4], tc_cfg.up_waterline[0x5],
-                    tc_cfg.up_waterline[0x6], tc_cfg.up_waterline[0x7]);
-    TOOL_PRINT_INFO("Low waterline  %u %u %u %u %u %u %u %u",
-                    tc_cfg.low_waterline[0x0], tc_cfg.low_waterline[0x1], tc_cfg.low_waterline[0x2],
-                    tc_cfg.low_waterline[0x3], tc_cfg.low_waterline[0x4], tc_cfg.low_waterline[0x5],
-                    tc_cfg.low_waterline[0x6], tc_cfg.low_waterline[0x7]);
+    TOOL_PRINT_INFO("Up waterline   %u %u %u %u %u %u %u %u", tc_cfg.up_waterline[0x0], tc_cfg.up_waterline[0x1],
+                    tc_cfg.up_waterline[0x2], tc_cfg.up_waterline[0x3], tc_cfg.up_waterline[0x4],
+                    tc_cfg.up_waterline[0x5], tc_cfg.up_waterline[0x6], tc_cfg.up_waterline[0x7]);
+    TOOL_PRINT_INFO("Low waterline  %u %u %u %u %u %u %u %u", tc_cfg.low_waterline[0x0], tc_cfg.low_waterline[0x1],
+                    tc_cfg.low_waterline[0x2], tc_cfg.low_waterline[0x3], tc_cfg.low_waterline[0x4],
+                    tc_cfg.low_waterline[0x5], tc_cfg.low_waterline[0x6], tc_cfg.low_waterline[0x7]);
     return 0;
 }
 
@@ -248,8 +243,8 @@ STATIC int tool_tc_str_to_value(char *str, unsigned long *tc_value, unsigned int
 
 STATIC int tool_tc_cfg_get_size(char *argv, struct tc_cfg_set *tc_cfg)
 {
-#define MAX_TOTAL_RX_TC_SIZE    (14040 * 128)
-#define MIN_RX_TC_SIZE          0x1880
+#define MAX_TOTAL_RX_TC_SIZE (14040 * 128)
+#define MIN_RX_TC_SIZE 0x1880
     int ret, tc_i;
     unsigned long tmp_value[TC_NUM] = {0};
     unsigned long total_rx_tc_size = 0;
@@ -263,8 +258,8 @@ STATIC int tool_tc_cfg_get_size(char *argv, struct tc_cfg_set *tc_cfg)
     for (tc_i = 0; tc_i < TC_NUM; tc_i++) {
         if (((tmp_value[tc_i] != 0) && (tmp_value[tc_i] < MIN_RX_TC_SIZE)) ||
             (tmp_value[tc_i] > MAX_TOTAL_RX_TC_SIZE) || (total_rx_tc_size > MAX_TOTAL_RX_TC_SIZE)) {
-            roce_err("TC size is invalid. (tc_i=%d; tc_size=%lu; total_size=%lu)\n",
-                tc_i, tmp_value[tc_i], total_rx_tc_size);
+            roce_err("TC size is invalid. (tc_i=%d; tc_size=%lu; total_size=%lu)\n", tc_i, tmp_value[tc_i],
+                     total_rx_tc_size);
             return UDA_PARAM_INVALID_ERR;
         }
         tc_cfg->tc_buff[tc_i] = tmp_value[tc_i];
@@ -276,7 +271,7 @@ STATIC int tool_tc_cfg_get_size(char *argv, struct tc_cfg_set *tc_cfg)
 
 STATIC int tool_tc_cfg_get_watlin(char *argv, struct tc_cfg_set *tc_cfg)
 {
-#define MAX_WATER_LINE    (0xFFFF * 128)
+#define MAX_WATER_LINE (0xFFFF * 128)
     int ret, tc_i;
     unsigned long tmp_value[TC_NUM] = {0};
 
@@ -288,8 +283,7 @@ STATIC int tool_tc_cfg_get_watlin(char *argv, struct tc_cfg_set *tc_cfg)
 
     for (tc_i = 0; tc_i < TC_NUM; tc_i++) {
         if (tmp_value[tc_i] > MAX_WATER_LINE || tmp_value[tc_i] > tc_cfg->tc_buff[tc_i]) {
-            roce_err("Invalid water line size. (tc_i=%d; waterline=%lu)\n",
-                tc_i, tmp_value[tc_i]);
+            roce_err("Invalid water line size. (tc_i=%d; waterline=%lu)\n", tc_i, tmp_value[tc_i]);
             return UDA_PARAM_INVALID_ERR;
         }
         tc_cfg->waterline[tc_i] = tmp_value[tc_i];
@@ -300,7 +294,7 @@ STATIC int tool_tc_cfg_get_watlin(char *argv, struct tc_cfg_set *tc_cfg)
 STATIC int tool_set_tc_cfg(int argc, char **argv, struct tool_param *param)
 {
     int ret;
-    struct tc_cfg_set tc_cfg = { {0}, {0} };
+    struct tc_cfg_set tc_cfg = {{0}, {0}};
 
     LOG_CONFIG("Start to set TC cfg of logic_id[%d]", param->logic_id);
     if (strncmp(argv[0], "size", strlen("size") + 1)) {
@@ -432,8 +426,8 @@ int tool_tc_cfg_recovery(struct tool_param *param)
         tc_param_str = strtok(tc_cfg_str, " ");
         for (tc_param_i = 0; tc_param_i < ARGC_ID_4; tc_param_i++) {
             if (tc_param_str == NULL) {
-                roce_err("TC cfg file is error. (ret=%d; logic_id=%d; tc_param_i=%d)",
-                    ret, param->logic_id, tc_param_i);
+                roce_err("TC cfg file is error. (ret=%d; logic_id=%d; tc_param_i=%d)", ret, param->logic_id,
+                         tc_param_i);
                 return UDA_PARAM_OP_NOT_SUPPORT_ERR;
             }
             argv[tc_param_i] = tc_param_str;
@@ -666,7 +660,7 @@ int tool_ping_cmd_execute(int argc, char **argv, struct tool_param *param)
         roce_err("Error argc. (argc=%d)", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
-    
+
     if (is_ipv6_cmd(&argc, &argv)) {
         ipv6_index = 1;
         if (is_atlas_9000_a3(param)) {
@@ -674,7 +668,7 @@ int tool_ping_cmd_execute(int argc, char **argv, struct tool_param *param)
             return UDA_TOOL_OP_NOT_SUPPORT_IPV6_ERR;
         }
     }
-    
+
     if (!strncmp(argv[0], "-g", strlen("-g") + 1)) {
         param->get_cmd_flag = true;
         ret = tool_get_ping_status(argc, argv, param, ipv6_index);
@@ -702,10 +696,10 @@ bool is_atlas_9000_a3(struct tool_param *param)
 // sdid格式：[10位server_id][4位chip_id][2位die_id][16位device_id]
 #define IP_GET_HEADER(A) ((A) & 0xFF)
 #define IP_GET_SERVERID(A) (((A) >> 8) & 0xFF)
-#define IP_GET_DIEID(A)    ((((A) >> 16) & 0xFF) - 2)
+#define IP_GET_DIEID(A) ((((A) >> 16) & 0xFF) - 2)
 #define IP_GET_DEVICEID(A) (199 - (((A) >> 24) & 0xFF))
-#define IP_CONVERT_SDID(A) ((IP_GET_SERVERID(A) << 22) | ((IP_GET_DEVICEID(A) / 2) << 18) | \
-        (IP_GET_DIEID(A) << 16) | (IP_GET_DEVICEID(A)))
+#define IP_CONVERT_SDID(A) \
+    ((IP_GET_SERVERID(A) << 22) | ((IP_GET_DEVICEID(A) / 2) << 18) | (IP_GET_DIEID(A) << 16) | (IP_GET_DEVICEID(A)))
 #define SDID_GET_SERVERID(A) (((A) >> 22) & 0xFF)
 #define SDID_GET_CHIPID(A) (((A) >> 18) & 0xF)
 #define SDID_GET_DIEID(A) (((A) >> 16) & 0x3)
@@ -714,13 +708,13 @@ bool is_atlas_9000_a3(struct tool_param *param)
 bool check_sdid_is_valid(unsigned int sdid)
 {
     return (SDID_GET_SERVERID(sdid) < A3_SUPERPOD_MAX_NUMS &&
-        (SDID_GET_CHIPID(sdid) * CHIP_DIE_CNT + SDID_GET_DIEID(sdid) == SDID_GET_DEVICEID(sdid)));
+            (SDID_GET_CHIPID(sdid) * CHIP_DIE_CNT + SDID_GET_DIEID(sdid) == SDID_GET_DEVICEID(sdid)));
 }
 
 STATIC int parse_address_param(hccs_ping_operate_info *operate, int *argc_index, char **argv, int min, int max)
 {
     int ret;
-    struct in_addr addr = { 0 };
+    struct in_addr addr = {0};
 
     if (operate->sdid != PING_SDID_INVALID_VALUE) { // 已输入过sdid，不能再使用ip地址
         roce_err("PING IP conflict with sdid. (sdid=[%u])", operate->sdid);
@@ -819,8 +813,7 @@ STATIC struct ping_parse_ext g_ping_parse[] = {
     {"pkt", parse_pkt_param, PING_PACKET_SIZE_MIN, PING_PACKET_SIZE_MAX},
     {"cnt", parse_cnt_param, PING_PACKET_NUM_MIN, PING_PACKET_NUM_MAX},
     {"interval", parse_interval_param, PING_PACKET_INTERVAL_MIN, PING_PACKET_INTERVAL_MAX},
-    {"timeout", parse_ping_timeout_param, PING_PACKET_TIMEOUT_MIN, PING_PACKET_TIMEOUT_MAX}
-};
+    {"timeout", parse_ping_timeout_param, PING_PACKET_TIMEOUT_MIN, PING_PACKET_TIMEOUT_MAX}};
 
 // 校验参数条件需要修改，内部还有新增重试机制
 STATIC int tool_ping_check_param(hccs_ping_operate_info operate_info)
@@ -828,7 +821,7 @@ STATIC int tool_ping_check_param(hccs_ping_operate_info operate_info)
     if ((operate_info.sdid == PING_SDID_INVALID_VALUE) ||
         (operate_info.packet_send_num * operate_info.packet_interval > PING_CONSTRAINT_VALUE)) {
         roce_err("PING input value is not meet constraint. [sdid = %u, send_num = %u, interval = %u].",
-            operate_info.sdid, operate_info.packet_send_num, operate_info.packet_interval);
+                 operate_info.sdid, operate_info.packet_send_num, operate_info.packet_interval);
         return UDA_PARAM_INVALID_ERR;
     }
 
@@ -837,7 +830,7 @@ STATIC int tool_ping_check_param(hccs_ping_operate_info operate_info)
 
 int cmp(const void *a, const void *b)
 {
-    return *(long*)a - *(long*)b;
+    return *(long *)a - *(long *)b;
 }
 
 // 统计回复报文时延的95分位数
@@ -894,8 +887,8 @@ STATIC void tool_ping_printf(int phy_id, hccs_ping_operate_info operate_info, hc
     min_time = (min_time == LONG_MAX) ? 0 : min_time;
     tp95_time = tool_calc_95_percentile(cost_time, recv_num);
 
-    TOOL_PRINT_INFO("%u packets transmitted, %u received, %.2Lf%% packets loss",
-                    reply_info->total_packet_send_num, reply_info->total_packet_recv_num, loss_rate);
+    TOOL_PRINT_INFO("%u packets transmitted, %u received, %.2Lf%% packets loss", reply_info->total_packet_send_num,
+                    reply_info->total_packet_recv_num, loss_rate);
     TOOL_PRINT_INFO("max time %ld.%03ldus", max_time / NS_CHANGE_TO_US, max_time % NS_CHANGE_TO_US);
     TOOL_PRINT_INFO("min time %ld.%03ldus", min_time / NS_CHANGE_TO_US, min_time % NS_CHANGE_TO_US);
     if (recv_num) {
@@ -911,7 +904,8 @@ STATIC int tool_get_ping_status_ext(int argc, char **argv, struct tool_param *pa
 {
     int ret, argc_index, parse_index;
     hccs_ping_operate_info operate_info = {.is_ipv6 = 0,
-                                           .sdid = PING_SDID_INVALID_VALUE, .packet_size = PING_PACKET_SIZE_MIN,
+                                           .sdid = PING_SDID_INVALID_VALUE,
+                                           .packet_size = PING_PACKET_SIZE_MIN,
                                            .packet_send_num = PING_PACKET_NUM_DEFAULT,
                                            .packet_interval = PING_PACKET_INTERVAL_MIN};
     hccs_ping_reply_info *reply_info = (hccs_ping_reply_info *)calloc(1, sizeof(hccs_ping_reply_info));
@@ -922,12 +916,10 @@ STATIC int tool_get_ping_status_ext(int argc, char **argv, struct tool_param *pa
 
     for (argc_index = ARGC_ID_1; argc_index + 1 < argc; argc_index++) {
         ret = UDA_PARAM_INVALID_ERR;
-        for (parse_index = 0; parse_index < (sizeof(g_ping_parse) / sizeof(struct ping_parse_ext));
-             parse_index++) {
+        for (parse_index = 0; parse_index < (sizeof(g_ping_parse) / sizeof(struct ping_parse_ext)); parse_index++) {
             if (strcmp(argv[argc_index], g_ping_parse[parse_index].param) == 0) {
-                ret = g_ping_parse[parse_index].parse_proc(&operate_info, &argc_index, argv,
-                                                           g_ping_parse[parse_index].min,
-                                                           g_ping_parse[parse_index].max);
+                ret = g_ping_parse[parse_index].parse_proc(
+                    &operate_info, &argc_index, argv, g_ping_parse[parse_index].min, g_ping_parse[parse_index].max);
                 break;
             }
         }
@@ -1001,17 +993,17 @@ STATIC void tool_display_pfc_duration(struct pfc_duration_info *duration_info, s
     int i;
 
     for (i = 0; i < PRI_NUM; i++) {
-        TOOL_PRINT_INFO("tx_pfc%d_duration_time=%.3fms", i, (double) duration_info->tx[i] / TIME_CHANGE);
+        TOOL_PRINT_INFO("tx_pfc%d_duration_time=%.3fms", i, (double)duration_info->tx[i] / TIME_CHANGE);
     }
 
     for (i = 0; i < PRI_NUM; i++) {
-        TOOL_PRINT_INFO("rx_pfc%d_duration_time=%.3fms", i, (double) duration_info->rx[i] / TIME_CHANGE);
+        TOOL_PRINT_INFO("rx_pfc%d_duration_time=%.3fms", i, (double)duration_info->rx[i] / TIME_CHANGE);
     }
 
     for (i = 0; i < PRI_NUM; i++) {
         TOOL_PRINT_INFO("tx_pfc%d_duration_warn_cnt: %llu", i, storm_info->warn_cnt[i]);
     }
- 
+
     for (i = 0; i < PRI_NUM; i++) {
         TOOL_PRINT_INFO("tx_pfc%d_duration_err_cnt: %llu", i, storm_info->err_cnt[i]);
     }
@@ -1051,7 +1043,7 @@ static int tool_clear_pfc_mode_duration(int argc, int logic_id, int duration_mod
         roce_err("err argc. (argc=%d)\n", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
-	
+
     ret = dsmi_clear_pfc_duration(logic_id, duration_mod);
     if (ret) {
         roce_err("DSMI clear pfc duration fail. (ret=%d; dev_id=%d)\n", ret, logic_id);
@@ -1098,7 +1090,7 @@ int tool_pfc_stat_cmd_execute(int argc, char **argv, struct tool_param *param)
 
         int duration_mod = 0; // duration_mod 0 = all;
         LOG_SET_CONFIG("Start to clear PFC pause duration. (logic_id=%d)", param->logic_id);
-        ret = tool_clear_pfc_mode_duration(argc - 1,  param->logic_id, duration_mod);
+        ret = tool_clear_pfc_mode_duration(argc - 1, param->logic_id, duration_mod);
         LOG_SET_CONFIG("End to clear pfc pause duration.(logic_id=%d; ret=%d)", param->logic_id, ret);
         if (ret) {
             roce_err("Clear pfc pause duration  failed. (logic_id=%d; ret=%d)", param->logic_id, ret);
@@ -1108,7 +1100,7 @@ int tool_pfc_stat_cmd_execute(int argc, char **argv, struct tool_param *param)
         roce_err("Invalid option.");
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
     }
-    
+
     return ret;
 }
 
@@ -1121,17 +1113,17 @@ STATIC void tool_display_tc_stat_info(const struct ds_tc_stat_data *stat_info)
         DSMI_PRINT_INFO("tc_rx_pkt_num[%d]:%llu", i, stat_info->tc_rx[i]);
     }
 }
- 
+
 int tool_tc_stat_cmd_execute(int argc, char **argv, struct tool_param *param)
 {
     int ret;
     struct ds_tc_stat_data tc_stat = {0};
-    
+
     if (argc != ONE_VALUE) {
         roce_err("err argc[%d]", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
-    
+
     if (!strncmp(argv[0], "-g", strlen("-g") + 1)) {
         param->get_cmd_flag = true;
         ret = dsmi_get_tc_stat(param->logic_id, &tc_stat);
@@ -1151,7 +1143,7 @@ int tool_tc_stat_cmd_execute(int argc, char **argv, struct tool_param *param)
         roce_err("invalid option");
         return UDA_PARAM_OP_NOT_SUPPORT_ERR;
     }
-    
+
     return ret;
 }
 
@@ -1218,7 +1210,7 @@ void tool_display_serdes_info_rx(const int index, const struct ds_serdes_info *d
         TOOL_PRINT_INFO("Index of struct array error.");
         return;
     }
-    
+
     TOOL_PRINT_INFO("rxpwrdb: %u", ds_info->ds_info[index].rxpwrdb);
     TOOL_PRINT_INFO("rxratemode: %u", ds_info->ds_info[index].rxratemode);
 
@@ -1277,7 +1269,7 @@ void tool_display_serdes_info_api(const int index, const struct ds_serdes_info *
 
 void tool_display_serdes_info(int phy_id, const struct ds_serdes_info *ds_info)
 {
-    for (int i = 0; i < DS_LANE_MAX_NUM ; ++i) {
+    for (int i = 0; i < DS_LANE_MAX_NUM; ++i) {
         TOOL_PRINT_INFO("---------------------lane %d info------------------------", i);
         // pll lock
         tool_display_serdes_info_pll_lock(i, ds_info);
@@ -1386,8 +1378,8 @@ static int tool_get_qp_info(int argc, int logic_id)
         goto out;
     }
 
-    TOOL_PRINT_INFO("%-6s %-9s %-6s %-16s %-35s %-12s %-15s %-8s", "qpn", "status", "type",
-                    "dst_qpn", "ip", "src_port", "send_psn", "recv_psn");
+    TOOL_PRINT_INFO("%-6s %-9s %-6s %-16s %-35s %-12s %-15s %-8s", "qpn", "status", "type", "dst_qpn", "ip", "src_port",
+                    "send_psn", "recv_psn");
 
     for (i = 0; i < list->qp_num; i++) {
         ret = dsmi_get_qp_info(logic_id, port_id, list->qpn_list[i], &qp_info);
@@ -1467,7 +1459,7 @@ int tool_roce_cw_bad_cnt_thd_cmd_execute(int argc, char **argv, struct tool_para
         }
     } else if (!strncmp(argv[0], "-s", strlen("-s") + 1)) {
         ret = tool_double_check("[Warning]Changing this value violates IEEE Std 802.3, \n"
-            "which will trigger a temporary link down and may increase bad codewords, continue?");
+                                "which will trigger a temporary link down and may increase bad codewords, continue?");
         if (ret != 0) {
             LOG_CONFIG("Hccn tool command aborts by user.");
             return ret;
@@ -1555,8 +1547,8 @@ int tool_config_downdelay(int logic_id, int value, int mode)
         time = value;
     }
 
-    TOOL_SET_SEND_DATA(data, (mode == SET_MODE) ? DS_SET_DOWNDELAY : DS_GET_DOWNDELAY,
-        (char *)&time, sizeof(int), (char *)&time, sizeof(int));
+    TOOL_SET_SEND_DATA(data, (mode == SET_MODE) ? DS_SET_DOWNDELAY : DS_GET_DOWNDELAY, (char *)&time, sizeof(int),
+                       (char *)&time, sizeof(int));
     ret = dsmi_send_data(logic_id, 0, &data);
     if (ret) {
         roce_err("%s link down delay time failed. (ret=%d)", value < 0 ? "get" : "set", ret);

@@ -25,9 +25,20 @@
  */
 drvError_t bbox_drv_memory_dump(u32 phy_id, u32 offset, u32 size, u8 *buffer)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemRead(phy_id, MEM_TYPE_BBOX_DDR, offset, buffer, size);
-    }
+    return drvMemRead(phy_id, MEM_TYPE_BBOX_DDR, offset, buffer, size);
+}
+
+/**
+ * @brief       use bbox_drv_read_data type MEM_TYPE_BBOX_DDR to dump device memory via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemRead)
+ * @param [in]  phy_id:  device physical id
+ * @param [in]  offset: physical addr offset in device to DMA
+ * @param [in]  size:   buffer length
+ * @param [out] buffer: buffer to store data in
+ * @return      0 on success otherwise error code
+ */
+drvError_t bbox_drv_memory_dump_read(u32 phy_id, u32 offset, u32 size, u8 *buffer)
+{
     return bbox_drv_read_data(phy_id, MEM_TYPE_BBOX_DDR, offset, buffer, size);
 }
 
@@ -41,9 +52,20 @@ drvError_t bbox_drv_memory_dump(u32 phy_id, u32 offset, u32 size, u8 *buffer)
  */
 drvError_t bbox_drv_memory_pcie_dump(u32 phy_id, u32 offset, u8 *value, u32 len)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemRead(phy_id, MEM_TYPE_BBOX_PCIE_BAR, offset, value, len);
-    }
+    return drvMemRead(phy_id, MEM_TYPE_BBOX_PCIE_BAR, offset, value, len);
+}
+
+/**
+ * @brief       use bbox_drv_read_data type MEM_TYPE_BBOX_PCIE_BAR to dump device memory via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemRead)
+ * @param [in]  phy_id:  device physical id
+ * @param [in]  offset: physical addr offset in device to PCIe
+ * @param [in]  size:   buffer length (always <= 512K)
+ * @param [out] buffer: buffer to store data in
+ * @return      0 on success otherwise error code
+ */
+drvError_t bbox_drv_memory_dump_read_data(u32 phy_id, u32 offset, u8 *value, u32 len)
+{
     return bbox_drv_read_data(phy_id, MEM_TYPE_BBOX_PCIE_BAR, offset, value, len);
 }
 
@@ -57,9 +79,20 @@ drvError_t bbox_drv_memory_pcie_dump(u32 phy_id, u32 offset, u8 *value, u32 len)
  */
 drvError_t bbox_drv_memory_dump_cdr(u32 phy_id, u32 offset, u32 size, u8 *buffer)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemRead(phy_id, MEM_TYPE_REG_DDR, offset, buffer, size);
-    }
+    return drvMemRead(phy_id, MEM_TYPE_REG_DDR, offset, buffer, size);
+}
+
+/**
+ * @brief       use bbox_drv_read_data type MEM_TYPE_REG_DDR to dump device memory via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemRead)
+ * @param [in]  phy_id:  device physical id
+ * @param [in]  offset: physical addr offset in device to DMA
+ * @param [in]  size:   buffer length
+ * @param [out] buffer: buffer to store data in
+ * @return      0 on success otherwise error code
+ */
+drvError_t bbox_drv_memory_dump_read_cdr(u32 phy_id, u32 offset, u32 size, u8 *buffer)
+{
     return bbox_drv_read_data(phy_id, MEM_TYPE_REG_DDR, offset, buffer, size);
 }
 
@@ -73,9 +106,20 @@ drvError_t bbox_drv_memory_dump_cdr(u32 phy_id, u32 offset, u32 size, u8 *buffer
  */
 drvError_t bbox_drv_memory_pcie_dump_cdr(u32 phy_id, u32 offset, u8 *value, u32 len)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemRead(phy_id, MEM_TYPE_CHIP_LOG_PCIE_BAR, offset, value, len);
-    }
+    return drvMemRead(phy_id, MEM_TYPE_CHIP_LOG_PCIE_BAR, offset, value, len);
+}
+
+/**
+ * @brief       use bbox_drv_read_data type MEM_TYPE_CHIP_LOG_PCIE_BAR to dump device memory via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemRead)
+ * @param [in]  phy_id:  device physical id
+ * @param [in]  offset: physical addr offset in device to PCIe
+ * @param [in]  size:   buffer length (always <= 512K)
+ * @param [out] buffer: buffer to store data in
+ * @return      0 on success otherwise error code
+ */
+drvError_t bbox_drv_memory_dump_cdr_read(u32 phy_id, u32 offset, u8 *value, u32 len)
+{
     return bbox_drv_read_data(phy_id, MEM_TYPE_CHIP_LOG_PCIE_BAR, offset, value, len);
 }
 
@@ -102,9 +146,20 @@ drvError_t bbox_drv_pcie_sram_read(u32 phy_id, u32 offset, u8 *value, u32 len)
  */
 drvError_t bbox_drv_pcie_klog_ddr_read(u32 phy_id, u32 offset, u8 *value, u32 len)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemRead(phy_id, MEM_TYPE_PCIE_DDR, offset, value, len);
-    }
+    return drvMemRead(phy_id, MEM_TYPE_PCIE_DDR, offset, value, len);
+}
+
+/**
+ * @brief       use bbox_drv_read_data type MEM_TYPE_PCIE_DDR to read kernel log from DDR via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemRead)
+ * @param [in]  dev_id:  device physical id
+ * @param [in]  offset: offset in PCIe Bar space
+ * @param [out] value:  buffer to read data in
+ * @param [in]  len:    buffer length (always <= 512K)
+ * @return      0 on success otherwise error code
+ */
+drvError_t bbox_drv_klog_ddr_read(u32 phy_id, u32 offset, u8 *value, u32 len)
+{
     return bbox_drv_read_data(phy_id, MEM_TYPE_PCIE_DDR, offset, value, len);
 }
 
@@ -251,9 +306,20 @@ drvError_t bbox_drv_pcie_hboot_read(u32 phy_id, u32 offset, u8 *value, u32 len)
  */
 drvError_t bbox_drv_pcie_vmcore_read(u32 phy_id, u32 offset, u32 size, u8 *buffer)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemRead(phy_id, MEM_TYPE_VMCORE_FILE, offset, buffer, size);
-    }
+    return drvMemRead(phy_id, MEM_TYPE_VMCORE_FILE, offset, buffer, size);
+}
+
+/**
+ * @brief       use bbox_drv_read_data type MEM_TYPE_VMCORE_FILE to dump vmcore data via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemRead)
+ * @param [in]  phy_id:  device physical id
+ * @param [in]  offset: physical addr offset in device to DMA
+ * @param [in]  size:   buffer length
+ * @param [out] buffer: buffer to store data in
+ * @return      0 on success otherwise error code
+ */
+drvError_t bbox_drv_vmcore_read(u32 phy_id, u32 offset, u32 size, u8 *buffer)
+{
     return bbox_drv_read_data(phy_id, MEM_TYPE_VMCORE_FILE, offset, buffer, size);
 }
 
@@ -268,9 +334,20 @@ drvError_t bbox_drv_pcie_vmcore_read(u32 phy_id, u32 offset, u32 size, u8 *buffe
  */
 drvError_t bbox_drv_pcie_vmcore_stat_read(u32 phy_id, u32 offset, u8 *value, u32 len)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemRead(phy_id, MEM_TYPE_VMCORE_STAT, offset, value, len);
-    }
+    return drvMemRead(phy_id, MEM_TYPE_VMCORE_STAT, offset, value, len);
+}
+
+/**
+ * @brief       use bbox_drv_read_data type MEM_TYPE_VMCORE_STAT to read vmcore status via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemRead)
+ * @param [in]  phy_id:  device physical id
+ * @param [in]  offset: read addr offset
+ * @param [in]  value:  buffer to store read data
+ * @param [in]  len:    read length
+ * @return      0 on success otherwise is fail
+ */
+drvError_t bbox_drv_vmcore_stat_read(u32 phy_id, u32 offset, u8 *value, u32 len)
+{
     return bbox_drv_read_data(phy_id, MEM_TYPE_VMCORE_STAT, offset, value, len);
 }
 
@@ -285,9 +362,20 @@ drvError_t bbox_drv_pcie_vmcore_stat_read(u32 phy_id, u32 offset, u8 *value, u32
  */
 drvError_t bbox_drv_pcie_kdump_write(u32 phy_id, u32 offset, u8 *value, u32 len)
 {
-    if (!bbox_has_feature(phy_id, BBOX_FEATURE_SOC_PLATFORM_CLOUD_V4)) {
-        return drvMemWrite(phy_id, MEM_TYPE_KDUMP_MAGIC, offset, value, len);
-    }
+    return drvMemWrite(phy_id, MEM_TYPE_KDUMP_MAGIC, offset, value, len);
+}
+
+/**
+ * @brief       use bbox_drv_write_data type MEM_TYPE_KDUMP_MAGIC to write kdump flag via URD cmd protocol
+ *              (David/cloud v4 platform version, Milan counterpart uses drvMemWrite)
+ * @param [in]  phy_id:  device physical id
+ * @param [in]  offset: write addr offset
+ * @param [in]  value:  buffer to store write data
+ * @param [in]  len:    write length
+ * @return      0 on success otherwise is fail
+ */
+drvError_t bbox_drv_kdump_write(u32 phy_id, u32 offset, u8 *value, u32 len)
+{
     return bbox_drv_write_data(phy_id, MEM_TYPE_KDUMP_MAGIC, offset, value, len);
 }
 
@@ -340,7 +428,8 @@ drvError_t bbox_drv_write_data(u32 phy_id, MEM_CTRL_TYPE mem_type, u32 offset, u
 
     bbox_data.dev_id = phy_id;
     bbox_data.type = mem_type;
-    bbox_data.offset = ((mem_type != MEM_TYPE_KDUMP_MAGIC) ? (offset) : (0xBA0000U)); // equal to BBOX_HBM_VMCORE_FLAG_OFFSET 
+    bbox_data.offset = ((mem_type != MEM_TYPE_KDUMP_MAGIC) ? (offset) :
+                                                             (0xBA0000U)); // equal to BBOX_HBM_VMCORE_FLAG_OFFSET
     bbox_data.len = size;
     bbox_data.bbox_data_buf = buf;
     urd_usr_cmd_fill(&cmd, DMS_MAIN_CMD_BBOX, DMS_SUBCMD_SET_BBOX_DATA, NULL, 0);
@@ -351,5 +440,5 @@ drvError_t bbox_drv_write_data(u32 phy_id, MEM_CTRL_TYPE mem_type, u32 offset, u
             BBOX_ERR("Write bbox data failed. (ret=%d; offset=0x%x, size=0x%x)", (int)ret, offset, size);
         }
     }
-    return ret; 
+    return ret;
 }

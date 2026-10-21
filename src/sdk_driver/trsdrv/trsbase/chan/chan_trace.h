@@ -29,17 +29,8 @@ struct trs_chan_recv_trace {
     int timeout;      /* ms */
 };
 
-#ifdef CFG_FEATURE_TRACE_EVENT_FUNC
 void trs_chan_trace_sqe(const char *str, struct trs_chan *chan, struct trs_chan_sq_ctx *sq, void *sqe);
 void trs_chan_trace_cqe(const char *str, struct trs_chan *chan, struct trs_chan_cq_ctx *cq, void *cqe);
 void trace_chan_trace_recv(const char *str, struct trs_chan *chan, struct trs_chan_recv_para *para);
-#else
-static inline void trs_chan_trace_sqe(const char *str, struct trs_chan *chan, struct trs_chan_sq_ctx *sq, void *sqe)
-{}
-static inline void trs_chan_trace_cqe(const char *str, struct trs_chan *chan, struct trs_chan_cq_ctx *cq, void *cqe)
-{}
-static inline void trace_chan_trace_recv(const char *str, struct trs_chan *chan, struct trs_chan_recv_para *para)
-{}
-#endif
 
 #endif /* CHAN_TRACE_H */

@@ -11,6 +11,7 @@
 #include "dma_desc_ioctl.h"
 #include "dma_map_ioctl.h"
 #include "dbi_ioctl.h"
+#include "share_repair_ioctl.h"
 #include "mms_def.h"
 #include "soma_ioctl.h"
 
@@ -68,6 +69,9 @@
 /* soma cmd */
 #define SVM_SOMA_MEM_CFG _IOWR('U', 36, struct svm_soma_mem_cfg_para)
 
-#define SVM_MAX_CMD 37
+/* share repair */
+#define SVM_SHARE_REPAIR _IOW('U', 37, struct svm_share_repair_para)
+
+#define SVM_MAX_CMD 38
 
 #endif

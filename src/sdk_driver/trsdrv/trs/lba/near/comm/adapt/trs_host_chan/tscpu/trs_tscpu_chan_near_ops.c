@@ -88,7 +88,7 @@ void trs_chan_tscpu_update_ssid(struct trs_id_inst *inst, struct trs_chan_info *
 #ifndef EMU_ST
     if ((chan_info->types.type == CHAN_TYPE_HW) && (chan_info->types.sub_type == CHAN_SUB_TYPE_HW_DVPP)) {
         int user_visible_flag;
-        int ssid;
+        int ssid = 0;
         int ret = trs_host_get_ssid(inst, &user_visible_flag, &ssid);
         if (ret != 0) {
             trs_warn("Get ssid warn. (devid=%u; ret=%d)\n", inst->devid, ret);

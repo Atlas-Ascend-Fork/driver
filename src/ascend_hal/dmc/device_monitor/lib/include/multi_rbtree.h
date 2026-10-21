@@ -32,4 +32,3 @@ static inline void multi_rb_node_init(struct multi_rb_node *node)
     node->is_list_first = 0;
 }
 #endif
-

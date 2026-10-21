@@ -102,26 +102,18 @@ static void _ubmm_uninit_dev(u32 udevid)
 
 static void ubmm_try_init_dev(u32 udevid)
 {
-    static KA_TASK_DEFINE_MUTEX(mutex);
-    static int try_cnt = 0;
+    u32 udevid_ex = 0;
     int ret;
 
-    if (!g_ubmm_is_inited && g_ubmm_is_need) {
-        ka_task_mutex_lock(&mutex);
-        if (try_cnt == 0) {
-            u32 udevid_ex = 0;
-
-            (void)uda_get_cur_ns_udevids(&udevid_ex, 1);
-            udevid_ex = (udevid == uda_get_host_id()) ? udevid_ex :
-                                                        udevid; /* Not host_id real dev, change to first udevid. */
-            /* trigger ub dev adapt to update uba addr */
-            ret = uda_dev_ctrl(udevid_ex, UDA_CTRL_UPDATE_P2P_ADDR);
-            if (ret == 0) {
-                (void)_ubmm_init_dev(udevid);
-            }
-            try_cnt++;
+    if (g_ubmm_is_need) {
+        (void)uda_get_cur_ns_udevids(&udevid_ex, 1);
+        udevid_ex = (udevid == uda_get_host_id()) ? udevid_ex :
+                                                    udevid; /* Not host_id real dev, change to first udevid. */
+        /* trigger ub dev adapt to update uba addr */
+        ret = uda_dev_ctrl(udevid_ex, UDA_CTRL_UPDATE_P2P_ADDR);
+        if (ret == 0) {
+            (void)_ubmm_init_dev(udevid);
         }
-        ka_task_mutex_unlock(&mutex);
     }
 }
 
@@ -131,29 +123,11 @@ static void ubmm_ctx_release(void *priv)
     svm_vfree(ctx);
 }
 
-int ubmm_init_task(u32 udevid, int tgid, void *start_time)
+static int ubmm_ctx_create(u32 udevid, int tgid)
 {
     struct ubmm_ctx *ctx = NULL;
     void *task_ctx = NULL;
     int ret;
-
-    if (dbl_get_deployment_mode() == DBL_HOST_DEPLOYMENT) {
-        if (udevid != uda_get_host_id()) {
-            return 0;
-        }
-    } else {
-        /* only support cp */
-        processType_t proc_type = 0;
-        ret = apm_query_proc_type_by_slave(tgid, &proc_type);
-        if ((ret != 0) || (proc_type != PROCESS_CP1)) {
-            return 0;
-        }
-    }
-
-    ubmm_try_init_dev(udevid);
-    if (!g_ubmm_is_inited) {
-        return 0;
-    }
 
     ctx = (struct ubmm_ctx *)svm_vzalloc(sizeof(*ctx));
     if (ctx == NULL) {
@@ -180,8 +154,51 @@ int ubmm_init_task(u32 udevid, int tgid, void *start_time)
     }
 
     ctx->task_ctx = task_ctx;
-
     return 0;
+}
+
+int ubmm_init_try(u32 udevid, int tgid)
+{
+    static KA_TASK_DEFINE_MUTEX(mutex);
+    int ret;
+
+    if (dbl_get_deployment_mode() == DBL_HOST_DEPLOYMENT) {
+        if (udevid != uda_get_host_id()) {
+            return -ENOTSUPP;
+        }
+    } else {
+        /* only support cp */
+        processType_t proc_type = 0;
+        ret = apm_query_proc_type_by_slave(tgid, &proc_type);
+        if ((ret != 0) || (proc_type != PROCESS_CP1)) {
+            return -ENOTSUPP;
+        }
+    }
+
+    ka_task_mutex_lock(&mutex);
+    if (ubmm_ctx_get(udevid, tgid) != NULL) {
+        ka_task_mutex_unlock(&mutex);
+        return 0;
+    }
+
+    ubmm_try_init_dev(udevid);
+    if (!g_ubmm_is_inited) {
+        ka_task_mutex_unlock(&mutex);
+        return -ENOTSUPP;
+    }
+
+    ret = ubmm_ctx_create(udevid, tgid);
+    ka_task_mutex_unlock(&mutex);
+    return ret;
+}
+
+int ubmm_init_task(u32 udevid, int tgid, void *start_time)
+{
+    int ret;
+
+    SVM_UNUSED(start_time);
+    ret = ubmm_init_try(udevid, tgid);
+    return (ret == -ENOTSUPP) ? 0 : ret;
 }
 DECLAER_FEATURE_AUTO_INIT_TASK(ubmm_init_task, FEATURE_LOADER_STAGE_2);
 

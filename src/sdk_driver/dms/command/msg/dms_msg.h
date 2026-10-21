@@ -23,7 +23,7 @@ struct dms_h2d_msg_head {
     u16 result; /* process result from rp, zero for succ, non zero for fail */
 };
 
-#define DMS_INFO_PAYLOAD_LEN    512UL
+#define DMS_INFO_PAYLOAD_LEN 512UL
 #define DMS_H2D_MSG_PAYLOAD_LEN (DMS_INFO_PAYLOAD_LEN - sizeof(struct dms_h2d_msg_head))
 struct dms_h2d_msg {
     struct dms_h2d_msg_head header;
@@ -56,7 +56,7 @@ struct dms_timespec_info {
 
 struct dms_walltime_info {
     u32 dev_id;
-    u32 time_update;                /* if time_update = 1, you need send time to device to update */
+    u32 time_update; /* if time_update = 1, you need send time to device to update */
     struct dms_timespec_info wall_time;
 };
 

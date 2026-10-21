@@ -10,9 +10,13 @@
 
 #ifndef __DMS_SOC_H
 #define __DMS_SOC_H
-drvError_t DmsGetAllDeviceNode(unsigned int dev_id, DEV_DTM_CAP capability,
-    struct dsmi_dtm_node_s node_info[], unsigned int *size);
-drvError_t DmsCtrlDeviceNode(unsigned int dev_id, struct dsmi_dtm_node_s dtm_node,
-    DSMI_DTM_OPCODE opcode, IN_OUT_BUF buf);
+
+#include "ascend_hal_error.h"
+#include "dsmi_common_interface.h"
+
+drvError_t DmsGetAllDeviceNode(unsigned int dev_id, DEV_DTM_CAP capability, struct dsmi_dtm_node_s node_info[],
+                               unsigned int *size);
+drvError_t DmsCtrlDeviceNode(unsigned int dev_id, struct dsmi_dtm_node_s dtm_node, DSMI_DTM_OPCODE opcode,
+                             IN_OUT_BUF buf);
 drvError_t DmsGetBistInfo(unsigned int dev_id, unsigned int cmd, unsigned char *buf, unsigned int *len);
 #endif

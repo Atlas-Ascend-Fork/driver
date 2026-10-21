@@ -21,16 +21,6 @@
 void queue_run_log_flow_ctrl_cnt_clear(void);
 bool queue_proc_log_flow_ctrl_cnt_check(void);
 
-#ifdef CFG_FEATURE_SYSLOG
-#include <syslog.h>
-#define QUEUE_LOG_ERR(fmt, ...) syslog(LOG_ERR, "[%s %d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
-#define QUEUE_LOG_WARN(fmt, ...) syslog(LOG_WARNING, "[%s %d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
-#define QUEUE_LOG_INFO(fmt, ...) syslog(LOG_INFO, "[%s %d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
-#define QUEUE_LOG_DEBUG(fmt, ...)
-#define QUEUE_LOG_EVENT(fmt, ...) syslog(LOG_NOTICE, "[%s %d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
-#define QUEUE_RUN_LOG_INFO(fmt, ...) syslog(LOG_NOTICE, "[%s %d] " fmt, __func__, __LINE__, ##__VA_ARGS__)
-#define QUEUE_ERR_HEX_DUMP(buf, len, format, ...)
-#else
 #ifndef EMU_ST
 #include "dmc_user_interface.h"
 #else
@@ -79,6 +69,5 @@ bool queue_proc_log_flow_ctrl_cnt_check(void);
     do {                                                                                  \
         DRV_ERR_HEX_DUMP(HAL_MODULE_TYPE_QUEUE_MANAGER, buf, len, format, ##__VA_ARGS__); \
     } while (0)
-#endif
 
 #endif

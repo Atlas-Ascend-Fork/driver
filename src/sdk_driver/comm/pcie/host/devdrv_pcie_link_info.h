@@ -25,7 +25,8 @@ int devdrv_set_err_out_gpio(void);
 void devdrv_get_pcie_dump_ltssm_tracer_symbol(void);
 void devdrv_put_pcie_dump_ltssm_tracer_symbol(void);
 int devdrv_get_pcie_link_bandwidth(void *feature, char *in, u32 in_len, char *out, u32 out_len);
-
+void devdrv_pcie_dump_ltssm_tracer_init_lock(void);
+int devdrv_pcie_host_force_linkdown(u32 udevid);
 typedef enum {
     DEVDRV_PCIE_LINK_STATUS_OK = 0,
     DEVDRV_PCIE_LINK_STATUS_DOWN = 1,

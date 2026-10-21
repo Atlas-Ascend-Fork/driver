@@ -191,7 +191,6 @@ del_sq_res:
 destroy_chan:
     trs_gdb_destroy_chan(inst, chan_id);
     trs_err("Maint sqcq Alloc failed. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
-
     return ret;
 }
 

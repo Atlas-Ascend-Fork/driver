@@ -20,6 +20,8 @@
 #include "svm_urma_def.h"
 #include "svm_pub.h"
 
+#define SVM_URMA_JETTY_WRITE_READ_MAX_SIZE 0x10000000ULL /* 256MB */
+
 enum svm_urma_jetty_state {
     SVM_URMA_JETTY_BUSY = 0U,
     SVM_URMA_JETTY_IDLE,
@@ -43,8 +45,10 @@ struct svm_urma_jetty {
     urma_jfs_wr_t *jfs_wrs;
     urma_cr_t *crs;
 
-    u32 post_wr_id;
-    u32 ack_wr_id;
+    u64 post_wr_id;
+    u64 ack_wr_id;
+
+    void *user_ctx; /* per-channel opaque context owned by the upper layer; NULL when idle */
 };
 
 struct svm_urma_jetty_pool {

@@ -410,13 +410,17 @@ static void *recycle_thread(void *arg)
     struct buff_recycle_ctx *ctx = (struct buff_recycle_ctx *)arg;
     thread_prop_set();
     ctx->status = RECYCLE_THREAD_STATUS_RUN;
+    (void)pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     while (ctx->status == RECYCLE_THREAD_STATUS_RUN) {
         if (ctx->p_mng.pool_id >= 0) {
             recycle_proc_default_pool_res(&ctx->p_mng, BUFF_INVALID_DEV, PASSIVE_RECYCLE);
         }
         (void)idle_buff_range_free(BUFF_INVALID_DEV, 0, false);
+        (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
         (void)usleep(ctx->period);
+        (void)pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
     }
+    (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     ctx->status = RECYCLE_THREAD_STATUS_STOP;
 #endif
     return NULL;

@@ -16,6 +16,7 @@
 
 #include "trs_chan.h"
 #include "trs_id.h"
+#include "trs_sqcq_timestamp.h"
 
 struct submodule_ops {
     int (*init)(void);
@@ -25,6 +26,9 @@ struct submodule_ops {
 static struct submodule_ops g_sub_table[] = {
     {init_trs_id, exit_trs_id},
     {trs_chan_init_module, trs_chan_exit_module},
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+    {trs_sqcq_dfx_init, trs_sqcq_dfx_uninit},
+#endif
 };
 
 static int __ka_init init_trs_base(void)

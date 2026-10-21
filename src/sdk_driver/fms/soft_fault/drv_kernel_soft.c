@@ -31,13 +31,14 @@ STATIC int drv_kernel_soft_fault_node_config(unsigned int user_id, struct soft_d
 {
     int pid = -1;
     struct dms_node_operations *soft_ops = soft_get_ops();
-    struct dms_node s_node = SOFT_NODE_DEF(HAL_DMS_DEV_TYPE_DRV_KERNEL, "DRV_KERNEL", s_dev->dev_id,
-        s_dev->node_id, soft_ops);
-    struct dms_sensor_object_cfg s_cfg = SOFT_SENSOR_DEF(DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT, "drv soft", 0UL,
-        user_id, SF_SUB_ID0, 0x1000, 0x1000, SF_SENSOR_SCAN_TIME, soft_fault_event_scan, pid);
+    struct dms_node s_node = SOFT_NODE_DEF(HAL_DMS_DEV_TYPE_DRV_KERNEL, "DRV_KERNEL", s_dev->dev_id, s_dev->node_id,
+                                           soft_ops);
+    struct dms_sensor_object_cfg s_cfg = SOFT_SENSOR_DEF(DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT, "drv soft", 0UL, user_id,
+                                                         SF_SUB_ID0, 0x1000, 0x1000, SF_SENSOR_SCAN_TIME,
+                                                         soft_fault_event_scan, pid);
 
-    s_cfg.private_data =
-        soft_combine_private_data(s_dev->dev_id, user_id, HAL_DMS_DEV_TYPE_DRV_KERNEL, s_dev->node_id, SF_SUB_ID0);
+    s_cfg.private_data = soft_combine_private_data(s_dev->dev_id, user_id, HAL_DMS_DEV_TYPE_DRV_KERNEL, s_dev->node_id,
+                                                   SF_SUB_ID0);
     /* for kernel space, not used the pid, set default value -1 */
     s_cfg.pid = -1;
     s_node.pid = -1;
@@ -171,4 +172,3 @@ void hal_kernel_drv_soft_fault_report(u32 devid)
     }
 }
 KA_EXPORT_SYMBOL_GPL(hal_kernel_drv_soft_fault_report);
-

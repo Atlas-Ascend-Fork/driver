@@ -31,4 +31,6 @@ void svm_proc_task_add_feature(u32 udevid, int tgid, ka_proc_dir_entry_t *task_e
 int svm_task_feature_open(ka_inode_t *inode, ka_file_t *file);
 int svm_dev_feature_open(ka_inode_t *inode, ka_file_t *file);
 
+void svm_proc_fs_add_feature(const char *name, const ka_procfs_ops_t *ops, void *data);
+
 #endif /* SVM_PROC_FS_H__ */

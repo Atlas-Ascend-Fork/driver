@@ -35,3 +35,4 @@ In this example, the key features and key interfaces involved are shown below:
     - Call halMemManagedRangeGetAttributes interface to query memory attributes.
 - Memory Copy
     - Call drvMemcpy interface to copy memory data.
+

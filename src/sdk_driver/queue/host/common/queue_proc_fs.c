@@ -142,7 +142,7 @@ STATIC_PROCFS_FILE_FUNC_OPS_OPEN(perf_status_ops, queue_perf_status_open);
 static void proc_fs_format_qid_dir_name(u32 qid, char *name, u32 len)
 {
     if (sprintf_s(name, len, "qid-%u", qid) <= 0) {
-        queue_warn("Qid sprintf_s abnormal. (qid=%u)\n", qid);
+        queue_warn("Qid sprintf_s unsuccessful. (qid=%u)\n", qid);
     }
 }
 
@@ -172,7 +172,7 @@ void queue_proc_fs_add_qid(struct queue_qid_status *status, ka_proc_dir_entry_t 
     entry = proc_fs_mk_qid_dir(status->qid, parent);
     if (entry == NULL) {
         ka_base_atomic_set(&status->qid_dir_exit, QID_DIR_NO_EXIT);
-        queue_warn("Create qid entry dir abnormal. (qid=%u)\n", status->qid);
+        queue_warn("Create qid entry dir unsuccessful. (qid=%u)\n", status->qid);
         return;
     }
 
@@ -201,7 +201,7 @@ void queue_proc_fs_del_qid(struct queue_qid_status *status, ka_proc_dir_entry_t 
 static void proc_fs_format_process_dir_name(ka_pid_t pid, char *name, u32 len)
 {
     if (sprintf_s(name, len, "%d", pid) <= 0) {
-        queue_warn("Pid sprintf_s abnormal. (pid=%d)\n", pid);
+        queue_warn("Pid sprintf_s unsuccessful. (pid=%d)\n", pid);
     }
 }
 
@@ -232,7 +232,7 @@ void queue_proc_fs_add_process(struct queue_context *ctx)
 {
     ctx->entry = proc_fs_mk_process_dir(ctx->pid, queue_process_entry);
     if (ctx->entry == NULL) {
-        queue_warn("Create process entry dir abnormal. (pid=%u)\n", ctx->pid);
+        queue_warn("Create process entry dir unsuccessful. (pid=%u)\n", ctx->pid);
         return;
     }
 }

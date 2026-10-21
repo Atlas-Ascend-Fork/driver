@@ -82,7 +82,7 @@ STATIC bbox_status bbox_get_bbox_ddr(u32 phy_id, u32 offset, u32 size, u8 *buf)
 #ifndef BBOX_ST_TEST
     ret = bbox_dump_bbox_ddr(master_id, offset, size, buf);
     if (ret != BBOX_SUCCESS) {
-        BBOX_WAR("master device %u memory dump is not complete.", master_id);
+        BBOX_WAR("master device %u memory dump not complete.", master_id);
     }
 
     u8 *curr_buf = (u8 *)bbox_malloc(size);
@@ -93,7 +93,7 @@ STATIC bbox_status bbox_get_bbox_ddr(u32 phy_id, u32 offset, u32 size, u8 *buf)
 
     ret = bbox_dump_bbox_ddr(phy_id, offset, size, curr_buf);
     if (ret != BBOX_SUCCESS) {
-        BBOX_INF("current device %u memory dump is not complete.", phy_id);
+        BBOX_INF("current device %u memory dump not complete.", phy_id);
     }
 
     ret = bbox_ddr_dump_joint_dump(curr_buf, buf, size);

@@ -21,11 +21,11 @@
 #include "devdrv_common.h"
 #include "ka_system_pub.h"
 
-#define DEVDRV_HEART_BEAT_DEATH 3 /* times */
+#define DEVDRV_HEART_BEAT_DEATH 3             /* times */
 #define DEVDRV_HEART_BEAT_INTERVAL_TIME_15 15 /* second */
 #define DEVDRV_HEART_BEAT_INTERVAL_TIME_10 10 /* second */
-#define DEVDRV_HEART_BEAT_INTERVAL_CNT 4 /* times */
-#define DEVDRV_HEART_DEBUG_COUNTT 5 /* times */
+#define DEVDRV_HEART_BEAT_INTERVAL_CNT 4      /* times */
+#define DEVDRV_HEART_DEBUG_COUNTT 5           /* times */
 
 #define DEVDRV_WAKELOCK_TIMEOUT_SECOND 10 /* second */
 

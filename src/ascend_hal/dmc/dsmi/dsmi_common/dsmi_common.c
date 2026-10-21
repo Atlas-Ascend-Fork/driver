@@ -31,6 +31,7 @@
 #include "dm_hdc.h"
 #include "mmpa_api.h"
 #include "ascend_hal.h"
+#include "ascend_inpackage_hal.h"
 #include "dsmi_product.h"
 #include "hdc_user_interface.h"
 #include "dms_user_interface.h"
@@ -500,6 +501,7 @@ DSMI_DMP_COMMAND_ST *dmp_command_init(unsigned int device_index, unsigned short 
     DSMI_CMD_CODE *send_msg = NULL;
 
     DRV_CHECK_RETV((output_len < MAX_OUTPUT_LEN), NULL);
+    DRV_CHECK_RETV((input_len <= (USHORT_MAX - sizeof(DSMI_CMD_CODE))), NULL);
     ret = dsmi_init();
     DRV_CHECK_RETV_DO_SOMETHING((ret == OK), NULL, DEV_MON_ERR("call dsmi_init failed and ret=%d.\n", ret));
 
@@ -606,7 +608,7 @@ STATIC int _dsmi_send_msg_rec_res(struct dsmi_dmp_command_st *dmp)
                                (void *)&cmd_ctl, sizeof(DSMI_COMMAND_CTL_ST));
     if (ret != 0) {
         if (ret == DRV_ERROR_REMOTE_NO_SESSION) {
-            DEV_MON_WARNING("dsmi/dmp aisle is busy, no available hdc session, please try later.\n");
+            DEV_MON_WARNING("dsmi/dmp aisle is busy, not available hdc session, please try later.\n");
         } else {
             ret = DRV_ERROR_SEND_MESG;
             DEV_MON_ERR("call dev_mon_send_request error:%d.\n", ret);
@@ -720,7 +722,7 @@ int split_by_char(const char *src, char *path, unsigned int path_len_max, char *
         return 0;
     }
     // there is no description of component names and types in this row; no symbols:
-    DEV_MON_DEBUG("fun split_by_char, src = %s, should contain : maybe have blank line in cfg file, is not problem\n",
+    DEV_MON_DEBUG(" fun split_by_char, src = %s, should contain : maybe have blank line in cfg file, is not problem\n",
                   str_tmp);
     return DRV_ERROR_CONFIG_READ_FAIL;
 }
@@ -871,7 +873,7 @@ int local_copy_file(int device_id, const char *src_file, const char *dst_file)
     DSMI_FILE_NULL(dst_file);
 
     if ((strlen(src_file) >= PATH_MAX) || (strlen(dst_file) >= PATH_MAX)) {
-        DEV_MON_ERR("Parameter is error. (error=0x%x)\n", errno);
+        DEV_MON_ERR("Parameter is invalid. (error=0x%x)\n", errno);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -965,7 +967,7 @@ int dsmi_mutex_p(key_t sem_tag, int *sem_id, unsigned int timeout)
         val = 1;
         ret = semctl(semid, semno, SETVAL, val);
         if (ret < 0) {
-            dev_upgrade_err("semctl fail, ret = 0x%x\n", ret);
+            dev_upgrade_err("semctl fail, ret = 0x%x, errno=%d.\n", ret, errno);
             return -EINVAL;
         }
     }
@@ -1013,7 +1015,7 @@ int dsmi_mutex_v(int sem_id)
 #endif
 }
 
-DEV_INFO_MAIN_CMD_TYPE dsmi_get_dev_info_main_cmd_type(unsigned int main_cmd, unsigned int sub_cmd)
+DEV_INFO_MAIN_CMD_TYPE dsmi_get_dev_info_main_cmd_type(DSMI_MAIN_CMD main_cmd, unsigned int sub_cmd)
 {
     if ((main_cmd >= DSMI_PRODUCT_MAIN_CMD_START) && (main_cmd <= DSMI_PRODUCT_MAIN_CMD_END)) {
         return MAIN_CMD_TYPE_PRODUCT;
@@ -1031,15 +1033,15 @@ DEV_INFO_MAIN_CMD_TYPE dsmi_get_dev_info_main_cmd_type(unsigned int main_cmd, un
 
     if ((main_cmd == DSMI_MAIN_CMD_CHIP_INF) || (main_cmd == DSMI_MAIN_CMD_SVM) ||
         (main_cmd == DSMI_MAIN_CMD_VDEV_MNG) || (main_cmd == DSMI_MAIN_CMD_HOST_AICPU) ||
-        ((main_cmd == DSMI_MAIN_CMD_TS) && (sub_cmd == DSMI_TS_SUB_CMD_FFTS_TYPE)) ||
-        ((main_cmd == DSMI_MAIN_CMD_TS) && (sub_cmd == DSMI_TS_SUB_CMD_COMMON_MSG)) ||
-        ((main_cmd == DSMI_MAIN_CMD_HCCS) && (sub_cmd == DSMI_HCCS_CMD_GET_PING_INFO)) ||
-        ((main_cmd == DSMI_MAIN_CMD_HCCS) && (sub_cmd == DSMI_HCCS_CMD_GET_CREDIT_INFO)) ||
-        ((main_cmd == DSMI_MAIN_CMD_TRS) && (sub_cmd == DSMI_TRS_SUB_CMD_KERNEL_LAUNCH_MODE)) ||
-        ((main_cmd == DSMI_MAIN_CMD_UB) && (sub_cmd == DSMI_UB_INFO_SUB_CMD_PORT_STATUS)) ||
-        ((main_cmd == DSMI_MAIN_CMD_UB) && (sub_cmd == DSMI_UB_INFO_SUB_CMD_ID)) ||
-        ((main_cmd == DSMI_MAIN_CMD_UB) && (sub_cmd == DSMI_UB_INFO_SUB_CMD_URMA_DEV_NAME)) ||
-        ((main_cmd == DSMI_MAIN_CMD_UPGRADE) && (sub_cmd == DSMI_UPGRADE_SUB_TYPE_SWPLUGIN_POLICY))) {
+        ((main_cmd == DSMI_MAIN_CMD_TS) && (sub_cmd == (unsigned int)DSMI_TS_SUB_CMD_FFTS_TYPE)) ||
+        ((main_cmd == DSMI_MAIN_CMD_TS) && (sub_cmd == (unsigned int)DSMI_TS_SUB_CMD_COMMON_MSG)) ||
+        ((main_cmd == DSMI_MAIN_CMD_HCCS) && (sub_cmd == (unsigned int)DSMI_HCCS_CMD_GET_PING_INFO)) ||
+        ((main_cmd == DSMI_MAIN_CMD_HCCS) && (sub_cmd == (unsigned int)DSMI_HCCS_CMD_GET_CREDIT_INFO)) ||
+        ((main_cmd == DSMI_MAIN_CMD_TRS) && (sub_cmd == (unsigned int)DSMI_TRS_SUB_CMD_KERNEL_LAUNCH_MODE)) ||
+        ((main_cmd == DSMI_MAIN_CMD_UB) && (sub_cmd == (unsigned int)DSMI_UB_INFO_SUB_CMD_PORT_STATUS)) ||
+        ((main_cmd == DSMI_MAIN_CMD_UB) && (sub_cmd == (unsigned int)DSMI_UB_INFO_SUB_CMD_ID)) ||
+        ((main_cmd == DSMI_MAIN_CMD_UB) && (sub_cmd == (unsigned int)DSMI_UB_INFO_SUB_CMD_URMA_DEV_NAME)) ||
+        ((main_cmd == DSMI_MAIN_CMD_UPGRADE) && (sub_cmd == (unsigned int)DSMI_UPGRADE_SUB_TYPE_SWPLUGIN_POLICY))) {
         return MAIN_CMD_TYPE_HOST_DEVMNG;
     }
 
@@ -1131,7 +1133,7 @@ static int dsmi_init_channel(DM_ADDR_ST *my_addr)
     iam_addr->iam_queue = (void *)NULL;
     ret = dm_iam_init(&g_dsmi_intf, g_dm_cb, dm_command_time_out_print, my_addr, NULL, 0);
     if (ret != 0) {
-        DEV_MON_ERR("call dm_hdc_init fail ret = %d.\n", ret);
+        DEV_MON_ERR("call dm_iam_init fail ret = %d.\n", ret);
         return ret;
     }
 #endif
@@ -1268,15 +1270,15 @@ int dsmi_udis_get_hbm_isolated_pages_info(int dev_id, unsigned char module_type,
     }
 
     get_info.module_type = UDIS_MODULE_MEMORY;
-    ret = udis_get_device_info((unsigned int)dev_id, &get_info);
+    ret = halUdisGetDeviceInfo((unsigned int)dev_id, &get_info);
     if (ret != 0) {
         return ret;
     }
 
     if (get_info.data_len != sizeof(struct dsmi_ecc_pages_stru)) {
-        DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. (dev_id=%u; module_type=%u; "
-                        "expected_len=%u; actual_len=%u)\n",
-                        dev_id, module_type, (unsigned int)sizeof(struct dsmi_ecc_pages_stru), get_info.data_len);
+        DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. "
+                        "(dev_id=%u; module_type=%u; data_len=%u; data_len_expected=%u)\n",
+                        dev_id, module_type, get_info.data_len, (unsigned int)sizeof(struct dsmi_ecc_pages_stru));
         return DRV_ERROR_INNER_ERR;
     }
 
@@ -1304,22 +1306,22 @@ int dsmi_udis_get_single_ecc_info(int dev_id, struct ecc_common_data *dsmi_ecc_c
         }
 
         get_info.module_type = UDIS_MODULE_MEMORY;
-        ret = udis_get_device_info((unsigned int)dev_id, &get_info);
+        ret = halUdisGetDeviceInfo((unsigned int)dev_id, &get_info);
         if (ret != 0) {
             DEV_MON_WARNING("udis get single ecc info fail:(ret:%d name:%s)\n", ret, get_info.name);
             return ret;
         }
 
-        if (get_info.data_len != sizeof(struct ecc_single_data_info) * SINGLE_ECC_INFO_BLOCK_NUMS) {
-            DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. (dev_id=%u; "
-                            "expected_len=%u; actual_len=%u)\n",
-                            dev_id, (unsigned int)(sizeof(struct ecc_single_data_info) * SINGLE_ECC_INFO_BLOCK_NUMS),
-                            get_info.data_len);
+        if (get_info.data_len != (unsigned int)(sizeof(struct ecc_single_data_info) * SINGLE_ECC_INFO_BLOCK_NUMS)) {
+            DEV_MON_WARNING("Expected data_len != actual data_len for single_ecc_info. "
+                            "(dev_id=%u; data_len=%u; data_len_expected=%u)\n",
+                            dev_id, get_info.data_len,
+                            (unsigned int)(sizeof(struct ecc_single_data_info) * SINGLE_ECC_INFO_BLOCK_NUMS));
             return DRV_ERROR_INNER_ERR;
         }
 
         ret = memcpy_s(&single_ecc_data[idx * SINGLE_ECC_INFO_BLOCK_NUMS],
-                       sizeof(struct ecc_single_data_info) * SINGLE_ECC_INFO_BLOCK_SIZE, get_info.data,
+                       (unsigned int)(sizeof(struct ecc_single_data_info) * SINGLE_ECC_INFO_BLOCK_SIZE), get_info.data,
                        get_info.data_len);
         if (ret != 0) {
             DEV_MON_WARNING("Memcpy to ecc_common_data not success. (dev_id=%u;)\n", dev_id);
@@ -1353,17 +1355,17 @@ int dsmi_udis_get_multi_ecc_info(int dev_id, struct ecc_common_data *dsmi_ecc_co
         }
 
         get_info.module_type = UDIS_MODULE_MEMORY;
-        ret = udis_get_device_info((unsigned int)dev_id, &get_info);
+        ret = halUdisGetDeviceInfo((unsigned int)dev_id, &get_info);
         if (ret != 0) {
             DEV_MON_WARNING("udis get device info failed: (dev_id=%u)\n", dev_id);
             return ret;
         }
 
-        if (get_info.data_len != sizeof(struct ecc_double_data_info) * DOUBLE_ECC_INFO_BLOCK_SIZE) {
-            DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. (dev_id=%u; "
-                            "expected_len=%u; actual_len=%u)\n",
-                            dev_id, (unsigned int)(sizeof(struct ecc_double_data_info) * DOUBLE_ECC_INFO_BLOCK_SIZE),
-                            get_info.data_len);
+        if (get_info.data_len != (unsigned int)(sizeof(struct ecc_double_data_info) * DOUBLE_ECC_INFO_BLOCK_SIZE)) {
+            DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. "
+                            "(dev_id=%u; data_len=%u; data_len_expected=%u)\n",
+                            dev_id, get_info.data_len,
+                            (unsigned int)(sizeof(struct ecc_double_data_info) * DOUBLE_ECC_INFO_BLOCK_SIZE));
             return DRV_ERROR_INNER_ERR;
         }
 
@@ -1380,10 +1382,45 @@ int dsmi_udis_get_multi_ecc_info(int dev_id, struct ecc_common_data *dsmi_ecc_co
         dsmi_ecc_common_data_s[idx].ecc_count = 0;
         dsmi_ecc_common_data_s[idx].physical_addr = double_ecc_data[idx].physical_addr;
         dsmi_ecc_common_data_s[idx].timestamp = double_ecc_data[idx].timer_stamp;
-        dsmi_ecc_common_data_s[idx].reg_addr_h = (uint32_t)(double_ecc_data[idx].row << HIGH_ADDR_COLUMN_BITS_COUNT) |
+        dsmi_ecc_common_data_s[idx].reg_addr_h = ((uint32_t)double_ecc_data[idx].row << HIGH_ADDR_COLUMN_BITS_COUNT) |
                                                  double_ecc_data[idx].column;
-        dsmi_ecc_common_data_s[idx].reg_addr_l = (uint32_t)(double_ecc_data[idx].rank << LOW_ADDR_RANK_BITS_OFFSET) |
+        dsmi_ecc_common_data_s[idx].reg_addr_l = ((uint32_t)double_ecc_data[idx].rank << LOW_ADDR_RANK_BITS_OFFSET) |
                                                  double_ecc_data[idx].bank;
+    }
+
+    return 0;
+}
+
+STATIC int dsmi_get_multi_ecc_time_block(int dev_id, int idx, struct udis_multi_ecc_time_data *multi_ecc_time_data)
+{
+    struct udis_dev_info get_info = {0};
+    int ret;
+
+    ret = sprintf_s(get_info.name, UDIS_MAX_NAME_LEN, "%s%d", "multi_time", idx);
+    if (ret < 0) {
+        DEV_MON_WARNING("sprintf to udis get_info.name failed. (dev_id=%u)\n", dev_id);
+        return DRV_ERROR_INVALID_HANDLE;
+    }
+
+    get_info.module_type = UDIS_MODULE_MEMORY;
+    ret = halUdisGetDeviceInfo((unsigned int)dev_id, &get_info);
+    if (ret != 0) {
+        return ret;
+    }
+
+    if (get_info.data_len != sizeof(unsigned int) * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE) {
+        DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. "
+                        "(dev_id=%u; data_len=%u; data_len_expected=%u)\n",
+                        dev_id, get_info.data_len,
+                        (unsigned int)(sizeof(unsigned int) * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE));
+        return DRV_ERROR_INNER_ERR;
+    }
+
+    ret = memcpy_s(&multi_ecc_time_data->multi_ecc_times[idx * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE],
+                   sizeof(unsigned int) * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE, get_info.data, get_info.data_len);
+    if (ret != 0) {
+        DEV_MON_WARNING("Memcpy to ecc_common_data not success. (dev_id=%u;)\n", dev_id);
+        return DRV_ERROR_INVALID_HANDLE;
     }
 
     return 0;
@@ -1396,31 +1433,9 @@ int dsmi_udis_multi_ecc_time_info(int dev_id, struct udis_multi_ecc_time_data *m
     int idx = 0;
 
     for (idx = 0; idx < DOUBLE_ECC_TIME_INFO_BLOCK_NUMS; idx++) {
-        ret = sprintf_s(get_info.name, UDIS_MAX_NAME_LEN, "%s%d", "multi_time", idx);
-        if (ret < 0) {
-            DEV_MON_WARNING("sprintf to udis get_info.name not success. (dev_id=%u;)\n", dev_id);
-            return DRV_ERROR_INVALID_HANDLE;
-        }
-
-        get_info.module_type = UDIS_MODULE_MEMORY;
-        ret = udis_get_device_info((unsigned int)dev_id, &get_info);
+        ret = dsmi_get_multi_ecc_time_block(dev_id, idx, multi_ecc_time_data);
         if (ret != 0) {
             return ret;
-        }
-
-        if (get_info.data_len != sizeof(unsigned int) * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE) {
-            DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. (dev_id=%u; "
-                            "expected_len=%u; actual_len=%u)\n",
-                            dev_id, (unsigned int)(sizeof(unsigned int) * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE),
-                            get_info.data_len);
-            return DRV_ERROR_INNER_ERR;
-        }
-
-        ret = memcpy_s(&multi_ecc_time_data->multi_ecc_times[idx * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE],
-                       sizeof(unsigned int) * DOUBLE_ECC_TIME_INFO_BLOCK_SIZE, get_info.data, get_info.data_len);
-        if (ret != 0) {
-            DEV_MON_WARNING("Memcpy to ecc_common_data not success. (dev_id=%u;)\n", dev_id);
-            return DRV_ERROR_INVALID_HANDLE;
         }
     }
     ret = sprintf_s(get_info.name, UDIS_MAX_NAME_LEN, "mul_ecc_cnt");
@@ -1430,15 +1445,15 @@ int dsmi_udis_multi_ecc_time_info(int dev_id, struct udis_multi_ecc_time_data *m
     }
 
     get_info.module_type = UDIS_MODULE_MEMORY;
-    ret = udis_get_device_info((unsigned int)dev_id, &get_info);
+    ret = halUdisGetDeviceInfo((unsigned int)dev_id, &get_info);
     if (ret != 0) {
         return ret;
     }
 
     if (get_info.data_len != sizeof(unsigned int)) {
-        DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. (dev_id=%u; expected_len=%u; "
-                        "actual_len=%u)\n",
-                        dev_id, (unsigned int)sizeof(unsigned int), get_info.data_len);
+        DEV_MON_WARNING("Expected data_len != actual data_len for isolated_pages_info. "
+                        "(dev_id=%u; data_len=%u; data_len_expected=%u)\n",
+                        dev_id, get_info.data_len, (unsigned int)sizeof(unsigned int));
         return DRV_ERROR_INNER_ERR;
     }
 

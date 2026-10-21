@@ -21,7 +21,8 @@ unsigned int dms_sensor_class_init_discrete(struct dms_sensor_object_cb *psensor
 }
 
 unsigned int dms_process_discrete_result_report(struct dms_node_sensor_cb *node_sensor_cb,
-    struct dms_sensor_object_cb *psensor_obj_cb, struct dms_sensor_event_data *pevent_data)
+                                                struct dms_sensor_object_cb *psensor_obj_cb,
+                                                struct dms_sensor_event_data *pevent_data)
 {
     /* Whether the sensor has a status change flag */
     int i;
@@ -29,14 +30,13 @@ unsigned int dms_process_discrete_result_report(struct dms_node_sensor_cb *node_
 
     for (i = 0; i < pevent_data->event_count; i++) {
         if (dms_check_sensor_data(psensor_obj_cb, pevent_data->sensor_data[i].current_value) != DRV_ERROR_NONE) {
-            dms_err("check sensor data fail. (sensor_name=%.*s; current_value=%d)\n",
-                DMS_SENSOR_DESCRIPT_LENGTH, psensor_obj_cb->sensor_object_cfg.sensor_name,
-                pevent_data->sensor_data[i].current_value);
+            dms_err("check sensor data fail. (sensor_name=%.*s; current_value=%d)\n", DMS_SENSOR_DESCRIPT_LENGTH,
+                    psensor_obj_cb->sensor_object_cfg.sensor_name, pevent_data->sensor_data[i].current_value);
             return DRV_ERROR_PARA_ERROR;
         }
         /* the event is mask */
         if (!dms_sensor_check_mask_enable(psensor_obj_cb->sensor_object_cfg.assert_event_mask,
-            pevent_data->sensor_data[i].current_value)) {
+                                          pevent_data->sensor_data[i].current_value)) {
             continue;
         }
         (void)sensor_add_event_to_list(&p_new_event_list, &pevent_data->sensor_data[i], psensor_obj_cb);

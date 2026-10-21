@@ -16,7 +16,7 @@
 #include "ka_kernel_def_pub.h"
 
 struct submodule_ops {
-    int (*init) (void);
+    int (*init)(void);
     void (*uninit)(void);
 };
 
@@ -36,7 +36,7 @@ STATIC int KA_MODULE_INIT init_fms_base(void)
 
     for (index = 0; index < table_size; index++) {
         ret = g_sub_table[index].init();
-        if  (ret != 0) {
+        if (ret != 0) {
             goto out;
         }
     }

@@ -15,7 +15,9 @@
 #define VIRTMNG_RES_CLOUD_V4_H
 
 #include "virtmnghost_ctrl.h"
+#include "virtmnghost_feature.h"
 
 int vmngh_res_init_cloud_v4(u32 devid, struct vmngh_ctrl_ops *ops);
+vmng_feature_bitmap_t vmngh_feature_init_cloud_v4(void);
 
 #endif

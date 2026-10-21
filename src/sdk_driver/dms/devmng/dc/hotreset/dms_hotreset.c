@@ -39,7 +39,7 @@
 #define DEVDRV_CLOUD_V2_BOARD_TYPE_OFFSET 4
 #define DEVDRV_CLOUD_V2_1DIE_TRAIN_PCIE_CARD 0x1
 #define DEVDRV_CLOUD_V2_1DIE_INFER_PCIE_CARD 0x2
-#define DEVDRV_CLOUD_V2_BIT7_MASK 0x80 /* 用于提取bit7的掩码 */
+#define DEVDRV_CLOUD_V2_BIT7_MASK 0x80 /* mask to extract bit7 */
 #endif
 
 STATIC struct hotreset_task_info *g_device_task_info[ASCEND_DEV_MAX_NUM] = {0};
@@ -166,7 +166,7 @@ static bool dms_is_910B_pcie_card(int dev_id, bool *isCard)
     dev_info = (struct devdrv_info *)dev_cb->dev_info;
     board_id = dev_info->board_id;
 
-    // 非910B
+    // non-910B
     if ((board_id & DEVDRV_CLOUD_V2_BIT7_MASK) != 0) {
         *isCard = false;
         return 0;
@@ -202,7 +202,7 @@ static int dms_is_910_A3(int dev_id, int *is_910_A3)
     dev_info = (struct devdrv_info *)dev_cb->dev_info;
     board_id = dev_info->board_id;
 
-    // 非910A3
+    // non-910A3
     if (((board_id & DEVDRV_CLOUD_V2_BIT7_MASK) >> DEVDRV_CLOUD_V2_BOARD_TYPE_MASK) != 1) {
         *is_910_A3 = 0;
         return 0;
@@ -236,14 +236,14 @@ int dms_power_check_phy_mach(unsigned int dev_id)
     }
 
 #ifdef ENABLE_BUILD_PRODUCT
-    // 910B 标卡在容器和虚拟机场景不支持复位
+    // 910B standard card does not support reset in container and VM scenarios
     ret = dms_is_910B_pcie_card(dev_id, &isCard);
     if (ret != 0) {
         dms_err("get board id failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return ret;
     }
 
-    // upgrade_tool 拦截910B 标卡非物理机热复位流程
+    // upgrade_tool intercepts non-physical-machine hot reset for 910B standard card
     if (isCard == true && host_flag != DEVDRV_HOST_PHY_MACH_FLAG) {
         dms_err("910_A2 Pcie card not phy mach not support hot_reset. (devid=%u; host_flag=0x%x)\n", dev_id, host_flag);
         return -EPERM;
@@ -256,7 +256,8 @@ int dms_power_check_phy_mach(unsigned int dev_id)
     }
 
     if (is_910_A3 == 1 && host_flag != DEVDRV_HOST_PHY_MACH_FLAG) {
-        dms_err("910_A3 not phy mach not support hot_reset. (devid=%u; host_flag=0x%x)\n", dev_id, host_flag);
+        dms_err("910_A3 is not on physical machine, does not support hot_reset. (devid=%u; host_flag=0x%x)\n", dev_id,
+                host_flag);
         return -EPERM;
     }
 #endif
@@ -295,7 +296,7 @@ STATIC int dms_power_check_all_phy_mach(void)
 
     dev_num = devdrv_manager_get_devnum();
     if (dev_num > ASCEND_DEV_MAX_NUM) {
-        dms_err("Get invalid device num. (dev_num=%u)\n", dev_num);
+        dms_err("Get invalid device num. (dev_num=%u; max=%u)\n", dev_num, ASCEND_DEV_MAX_NUM);
         return -EINVAL;
     }
     for (i = 0; i < dev_num; ++i) {
@@ -489,77 +490,6 @@ STATIC void dms_set_all_device_hotreset_excuting_flag(bool flag)
     ka_task_spin_unlock(&g_hotreset_executing_spinlock);
 }
 
-#ifdef CFG_FEATURE_SUPPORT_HOTRESET_AO_INFORM
-STATIC void dms_hotreset_one_dev_inform(void *feature, unsigned int dev_id)
-{
-    unsigned int in;
-    unsigned int out;
-    int ret;
-
-    in = dev_id;
-    ret = dms_send_msg_to_device_by_h2d(feature, (char *)&in, sizeof(unsigned int), (char *)&out, sizeof(unsigned int));
-    if (ret != 0) {
-        dms_err("Hotreset inform device failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
-        return;
-    }
-    dms_info("Hotreset inform device success. (dev_id=%u; ret=%d)\n", dev_id, ret);
-}
-
-static bool dms_pcie_card_check(unsigned int udevid)
-{
-    int ret;
-    unsigned long long product_type;
-
-    ret = soc_resmng_dev_get_key_value(udevid, "PRODUCT_TYPE", &product_type);
-    if (ret != 0) {
-        dms_err("Get product type failed. (dev_id=%u; ret=%d)\n", udevid, ret);
-        return false;
-    }
-    if (product_type == 0x3ULL) { /*0x3: pcie card*/
-        return true;
-    } else {
-        return false;
-    }
-}
-
-STATIC void dms_hotreset_dev_inform(void *feature, unsigned int dev_id)
-{
-    unsigned int udevid;
-    unsigned int i;
-    unsigned int dev_num;
-    int ret;
-
-    if (dev_id != DEVDRV_RESET_ALL_DEVICE_ID) {
-        ret = uda_devid_to_udevid(dev_id, &udevid);
-        if (ret != 0) {
-            dms_err("Failed to change devid to udevid. (dev_id=%u; ret=%d)\n", dev_id, ret);
-            return;
-        }
-        if ((!uda_is_pf_dev(udevid)) || (dms_pcie_card_check(udevid))) {
-            return;
-        }
-
-        dms_hotreset_one_dev_inform(feature, dev_id);
-        ka_system_msleep(DEVDRV_HOTRESET_INFORM_DELAY);
-        return;
-    }
-
-    dev_num = uda_get_dev_num();
-    for (i = 0; i < dev_num; i++) {
-        ret = uda_devid_to_udevid(i, &udevid);
-        if (ret != 0) {
-            dms_err("Failed to change devid to udevid. (dev_id=%u; ret=%d)\n", i, ret);
-            continue;
-        }
-        if ((!uda_is_pf_dev(udevid)) || (dms_pcie_card_check(udevid))) {
-            continue;
-        }
-        dms_hotreset_one_dev_inform(feature, i);
-    }
-    ka_system_msleep(DEVDRV_HOTRESET_INFORM_DELAY);
-}
-#endif
-
 STATIC int dms_power_set_all_hot_reset(void *feature)
 {
     int ret = 0;
@@ -599,11 +529,7 @@ STATIC int dms_power_set_all_hot_reset(void *feature)
     }
 #endif
 
-#ifdef CFG_FEATURE_SUPPORT_HOTRESET_AO_INFORM
-    dms_hotreset_dev_inform(feature, DEVDRV_RESET_ALL_DEVICE_ID);
-#endif
-
-    ret = devdrv_hot_reset_device(ALL_DEVICE_HOTRESET_FLAG);
+    ret = devdrv_hot_reset_device(0xffff); // all device hot reset flag: 0xffff
     if (ret != 0) {
         dms_err("Hotreset all devices failed. (ret=%d)\n", ret);
         devdrv_uda_all_dev_ctrl_hotreset_cancel(ASCEND_DEV_MAX_NUM);
@@ -616,6 +542,11 @@ ALL_DEV_HORESET_END:
 
 STATIC int dms_single_device_hotreset_excuting_check_set(unsigned int phy_id, unsigned int bro_phy_id)
 {
+    if ((phy_id >= ASCEND_DEV_MAX_NUM) || (bro_phy_id >= ASCEND_DEV_MAX_NUM)) {
+        dms_err("Invalid physical id. (phy_id=%u; bro_phy_id=%u)\n", phy_id, bro_phy_id);
+        return -EINVAL;
+    }
+
     ka_task_spin_lock(&g_hotreset_executing_spinlock);
     if (g_hotreset_executing_flag[phy_id] || g_hotreset_executing_flag[bro_phy_id]) {
         ka_task_spin_unlock(&g_hotreset_executing_spinlock);
@@ -632,6 +563,11 @@ STATIC int dms_single_device_hotreset_excuting_check_set(unsigned int phy_id, un
 
 STATIC void dms_set_single_device_hotreset_excuting_flag(unsigned int phy_id, unsigned int bro_phy_id, bool flag)
 {
+    if ((phy_id >= ASCEND_DEV_MAX_NUM) || (bro_phy_id >= ASCEND_DEV_MAX_NUM)) {
+        dms_err("Invalid physical id. (phy_id=%u; bro_phy_id=%u)\n", phy_id, bro_phy_id);
+        return;
+    }
+
     ka_task_spin_lock(&g_hotreset_executing_spinlock);
 
     g_hotreset_executing_flag[phy_id] = flag;
@@ -653,6 +589,11 @@ STATIC int dms_power_set_single_hot_reset(void *feature, unsigned int virt_id)
         return ret;
     }
 
+    if (phy_id >= ASCEND_DEV_MAX_NUM) {
+        dms_err("Invalid physical id. (phy_id=%u)\n", phy_id);
+        return -EINVAL;
+    }
+
     if (devdrv_manager_is_pf_device(phy_id)) {
         ret = dms_power_check_phy_mach(phy_id);
         if (ret != 0) {
@@ -666,6 +607,9 @@ STATIC int dms_power_set_single_hot_reset(void *feature, unsigned int virt_id)
     }
 
     if (devdrv_get_brother_udevid(phy_id, &bro_phy_id) != 0) {
+        bro_phy_id = phy_id;
+    } else if (bro_phy_id >= ASCEND_DEV_MAX_NUM) {
+        dms_err("Invalid brother physical id. (bro_phy_id=%u)\n", bro_phy_id);
         bro_phy_id = phy_id;
     }
 
@@ -688,10 +632,6 @@ STATIC int dms_power_set_single_hot_reset(void *feature, unsigned int virt_id)
             devdrv_uda_one_dev_ctrl_hotreset_cancel(phy_id);
             goto SINGLE_DEV_HOTRESET_END;
         }
-#endif
-
-#ifdef CFG_FEATURE_SUPPORT_HOTRESET_AO_INFORM
-        dms_hotreset_dev_inform(feature, virt_id);
 #endif
 
         ret = devdrv_hot_reset_device(phy_id);
@@ -772,7 +712,7 @@ int dms_hotreset_assmemble(void *feature, char *in, unsigned int in_len, char *o
     if (virt_id == DEVDRV_RESET_ALL_DEVICE_ID) {
         ret = dms_power_set_all_hot_reset(feature);
         if (ret) {
-            dms_err("Permission deny or devid is invalid. (dev_id=%d; ret=%d)\n", virt_id, ret);
+            dms_err("Set all device hotreset failed. (dev_id=%d; ret=%d)\n", virt_id, ret);
         }
         return ret;
     }
@@ -979,7 +919,7 @@ int dms_power_pcie_pre_reset_v1(void *feature, char *in, unsigned int in_len, ch
     if ((chip_type == HISI_CLOUD_V1) || (chip_type == HISI_CLOUD_V2)) {
         return 0;
     } else if ((chip_type == HISI_MINI_V2) || (chip_type == HISI_MINI_V3) || (chip_type == HISI_CLOUD_V4) ||
-               (chip_type == HISI_CLOUD_V5) || (chip_type == HISI_MINI_V4)) {
+               (chip_type == HISI_CLOUD_V5) || (chip_type == HISI_MINI_V4) || (chip_type == HISI_MINI_V5)) {
         ret = devdrv_uda_one_dev_ctrl_hotreset(udevid);
         if (ret != 0) {
             devdrv_drv_err("Call uda_dev_ctrl failed, (udevid=%u; ret=%d).\n", udevid, ret);
@@ -1011,13 +951,13 @@ int dms_power_hotreset_init(void)
 }
 DECLAER_FEATURE_AUTO_INIT(dms_power_hotreset_init, FEATURE_LOADER_STAGE_5);
 
-void dms_power_hotreset_exit(void)
+void dms_power_hotreset_uninit(void)
 {
     CALL_EXIT_MODULE(DMS_MODULE_BASIC_POWER_INFO);
     (void)dms_unregister_notifier(&dms_power_hotreset_notifier);
     dms_debug("Dms power hotreset exit success.\n");
 }
-DECLAER_FEATURE_AUTO_UNINIT(dms_power_hotreset_exit, FEATURE_LOADER_STAGE_5);
+DECLAER_FEATURE_AUTO_UNINIT(dms_power_hotreset_uninit, FEATURE_LOADER_STAGE_5);
 
 int dms_hotreset_task_init(unsigned int dev_id)
 {

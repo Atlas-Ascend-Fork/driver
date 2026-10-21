@@ -153,14 +153,15 @@ int dp_proc_mng_prof_start_fun(struct prof_sample_start_para *para)
     struct msprof_config *config = NULL;
 
     if (para == NULL) {
-        DP_PROC_MNG_INFO("Prof sample start para is NULL. \n");
+        DP_PROC_MNG_INFO("Para check completed. (para_is_null=%d)\n", (para == NULL));
         return DRV_ERROR_NONE;
     }
 
     (void)dp_proc_mng_get_fd(para->dev_id);
 
     if ((para->user_data == NULL) || (para->user_data_len < sizeof(struct msprof_config))) {
-        DP_PROC_MNG_INFO("Prof start para invalid value. (para->user_data_len=%u)\n", para->user_data_len);
+        DP_PROC_MNG_INFO("Para check completed, but value unexpected. (user_data_len=%u; expect_len=%u)\n",
+                         para->user_data_len, (u32)sizeof(struct msprof_config));
         return 0;
     }
     config = (struct msprof_config *)para->user_data;

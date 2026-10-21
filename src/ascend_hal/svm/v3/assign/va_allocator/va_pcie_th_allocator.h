@@ -12,9 +12,10 @@
 
 #include "svm_pub.h"
 
-int va_pcie_th_alloc(u32 devid, u64 align, u64 size, u64 *va);
-int va_pcie_th_free(u32 devid, u64 va, u64 size, u64 align);
+int va_pcie_th_alloc(u64 align, u64 size, u64 *va);
+int va_pcie_th_free(u64 va, u64 size, u64 align);
 
+int va_pcie_th_allocator_init(void);
 void va_pcie_th_allocator_uninit(void);
 
 #endif

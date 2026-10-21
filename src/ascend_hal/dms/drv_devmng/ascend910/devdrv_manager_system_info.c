@@ -13,6 +13,7 @@
 #include "ascend_hal.h"
 #include "dms_device_info.h"
 #include "dms_user_common.h"
+#include "ascend_inpackage_hal.h"
 #include "udis_user.h"
 #include "dms/dms_drv_internal.h"
 #include "devdrv_manager_run_info.h"
@@ -77,7 +78,7 @@ STATIC drvError_t drv_get_udis_cpu_topo(unsigned int dev_id, char *name, void *b
         DEVDRV_DRV_ERR("Failed to strcpy_s name. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return DRV_ERROR_INNER_ERR;
     }
-    ret = udis_get_device_info(dev_id, &udis_info);
+    ret = halUdisGetDeviceInfo(dev_id, &udis_info);
     if (ret != 0) {
         DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to get cpu topo. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return ret;

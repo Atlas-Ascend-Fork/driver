@@ -47,14 +47,14 @@ static int apm_sec_eh_dev_init(u32 udevid)
 
     ret = uda_udevid_to_mia_devid(udevid, &mia_para);
     if (ret != 0) {
-        apm_err("Device init failed. (udevid=%u)\n", udevid);
+        apm_err("Failed to get mia para. (udevid=%u)\n", udevid);
         return ret;
     }
 
     vm_id = vmngh_ctrl_get_vm_id(mia_para.phy_devid, mia_para.sub_devid + 1);
     if (vm_id < 0) {
         apm_err("Failed to get vm id. (udevid=%u; vm_id=%d)\n", udevid, vm_id);
-        return ret;
+        return -ENOSYS;
     }
 
     ret = apm_sec_eh_notice_device_vmid(mia_para.phy_devid, &mia_para, vm_id);
@@ -73,7 +73,7 @@ static void apm_sec_eh_dev_uninit(u32 udevid)
 
     ret = uda_udevid_to_mia_devid(udevid, &mia_para);
     if (ret != 0) {
-        apm_warn("Device uninit failed. (udevid=%u)\n", udevid);
+        apm_warn("Failed to get mia para. (udevid=%u)\n", udevid);
     }
 
     ret = apm_sec_eh_notice_device_vmid(mia_para.phy_devid, &mia_para, -1);

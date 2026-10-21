@@ -28,7 +28,7 @@
 struct log_info {
     void *buffer;
     u32 length;  // size of buffer
-    u32 buf_len;  // actual len of host log ringbuffer
+    u32 buf_len; // actual len of host log ringbuffer
 };
 
 STATIC int dms_get_kernel_log_from_logdrv(void *feature, char *in, unsigned int in_len, char *out, unsigned int out_len)
@@ -62,8 +62,8 @@ STATIC int dms_get_kernel_log_from_logdrv(void *feature, char *in, unsigned int 
 
 BEGIN_DMS_MODULE_DECLARATION(DMS_MODULE_LOG)
 BEGIN_FEATURE_COMMAND()
-ADD_FEATURE_COMMAND(DMS_MODULE_LOG, DMS_MAIN_CMD_LOG, DMS_SUBCMD_GET_LOG_INFO,
-                    NULL, NULL, DMS_SUPPORT_ROOT_ONLY, dms_get_kernel_log_from_logdrv)
+ADD_FEATURE_COMMAND(DMS_MODULE_LOG, DMS_MAIN_CMD_LOG, DMS_SUBCMD_GET_LOG_INFO, NULL, NULL, DMS_SUPPORT_ROOT_ONLY,
+                    dms_get_kernel_log_from_logdrv)
 END_FEATURE_COMMAND()
 END_MODULE_DECLARATION()
 

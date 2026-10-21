@@ -26,10 +26,9 @@
 
 #include "esched_ioctl.h"
 #include "esched_user_interface.h"
+#include "esched_feature.h"
+#include "esched_platform.h"
 
-#ifndef CFG_ENV_HOST
-#define ESCHED_MAX_PHY_DEV_NUM 4
-#endif
 #define ESCHED_CLOSE_MAX_SLEEP 10000 /* 10ms */
 
 static THREAD__ int32_t sched_dev_fd[ESCHED_DEV_NUM];
@@ -64,24 +63,6 @@ unsigned long long esched_get_cur_cpu_timestamp(void)
     return cur_tick;
 }
 
-STATIC bool esched_is_host_virtual_dev(unsigned int dev_id)
-{
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-#ifdef CFG_ENV_HOST
-    uint32_t host_id;
-    drvError_t ret = halGetHostID(&host_id);
-    if (ret != DRV_ERROR_NONE) {
-        sched_err("drv update host_id failed. (ret=%d)\n", ret);
-        return false;
-    }
-    if (dev_id == host_id) {
-        return true;
-    }
-#endif
-#endif
-    (void)dev_id;
-    return false;
-}
 int esched_device_check(unsigned int dev_id)
 {
     if ((dev_id >= ESCHED_LOGIC_DEV_NUM) && (!esched_is_host_virtual_dev(dev_id))) {
@@ -105,17 +86,17 @@ STATIC void esched_init_global_fork(unsigned int dev_id, int fd)
 }
 
 #ifndef EMU_ST
-STATIC int esched_open(const char *char_dev_name)
+int esched_open(const char *char_dev_name)
 {
     return open(char_dev_name, O_RDWR | O_NONBLOCK | O_CLOEXEC);
 }
 
-STATIC int esched_close(int fd)
+int esched_close(int fd)
 {
     return close(fd);
 }
 
-STATIC int esched_ioctl(int fd, uint32_t cmd, void *para)
+int esched_ioctl(int fd, uint32_t cmd, void *para)
 {
     return ioctl(fd, cmd, para);
 }
@@ -165,7 +146,8 @@ drvError_t halEschedRegisterFinishFunc(unsigned int grpId, unsigned int event_id
                                                           unsigned int subevent_id))
 {
     if ((grpId >= SCHED_MAX_GRP_NUM) || (event_id >= EVENT_MAX_NUM)) {
-        sched_err("The value of grpId or event_id is out of range. (grpId=%u; event_id=%u)\n", grpId, event_id);
+        sched_err("The value of grpId or event_id is out of range. (grpId=%u; max=%u; event_id=%u; max=%u)\n", grpId,
+                  (SCHED_MAX_GRP_NUM - 1), event_id, (EVENT_MAX_NUM - 1));
         return DRV_ERROR_SCHED_PARA_ERR;
     }
 
@@ -179,7 +161,8 @@ drvError_t esched_register_finish_func_ex(unsigned int grp_id, unsigned int even
                                                               esched_event_info event_info))
 {
     if ((grp_id >= SCHED_MAX_GRP_NUM) || (event_id >= EVENT_MAX_NUM)) {
-        sched_err("The value of grp_id or event_id is out of range. (grp_id=%u; event_id=%u)\n", grp_id, event_id);
+        sched_err("The value of grp_id or event_id is out of range. (grp_id=%u; max=%u; event_id=%u; max=%u)\n", grp_id,
+                  (SCHED_MAX_GRP_NUM - 1), event_id, (EVENT_MAX_NUM - 1));
         return DRV_ERROR_SCHED_PARA_ERR;
     }
 
@@ -415,7 +398,8 @@ drvError_t register_esched_trace_record_func(unsigned int grp_id, unsigned int e
                                                                  sched_trace_time_info *sched_trace_time_info))
 {
     if ((grp_id >= SCHED_MAX_GRP_NUM) || (event_id >= EVENT_MAX_NUM)) {
-        sched_err("The value of grp_id or event_id is out of range. (grp_id=%u; event_id=%u)\n", grp_id, event_id);
+        sched_err("The value of grp_id or event_id is out of range. (grp_id=%u; max=%u; event_id=%u; max=%u)\n", grp_id,
+                  (SCHED_MAX_GRP_NUM - 1), event_id, (EVENT_MAX_NUM - 1));
         return DRV_ERROR_SCHED_PARA_ERR;
     }
 
@@ -525,9 +509,49 @@ void esched_uninit_all_fd(void)
 
 #endif
 
-STATIC int32_t esched_dev_init(unsigned int dev_id)
+STATIC int32_t esched_dev_init_locked(unsigned int dev_id, int fd)
 {
-    int32_t ret = 0;
+    int32_t ret;
+
+#ifdef CFG_FEATURE_EXTERNAL_CDEV
+    ret = esched_ex_dev_open(dev_id, fd);
+    if (ret != 0) {
+        esched_close(fd);
+        return ret;
+    }
+#endif
+
+    ret = esched_dev_feature_init_all(fd);
+    if (ret != DRV_ERROR_NONE) {
+        sched_err("Failed to init device features.(dev_id=%u)\n", dev_id);
+#ifdef CFG_FEATURE_EXTERNAL_CDEV
+        esched_ex_dev_close(dev_id, fd);
+#endif
+        (void)esched_close(fd);
+        return ret;
+    }
+
+    ret = esched_init_sched_cpu_num(dev_id, fd);
+    if (ret != 0) {
+        sched_err("Failed to init sched cpu num.(dev_id=%u)\n", dev_id);
+#ifdef CFG_FEATURE_EXTERNAL_CDEV
+        esched_ex_dev_close(dev_id, fd);
+#endif
+        (void)esched_close(fd);
+        return ret;
+    }
+
+#ifdef CFG_FEATURE_EXTERNAL_CDEV
+    sched_dev_fd[dev_id] = fd;
+#else
+    esched_init_all_fd(fd);
+#endif
+    return DRV_ERROR_NONE;
+}
+
+int32_t esched_dev_init(unsigned int dev_id)
+{
+    int32_t ret;
     int fd;
 
     if (esched_device_check(dev_id) != 0) {
@@ -553,32 +577,7 @@ STATIC int32_t esched_dev_init(unsigned int dev_id)
         return DRV_ERROR_INVALID_DEVICE;
     }
 
-#ifdef CFG_FEATURE_EXTERNAL_CDEV
-    ret = esched_ex_dev_open(dev_id, fd);
-    if (ret != 0) {
-        (void)pthread_mutex_unlock(&g_esched_init_mutex);
-        esched_close(fd);
-        return ret;
-    }
-#endif
-
-    ret = esched_init_sched_cpu_num(dev_id, fd);
-    if (ret != 0) {
-        sched_err("Failed to init sched cpu num.(dev_id=%u)\n", dev_id);
-        (void)pthread_mutex_unlock(&g_esched_init_mutex);
-#ifdef CFG_FEATURE_EXTERNAL_CDEV
-        esched_ex_dev_close(dev_id, fd);
-#endif
-        (void)esched_close(fd);
-        return ret;
-    }
-
-#ifdef CFG_FEATURE_EXTERNAL_CDEV
-    sched_dev_fd[dev_id] = fd;
-#else
-    esched_init_all_fd(fd);
-#endif
-
+    ret = esched_dev_init_locked(dev_id, fd);
     (void)pthread_mutex_unlock(&g_esched_init_mutex);
     return ret;
 }
@@ -636,11 +635,6 @@ drvError_t halEschedAttachDevice(uint32_t devId)
 {
     struct sched_ioctl_para_attach para_attach;
     int ret;
-    if (esched_device_check(devId) != 0) {
-        sched_err("devId is invalid. (devId=%u; max=%u)\n", devId, ESCHED_LOGIC_DEV_NUM);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, ESCHED_LOGIC_DEV_NUM);
-        return DRV_ERROR_PARA_ERROR;
-    }
     ret = esched_attach_device_inner(devId, &para_attach);
     if (ret == DRV_ERROR_NONE) {
         (void)pthread_once(&esched_thread_key_init, esched_create_thread_key_once);
@@ -994,8 +988,8 @@ drvError_t halEschedRegisterAckFunc(unsigned int grpId, EVENT_ID eventId,
     }
 
     if ((grpId >= SCHED_MAX_GRP_NUM) || (eventId >= EVENT_MAX_NUM)) {
-        sched_err("The value of grpId or event_id is out of range. (grpId=%u; event_id=%u)\n", grpId,
-                  (unsigned int)eventId);
+        sched_err("The value of grpId or event_id is out of range. (grpId=%u; max=%u; event_id=%u; max=%u)\n", grpId,
+                  (SCHED_MAX_GRP_NUM - 1), (unsigned int)eventId, (EVENT_MAX_NUM - 1));
         return DRV_ERROR_SCHED_PARA_ERR;
     }
 
@@ -1149,7 +1143,6 @@ drvError_t halEschedCreateGrp(uint32_t devId, uint32_t grpId, GROUP_TYPE type)
 
     if (esched_device_check(devId) != 0) {
         sched_err("devId is invalid.(devId=%u;max=%u;)\n", devId, ESCHED_LOGIC_DEV_NUM);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, ESCHED_LOGIC_DEV_NUM);
         return DRV_ERROR_PARA_ERROR;
     }
     if (grpId >= SCHED_MAX_DEFAULT_GRP_NUM) {
@@ -1223,12 +1216,11 @@ drvError_t halEschedQueryInfo(unsigned int devId, ESCHED_QUERY_TYPE type, struct
     struct sched_ioctl_para_query_info para;
     if (esched_device_check(devId) != 0) {
         sched_err("Invalid para.(devId=%u,maxId=%u)\n", devId, ESCHED_LOGIC_DEV_NUM);
-        report_arg_out_of_range(__FUNCTION__, "device ID", devId, 0, ESCHED_LOGIC_DEV_NUM);
         return DRV_ERROR_PARA_ERROR;
     }
     if (type >= QUERY_TYPE_MAX) {
         sched_err("Invalid para.(type=%u)\n", type);
-        report_arg_out_of_range(__FUNCTION__, "type", type, 0, QUERY_TYPE_MAX);
+        report_enum_arg_out_of_range(__FUNCTION__, "type", type, ESCHED_QUERY_TYPE_NAME);
         return DRV_ERROR_PARA_ERROR;
     }
     if (inPut == NULL) {
@@ -1285,7 +1277,7 @@ drvError_t halEschedQueryInfoEx(unsigned int devId, unsigned int dstDevId, ESCHE
 drvError_t esched_query_grp_type(uint32_t dev_id, uint32_t grp_id, GROUP_TYPE *type)
 {
     if ((esched_device_check(dev_id) != 0) || (grp_id >= SCHED_MAX_GRP_NUM)) {
-        sched_err("The dev_id or grp_id is invalid. (dev_id=%u; dev_id_max=%u; grp_id=%u; grp_id_max=%u)\n", dev_id,
+        sched_err("The dev_id or grp_id is invalid. (dev_id=%u; max=%u; grp_id=%u; max=%u)\n", dev_id,
                   ESCHED_LOGIC_DEV_NUM, grp_id, SCHED_MAX_GRP_NUM);
         return DRV_ERROR_PARA_ERROR;
     }
@@ -1319,84 +1311,6 @@ drvError_t halEschedSetEventPriority(uint32_t devId, EVENT_ID eventId, SCHEDULE_
 
     return esched_dev_ioctl(devId, SCHED_SET_EVENT_PRIORITY_ID, &para);
 }
-
-#ifndef CFG_ENV_HOST
-STATIC void esched_init_cpu_mask(struct sched_sched_cpu_mask *cpu_mask)
-{
-    unsigned int i;
-
-    for (i = 0; i < SCHED_MASK_NUM; i++) {
-        cpu_mask->mask[i] = 0;
-    }
-}
-
-STATIC int32_t esched_set_sched_cpu_mask(unsigned long long *mask, unsigned int sched_cpu_start,
-                                         unsigned int sched_cpu_num)
-{
-    unsigned int i;
-
-    if ((sched_cpu_start + sched_cpu_num) > SCHED_MASK_BIT_NUM) {
-        sched_err("Invalid para. (sched_cpu_start=%u; sched_cpu_num=%u)\n", sched_cpu_start, sched_cpu_num);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    for (i = 0; i < sched_cpu_num; i++) {
-        *mask |= (0x1ULL << (i + sched_cpu_start));
-    }
-
-    return 0;
-}
-
-int32_t esched_init_device_sched_cpu_num(unsigned int dev_id, int fd)
-{
-    struct sched_ioctl_para_cpu_info cpu_para;
-    drvCpuInfo_t cpu_info = {0};
-    uint32_t i, sched_cpu_start, sched_cpu_num;
-    drvError_t ret;
-
-    if (dev_id >= ESCHED_MAX_PHY_DEV_NUM) {
-        return DRV_ERROR_NONE;
-    }
-
-    sched_cpu_start = 0;
-    for (i = 0; i <= dev_id; i++) {
-        ret = drvGetCpuInfo(i, &cpu_info);
-        if (ret != DRV_ERROR_NONE) {
-            sched_err("Failed to invoke the drvGetCpuInfo. (dev=%u; ret=%d)\n", dev_id, (int)ret);
-            return (int)DRV_ERROR_SCHED_INNER_ERR;
-        }
-
-        if (cpu_info.ccpu_os_sched != 0) {
-            sched_cpu_start += cpu_info.ccpu_num;
-        }
-        if (cpu_info.dcpu_os_sched != 0) {
-            sched_cpu_start += cpu_info.dcpu_num;
-        }
-
-        if (i < dev_id) {
-            sched_cpu_start += cpu_info.aicpu_num;
-            sched_cpu_start += cpu_info.comcpu_num;
-        } else {
-            sched_cpu_num = cpu_info.aicpu_num + cpu_info.comcpu_num;
-        }
-    }
-
-    cpu_para.dev_id = dev_id;
-    esched_init_cpu_mask(&cpu_para.cpu_mask);
-    ret = esched_set_sched_cpu_mask(&cpu_para.cpu_mask.mask[0], sched_cpu_start, sched_cpu_num);
-    if (ret != DRV_ERROR_NONE) {
-        return ret;
-    }
-
-    ret = esched_ioctl(fd, SCHED_SET_SCHED_CPU_ID, &cpu_para);
-    if (ret != DRV_ERROR_NONE) {
-        sched_err("Failed to invoke the esched_dev_ioctl. (ret=%d)\n", (int)ret);
-        return (int)ret;
-    }
-
-    return 0;
-}
-#endif
 
 drvError_t halEschedDumpEventTrace(uint32_t devId, char *buff, uint32_t buffLen, uint32_t *dataLen)
 {
@@ -1619,29 +1533,3 @@ STATIC void __attribute__((destructor)) esched_exit(void)
     }
     esched_share_log_destroy();
 }
-
-#if defined(CFG_ENV_HOST) && !defined(CFG_SOC_PLATFORM_CLOUD_V4)
-/* The upper layer of milan obp does not distinguish between host and dev. The obj of the drvevent module is not linked
-   on the host side.Therefore, symbol halEventProc,halDrvEventThreadInit,halDrvEventThreadUninit are provided on the
-   host side for stubging. */
-#ifndef EMU_ST
-drvError_t halEventProc(unsigned int devId, struct event_info *event)
-{
-    (void)devId;
-    (void)event;
-    return DRV_ERROR_NOT_SUPPORT;
-}
-
-drvError_t halDrvEventThreadInit(unsigned int devId)
-{
-    (void)devId;
-    return DRV_ERROR_NOT_SUPPORT;
-}
-
-drvError_t halDrvEventThreadUninit(unsigned int devId)
-{
-    (void)devId;
-    return DRV_ERROR_NOT_SUPPORT;
-}
-#endif
-#endif

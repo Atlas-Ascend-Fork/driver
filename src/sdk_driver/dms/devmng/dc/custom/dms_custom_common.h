@@ -57,8 +57,8 @@ int dms_save_sign_flag_to_file(unsigned int device_id, char *buffer, unsigned in
 int dms_save_sign_cert_to_file(unsigned int device_id, unsigned int sub_cmd, char *buffer, unsigned int buff_size);
 int dms_custom_get_file_name(unsigned int dev_id, unsigned int sub_cmd, char *file_name);
 int dms_custom_is_file_exist(const char *file_name, int *is_exist);
-int dms_custom_get_file_size(const char *file_name,  unsigned long long *file_size);
-int dms_custom_read_file(const char *file_name, char *buf,  unsigned int size);
+int dms_custom_get_file_size(const char *file_name, unsigned long long *file_size);
+int dms_custom_read_file(const char *file_name, char *buf, unsigned int size);
 int dms_sign_write_file(char *file_path, char *buffer, int size);
 int create_dir_recursive(const char *path);
 int search_key_and_get_value(char *buff, const char *split, const char *key, char *value, int len);

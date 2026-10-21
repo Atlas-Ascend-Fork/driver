@@ -100,7 +100,7 @@ void free_node(enum dvpp_sqe_type mod_type, enum mem_node_type node_type, uint32
 
     // 内存池未初始化，报错返回
     if (mod_mem_pool->is_inited == 0) {
-        DVPP_CMDLIST_LOG_ERROR("mem_pool[%u] is not inited\n", pool_id);
+        DVPP_CMDLIST_LOG_ERROR("mem_pool[%u] not be inited\n", pool_id);
         return;
     }
 

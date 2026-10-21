@@ -151,7 +151,7 @@ STATIC int dms_set_stl_running_status(unsigned int dev_id, unsigned int sub_cmd,
         if (ret == DRV_ERROR_NOT_SUPPORT) {
             DMS_INFO("STL set running status is not supported.\n");
         } else if (ret == DRV_ERROR_UNINIT) {
-            DMS_ERR("STL not bind.\n");
+            DMS_ERR("STL is not bound.\n");
         } else if (ret == DRV_ERROR_BUSY) {
             DMS_WARN("STL start repeat.\n");
         } else {
@@ -186,7 +186,8 @@ int dms_get_ts_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd
     unsigned int table_size = sizeof(g_get_ts_info_table) / sizeof(g_get_ts_info_table[0]);
 
     if (sub_cmd >= DSMI_TS_SUB_CMD_MAX) {
-        DMS_ERR("Sub_cmd is invalid. (dev_id=%u; vfid=%u; sub_cmd=%u)\n", dev_id, vfid, sub_cmd);
+        DMS_ERR("Sub_cmd is invalid. (dev_id=%u; vfid=%u; sub_cmd=%u; max=%u)\n", dev_id, vfid, sub_cmd,
+                DSMI_TS_SUB_CMD_MAX);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -229,6 +230,12 @@ int dms_get_ts_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd
             if (ret != 0) {
                 DMS_ERR("Get STL status failed. (dev_id=%u; vfid=%u; ret=%d)\n", dev_id, vfid, ret);
                 return ret;
+            }
+            break;
+        case DSMI_TS_SUB_CMD_STREAM_AVAILABLE:
+            ret = DmsGetDeviceInfoExV2(dev_id, DSMI_MAIN_CMD_TS, sub_cmd, out_buf, size);
+            if (ret != 0) {
+                DEV_MON_EX_NOTSUPPORT_ERR(ret, "Get ts stream available failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
             }
             break;
         default:
@@ -339,7 +346,7 @@ static unsigned int dms_calculate_average_utilization(unsigned char *core_util, 
             return value;
         } else if (core_util[i] > 100) { /* 100: Utilization can never over 100% */
             invalid_count++;
-            DMS_WARN("The utilization of core is more than 100%%. (core=%u)\n", i);
+            DMS_WARN("The utilization of core %u is more than 100%%.\n", i);
             continue;
         } else {
             sum_utl += core_util[i];
@@ -376,7 +383,8 @@ int dms_get_average_util_from_ts(unsigned int dev_id, unsigned int vfid, unsigne
     }
 #else
     if ((dev_id >= DEVDRV_MANGER_MAX_DEVICE_NUM) || (value == NULL)) {
-        DMS_ERR("Invalid dev_id or value. (devid=%u)\n", dev_id);
+        DMS_ERR("Invalid dev_id or value. (devid=%u; max=%u; value_is_NULL=%d)\n", dev_id, DEVDRV_MANGER_MAX_DEVICE_NUM,
+                (value == NULL));
         return DRV_ERROR_INVALID_VALUE;
     }
 #endif
@@ -432,7 +440,8 @@ drvError_t DmsDeviceInitStatus(unsigned int dev_id, unsigned int *status)
     int ret;
 
     if ((dev_id >= ASCEND_DEV_MAX_NUM) || (status == NULL)) {
-        DMS_ERR("Invalid dev_id or value. (devid=%u)\n", dev_id);
+        DMS_ERR("Invalid dev_id or value. (devid=%u; max=%u; status_is_NULL=%d)\n", dev_id, ASCEND_DEV_MAX_NUM,
+                (status == NULL));
         return DRV_ERROR_INVALID_VALUE;
     }
 

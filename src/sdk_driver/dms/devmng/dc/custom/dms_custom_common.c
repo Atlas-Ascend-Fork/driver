@@ -25,7 +25,8 @@ int dms_save_sign_flag_to_file(unsigned int device_id, char *buffer, unsigned in
     int ret;
     char dst_path[CUSTOM_SIGN_CONF_FILE_PATH_MAX] = {0};
 
-    ret = snprintf_s(dst_path, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1, CUSTOM_SIGN_CONF_FLAG_PATH, device_id);
+    ret = snprintf_s(dst_path, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1,
+                     CUSTOM_SIGN_CONF_FLAG_PATH, device_id);
     if (ret < 0) {
         dms_err("Failed to invoke snprintf_s. (device_id=%u; ret=%d).\n", device_id, ret);
         return -EINVAL;
@@ -61,15 +62,18 @@ int dms_save_sign_cert_to_file(unsigned int device_id, unsigned int sub_cmd, cha
 int dms_custom_get_file_name(unsigned int dev_id, unsigned int sub_cmd, char *file_name)
 {
     int ret;
-    switch(sub_cmd) {
+    switch (sub_cmd) {
         case DSMI_SEC_SUB_CMD_CUST_SIGN_VENDOR_CERT:
-            ret = snprintf_s(file_name, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1, CUSTOM_SIGN_CONF_VENDOR_CERT_PATH, dev_id);
+            ret = snprintf_s(file_name, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1,
+                             CUSTOM_SIGN_CONF_VENDOR_CERT_PATH, dev_id);
             break;
         case DSMI_SEC_SUB_CMD_CUST_SIGN_USER_CERT:
-            ret = snprintf_s(file_name, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1, CUSTOM_SIGN_CONF_USER_CERT_PATH, dev_id);
-            break; 
+            ret = snprintf_s(file_name, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1,
+                             CUSTOM_SIGN_CONF_USER_CERT_PATH, dev_id);
+            break;
         case DSMI_SEC_SUB_CMD_CUST_SIGN_CMTY_CERT:
-            ret = snprintf_s(file_name, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1, CUSTOM_SIGN_CONF_CMTY_CERT_PATH, dev_id);
+            ret = snprintf_s(file_name, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FILE_PATH_MAX - 1,
+                             CUSTOM_SIGN_CONF_CMTY_CERT_PATH, dev_id);
             break;
         default:
             dms_err("File type invalid. (dev_id=%u; sub_cmd=%u)\n", dev_id, sub_cmd);
@@ -100,17 +104,17 @@ int dms_custom_is_file_exist(const char *file_name, int *is_exist)
     return 0;
 }
 
-int dms_custom_get_file_size(const char *file_name,  unsigned long long *file_size)
+int dms_custom_get_file_size(const char *file_name, unsigned long long *file_size)
 {
     ka_file_t *filp = NULL;
- 
+
     /* the file may not exist, so print warning */
     filp = ka_fs_filp_open(file_name, KA_O_RDONLY, 0);
     if (KA_IS_ERR_OR_NULL(filp)) {
         dms_err("Unable to open file. (file_name=%s; errno=%ld)\n", file_name, KA_PTR_ERR(filp));
         return (int)KA_PTR_ERR(filp);
     }
- 
+
     /* get file total length */
     if (filp->f_inode == NULL) {
         (void)ka_fs_filp_close(filp, NULL);
@@ -118,19 +122,19 @@ int dms_custom_get_file_size(const char *file_name,  unsigned long long *file_si
         dms_err("File inode is NULL.\n");
         return -ENOENT;
     }
- 
+
     *file_size = (unsigned long long)filp->f_inode->i_size;
     (void)ka_fs_filp_close(filp, NULL);
     filp = NULL;
     return 0;
 }
 
-int dms_custom_read_file(const char *file_name, char *buf,  unsigned int size)
+int dms_custom_read_file(const char *file_name, char *buf, unsigned int size)
 {
     ka_file_t *filp = NULL;
     loff_t offset_tmp = 0;
     ssize_t result;
- 
+
     filp = ka_fs_filp_open(file_name, KA_O_RDONLY, 0);
     if (KA_IS_ERR_OR_NULL(filp)) {
         dms_err("Unable to open file. (file_name=%s; errno=%ld)\n", file_name, KA_PTR_ERR(filp));
@@ -144,7 +148,7 @@ int dms_custom_read_file(const char *file_name, char *buf,  unsigned int size)
         filp = NULL;
         return -EINVAL;
     }
- 
+
     (void)ka_fs_filp_close(filp, NULL);
     filp = NULL;
     return 0;
@@ -162,19 +166,19 @@ int dms_sign_write_file(char *file_path, char *buffer, int size)
         ret = (int)KA_PTR_ERR(filp);
         if (ret != -ENOENT) {
             dms_err("Unable to open file. (file_name=%s; err=%ld)\n", file_path, KA_PTR_ERR(filp));
-        }   
+        }
         return ret;
     }
 
     rw_len = ka_fs_kernel_write(filp, buffer, size, &offset_tmp);
     (void)ka_fs_filp_close(filp, NULL);
     filp = NULL;
- 
+
     if (rw_len != size) {
         dms_err("File write failed. (file_name=%s; rw_len=%d; w_len=%d)\n", file_path, rw_len, size);
         return -EINVAL;
     }
- 
+
     return 0;
 }
 
@@ -185,7 +189,7 @@ int search_key_and_get_value(char *buff, const char *split, const char *key, cha
     char *p_save = NULL;
 
     if (len <= 0 || len > CUSTOM_SIGN_CONF_VALLUE_MAX_LEN) {
-        dms_err("The variable len is invalid. (len=%d)\n", len);
+        dms_err("The variable len is invalid. (len=%d; valid range=(0,%d])\n", len, CUSTOM_SIGN_CONF_VALLUE_MAX_LEN);
         return -EINVAL;
     }
 
@@ -201,7 +205,7 @@ int search_key_and_get_value(char *buff, const char *split, const char *key, cha
         return -EINVAL;
     }
     /* Take the first part of the separator. */
-    left  = strtok_s(buff, split, &p_save);
+    left = strtok_s(buff, split, &p_save);
     if (left == NULL) {
         return -EINVAL;
     }

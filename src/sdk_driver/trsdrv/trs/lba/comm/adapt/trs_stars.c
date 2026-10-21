@@ -453,8 +453,14 @@ int trs_stars_get_valid_cq_list(struct trs_id_inst *inst, u32 group, u32 cqid[],
 int trs_stars_get_cq_affinity_group(struct trs_id_inst *inst, u32 cq_id, u32 *group)
 {
     struct trs_stars *stars = trs_stars_get(inst, TRS_STARS_CQINT);
+
     if (stars == NULL) {
         return -ENODEV;
+    }
+
+    if ((stars->cq_grp_num == 0) || (stars->cq_num < stars->cq_grp_num)) {
+        trs_stars_put(stars);
+        return -EINVAL;
     }
 
     *group = cq_id / (stars->cq_num / stars->cq_grp_num);
@@ -679,6 +685,12 @@ int trs_stars_init(struct trs_id_inst *inst, int type, struct trs_stars_attr *at
 {
     struct trs_stars *stars = NULL;
     int ret;
+
+    if ((type == TRS_STARS_CQINT) && ((attr->cq_grp_num == 0) || (attr->cq_num < attr->cq_grp_num))) {
+        trs_err("Invalid cq group config. (devid=%u; tsid=%u; cq_num=%u; cq_grp_num=%u)\n", inst->devid, inst->tsid,
+                attr->cq_num, attr->cq_grp_num);
+        return -EINVAL;
+    }
 
     stars = trs_stars_create(inst, type, attr);
     if (stars == NULL) {

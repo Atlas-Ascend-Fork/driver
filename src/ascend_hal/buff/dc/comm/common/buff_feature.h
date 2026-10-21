@@ -19,10 +19,15 @@
 extern "C" {
 #endif
 
-#define BUFF_FEATURE_NUM 64
-
 drvError_t buff_dev_feature_init_all(void);
 bool buff_has_dev_feature(unsigned int dev_id, unsigned int feature_id);
+
+/*
+ * Version-package feature interface.
+ * Query whether a drvFeature_t is supported by the current driver version package.
+ * Mapping entries are defined in buff_feature.c (g_buff_feature_map[]).
+ */
+bool buff_has_ver_feature(unsigned int dev_id, drvFeature_t feature);
 
 #ifdef __cplusplus
 }

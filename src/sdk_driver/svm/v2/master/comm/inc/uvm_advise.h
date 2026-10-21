@@ -18,7 +18,9 @@
 
 #define INVALID_NUMA (-1)
 
-int devmm_uvm_ioctl_advise(struct devmm_svm_process *svm_pro, struct devmm_ioctl_arg *arg);
-int devmm_uvm_ioctl_get_mem_range_attributes(struct devmm_svm_process *svm_pro, struct devmm_ioctl_arg *arg);
-int uvm_check_and_get_advise_id(int type, int id, bool numaEnable);
+int devmm_uvm_ioctl_advise(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg);
+int devmm_uvm_ioctl_get_mem_range_attributes(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg);
+int uvm_check_location(int type, int id, bool numaEnable);
+int uvm_prealloc_one_page_device(struct devmm_svm_process *svm_proc, struct uvm_page_info *page_info, u16 dev_id,
+                                 u64 *out_dev_pa);
 #endif /* UVM_ADVISE_H */

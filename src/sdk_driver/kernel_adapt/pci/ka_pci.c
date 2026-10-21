@@ -186,7 +186,11 @@ EXPORT_SYMBOL_GPL(ka_pci_get_pdev_device);
 #ifdef CONFIG_PCIEAER
 u16 ka_pci_get_aer_cap(ka_pci_dev_t *pdev)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
     return pdev->aer_cap;
+#else
+    return 0;
+#endif
 }
 EXPORT_SYMBOL_GPL(ka_pci_get_aer_cap);
 #endif
@@ -258,10 +262,12 @@ EXPORT_SYMBOL_GPL(ka_pci_iommu_get_domain_for_dev);
 
 u32 ka_pci_get_dev_iommu_fwspec_ids0(ka_device_t *dev)
 {
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
+    return dev->iommu->fwspec->ids[0];
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
     return dev->iommu_fwspec->ids[0];
 #else
-    return dev->iommu->fwspec->ids[0];
+    return 0;
 #endif
 }
 EXPORT_SYMBOL_GPL(ka_pci_get_dev_iommu_fwspec_ids0);

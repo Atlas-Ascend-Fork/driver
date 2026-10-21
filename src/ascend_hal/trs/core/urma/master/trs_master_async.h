@@ -18,15 +18,17 @@ struct trs_async_devid {
     uint32_t dst_devid;
     uint32_t local_devid;
     uint32_t remote_devid;
+    trs_d2d_index_t d2d_index;
 };
 
 static inline void trs_pack_async_devid(uint32_t local_devid, uint32_t src_devid, uint32_t dst_devid,
-                                        struct trs_async_devid *async_devid)
+                                        trs_d2d_index_t d2d_index, struct trs_async_devid *async_devid)
 {
     async_devid->local_devid = local_devid;
     async_devid->remote_devid = (src_devid == local_devid) ? dst_devid : src_devid;
     async_devid->src_devid = src_devid;
     async_devid->dst_devid = dst_devid;
+    async_devid->d2d_index = d2d_index;
 }
 
 drvError_t trs_async_dma_wqe_create(uint32_t dev_id, struct trs_async_dma_input_para *in,

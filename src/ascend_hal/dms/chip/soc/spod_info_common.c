@@ -12,13 +12,12 @@
 #include "ascend_hal.h"
 #include "dms_user_common.h"
 
-#define BITS_PER_INT       32
+#define BITS_PER_INT 32U
 static inline void parse_bit_shift(unsigned int *rcv, unsigned int *src, unsigned int bit_width)
 {
     *rcv = (*src) & (~(0U) >> (BITS_PER_INT - bit_width));
     (*src) >>= bit_width;
 }
-
 
 /* SDID total 32 bits, low to high: */
 #define UDEVID_BIT_LEN 16

@@ -13,8 +13,18 @@ add_library(eventsched_obj OBJECT)
 target_sources(eventsched_obj PRIVATE
     comm/event_sched_app.c
     comm/event_sched.c
+    comm/esched_feature.c
     esched_adapt.c
+    esched_host_adapt.c
 )
+
+# The apm module providing halQueryMasterPidByDeviceSlave is only built for ascend950,
+# so a stub is compiled in for other products to keep the link resolvable.
+if (NOT ${PRODUCT} STREQUAL ascend950)
+target_sources(eventsched_obj PRIVATE
+    esched_host_adapt_before_v4.c
+)
+endif ()
 
 if (${PRODUCT} STREQUAL ascend950)
     if( ${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL aarch64)

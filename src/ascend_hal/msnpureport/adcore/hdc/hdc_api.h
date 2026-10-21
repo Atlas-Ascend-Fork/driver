@@ -101,6 +101,18 @@ int32_t HdcWrite(HDC_SESSION session, IdeSendBuffT buf, int32_t len);
 int32_t HdcWriteNb(HDC_SESSION session, IdeSendBuffT buf, int32_t len);
 
 /**
+ * @brief Interface for sending data Based on HDC Session in timeout mode.
+ * @param [in]  session : specifies session in used
+ * @param [in]  timeout : max wait time in milliseconds, 0 means hdc session default timeout
+ * @param [in]  buf : buffer for sending data
+ * @param [in]  len : length of data to be sent
+ * @return
+ *      IDE_DAEMON_OK:    send data success
+ *      IDE_DAEMON_ERROR: send data failed
+ */
+int32_t HdcWriteTimeout(HDC_SESSION session, uint32_t timeout, IdeSendBuffT buf, int32_t len);
+
+/**
  * @brief connect remote hdc server
  * @param [in]  peerNode: Node number of the node where Device is located
  * @param [in]  peerDevId: Device ID of the unified number in the host
@@ -158,7 +170,7 @@ int32_t IdeGetRunEnvBySession(HDC_SESSION session, IdeI32Pt runEnv);
 int32_t IdeGetVfIdBySession(HDC_SESSION session, IdeI32Pt vfId);
 int32_t IdeGetPidBySession(HDC_SESSION session, IdeI32Pt pid);
 int32_t IdeGetAttrBySession(HDC_SESSION session, int32_t attr, IdeI32Pt value);
-int32_t HdcSessionWrite(HDC_SESSION session, IdeSendBuffT buf, int32_t len, int32_t flag);
+int32_t HdcSessionWrite(HDC_SESSION session, IdeSendBuffT buf, int32_t len, int32_t flag, uint32_t timeout = 0);
 int32_t HdcStorePackage(const IdeHdcPacket &packet, struct IoVec &ioVec);
 } // namespace Adx
 

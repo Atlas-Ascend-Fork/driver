@@ -36,7 +36,6 @@
 #include "svm_ub_mem.h"
 #include "svm_criu.h"
 
-#define VMM_ALLOC_GRANULARITY_4K (4ULL * SVM_BYTES_PER_KB)
 #define VMM_ALLOC_GRANULARITY_2M (2ULL * SVM_BYTES_PER_MB)
 #define VMM_ALLOC_GRANULARITY_1G (1ULL * SVM_BYTES_PER_GB)
 
@@ -56,6 +55,7 @@ struct svm_vmm_access_node {
     u32 owner_devid;
     drv_mem_handle_t *handle;
     struct svm_global_va src_info;
+    void *seg_handle;
     drv_mem_access_type access_type[SVM_MAX_DEV_NUM];
     pthread_rwlock_t rwlock;
 };
@@ -87,9 +87,9 @@ typedef struct drv_mem_handle {
     u64 key; /* valid when export or import */
     u64 va;
     u32 map_route;
-    int src_prop_valid;
     struct drv_mem_prop src_prop;
-    struct svm_global_va src_info; /* used for import handle, query from casm */
+    enum drv_mem_pg_type src_pg_type; /* Actual source PA page type for import mappings. */
+    struct svm_global_va src_info;    /* used for import handle, query from casm */
 } drv_mem_handle_t;
 
 struct svm_share_handle {
@@ -102,12 +102,31 @@ struct svm_share_handle {
     struct svm_global_va src_va;
 };
 
+static void vmm_recycle_pa_handle(drv_mem_handle_t *handle);
+static struct svm_vmm_access_node *vmm_get_access_node(void *seg_handle);
+static void vmm_access_non_owner_unmap(struct svm_vmm_access_node *access_node, u32 devid);
+
 #define SVM_VMM_OPS_MAX_NUM 3
 struct svm_vmm_ops *vmm_ops[SVM_VMM_OPS_MAX_NUM] = {NULL};
 
-static void vmm_recycle_pa_handle(drv_mem_handle_t *handle);
-static struct svm_vmm_access_node *vmm_get_access_node(void *seg_handle);
-static void vmm_access_single_do_unmap(struct svm_vmm_access_node *access_node, u32 devid);
+/*
+ * Owner is the device specified by the PA handle. With this flag, halMemMap
+ * only records the mapping and does not map it on the owner device. The owner
+ * mapping is established when halMemSetAccess grants access to the owner.
+ */
+#define VMM_MAP_FLAG_OWNER_NO_ACCESS (1ULL << 0)
+
+static bool vmm_map_flag_is_owner_no_access(u64 vmm_map_flag)
+{
+    return (vmm_map_flag & VMM_MAP_FLAG_OWNER_NO_ACCESS) != 0;
+}
+
+#define VMM_RESERVE_FLAG_PG_TYPE_MASK 0xFFu
+
+static inline enum drv_mem_pg_type vmm_parse_pg_type_by_reserve_flag(u64 flag)
+{
+    return (enum drv_mem_pg_type)(flag & VMM_RESERVE_FLAG_PG_TYPE_MASK);
+}
 
 #ifdef EMU_ST /* for emu st, do not delete */
 u64 ut_exp_vmm_get_handle_va(drv_mem_handle_t *handle)
@@ -121,7 +140,7 @@ void svm_vmm_set_ops(struct svm_vmm_ops *ops)
     static u32 i = 0;
 
     if (i >= SVM_VMM_OPS_MAX_NUM) {
-        svm_err("Vmm ops is out of range.\n");
+        svm_err("Vmm ops is out of range. (ops=%u; valid range=[0, %u))\n", i, (u32)SVM_VMM_OPS_MAX_NUM);
         return;
     }
 
@@ -169,9 +188,10 @@ static u32 vmm_map_route_to_casm_flag(u64 map_route)
 
 static int vmm_check_map_route(drv_mem_handle_t *handle, u32 map_route)
 {
+    struct casm_src_va_ex_info src_ex_info;
     struct svm_global_va src_va = {0};
-    u64 update_va, ex_info, offset;
-    u32 src_sdid = 0; /* addr trans use mem_id, not use sdid */
+    u64 offset;
+    u32 src_server_id;
     u32 src_mem_id;
     int ret;
 
@@ -181,18 +201,19 @@ static int vmm_check_map_route(drv_mem_handle_t *handle, u32 map_route)
         return DRV_ERROR_NOT_EXIST;
     }
 
-    ret = svm_casm_get_src_va_ex(handle->devid, handle->key, &src_va, &update_va, &ex_info);
+    ret = svm_casm_get_src_va_ex(handle->devid, handle->key, &src_va, &src_ex_info);
     if (ret != DRV_ERROR_NONE) {
         svm_err("Get src va failed. (key=%llu)\n", handle->key);
         return ret;
     }
-    if (update_va == 0) {
+    if (src_ex_info.update_va == 0) {
         svm_debug("Not ubmem map. (key=%llu)\n", handle->key);
         return DRV_ERROR_NOT_EXIST;
     }
-    svm_ub_va_to_mem_id_and_offset(update_va, &src_mem_id, &offset);
+    svm_ub_va_to_mem_id_and_offset(src_ex_info.update_va, &src_mem_id, &offset);
 
-    return ubmemMapRouteCheck(handle->devid, src_sdid, src_mem_id, map_route);
+    src_server_id = (src_va.server_id == SVM_INVALID_SERVER_ID) ? UBMM_INVALID_SERVER_ID : src_va.server_id;
+    return ubmemMapRouteCheck(handle->devid, src_server_id, src_mem_id, map_route);
 }
 
 drvError_t halMemHandleSetAttribute(drv_mem_handle_t *handle, enum HandleAttrType type, struct HandleAttr attr)
@@ -255,8 +276,8 @@ drv_mem_handle_t *vmm_normal_handle_create(u32 devid, u64 va, const struct drv_m
         handle->key = 0;
         handle->va = va;
         handle->map_route = MEM_MAP_DEFAULT_PATH;
-        handle->src_prop_valid = 1;
         handle->src_prop = *src_prop;
+        handle->src_pg_type = src_prop->pg_type;
     }
 
     return handle;
@@ -279,8 +300,9 @@ static void vmm_normal_handle_no_ref_destroy(drv_mem_handle_t *handle)
     }
 }
 
-static drv_mem_handle_t *vmm_import_handle_create(u32 devid, u64 key, struct drv_mem_prop *src_prop,
-                                                  struct svm_global_va *src_info)
+static drv_mem_handle_t *vmm_import_handle_create(u32 devid, u64 key, const struct drv_mem_prop *src_prop,
+                                                  enum drv_mem_pg_type src_pg_type,
+                                                  const struct svm_global_va *src_info)
 {
     drv_mem_handle_t *handle = NULL;
 
@@ -293,8 +315,8 @@ static drv_mem_handle_t *vmm_import_handle_create(u32 devid, u64 key, struct drv
         handle->key = key;
         handle->va = src_info->va;
         handle->map_route = MEM_MAP_DEFAULT_PATH;
-        handle->src_prop_valid = (src_prop != NULL);
-        handle->src_prop = (src_prop != NULL) ? *src_prop : (struct drv_mem_prop){0};
+        handle->src_prop = *src_prop;
+        handle->src_pg_type = src_pg_type;
         handle->src_info = *src_info;
     }
 
@@ -372,11 +394,11 @@ static int vmm_prop_check(const struct drv_mem_prop *prop, bool is_from_create)
 
     if (prop->pg_type == MEM_GIANT_PAGE_TYPE) {
         if (prop->mem_type == MEM_TS_DDR_TYPE) {
-            svm_run_info("Giant page not support ts_ddr.\n");
+            svm_run_info("Giant page does not support ts_ddr.\n");
             return DRV_ERROR_NOT_SUPPORT;
         }
         if (prop->side != MEM_DEV_SIDE) {
-            svm_run_info("Giant page not support host.\n");
+            svm_run_info("Giant page does not support host.\n");
             return DRV_ERROR_NOT_SUPPORT;
         }
     }
@@ -457,17 +479,21 @@ static void vmm_recycle_single(void *svmm_inst, u32 udevid)
         }
 
         handle = (drv_mem_handle_t *)(uintptr_t)src_info.va;
-        vmm_restore_real_src_va(&src_info);
-        vmm_recycle_pa_handle(handle);
+        if (!svm_flag_is_vmm_map_owner_no_access(svm_flag)) {
+            struct svm_global_va real_src_info = src_info;
 
-        svm_dst_va_pack(devid, PROCESS_CP1, va, src_info.size, &dst_info);
-        (void)svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
+            svm_dst_va_pack(devid, PROCESS_CP1, va, src_info.size, &dst_info);
+            vmm_restore_real_src_va(&real_src_info);
+            (void)svm_smm_client_unmap(&dst_info, &real_src_info, smm_flag);
+        }
+
         (void)svm_svmm_del_seg(svmm_inst, devid, va, src_info.size, true);
+        vmm_recycle_pa_handle(handle);
         recyle_num++;
     }
 
     if (recyle_num > 0) {
-        svm_info("Recycle success. (udevid=%u; recycle_num=%u)\n", udevid, recyle_num);
+        svm_info("Recycle success. (udevid=%u; recyle_num=%u)\n", udevid, recyle_num);
     }
 }
 
@@ -485,7 +511,7 @@ static int vmm_recycle_access_dev_single(void *seg_handle, u64 start, struct svm
 
     (void)pthread_rwlock_wrlock(&access_node->rwlock);
     if (access_node->access_type[devid] != MEM_ACCESS_TYPE_NONE) {
-        vmm_access_single_do_unmap(access_node, devid);
+        vmm_access_non_owner_unmap(access_node, devid);
     }
     (void)pthread_rwlock_unlock(&access_node->rwlock);
 
@@ -573,10 +599,12 @@ static int vmm_svmm_release(void *priv, bool force)
             return DRV_ERROR_BUSY;
         }
 
-        svm_dst_va_pack(devid, PROCESS_CP1, va, src_info.size, &dst_info);
-        vmm_restore_real_src_va(&src_info);
+        if (!svm_flag_is_vmm_map_owner_no_access(svm_flag)) {
+            svm_dst_va_pack(devid, PROCESS_CP1, va, src_info.size, &dst_info);
+            vmm_restore_real_src_va(&src_info);
+            (void)svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
+        }
 
-        (void)svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
         (void)svm_svmm_del_seg(svmm_inst, devid, va, src_info.size, true);
         recyle_num++;
     }
@@ -584,7 +612,7 @@ static int vmm_svmm_release(void *priv, bool force)
     if (recyle_num > 0) {
         u64 svmma_start, svmma_size, svm_flag;
         svm_svmm_parse_inst_info(svmm_inst, &svmma_start, &svmma_size, &svm_flag);
-        svm_info("Force release success. (va=0x%llx; size=0x%llx; recycle_num=%u)\n", svmma_start, svmma_size,
+        svm_info("Force release success. (va=0x%llx; size=0x%llx; recyle_num=%u)\n", svmma_start, svmma_size,
                  recyle_num);
     }
 
@@ -723,6 +751,7 @@ static int vmm_malloc_va(u64 align, void **va, u64 size, u64 flag)
     svm_flag |= SVM_FLAG_ATTR_VA_ONLY;
     svm_flag |= SVM_FLAG_MUST_WITH_PRIV;
     svm_flag |= SVM_FLAG_BY_PASS_CACHE;
+    svm_flag |= svm_dbi_is_cc_vm() ? SVM_FLAG_DEV_PRIVATE : 0;
     svm_flag_set_module_id(&svm_flag, SVM_FLAG_INVALID_MODULE_ID);
 
     start = (u64)(uintptr_t)(*va);
@@ -735,6 +764,11 @@ static int vmm_malloc_va(u64 align, void **va, u64 size, u64 flag)
 
     if ((flag & MEM_RSV_TYPE_DEVICE_SHARE) != 0) {
         svm_flag |= SVM_FLAG_ATTR_VA_WITHOUT_MASTER;
+    }
+
+    /* host uva: route to pcie th allocator in pcie scene via master uva flag */
+    if ((flag & MEM_RSV_TYPE_HOST_UVA) != 0) {
+        svm_flag |= SVM_FLAG_ATTR_MASTER_UVA;
     }
 
     svm_malloc_location_pack(SVM_INVALID_DEVID, SVM_MALLOC_NUMA_NO_NODE, &location);
@@ -764,7 +798,7 @@ static int vmm_free_va(void *va)
     ret = svm_get_prop(start, &prop);
     if (ret != 0) {
         svm_err("Get prop failed. (start=%llx)\n", start);
-        svm_report_addr_not_allocated("halMemAddressFree", "ptr", start);
+        svm_report_addr_not_allocated("ptr", start);
         return ret;
     }
 
@@ -777,9 +811,10 @@ static int vmm_free_va(void *va)
     return (ret == DRV_ERROR_CLIENT_BUSY) ? DRV_ERROR_BUSY : ret;
 }
 
-static int vmm_address_reserve_para_check(void **ptr, size_t size, size_t alignment, void *addr, u32 pg_type)
+static int vmm_address_reserve_para_check(void **ptr, size_t size, size_t alignment, void *addr, uint64_t flag)
 {
     u64 specify_va = (u64)(uintptr_t)addr;
+    enum drv_mem_pg_type pg_type = vmm_parse_pg_type_by_reserve_flag(flag);
 
     if (ptr == NULL) {
         svm_err("Ptr is null.\n");
@@ -796,14 +831,14 @@ static int vmm_address_reserve_para_check(void **ptr, size_t size, size_t alignm
         svm_err("Specified addr not aligned up with recommended granularity or mix range. (addr=0x%llx; size=0x%lx)\n",
                 specify_va, size);
         if (specify_va != svm_align_up(specify_va, VMM_ALLOC_RECOMMENDED_GRANULARITY)) {
-            svm_report_addr_not_aligned("halMemAddressReserve", "addr", specify_va, VMM_ALLOC_RECOMMENDED_GRANULARITY);
+            svm_report_addr_not_aligned("addr", specify_va, VMM_ALLOC_RECOMMENDED_GRANULARITY);
         }
         return DRV_ERROR_INVALID_VALUE;
     }
 
     /* reserved para, verify by zero for subsequent compatibility */
     if (alignment != 0) {
-        svm_report_para_only_zero("halMemAddressReserve", "alignment", (u64)alignment);
+        svm_report_para_only_zero("alignment", (u64)alignment);
         svm_err("Alignment should be zero.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -818,10 +853,22 @@ static int vmm_address_reserve_para_check(void **ptr, size_t size, size_t alignm
         return DRV_ERROR_INVALID_VALUE;
     }
 
+    /* host_uva needs with master, device_share sets without master, host_uva map host handle only */
+    if ((flag & MEM_RSV_TYPE_HOST_UVA) != 0) {
+        if (specify_va != 0) {
+            svm_run_info("Host uva not support specified address. (addr=0x%llx)\n", specify_va);
+            return DRV_ERROR_NOT_SUPPORT;
+        }
+        if ((flag & (MEM_RSV_TYPE_REMOTE_MAP | MEM_RSV_TYPE_DEVICE_SHARE)) != 0) {
+            svm_run_info("Host uva conflict with remote_map or device_share. (flag=0x%llx)\n", flag);
+            return DRV_ERROR_NOT_SUPPORT;
+        }
+    }
+
     return 0;
 }
 
-static u64 vmm_get_va_align(u32 pg_type)
+static u64 vmm_get_va_align(enum drv_mem_pg_type pg_type)
 {
     static u64 pg_type_to_align[MEM_MAX_PAGE_TYPE] = {[MEM_NORMAL_PAGE_TYPE] = VMM_ALLOC_GRANULARITY_2M,
                                                       [MEM_HUGE_PAGE_TYPE] = VMM_ALLOC_GRANULARITY_2M,
@@ -834,11 +881,13 @@ drvError_t halMemAddressReserve(void **ptr, size_t size, size_t alignment, void 
 {
     void *malloc_va = addr; /* Application for a specified address */
     u64 len = (u64)size;
-    u32 pg_type;
+    enum drv_mem_pg_type pg_type;
     int ret;
 
-    pg_type = (u32)(flag & 0xFF); /* 0xFF, pgtype mask */
-    ret = vmm_address_reserve_para_check(ptr, size, alignment, addr, pg_type);
+    DRV_CURRENT_API_SCOPE();
+
+    pg_type = vmm_parse_pg_type_by_reserve_flag(flag);
+    ret = vmm_address_reserve_para_check(ptr, size, alignment, addr, flag);
     if (ret != 0) {
         return (drvError_t)ret;
     }
@@ -872,6 +921,8 @@ drvError_t halMemAddressFree(void *ptr)
 {
     drvError_t ret;
 
+    DRV_CURRENT_API_SCOPE();
+
     if (ptr == NULL) {
         svm_err("Ptr is null.\n");
         return DRV_ERROR_INVALID_VALUE;
@@ -885,6 +936,9 @@ drvError_t halMemAddressFree(void *ptr)
     if (ret != 0) {
         svm_err("Vmm free va failed. (ret=%d; ptr=0x%llx)\n", ret, (u64)(uintptr_t)ptr);
     }
+    if (ret == DRV_ERROR_BUSY) {
+        svm_report_mem_in_use((u64)(uintptr_t)ptr);
+    }
 
     return (drvError_t)ret;
 }
@@ -894,7 +948,7 @@ static bool vmm_is_normal_pg_type(enum drv_mem_pg_type pg_type, u32 module_id, s
     return (pg_type == MEM_NORMAL_PAGE_TYPE) && (size < VMM_ALLOC_GRANULARITY_2M) && (module_id == RUNTIME_MODULE_ID);
 }
 
-static u32 vmm_get_real_pg_type(enum drv_mem_pg_type pg_type, u32 module_id, size_t size)
+static enum drv_mem_pg_type vmm_get_real_pg_type(enum drv_mem_pg_type pg_type, u32 module_id, size_t size)
 {
     return vmm_is_normal_pg_type(pg_type, module_id, size) ?
                MEM_NORMAL_PAGE_TYPE :
@@ -911,7 +965,23 @@ static u64 vmm_get_real_pg_size(enum drv_mem_pg_type pg_type, u32 module_id, siz
                ((pg_type == MEM_GIANT_PAGE_TYPE) ? VMM_ALLOC_GRANULARITY_1G : VMM_ALLOC_GRANULARITY_2M);
 }
 
-static bool vmm_is_need_pa_continuous(u32 devid, u32 side, u32 pg_type)
+static u64 vmm_get_handle_pg_size(const drv_mem_handle_t *handle, size_t size)
+{
+    u64 npage_size;
+
+    /* A normal handle keeps the requested page type, which must be resolved with its allocation parameters. */
+    if (handle->type != SVM_VMM_HANDLE_IMPORT_TYPE) {
+        return vmm_get_real_pg_size(handle->src_prop.pg_type, handle->src_prop.module_id, size);
+    }
+
+    /* An import handle keeps the actual source PA page type returned by CASM and must not resolve it again. */
+    (void)svm_dbi_query_npage_size(svm_get_host_devid(), &npage_size);
+    return (handle->src_pg_type == MEM_NORMAL_PAGE_TYPE) ?
+               npage_size :
+               ((handle->src_pg_type == MEM_GIANT_PAGE_TYPE) ? VMM_ALLOC_GRANULARITY_1G : VMM_ALLOC_GRANULARITY_2M);
+}
+
+static bool vmm_is_need_pa_continuous(u32 devid, u32 side, enum drv_mem_pg_type pg_type)
 {
     u64 host_npage_size, dev_npage_size;
 
@@ -929,7 +999,7 @@ static int vmm_malloc_pa(drv_mem_handle_t **handle, u64 size, const struct drv_m
 {
     u32 module_id = (prop->module_id == UNKNOWN_MODULE_ID) ? ASCENDCL_MODULE_ID : prop->module_id;
     u32 numa_id = vmm_get_numa_id(prop->side, prop->devid);
-    u32 pg_type = vmm_get_real_pg_type(prop->pg_type, module_id, size);
+    enum drv_mem_pg_type pg_type = vmm_get_real_pg_type(prop->pg_type, module_id, size);
     u32 devid = prop->devid;
     u64 start = 0;
     u64 svm_flag = 0;
@@ -951,8 +1021,8 @@ static int vmm_malloc_pa(drv_mem_handle_t **handle, u64 size, const struct drv_m
 
     ret = svm_module_mem_malloc(devid, numa_id, svm_flag, &start, size, module_id);
     if (ret != 0) {
-        svm_no_err_if((ret == DRV_ERROR_OUT_OF_MEMORY),
-                      "Module mem malloc not success. (ret=%d; size=%llu; devid=%u)\n", ret, size, devid);
+        svm_no_err_if((ret == DRV_ERROR_OUT_OF_MEMORY), "Module mem malloc failed. (ret=%d; size=%llu; devid=%u)\n",
+                      ret, size, devid);
         return ret;
     }
 
@@ -1076,6 +1146,8 @@ drvError_t halMemCreateInner(drv_mem_handle_t **handle, size_t size, const struc
 
 drvError_t halMemCreate(drv_mem_handle_t **handle, size_t size, const struct drv_mem_prop *prop, uint64_t flag)
 {
+    DRV_CURRENT_API_SCOPE();
+
     return halMemCreateInner(handle, size, prop, flag);
 }
 
@@ -1138,17 +1210,6 @@ drvError_t halMemGetAllocationPropertiesFromHandle(struct drv_mem_prop *prop, dr
     if ((handle == NULL) || (prop == NULL)) {
         svm_err("Input invalid. (handle=%u; prop=%u)\n", (handle == NULL), (prop == NULL));
         return DRV_ERROR_INVALID_VALUE;
-    }
-
-    if (handle->src_prop_valid == 0) {
-        u32 devid = casm_key_to_devid(handle->key);
-        prop->side = (devid == svm_get_host_devid()) ? MEM_HOST_SIDE : MEM_DEV_SIDE;
-        prop->devid = (devid == svm_get_host_devid()) ? 0 : devid;
-        prop->module_id = APP_MODULE_ID;
-        prop->pg_type = MEM_HUGE_PAGE_TYPE;
-        prop->mem_type = MEM_HBM_TYPE;
-        prop->reserve = 0;
-        return DRV_ERROR_NONE;
     }
 
     *prop = handle->src_prop;
@@ -1230,13 +1291,33 @@ drvError_t halMemRetainAllocationHandle(drv_mem_handle_t **handle, void *ptr)
     return ret;
 }
 
-static int vmm_ops_post_map(void *seg_handle, u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info)
+static void vmm_pa_handle_pin(drv_mem_handle_t *handle)
+{
+    svm_atomic64_inc(&handle->ref);
+}
+
+static void vmm_pa_handle_unpin(drv_mem_handle_t *handle)
+{
+    if (handle->type == SVM_VMM_HANDLE_IMPORT_TYPE) {
+        vmm_import_handle_no_ref_destroy(handle);
+    } else {
+        (void)vmm_free_pa(handle);
+    }
+}
+
+void vmm_restore_real_src_va(struct svm_global_va *src_info)
+{
+    drv_mem_handle_t *handle = (drv_mem_handle_t *)(uintptr_t)src_info->va;
+    src_info->va = handle->va; /* restore real va */
+}
+
+static int vmm_ops_post_map(u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info)
 {
     u32 i;
 
     for (i = 0; i < SVM_VMM_OPS_MAX_NUM; ++i) {
         if ((vmm_ops[i] != NULL) && (vmm_ops[i]->post_map != NULL)) {
-            int ret = vmm_ops[i]->post_map(seg_handle, devid, va, svm_flag, src_info);
+            int ret = vmm_ops[i]->post_map(devid, va, svm_flag, src_info);
             if (ret != 0) {
                 return ret;
             }
@@ -1245,13 +1326,13 @@ static int vmm_ops_post_map(void *seg_handle, u32 devid, u64 va, u64 svm_flag, s
     return 0;
 }
 
-static int vmm_ops_pre_unmap(u32 task_bitmap, u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info)
+static int vmm_ops_pre_unmap(u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info)
 {
     u32 i;
 
     for (i = 0; i < SVM_VMM_OPS_MAX_NUM; ++i) {
         if ((vmm_ops[i] != NULL) && (vmm_ops[i]->pre_unmap != NULL)) {
-            int ret = vmm_ops[i]->pre_unmap(task_bitmap, devid, va, svm_flag, src_info);
+            int ret = vmm_ops[i]->pre_unmap(devid, va, svm_flag, src_info);
             if (ret != 0) {
                 return ret;
             }
@@ -1260,7 +1341,282 @@ static int vmm_ops_pre_unmap(u32 task_bitmap, u32 devid, u64 va, u64 svm_flag, s
     return 0;
 }
 
-static u64 vmm_get_single_app_mmap_svm_flag(u64 va, u64 size, u64 src_svm_flag)
+static int vmm_do_single_app_mmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
+{
+    struct svm_dst_va dst_info;
+    u64 size = src_info->size;
+    u32 smm_flag = 0;
+    int ret;
+
+    svm_dst_va_pack(devid, PROCESS_CP1, start, size, &dst_info);
+    ret = svm_smm_client_map(&dst_info, src_info, smm_flag);
+    if (ret != 0) {
+        svm_err("Smm map failed. (devid=%u; start=%llx; size=%llx)\n", devid, start, size);
+        if (ret == DRV_ERROR_NO_RESOURCES) {
+            svm_report_ubmem_cfg_abnormal();
+            ret = DRV_ERROR_INNER_ERR;
+        }
+        return ret;
+    }
+    ret = vmm_ops_post_map(devid, start, svm_flag, src_info);
+    if (ret != 0) {
+        svm_err("Post map failed. (devid=%u; start=%llx; size=%llx)\n", devid, start, size);
+        (void)svm_smm_client_unmap(&dst_info, src_info, smm_flag);
+        return ret;
+    }
+
+    return 0;
+}
+
+static int vmm_do_single_app_unmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
+{
+    struct svm_dst_va dst_info;
+    u64 size = src_info->size;
+    u32 smm_flag = 0;
+    int ret;
+
+    ret = vmm_ops_pre_unmap(devid, start, svm_flag, src_info);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    svm_dst_va_pack(devid, PROCESS_CP1, start, size, &dst_info);
+    ret = svm_smm_client_unmap(&dst_info, src_info, smm_flag);
+    if (ret != 0) {
+        /* no need rollback */
+        svm_err("Smm unmap failed. (devid=%u; start=0x%llx; size=0x%llx)\n", devid, start, size);
+        return ret;
+    }
+
+    return 0;
+}
+
+static int vmm_do_cross_app_mmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info,
+                                 drv_mem_handle_t *handle)
+{
+    u64 size = src_info->size;
+    u64 key = handle->key;
+    u32 casm_flag = vmm_map_route_to_casm_flag(handle->map_route);
+    int ret;
+
+    SVM_UNUSED(svm_flag);
+
+    ret = svm_casm_mem_map(devid, start, size, key, casm_flag);
+    if (ret != 0) {
+        svm_err("Casm map failed. (devid=%u; start=%llx; size=%llx)\n", devid, start, size);
+        if (ret == DRV_ERROR_NO_RESOURCES) {
+            svm_report_ubmem_cfg_abnormal();
+            ret = DRV_ERROR_INNER_ERR;
+        }
+        return ret;
+    }
+    return 0;
+}
+
+static int vmm_do_cross_app_unmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
+{
+    u64 size = src_info->size;
+    int ret;
+
+    SVM_UNUSED(svm_flag);
+
+    ret = svm_casm_mem_unmap(devid, start, size);
+    if (ret != 0) {
+        svm_err("Casm unmap failed. (devid=%u; start=%llx; size=%llx)\n", devid, start, size);
+    }
+
+    return ret;
+}
+
+static int vmm_do_mmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info, drv_mem_handle_t *handle)
+{
+    if (svm_flag_cap_is_support_vmm_ipc_unmap(svm_flag)) {
+        return vmm_do_cross_app_mmap(devid, start, svm_flag, src_info, handle);
+    } else {
+        return vmm_do_single_app_mmap(devid, start, svm_flag, src_info);
+    }
+}
+
+static int vmm_do_unmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
+{
+    if (svm_flag_cap_is_support_vmm_ipc_unmap(svm_flag)) {
+        return vmm_do_cross_app_unmap(devid, start, svm_flag, src_info);
+    } else {
+        return vmm_do_single_app_unmap(devid, start, svm_flag, src_info);
+    }
+}
+
+struct vmm_dst_map_info {
+    u32 devid;
+    u64 va;
+    u64 svm_flag;
+};
+
+struct vmm_src_map_info {
+    struct svm_global_va va_info;
+    drv_mem_handle_t *pa_handle;
+};
+
+static void vmm_src_map_info_pack(struct svm_global_va *va_info, drv_mem_handle_t *pa_handle,
+                                  struct vmm_src_map_info *s_info)
+{
+    s_info->va_info = *va_info;
+    s_info->pa_handle = pa_handle;
+}
+
+static void vmm_dst_map_info_pack(u32 devid, u64 va, u64 svm_flag, struct vmm_dst_map_info *d_info)
+{
+    d_info->devid = devid;
+    d_info->va = va;
+    d_info->svm_flag = svm_flag;
+}
+
+static int vmm_save_map_info(void *va_handle, const struct vmm_dst_map_info *d_info,
+                             const struct vmm_src_map_info *s_info)
+{
+    struct svm_global_va src_info = s_info->va_info;
+    void *svmm_inst = NULL;
+    int ret;
+
+    svmm_inst = vmm_get_svmm(va_handle);
+    if (svmm_inst == NULL) { /* vmm map addr first prefetch */
+        svm_err("Get svmm inst failed. (va=%llx)\n", d_info->va);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    src_info.va = (u64)(uintptr_t)s_info->pa_handle; /* use va to store handle, get real va from handle */
+    ret = svm_svmm_add_seg(svmm_inst, d_info->devid, d_info->va, d_info->svm_flag, &src_info);
+    if (ret != 0) {
+        svm_err("Add seg failed. (devid=%u; va=%llx; size=%llx)\n", d_info->devid, d_info->va, src_info.size);
+        return ret;
+    }
+
+    return 0;
+}
+
+static int vmm_query_map_info(void *va_handle, u32 devid, u64 dst_va, struct vmm_dst_map_info *d_info,
+                              struct vmm_src_map_info *s_info)
+{
+    void *svmm_inst = NULL;
+    drv_mem_handle_t *handle = NULL;
+    struct svm_global_va src_info;
+    u64 svm_flag;
+    int ret;
+
+    svmm_inst = vmm_get_svmm(va_handle);
+    if (svmm_inst == NULL) { /* vmm map addr first prefetch */
+        svm_debug("Get svmm inst failed. (va=0x%llx)\n", dst_va);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    src_info.udevid = SVM_INVALID_UDEVID;
+    ret = svm_svmm_get_seg(svmm_inst, &devid, &dst_va, &svm_flag, &src_info);
+    if (ret != 0) {
+        svm_debug("Get seg failed. (devid=%u; va=0x%llx)\n", devid, dst_va);
+        return ret;
+    }
+
+    handle = (drv_mem_handle_t *)(uintptr_t)src_info.va;
+    vmm_restore_real_src_va(&src_info);
+
+    vmm_src_map_info_pack(&src_info, handle, s_info);
+    vmm_dst_map_info_pack(devid, dst_va, svm_flag, d_info);
+    return 0;
+}
+
+static int vmm_clear_map_info(void *va_handle, u32 devid, u64 dst_va, u64 size, bool force,
+                              struct vmm_dst_map_info *d_info, struct vmm_src_map_info *s_info)
+{
+    void *svmm_inst = vmm_get_svmm(va_handle);
+    int ret;
+
+    if (svmm_inst == NULL) { /* vmm map addr first prefetch */
+        svm_err("Get svmm inst failed. (va=0x%llx)\n", dst_va);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ret = vmm_query_map_info(va_handle, devid, dst_va, d_info, s_info);
+    if (ret != DRV_ERROR_NONE) {
+        svm_err("Query map info failed. (ret=%d; devid=%u; va=0x%llx; size=0x%llx)\n", ret, devid, dst_va, size);
+        return ret;
+    }
+
+    /* The svm_flag may be updated by SetAccess after the query. Return the final state when deleting the segment. */
+    return svm_svmm_del_seg_with_flag(svmm_inst, devid, dst_va, size, force, &d_info->svm_flag);
+}
+
+static int vmm_check_addr_no_map(void *va_handle, u32 devid, u64 dst_va, u64 size)
+{
+    void *svmm_inst = vmm_get_svmm(va_handle);
+
+    if (svmm_inst == NULL) {
+        svm_err("Get svmm inst failed. (va=0x%llx)\n", dst_va);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    return svm_svmm_can_add_seg(svmm_inst, devid, dst_va, size);
+}
+
+static int _vmm_mmap(void *va_handle, struct vmm_dst_map_info *d_info, struct vmm_src_map_info *s_info)
+{
+    u32 devid = d_info->devid;
+    u64 dst_va = d_info->va;
+    u64 svm_flag = d_info->svm_flag;
+    u64 size = s_info->va_info.size;
+    bool owner_no_access = svm_flag_is_vmm_map_owner_no_access(svm_flag);
+    int ret;
+
+    ret = vmm_check_addr_no_map(va_handle, devid, dst_va, size);
+    if (ret != 0) {
+        svm_err("Addr has been mapped. (ret=%d; devid=%u; va=0x%llx; size=%llu)\n", ret, devid, dst_va, size);
+        return ret;
+    }
+
+    if (!owner_no_access) {
+        ret = vmm_do_mmap(devid, dst_va, svm_flag, &s_info->va_info, s_info->pa_handle);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+
+    ret = vmm_save_map_info(va_handle, d_info, s_info);
+    if (ret != DRV_ERROR_NONE) {
+        if (!owner_no_access) {
+            (void)vmm_do_unmap(devid, dst_va, svm_flag, &s_info->va_info);
+        }
+        return ret;
+    }
+
+    vmm_pa_handle_pin(s_info->pa_handle);
+    return 0;
+}
+
+static int _vmm_munmap(void *va_handle, u32 devid, u64 dst_va, u64 size)
+{
+    struct vmm_src_map_info s_info;
+    struct vmm_dst_map_info d_info;
+    int ret;
+
+    ret = vmm_clear_map_info(va_handle, devid, dst_va, size, false, &d_info, &s_info);
+    if (ret != DRV_ERROR_NONE) {
+        svm_err("Clear map info failed. (ret=%d; devid=%u; dst_va=0x%llx; size=0x%llx)\n", ret, devid, dst_va, size);
+        return ret;
+    }
+
+    vmm_pa_handle_unpin(s_info.pa_handle);
+
+    if (!svm_flag_is_vmm_map_owner_no_access(d_info.svm_flag)) {
+        ret = vmm_do_unmap(devid, dst_va, d_info.svm_flag, &s_info.va_info);
+        if (ret != 0) {
+            /* no need rollback */
+            return ret;
+        }
+    }
+
+    return 0;
+}
+
+static u64 vmm_get_single_app_map_owner_access_svm_flag_cap(u64 va, u64 size)
 {
     u64 svm_flag = 0;
 
@@ -1268,6 +1624,7 @@ static u64 vmm_get_single_app_mmap_svm_flag(u64 va, u64 size, u64 src_svm_flag)
     svm_flag |= SVM_FLAG_CAP_VMM_UNMAP;
 
     if (!svm_is_in_dcache_va_range(va, size)) {
+        svm_flag |= SVM_FLAG_CAP_GET_ATTR;
 #ifdef EMU_ST /* Simulation ST support test. */
         svm_flag |= SVM_FLAG_CAP_PREFETCH;
         svm_flag |= SVM_FLAG_CAP_REGISTER | SVM_FLAG_CAP_UNREGISTER;
@@ -1280,213 +1637,118 @@ static u64 vmm_get_single_app_mmap_svm_flag(u64 va, u64 size, u64 src_svm_flag)
         svm_flag |= SVM_FLAG_CAP_SYNC_COPY_2D | SVM_FLAG_CAP_DMA_DESC_CONVERT_2D;
         svm_flag |= SVM_FLAG_CAP_SYNC_COPY_EX;
         svm_flag |= SVM_FLAG_CAP_MEMSET;
-        svm_flag |= SVM_FLAG_CAP_GET_ATTR | SVM_FLAG_CAP_GET_ADDR_CHECK_INFO | SVM_FLAG_CAP_GET_MEM_TOKEN_INFO;
+        svm_flag |= SVM_FLAG_CAP_GET_ADDR_CHECK_INFO | SVM_FLAG_CAP_GET_MEM_TOKEN_INFO;
         svm_flag |= SVM_FLAG_CAP_GET_D2D_TRANS_WAY;
     } else {
         svm_flag |= SVM_FLAG_CAP_SYNC_COPY;
         svm_flag |= SVM_FLAG_CAP_SYNC_COPY_EX;
+        svm_flag |= SVM_FLAG_CAP_GET_ATTR;
+    }
+
+    return svm_flag;
+}
+
+static u64 vmm_get_single_app_map_owner_no_access_svm_flag_cap(void)
+{
+    u64 svm_flag = 0;
+
+    svm_flag |= SVM_FLAG_CAP_VMM_MAP;
+    svm_flag |= SVM_FLAG_CAP_VMM_UNMAP;
+    svm_flag |= SVM_FLAG_CAP_GET_ATTR;
+
+    return svm_flag;
+}
+
+static inline u64 vmm_inherit_reserve_va_attr_flag(u64 va)
+{
+    struct svm_prop prop;
+    u64 attr_flag = 0;
+
+    if (svm_get_prop(va, &prop) == 0) {
+        attr_flag |= (prop.flag & SVM_FLAG_ATTR_MASTER_UVA);
+    }
+
+    return attr_flag;
+}
+
+static u64 vmm_get_single_app_mmap_svm_flag(u64 va, u64 size, u64 src_svm_flag, u64 vmm_map_flag)
+{
+    u64 svm_flag = 0;
+
+    if (vmm_map_flag_is_owner_no_access(vmm_map_flag)) {
+        svm_flag |= vmm_get_single_app_map_owner_no_access_svm_flag_cap();
+        svm_flag |= SVM_FLAG_VMM_MAP_OWNER_NO_ACCESS;
+    } else {
+        svm_flag |= vmm_get_single_app_map_owner_access_svm_flag_cap(va, size);
     }
 
     svm_flag |= src_svm_flag & SVM_FLAG_ATTR_PA_GPAGE;
     svm_flag |= src_svm_flag & SVM_FLAG_ATTR_PA_HPAGE;
     svm_flag |= src_svm_flag & SVM_FLAG_ATTR_PA_CONTIGUOUS;
     svm_flag |= src_svm_flag & SVM_FLAG_ATTR_PA_P2P;
+    svm_flag |= vmm_inherit_reserve_va_attr_flag(va);
     svm_flag_set_module_id(&svm_flag, svm_flag_get_module_id(src_svm_flag));
 
     return svm_flag;
 }
 
-static int _vmm_single_app_mmap(void *va_handle, u64 va, u64 size, struct svm_prop *src_prop, drv_mem_handle_t *handle)
+static u64 vmm_get_cross_app_owner_no_access_svm_flag_cap(void)
 {
-    struct svm_dst_va dst_info;
-    struct svm_global_va src_info;
-    void *svmm_inst = NULL;
-    void *seg_handle = NULL;
     u64 svm_flag = 0;
-    u32 smm_flag = 0;
-    int ret;
 
-    svmm_inst = vmm_get_svmm(va_handle);
-    if (svmm_inst == NULL) { /* vmm map addr first prefetch */
-        svm_err("Get svmm inst failed. (va=%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
-    }
+    svm_flag |= SVM_FLAG_CAP_VMM_IPC_UNMAP;
+    svm_flag |= SVM_FLAG_CAP_GET_ATTR;
 
-    svm_global_va_pack(0, src_prop->tgid, src_prop->start, size, &src_info);
-    ret = uda_get_udevid_by_devid_ex(src_prop->devid, &src_info.udevid);
-    if (ret != DRV_ERROR_NONE) {
-        svm_err("Get udevid failed. (devid=%u; ret=%d)\n", src_prop->devid, ret);
-        return ret;
-    }
-
-    svm_flag = vmm_get_single_app_mmap_svm_flag(va, size, src_prop->flag);
-    src_info.va = (u64)(uintptr_t)handle; /* use va to store handle, get real va from handle */
-    ret = svm_svmm_add_seg(svmm_inst, src_prop->devid, va, svm_flag, &src_info);
-    if (ret != 0) {
-        svm_err("Add seg failed. (devid=%u; va=%llx; size=%llx)\n", src_prop->devid, va, size);
-        return ret;
-    }
-
-    src_info.va = src_prop->start; /* map use real va */
-
-    svm_dst_va_pack(src_prop->devid, PROCESS_CP1, va, size, &dst_info);
-    ret = svm_smm_client_map(&dst_info, &src_info, smm_flag);
-    if (ret != 0) {
-        svm_err("Smm map failed. (devid=%u; va=%llx; size=%llx)\n", src_prop->devid, va, size);
-        (void)svm_svmm_del_seg(svmm_inst, src_prop->devid, va, size, true);
-        return ret;
-    }
-
-    seg_handle = svm_svmm_seg_handle_get(svmm_inst, va);
-    if (seg_handle == NULL) {
-        svm_err("Get seg handle failed. (va=0x%llx)\n", va);
-        (void)svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
-        (void)svm_svmm_del_seg(svmm_inst, src_prop->devid, va, size, true);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    ret = vmm_ops_post_map(seg_handle, src_prop->devid, va, svm_flag, &src_info);
-    svm_svmm_seg_handle_put(seg_handle);
-    if (ret != 0) {
-        svm_err("Post map failed. (devid=%u; va=%llx; size=%llx)\n", src_prop->devid, va, size);
-        (void)svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
-        (void)svm_svmm_del_seg(svmm_inst, src_prop->devid, va, size, true);
-        return ret;
-    }
-
-    return 0;
+    return svm_flag;
 }
 
-static int vmm_get_task_bitmap(void *svmm_inst, u64 va, u32 *task_bitmap)
+static u64 vmm_get_cross_app_owner_access_svm_flag_cap(u64 va, u64 size)
 {
-    void *seg_handle = NULL;
+    u64 svm_flag = 0;
 
-    seg_handle = svm_svmm_seg_handle_get(svmm_inst, va);
-    if (seg_handle == NULL) {
-        svm_err("Get seg handle failed. (va=0x%llx)\n", va);
-        return DRV_ERROR_INVALID_VALUE;
+    svm_flag |= SVM_FLAG_CAP_VMM_IPC_UNMAP;
+    svm_flag |= SVM_FLAG_CAP_GET_ATTR;
+    if (!svm_is_in_dcache_va_range(va, size)) {
+        svm_flag |= SVM_FLAG_CAP_MEMSET;
+        svm_flag |= SVM_FLAG_CAP_SYNC_COPY;
+        svm_flag |= SVM_FLAG_CAP_DMA_DESC_CONVERT;
+        svm_flag |= SVM_FLAG_CAP_GET_MEM_TOKEN_INFO;
+        svm_flag |= SVM_FLAG_CAP_GET_D2D_TRANS_WAY;
     }
 
-    *task_bitmap = svm_svmm_get_seg_task_bitmap(seg_handle);
-    svm_svmm_seg_handle_put(seg_handle);
-    return DRV_ERROR_NONE;
+    return svm_flag;
 }
 
-void vmm_restore_real_src_va(struct svm_global_va *src_info)
+static u64 vmm_get_cross_app_mmap_svm_flag(u64 va, u64 size, u32 module_id, enum drv_mem_pg_type src_pg_type,
+                                           u64 vmm_map_flag)
 {
-    drv_mem_handle_t *handle = (drv_mem_handle_t *)(uintptr_t)src_info->va;
-    src_info->va = handle->va; /* restore real va */
+    u64 svm_flag = 0;
+
+    if (vmm_map_flag_is_owner_no_access(vmm_map_flag)) {
+        svm_flag |= vmm_get_cross_app_owner_no_access_svm_flag_cap();
+        svm_flag |= SVM_FLAG_VMM_MAP_OWNER_NO_ACCESS;
+    } else {
+        svm_flag |= vmm_get_cross_app_owner_access_svm_flag_cap(va, size);
+    }
+
+    /* This relies on the VMM map offset being aligned to the page size specified by src_pg_type. */
+    svm_flag |= (src_pg_type == MEM_GIANT_PAGE_TYPE) ?
+                    SVM_FLAG_ATTR_PA_GPAGE :
+                    ((src_pg_type == MEM_HUGE_PAGE_TYPE) ? SVM_FLAG_ATTR_PA_HPAGE : 0);
+    svm_flag |= vmm_inherit_reserve_va_attr_flag(va);
+    svm_flag_set_module_id(&svm_flag, module_id);
+
+    return svm_flag;
 }
 
-static int _vmm_query_src_info(void *svmm_inst, u64 va, u64 size, struct svm_global_va *src_info)
-{
-    u64 seg_va, svm_flag, offset;
-    u32 seg_devid;
-    int ret;
-
-    seg_va = va;
-    ret = svm_svmm_get_seg_by_va(svmm_inst, &seg_devid, &seg_va, &svm_flag, src_info);
-    if (ret != 0) {
-        return ret;
-    }
-
-    offset = va - seg_va;
-    if ((offset >= src_info->size) || (size > (src_info->size - offset))) {
-        svm_err("Is vmm mixed seg. (va=0x%llx; size=0x%llx; seg_va=0x%llx; seg_size=0x%llx)\n", va, size, seg_va,
-                src_info->size);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    vmm_restore_real_src_va(src_info);
-    src_info->va += offset;
-    src_info->size = size;
-    return DRV_ERROR_NONE;
-}
-
-int vmm_query_src_info(u64 va, u64 size, struct svm_global_va *src_info)
-{
-    void *va_handle = NULL;
-    void *svmm_inst = NULL;
-    int ret;
-
-    va_handle = svm_handle_get(va);
-    if (va_handle == NULL) {
-        return DRV_ERROR_NOT_EXIST;
-    }
-
-    svmm_inst = vmm_get_svmm(va_handle);
-    if (svmm_inst == NULL) {
-        svm_handle_put(va_handle);
-        return DRV_ERROR_NOT_EXIST;
-    }
-
-    ret = _vmm_query_src_info(svmm_inst, va, size, src_info);
-    svm_handle_put(va_handle);
-
-    return ret;
-}
-
-static int _vmm_single_app_unmap(u32 devid, void *va_handle, u64 va, u64 size)
-{
-    drv_mem_handle_t *handle = NULL;
-    struct svm_dst_va dst_info;
-    struct svm_global_va src_info;
-    void *svmm_inst = NULL;
-    u64 start = va;
-    u64 svm_flag;
-    u32 task_bitmap, smm_flag = 0;
-    int ret;
-
-    svmm_inst = vmm_get_svmm(va_handle);
-    if (svmm_inst == NULL) { /* vmm map addr first prefetch */
-        svm_err("Get svmm inst failed. (va=0x%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    src_info.udevid = SVM_INVALID_UDEVID;
-    ret = svm_svmm_get_seg(svmm_inst, &devid, &start, &svm_flag, &src_info);
-    if (ret != 0) {
-        svm_err("Get seg failed. (devid=%u; va=0x%llx; size=0x%llx bytes)\n", devid, va, size);
-        return ret;
-    }
-
-    handle = (drv_mem_handle_t *)(uintptr_t)src_info.va;
-    vmm_restore_real_src_va(&src_info);
-
-    ret = vmm_get_task_bitmap(svmm_inst, va, &task_bitmap);
-    if (ret != DRV_ERROR_NONE) {
-        return ret;
-    }
-
-    ret = vmm_ops_pre_unmap(task_bitmap, devid, start, svm_flag, &src_info);
-    if (ret != DRV_ERROR_NONE) {
-        return ret;
-    }
-
-    ret = svm_svmm_del_seg(svmm_inst, devid, va, size, false);
-    if (ret != DRV_ERROR_NONE) {
-        svm_err("Del seg failed. (ret=%d; devid=%u; va=0x%llx; size=0x%llx)\n", ret, devid, va, size);
-        return ret;
-    }
-
-    (void)vmm_free_pa(handle);
-
-    svm_dst_va_pack(devid, PROCESS_CP1, start, size, &dst_info);
-    ret = svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
-    if (ret != 0) {
-        /* not rollback */
-        svm_err("Smm unmap failed. (devid=%u; va=0x%llx; size=0x%llx)\n", devid, start, size);
-        return ret;
-    }
-
-    return 0;
-}
-
-static int vmm_single_app_mmap(u64 va, u64 size, drv_mem_handle_t *handle, u64 offset)
+static int vmm_prepare_single_app_map_info(u64 va, u64 size, drv_mem_handle_t *handle, u64 offset, u64 vmm_map_flag,
+                                           struct vmm_dst_map_info *d_info, struct vmm_src_map_info *s_info)
 {
     u64 handle_start = handle->va;
     struct svm_prop src_prop;
-    void *va_handle = NULL;
+    struct svm_global_va src_info;
+    u64 svm_flag;
+    u32 udevid;
     int ret;
 
     ret = svm_get_prop(handle_start, &src_prop);
@@ -1513,69 +1775,26 @@ static int vmm_single_app_mmap(u64 va, u64 size, drv_mem_handle_t *handle, u64 o
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    va_handle = svm_handle_get(va);
-    if (va_handle == NULL) { /* maybe va has been free after get prop */
-        svm_err("Get va handle failed. (va=%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
+    ret = uda_get_udevid_by_devid_ex(src_prop.devid, &udevid);
+    if (ret != DRV_ERROR_NONE) {
+        svm_err("Get udevid failed. (devid=%u; ret=%d)\n", src_prop.devid, ret);
+        return ret;
     }
+    svm_global_va_pack(udevid, src_prop.tgid, src_prop.start, size, &src_info);
 
-    ret = _vmm_single_app_mmap(va_handle, va, size, &src_prop, handle);
-    svm_handle_put(va_handle);
+    svm_flag = vmm_get_single_app_mmap_svm_flag(va, size, src_prop.flag, vmm_map_flag);
 
-    return ret;
+    vmm_src_map_info_pack(&src_info, handle, s_info);
+    vmm_dst_map_info_pack(src_prop.devid, va, svm_flag, d_info);
+    return 0;
 }
 
-static int vmm_single_app_unmap(u32 devid, u64 va, u64 size)
-{
-    void *va_handle = NULL;
-    int ret;
-
-    va_handle = svm_handle_get(va);
-    if (va_handle == NULL) { /* maybe va has been free after get prop */
-        svm_err("Get va handle failed. (va=%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    ret = _vmm_single_app_unmap(devid, va_handle, va, size);
-    svm_handle_put(va_handle);
-
-    return ret;
-}
-
-static u64 vmm_get_cross_app_mmap_svm_flag(u64 va, u64 size, u32 module_id)
-{
-    u64 svm_flag = 0;
-
-    svm_flag |= SVM_FLAG_CAP_VMM_IPC_UNMAP;
-    if (!svm_is_in_dcache_va_range(va, size)) {
-        svm_flag |= SVM_FLAG_CAP_MEMSET;
-        svm_flag |= SVM_FLAG_CAP_SYNC_COPY;
-        svm_flag |= SVM_FLAG_CAP_DMA_DESC_CONVERT;
-        svm_flag |= SVM_FLAG_CAP_GET_MEM_TOKEN_INFO;
-        svm_flag |= SVM_FLAG_CAP_GET_ATTR;
-        svm_flag |= SVM_FLAG_CAP_GET_D2D_TRANS_WAY;
-    }
-
-    svm_flag_set_module_id(&svm_flag, module_id);
-
-    return svm_flag;
-}
-
-static int _vmm_cross_app_mmap(void *va_handle, u64 va, u64 size, drv_mem_handle_t *handle, u64 offset)
+static int vmm_prepare_cross_app_map_info(u64 va, u64 size, drv_mem_handle_t *handle, u64 offset, u64 vmm_map_flag,
+                                          struct vmm_dst_map_info *d_info, struct vmm_src_map_info *s_info)
 {
     struct svm_global_va src_info = handle->src_info;
-    u64 key = handle->key;
-    u64 dst_devid = handle->devid;
-    void *svmm_inst = NULL;
-    u64 svm_flag = 0;
-    u32 casm_flag = vmm_map_route_to_casm_flag(handle->map_route);
-    int ret;
-
-    svmm_inst = vmm_get_svmm(va_handle);
-    if (svmm_inst == NULL) { /* vmm map addr first prefetch */
-        svm_err("Get svmm inst failed. (va=%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
-    }
+    u32 devid = handle->devid;
+    u64 svm_flag;
 
     if (offset >= src_info.size) {
         svm_err("Map offset size overflows. (offset=0x%llx; pa_size=0x%llx)\n", offset, src_info.size);
@@ -1587,102 +1806,30 @@ static int _vmm_cross_app_mmap(void *va_handle, u64 va, u64 size, drv_mem_handle
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    svm_flag = vmm_get_cross_app_mmap_svm_flag(va, size, handle->src_prop.module_id);
-    src_info.va = (u64)(uintptr_t)handle; /* cross app mmap src info is not used, use va to store handle */
-    src_info.size = size;
-    ret = svm_svmm_add_seg(svmm_inst, (u32)dst_devid, va, svm_flag, &src_info);
-    if (ret != 0) {
-        svm_err("Add seg failed. (devid=%u; va=%llx; size=%llx)\n", dst_devid, va, size);
-        return ret;
-    }
+    src_info.size = size; /* Adjust to map size. */
 
-    ret = svm_casm_mem_map((u32)dst_devid, va, size, key, casm_flag);
-    if (ret != 0) {
-        svm_err("Casm map failed. (devid=%u; va=%llx; size=%llx)\n", dst_devid, va, size);
-        (void)svm_svmm_del_seg(svmm_inst, (u32)dst_devid, va, size, true);
-        return ret;
-    }
+    svm_flag = vmm_get_cross_app_mmap_svm_flag(va, size, handle->src_prop.module_id, handle->src_pg_type, vmm_map_flag);
 
+    vmm_src_map_info_pack(&src_info, handle, s_info);
+    vmm_dst_map_info_pack(devid, va, svm_flag, d_info);
     return 0;
 }
 
-static int _vmm_cross_app_unmap(u32 devid, void *va_handle, u64 va, u64 size)
+static int vmm_prepare_map_info(u64 va, u64 size, drv_mem_handle_t *handle, u64 offset, u64 vmm_map_flag,
+                                struct vmm_dst_map_info *d_info, struct vmm_src_map_info *s_info)
 {
-    drv_mem_handle_t *handle = NULL;
-    struct svm_global_va src_info;
-    void *svmm_inst = NULL;
-    u64 start = va;
-    u64 svm_flag;
-    int ret;
-
-    svmm_inst = vmm_get_svmm(va_handle);
-    if (svmm_inst == NULL) {
-        svm_err("Get svmm inst failed. (va=%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
+    if (handle->type == SVM_VMM_HANDLE_IMPORT_TYPE) {
+        return vmm_prepare_cross_app_map_info(va, size, handle, offset, vmm_map_flag, d_info, s_info);
+    } else {
+        return vmm_prepare_single_app_map_info(va, size, handle, offset, vmm_map_flag, d_info, s_info);
     }
-
-    src_info.udevid = SVM_INVALID_UDEVID;
-    ret = svm_svmm_get_seg(svmm_inst, &devid, &start, &svm_flag, &src_info);
-    if (ret != 0) {
-        svm_err("Get seg failed. (ret=%d; devid=%u; va=0x%llx; size=0x%llx bytes)\n", ret, devid, va, size);
-        return ret;
-    }
-
-    handle = (drv_mem_handle_t *)(uintptr_t)src_info.va;
-
-    ret = svm_svmm_del_seg(svmm_inst, devid, va, size, false);
-    if (ret != 0) {
-        svm_err("Del seg failed. (ret=%d; devid=%u; va=0x%llx; size=0x%llx)\n", ret, devid, va, size);
-        return ret;
-    }
-
-    vmm_import_handle_no_ref_destroy(handle);
-
-    ret = svm_casm_mem_unmap(devid, va, size);
-    if (ret != 0) {
-        svm_err("Casm unmap failed. (devid=%u; va=%llx; size=%llx)\n", devid, va, size);
-        return ret;
-    }
-
-    return 0;
 }
 
-static int vmm_cross_app_mmap(u64 va, u64 size, drv_mem_handle_t *handle, u64 offset)
+static int vmm_mmap(void *va, u64 size, drv_mem_handle_t *handle, u64 offset, u64 vmm_map_flag)
 {
+    struct vmm_dst_map_info d_info;
+    struct vmm_src_map_info s_info;
     void *va_handle = NULL;
-    int ret;
-
-    va_handle = svm_handle_get(va);
-    if (va_handle == NULL) { /* maybe va has been free after get prop */
-        svm_err("Get va handle failed. (va=%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    ret = _vmm_cross_app_mmap(va_handle, va, size, handle, offset);
-    svm_handle_put(va_handle);
-
-    return ret;
-}
-
-static int vmm_cross_app_unmap(u32 devid, u64 va, u64 size)
-{
-    void *va_handle = NULL;
-    int ret;
-
-    va_handle = svm_handle_get(va);
-    if (va_handle == NULL) { /* maybe va has been free after get prop */
-        svm_err("Get va handle failed. (va=%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    ret = _vmm_cross_app_unmap(devid, va_handle, va, size);
-    svm_handle_put(va_handle);
-
-    return ret;
-}
-
-static int vmm_mmap(void *va, u64 size, drv_mem_handle_t *handle, u64 offset)
-{
     struct svm_prop prop;
     u64 start = (u64)(uintptr_t)va;
     int ret;
@@ -1690,7 +1837,7 @@ static int vmm_mmap(void *va, u64 size, drv_mem_handle_t *handle, u64 offset)
     ret = svm_get_prop(start, &prop);
     if (ret != 0) {
         svm_err("Get prop failed. (start=%llx)\n", start);
-        svm_report_addr_not_allocated("halMemMap", "ptr", start);
+        svm_report_addr_not_allocated("ptr", start);
         return ret;
     }
 
@@ -1699,21 +1846,33 @@ static int vmm_mmap(void *va, u64 size, drv_mem_handle_t *handle, u64 offset)
         return DRV_ERROR_PARA_ERROR;
     }
 
-    if (handle->type == SVM_VMM_HANDLE_IMPORT_TYPE) {
-        ret = vmm_cross_app_mmap(start, size, handle, offset);
-    } else {
-        ret = vmm_single_app_mmap(start, size, handle, offset);
+    ret = vmm_prepare_map_info(start, size, handle, offset, vmm_map_flag, &d_info, &s_info);
+    if (ret != 0) {
+        svm_err("Prepare map info failed. (ret=%d)\n", ret);
+        return ret;
     }
 
-    if (ret == 0) {
-        svm_atomic64_inc(&handle->ref);
+    /* host uva only map host physical address */
+    if (svm_flag_attr_is_master_uva(prop.flag) && (s_info.va_info.udevid != svm_get_host_devid())) {
+        svm_run_info("Host uva only support host physical. (udevid=%u)\n", s_info.va_info.udevid);
+        return DRV_ERROR_NOT_SUPPORT;
     }
+
+    va_handle = svm_handle_get(start);
+    if (va_handle == NULL) { /* maybe va has been free after get prop */
+        svm_err("Get va handle failed. (start=%llx)\n", start);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ret = _vmm_mmap(va_handle, &d_info, &s_info);
+    svm_handle_put(va_handle);
 
     return ret;
 }
 
 static int vmm_munmap(void *va)
 {
+    void *va_handle = NULL;
     struct svm_prop prop;
     u64 start = (u64)(uintptr_t)va;
     int ret;
@@ -1722,19 +1881,26 @@ static int vmm_munmap(void *va)
     if (ret != 0) {
         /* The log cannot be modified, because in the failure mode library. */
         svm_err("Vmm unmap find addr failed. (start=0x%llx)\n", start);
-        svm_report_addr_not_allocated("halMemUnmap", "ptr", start);
+        svm_report_addr_not_allocated("ptr", start);
         return ret;
     }
 
-    if (svm_flag_cap_is_support_vmm_unmap(prop.flag)) {
-        return vmm_single_app_unmap(prop.devid, start, prop.aligned_size);
-    } else if (svm_flag_cap_is_support_vmm_ipc_unmap(prop.flag)) {
-        return vmm_cross_app_unmap(prop.devid, start, prop.aligned_size);
-    } else {
+    if (!svm_flag_cap_is_support_vmm_unmap(prop.flag) && !svm_flag_cap_is_support_vmm_ipc_unmap(prop.flag)) {
         /* The log cannot be modified, because in the failure mode library. */
-        svm_err("Addr can not unmap. (va=0x%llx)\n", start);
+        svm_err("Addr can not be unmapped. (va=0x%llx)\n", start);
         return DRV_ERROR_PARA_ERROR;
     }
+
+    va_handle = svm_handle_get(start);
+    if (va_handle == NULL) { /* maybe va has been free after get prop */
+        svm_err("Get va handle failed. (start=%llx)\n", start);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ret = _vmm_munmap(va_handle, prop.devid, start, prop.aligned_size);
+    svm_handle_put(va_handle);
+
+    return ret;
 }
 
 static void vmm_report_mmap_align_error(void *ptr, size_t size, drv_mem_handle_t *handle)
@@ -1742,27 +1908,20 @@ static void vmm_report_mmap_align_error(void *ptr, size_t size, drv_mem_handle_t
     u64 page_size, dst_npage_size;
     int ret;
 
+    page_size = vmm_get_handle_pg_size(handle, size);
     ret = svm_dbi_query_npage_size(handle->devid, &dst_npage_size);
-    if (handle->src_prop_valid == 1) {
-        page_size = vmm_get_real_pg_size(handle->src_prop.pg_type, handle->src_prop.module_id, size);
-        if ((ret == DRV_ERROR_NONE) && (dst_npage_size > page_size)) {
-            page_size = dst_npage_size;
-        }
-    } else {
-        if (ret != DRV_ERROR_NONE) {
-            return;
-        }
+    if ((ret == DRV_ERROR_NONE) && (dst_npage_size > page_size)) {
         page_size = dst_npage_size;
     }
 
     if (!SVM_IS_ALIGNED((u64)(uintptr_t)ptr, page_size)) {
-        svm_report_addr_not_aligned("halMemMap", "ptr", (u64)(uintptr_t)ptr, page_size);
+        svm_report_addr_not_aligned("ptr", (u64)(uintptr_t)ptr, page_size);
     } else if (!SVM_IS_ALIGNED(size, page_size)) {
-        svm_report_size_not_aligned("halMemMap", "size", size, page_size);
+        svm_report_size_not_aligned("size", size, page_size);
     }
 }
 
-static int vmm_mmap_para_check(void *ptr, size_t size, size_t offset, drv_mem_handle_t *handle, uint64_t flag)
+static int vmm_mmap_para_check(void *ptr, u64 size, u64 offset, drv_mem_handle_t *handle, u64 flag)
 {
     int ret;
     u64 aligned, page_size;
@@ -1774,52 +1933,38 @@ static int vmm_mmap_para_check(void *ptr, size_t size, size_t offset, drv_mem_ha
 
     /* reserved para, verify by zero for subsequent compatibility */
     if (offset != 0) {
-        svm_err("Offset should be zero.\n");
+        svm_debug("Offset should be zero. (offset=%llu)\n", offset);
         return DRV_ERROR_INVALID_VALUE;
     }
 
     /* reserved para, verify by zero for subsequent compatibility */
     if (flag != 0) {
-        svm_err("Flag should be zero.\n");
+        svm_debug("Flag should be zero. (flag=0x%llx)\n", flag);
         return DRV_ERROR_INVALID_VALUE;
     }
 
     ret = svm_share_get_dst_align((u64)(uintptr_t)ptr, size, handle->devid, &aligned);
     if (ret != 0) {
-        svm_err("Not aligned. (ptr=0x%llx; size=%llu; devid=%u)\n", (u64)(uintptr_t)ptr, (u64)size, handle->devid);
+        svm_err("Not aligned. (ptr=0x%llx; size=%llu; devid=%u)\n", (u64)(uintptr_t)ptr, size, handle->devid);
         vmm_report_mmap_align_error(ptr, size, handle);
         return DRV_ERROR_PARA_ERROR;
     }
 
-    if (handle->src_prop_valid == 1) {
-        page_size = vmm_get_real_pg_size(handle->src_prop.pg_type, handle->src_prop.module_id, size);
-        if (page_size > aligned) {
-            svm_err("Not aligned. (ptr=0x%llx; pg_type=%u; size=%llu; module_id=%u; page_size=%llu; aligned=%llu)\n",
-                    (u64)(uintptr_t)ptr, handle->src_prop.pg_type, (u64)size, handle->src_prop.module_id, page_size,
-                    aligned);
-            if (!SVM_IS_ALIGNED((u64)(uintptr_t)ptr, page_size)) {
-                svm_report_addr_not_aligned("halMemMap", "ptr", (u64)(uintptr_t)ptr, page_size);
-            } else if (!SVM_IS_ALIGNED(size, page_size)) {
-                svm_report_size_not_aligned("halMemMap", "size", size, page_size);
-            }
-            return DRV_ERROR_PARA_ERROR;
+    page_size = vmm_get_handle_pg_size(handle, size);
+    if (page_size > aligned) {
+        svm_err("Not aligned. (ptr=0x%llx; pg_type=%u; size=%llu; module_id=%u; page_size=%llu; aligned=%llu)\n",
+                (u64)(uintptr_t)ptr, handle->src_prop.pg_type, size, handle->src_prop.module_id, page_size, aligned);
+        if (!SVM_IS_ALIGNED((u64)(uintptr_t)ptr, page_size)) {
+            svm_report_addr_not_aligned("ptr", (u64)(uintptr_t)ptr, page_size);
+        } else if (!SVM_IS_ALIGNED(size, page_size)) {
+            svm_report_size_not_aligned("size", size, page_size);
         }
-    } else {
-        if (aligned < VMM_ALLOC_GRANULARITY_4K) {
-            svm_err("Not aligned. (ptr=0x%llx; pg_type=%u; size=%llu; module_id=%u; aligned=%llu)\n",
-                    (u64)(uintptr_t)ptr, handle->src_prop.pg_type, (u64)size, handle->src_prop.module_id, aligned);
-            if (!SVM_IS_ALIGNED((u64)(uintptr_t)ptr, VMM_ALLOC_GRANULARITY_4K)) {
-                svm_report_addr_not_aligned("halMemMap", "ptr", (u64)(uintptr_t)ptr, VMM_ALLOC_GRANULARITY_4K);
-            } else if (!SVM_IS_ALIGNED(size, VMM_ALLOC_GRANULARITY_4K)) {
-                svm_report_size_not_aligned("halMemMap", "size", size, VMM_ALLOC_GRANULARITY_4K);
-            }
-            return DRV_ERROR_PARA_ERROR;
-        }
+        return DRV_ERROR_PARA_ERROR;
     }
     return DRV_ERROR_NONE;
 }
 
-drvError_t halMemMap(void *ptr, size_t size, size_t offset, drv_mem_handle_t *handle, uint64_t flag)
+static int hal_vmm_mmap(void *ptr, u64 size, u64 offset, drv_mem_handle_t *handle, u64 flag, u64 vmm_map_flag)
 {
     int ret;
 
@@ -1829,30 +1974,39 @@ drvError_t halMemMap(void *ptr, size_t size, size_t offset, drv_mem_handle_t *ha
     }
 
     svm_use_pipeline();
-    ret = vmm_mmap(ptr, (u64)size, handle, (u64)offset);
+    ret = vmm_mmap(ptr, (u64)size, handle, (u64)offset, vmm_map_flag);
     svm_unuse_pipeline();
     if (ret == 0) {
-        svm_debug("Vmm Map. (va=0x%llx; size=%llu; handle_va=0x%llx; devid=%u; key=%llu)\n", (u64)(uintptr_t)ptr, size,
-                  handle->va, handle->devid, handle->key);
+        svm_debug("Vmm map. (va=0x%llx; size=%llu; handle_va=0x%llx; devid=%u; key=%llu; flag=0x%llx)\n",
+                  (u64)(uintptr_t)ptr, size, handle->va, handle->devid, handle->key, vmm_map_flag);
     }
 
     return (drvError_t)ret;
+}
+
+drvError_t halMemMap(void *ptr, size_t size, size_t offset, drv_mem_handle_t *handle, uint64_t flag)
+{
+    DRV_CURRENT_API_SCOPE();
+    return (drvError_t)hal_vmm_mmap(ptr, size, offset, handle, flag, 0);
+}
+
+drvError_t halMemMapNoAccess(void *ptr, size_t size, size_t offset, drv_mem_handle_t *handle, uint64_t flag)
+{
+    DRV_CURRENT_API_SCOPE();
+    return (drvError_t)hal_vmm_mmap(ptr, size, offset, handle, flag, VMM_MAP_FLAG_OWNER_NO_ACCESS);
 }
 
 drvError_t halMemUnmap(void *ptr)
 {
     int ret;
 
+    DRV_CURRENT_API_SCOPE();
+
     if (ptr == NULL) {
         svm_err("Ptr is null.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if (((uintptr_t)ptr % VMM_ALLOC_RECOMMENDED_GRANULARITY) != 0) {
-        svm_err("Ptr is invalid. (ptr=%p)\n", ptr);
-        svm_report_addr_not_aligned("halMemUnmap", "ptr", (u64)(uintptr_t)ptr, VMM_ALLOC_RECOMMENDED_GRANULARITY);
-        return DRV_ERROR_INVALID_VALUE;
-    }
     svm_debug("Vmm Unmap. (va=0x%llx)\n", (u64)(uintptr_t)ptr);
 
     svm_use_pipeline();
@@ -1860,6 +2014,51 @@ drvError_t halMemUnmap(void *ptr)
     svm_unuse_pipeline();
 
     return (drvError_t)ret;
+}
+
+static int vmm_query_map_info_by_va(u64 va, struct vmm_dst_map_info *d_info, struct vmm_src_map_info *s_info)
+{
+    void *va_handle = NULL;
+    int ret;
+
+    va_handle = svm_handle_get(va);
+    if (va_handle == NULL) {
+        return DRV_ERROR_NOT_EXIST;
+    }
+
+    if (vmm_get_svmm(va_handle) == NULL) {
+        svm_handle_put(va_handle);
+        return DRV_ERROR_NOT_EXIST;
+    }
+
+    ret = vmm_query_map_info(va_handle, SVM_INVALID_DEVID, va, d_info, s_info);
+    svm_handle_put(va_handle);
+    return ret;
+}
+
+int vmm_query_src_info(u64 va, u64 size, struct svm_global_va *src_info)
+{
+    struct vmm_src_map_info s_info;
+    struct vmm_dst_map_info d_info;
+    u64 offset;
+    int ret;
+
+    ret = vmm_query_map_info_by_va(va, &d_info, &s_info);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    offset = va - d_info.va;
+    if ((offset >= s_info.va_info.size) || (size > (s_info.va_info.size - offset))) {
+        svm_debug("Is vmm mixed seg. (va=0x%llx; size=0x%llx; seg_va=0x%llx; seg_size=0x%llx)\n", va, size, d_info.va,
+                  s_info.va_info.size);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    *src_info = s_info.va_info;
+    src_info->va += offset;
+    src_info->size = size;
+    return DRV_ERROR_NONE;
 }
 
 static void svm_fill_share_handle(struct svm_share_handle *share_handle, drv_mem_handle_type handle_type, u64 key,
@@ -1892,8 +2091,34 @@ static void svm_fill_share_handle(struct svm_share_handle *share_handle, drv_mem
     share_handle->src_prop = *src_prop;
 }
 
+static void vmm_casm_src_prop_pack(enum drv_mem_pg_type src_pg_type, struct casm_src_prop *prop)
+{
+    prop->casm_pg_type = (src_pg_type == MEM_GIANT_PAGE_TYPE) ?
+                             CASM_GPAGE :
+                             ((src_pg_type == MEM_HUGE_PAGE_TYPE) ? CASM_HPAGE : CASM_NPAGE);
+}
+
+static enum drv_mem_pg_type vmm_casm_pg_type_to_drv(enum casm_pg_type casm_pg_type)
+{
+    return (casm_pg_type == CASM_GPAGE) ? MEM_GIANT_PAGE_TYPE :
+                                          ((casm_pg_type == CASM_HPAGE) ? MEM_HUGE_PAGE_TYPE : MEM_NORMAL_PAGE_TYPE);
+}
+
+static void vmm_legacy_src_prop_pack(u64 key, const struct casm_src_prop *casm_prop, struct drv_mem_prop *src_prop)
+{
+    u32 devid = casm_key_to_devid(key);
+
+    src_prop->side = (devid == svm_get_host_devid()) ? MEM_HOST_SIDE : MEM_DEV_SIDE;
+    src_prop->devid = (devid == svm_get_host_devid()) ? 0 : devid;
+    src_prop->module_id = APP_MODULE_ID;
+    src_prop->pg_type = vmm_casm_pg_type_to_drv(casm_prop->casm_pg_type);
+    src_prop->mem_type = MEM_HBM_TYPE;
+    src_prop->reserve = 0;
+}
+
 static int vmm_export(drv_mem_handle_t *handle, drv_mem_handle_type handle_type, struct svm_share_handle *share_handle)
 {
+    struct casm_src_prop src_prop;
     struct svm_prop prop;
     struct svm_dst_va dst_va;
     u64 start = handle->va;
@@ -1917,8 +2142,12 @@ static int vmm_export(drv_mem_handle_t *handle, drv_mem_handle_type handle_type,
         svm_dst_va_pack(prop.devid, DEVDRV_PROCESS_CP1, prop.start, prop.aligned_size, &dst_va);
     }
 
+    vmm_casm_src_prop_pack(svm_flag_attr_is_gpage(prop.flag) ?
+                               MEM_GIANT_PAGE_TYPE :
+                               (svm_flag_attr_is_hpage(prop.flag) ? MEM_HUGE_PAGE_TYPE : MEM_NORMAL_PAGE_TYPE),
+                           &src_prop);
     svm_use_pipeline();
-    ret = svm_casm_create_key(&dst_va, &key);
+    ret = svm_casm_create_key(&dst_va, &src_prop, &key);
     if (ret == 0) {
         handle->type = SVM_VMM_HANDLE_EXPORT_TYPE;
         handle->key = key;
@@ -1930,49 +2159,19 @@ static int vmm_export(drv_mem_handle_t *handle, drv_mem_handle_type handle_type,
 }
 
 /* dir: dst device process va -> src device pa */
-static int vmm_dir_check(u32 dst_devid, struct svm_global_va *src_va)
+static int vmm_dir_check(u32 dst_devid, const struct svm_global_va *src_va)
 {
 #define CONNECT_TYPE_NUM (HOST_DEVICE_CONNECT_TYPE_UB + 1)
     u32 host_devid = svm_get_host_devid();
 
-    if (dst_devid == host_devid) {
-        /* not support H2rH, H2rD */
-        if ((src_va->server_id != SVM_INVALID_SERVER_ID) && (src_va->server_id != svm_get_cur_server_id())) {
-            return DRV_ERROR_NOT_SUPPORT;
-        }
-
-        if (src_va->udevid == host_devid) {
-            /* support local H2H */
-            return 0;
-        } else { /* local H2D */
-            /* not support connect with ub, because host mem-decoder not config */
-            int h2d_support_flag[CONNECT_TYPE_NUM] = {
-                [HOST_DEVICE_CONNECT_TYPE_PCIE] = 1, /* use pcie bar */
-                [HOST_DEVICE_CONNECT_TYPE_HCCS] = 1, /* use global pa */
-            };
-            u32 src_devid, connect_type;
-            int ret = drvDeviceGetIndexByPhyId(src_va->udevid, &src_devid);
-            if (ret != 0) {
-                svm_err("Get src devid failed. (udevid=%u)\n", src_va->udevid);
-                return ret;
-            }
-
-            connect_type = svm_get_device_connect_type(src_devid);
-            if (connect_type > HOST_DEVICE_CONNECT_TYPE_UB) {
-                svm_err("Invalid connect type. (devid=%u; connect_type=%u)\n", dst_devid, connect_type);
-                return DRV_ERROR_INVALID_VALUE;
-            }
-
-            return (h2d_support_flag[connect_type] == 1) ? 0 : DRV_ERROR_NOT_SUPPORT;
-        }
-    } else {
-        if (src_va->udevid == host_devid) { /* D2H, D2rH */
-            /* D2H is same with D2rH */
-            /* not support connect with pcie, because pcie th va is not same */
-            int d2h_support_flag[CONNECT_TYPE_NUM] = {
-                [HOST_DEVICE_CONNECT_TYPE_HCCS] = 1, /* use global pa */
-                [HOST_DEVICE_CONNECT_TYPE_UB] = 1,   /* use memory decoder */
-            };
+    if (src_va->udevid == host_devid) { /* D2H, D2rH */
+        /* D2H is same with D2rH */
+        /* not support connect with pcie, because pcie th va is not same */
+        int d2h_support_flag[CONNECT_TYPE_NUM] = {
+            [HOST_DEVICE_CONNECT_TYPE_HCCS] = 1, /* use global pa */
+            [HOST_DEVICE_CONNECT_TYPE_UB] = 1,   /* use memory decoder */
+        };
+        if (dst_devid != host_devid) {
             u32 connect_type = svm_get_device_connect_type(dst_devid);
             if (connect_type > HOST_DEVICE_CONNECT_TYPE_UB) {
                 svm_err("Invalid connect type. (devid=%u; connect_type=%u)\n", dst_devid, connect_type);
@@ -1980,60 +2179,134 @@ static int vmm_dir_check(u32 dst_devid, struct svm_global_va *src_va)
             }
 
             return (d2h_support_flag[connect_type] == 1) ? 0 : DRV_ERROR_NOT_SUPPORT;
-        } else {
-            /* support D2D, D2rD */
-            return 0;
         }
+    }
+
+    return 0;
+}
+
+static int vmm_import_host_npage_check(u32 dst_devid, const struct svm_global_va *src_va,
+                                       const struct casm_src_prop *src_prop)
+{
+    if ((dst_devid != svm_get_host_devid()) && (src_va->udevid == svm_get_host_devid()) &&
+        (src_prop->casm_pg_type == CASM_NPAGE)) {
+        svm_run_info("Importing host normal-page memory to a device is not supported. (devid=%u)\n", dst_devid);
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    return DRV_ERROR_NONE;
+}
+
+struct vmm_import_context {
+    struct casm_src_va_ex_info src_ex_info;
+    struct drv_mem_prop src_prop;
+    struct svm_global_va src_va;
+    bool cs_info_set;
+    bool dir_checked;
+};
+
+static int vmm_import_cs_info_set(const struct svm_share_handle *share_handle, u32 devid,
+                                  struct vmm_import_context *context)
+{
+    struct casm_src_prop casm_src_prop;
+    u64 key = share_handle->key;
+    int ret;
+
+    if ((share_handle->handle_type != MEM_HANDLE_TYPE_FABRIC) || (share_handle->cs_valid == 0)) {
+        return 0;
+    }
+
+    ret = vmm_dir_check(devid, &share_handle->src_va);
+    if (ret != 0) {
+        return ret;
+    }
+    context->dir_checked = true;
+
+    if (share_handle->src_va.server_id == svm_get_cur_server_id()) {
+        return 0;
+    }
+
+    if (!share_handle->src_prop_valid) {
+        svm_err("Legacy shareable handle does not support cross-server import. (key=0x%llx)\n", key);
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    vmm_casm_src_prop_pack(vmm_get_real_pg_type(share_handle->src_prop.pg_type, share_handle->src_prop.module_id,
+                                                share_handle->src_va.size),
+                           &casm_src_prop);
+    ret = svm_casm_cs_set_src_info(devid, key, &share_handle->src_va, share_handle->owner_pid, &casm_src_prop);
+    if (ret != 0) {
+        svm_err("Set cs src failed. (key=0x%llx)\n", key);
+        return ret;
+    }
+    context->cs_info_set = true;
+
+    return 0;
+}
+
+static void vmm_import_cs_info_clear(const struct svm_share_handle *share_handle, u32 devid,
+                                     const struct vmm_import_context *context)
+{
+    if (context->cs_info_set) {
+        (void)svm_casm_cs_clr_src_info(devid, share_handle->key);
     }
 }
 
-static int vmm_import(struct svm_share_handle *share_handle, u32 devid, drv_mem_handle_t **handle)
+static int vmm_import_src_info_query(const struct svm_share_handle *share_handle, u32 devid,
+                                     struct vmm_import_context *context)
 {
-    struct drv_mem_prop *src_prop = share_handle->src_prop_valid ? &share_handle->src_prop : NULL;
-    struct svm_global_va src_va;
     u64 key = share_handle->key;
-    int clr_cs_flag = 0;
-    int dir_checked_flag = 0;
     int ret;
 
-    if ((share_handle->handle_type == MEM_HANDLE_TYPE_FABRIC) && (share_handle->cs_valid != 0)) {
-        ret = vmm_dir_check(devid, &share_handle->src_va);
-        if (ret != 0) {
-            return ret;
-        }
-        dir_checked_flag = 1;
-
-        if (share_handle->src_va.server_id != svm_get_cur_server_id()) {
-            ret = svm_casm_cs_set_src_info(devid, key, &share_handle->src_va, share_handle->owner_pid);
-            if (ret != 0) {
-                svm_err("Set cs src failed. (key=0x%llx)\n", key);
-                return ret;
-            }
-            clr_cs_flag = 1;
-        }
-    }
-
-    ret = svm_casm_get_src_va(devid, key, &src_va);
+    ret = svm_casm_get_src_va_ex(devid, key, &context->src_va, &context->src_ex_info);
     if (ret != 0) {
-        if (clr_cs_flag == 1) {
-            (void)svm_casm_cs_clr_src_info(devid, key);
-        }
         svm_err("Get src va failed. (key=0x%llx)\n", key);
         return ret;
     }
 
-    if (dir_checked_flag == 0) {
-        ret = vmm_dir_check(devid, &src_va);
+    ret = vmm_import_host_npage_check(devid, &context->src_va, &context->src_ex_info.src_prop);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    if (!context->dir_checked) {
+        ret = vmm_dir_check(devid, &context->src_va);
         if (ret != 0) {
             return ret;
         }
     }
 
-    *handle = vmm_import_handle_create(devid, key, src_prop, &src_va);
+    if (!share_handle->src_prop_valid) {
+        vmm_legacy_src_prop_pack(key, &context->src_ex_info.src_prop, &context->src_prop);
+    } else {
+        context->src_prop = share_handle->src_prop;
+    }
+
+    return 0;
+}
+
+static int vmm_import(struct svm_share_handle *share_handle, u32 devid, drv_mem_handle_t **handle)
+{
+    struct vmm_import_context context = {0};
+    u64 key = share_handle->key;
+    int ret;
+
+    ret = vmm_import_cs_info_set(share_handle, devid, &context);
+    if (ret != 0) {
+        return ret;
+    }
+
+    ret = vmm_import_src_info_query(share_handle, devid, &context);
+    if (ret != 0) {
+        vmm_import_cs_info_clear(share_handle, devid, &context);
+        return ret;
+    }
+
+    *handle = vmm_import_handle_create(devid, key, &context.src_prop,
+                                       vmm_casm_pg_type_to_drv(context.src_ex_info.src_prop.casm_pg_type),
+                                       &context.src_va);
     if (*handle == NULL) {
-        if (clr_cs_flag == 1) {
-            (void)svm_casm_cs_clr_src_info(devid, key);
-        }
+        vmm_import_cs_info_clear(share_handle, devid, &context);
         svm_err("Import handle create failed.\n");
         return DRV_ERROR_OUT_OF_MEMORY;
     }
@@ -2137,8 +2410,17 @@ drvError_t halMemImportFromShareableHandleV2(drv_mem_handle_type handle_type, st
     struct svm_share_handle *_share_handle = (struct svm_share_handle *)(void *)share_handle;
     int ret;
 
-    if ((share_handle == NULL) || (handle == NULL)) {
+    DRV_CURRENT_API_SCOPE();
+
+    if (handle == NULL) {
         svm_err("Handle is null.\n");
+        svm_report_null_pointer("handle");
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    if (share_handle == NULL) {
+        svm_err("Share handle is null.\n");
+        svm_report_null_pointer("share_handle");
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -2155,6 +2437,9 @@ drvError_t halMemImportFromShareableHandleV2(drv_mem_handle_type handle_type, st
     svm_use_pipeline();
     ret = vmm_import(_share_handle, devid, handle);
     svm_unuse_pipeline();
+    if (ret == DRV_ERROR_INVALID_HANDLE) {
+        svm_report_invalid_handle("halMemExportToShareableHandle", _share_handle->key);
+    }
     svm_debug("Vmm import. (ret=%d; handle_type=%u; devid=%u; cs_valid=%d; owner_pid=%d; key=%llu; "
               "handle_va=0x%llx)\n",
               ret, handle_type, devid, _share_handle->cs_valid, _share_handle->owner_pid, _share_handle->key,
@@ -2308,19 +2593,17 @@ static int vmm_access_location_check(struct drv_mem_location *location)
 
 static int vmm_access_desc_check(struct drv_mem_access_desc *desc, size_t count)
 {
-    u32 access_dev_flag[SVM_MAX_DEV_NUM] = {0};
     size_t i;
 
     if ((desc == NULL) || (count <= 0) || (count > SVM_MAX_DEV_NUM)) {
-        svm_err("Invalid desc. (count=%u)\n", (uint32_t)count);
+        svm_err("Invalid desc. (count=%u)\n", (u32)count);
         return DRV_ERROR_INVALID_VALUE;
     }
 
     for (i = 0; i < count; i++) {
-        u32 devid;
         int ret;
 
-        if ((desc[i].type == MEM_ACCESS_TYPE_NONE) || (desc[i].type == MEM_ACCESS_TYPE_READ)) {
+        if (desc[i].type == MEM_ACCESS_TYPE_READ) {
             svm_run_info("Not support type. (index=%u; type=%u)\n", i, desc[i].type);
             return DRV_ERROR_NOT_SUPPORT;
         }
@@ -2337,18 +2620,36 @@ static int vmm_access_desc_check(struct drv_mem_access_desc *desc, size_t count)
             return ret;
         }
 
-        devid = vmm_access_location_to_devid(&desc[i].location);
-        if (access_dev_flag[devid] == 1) {
-            svm_err("Same location. (side=%u; id=%u)\n", desc[i].location.side, desc[i].location.id);
-            return DRV_ERROR_INVALID_VALUE;
-        }
-
-        access_dev_flag[devid] = 1;
         svm_debug("SetAccess. (i=%llu; count=%llu; type=%u; id=%u; side=%u)\n", i, count, desc[i].type,
                   desc[i].location.id, desc[i].location.side);
     }
 
     return DRV_ERROR_NONE;
+}
+
+static int vmm_access_ptr_check(void *ptr)
+{
+    struct svm_prop prop;
+    int ret;
+
+    if (ptr == NULL) {
+        svm_err("Null ptr.\n");
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    ret = svm_get_prop((u64)(uintptr_t)ptr, &prop);
+    if (ret != 0) {
+        svm_err("Get prop failed. (ptr=0x%llx)\n", (u64)(uintptr_t)ptr);
+        return ret;
+    }
+
+    /* host uva not support set access to share with other devices */
+    if (svm_flag_attr_is_master_uva(prop.flag)) {
+        svm_run_info("Host uva not support set access. (ptr=0x%llx)\n", (u64)(uintptr_t)ptr);
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    return 0;
 }
 
 static struct svm_vmm_access_node *vmm_get_access_node(void *seg_handle)
@@ -2358,7 +2659,8 @@ static struct svm_vmm_access_node *vmm_get_access_node(void *seg_handle)
 }
 
 static struct svm_vmm_access_node *vmm_access_node_create(u32 owner_devid, u64 va, u64 size,
-                                                          struct svm_global_va *src_info)
+                                                          struct svm_global_va *src_info, void *seg_handle,
+                                                          drv_mem_access_type owner_access_type)
 {
     struct svm_vmm_access_node *access_node = NULL;
     u32 i;
@@ -2376,11 +2678,12 @@ static struct svm_vmm_access_node *vmm_access_node_create(u32 owner_devid, u64 v
     access_node->size = size;
     access_node->handle = (drv_mem_handle_t *)(uintptr_t)src_info->va;
     access_node->src_info = *src_info;
+    access_node->seg_handle = seg_handle;
     vmm_restore_real_src_va(&access_node->src_info);
 
     for (i = 0; i < SVM_MAX_DEV_NUM; i++) {
         if (i == access_node->owner_devid) {
-            access_node->access_type[i] = MEM_ACCESS_TYPE_READWRITE;
+            access_node->access_type[i] = owner_access_type;
         } else {
             access_node->access_type[i] = MEM_ACCESS_TYPE_NONE;
         }
@@ -2397,7 +2700,7 @@ static void vmm_access_node_destroy(struct svm_vmm_access_node *access_node)
     svm_ua_free(access_node);
 }
 
-static int _vmm_access_single_do_mmap(struct svm_vmm_access_node *access_node, u32 devid, drv_mem_access_type type)
+static int vmm_access_non_owner_do_mmap(struct svm_vmm_access_node *access_node, u32 devid, drv_mem_access_type type)
 {
     drv_mem_handle_t *handle = access_node->handle;
     int ret;
@@ -2415,13 +2718,17 @@ static int _vmm_access_single_do_mmap(struct svm_vmm_access_node *access_node, u
     if (ret != 0) { /* not need rollback */
         svm_err("Mmap failed. (devid=%u; va=%llx; size=%llx; handle type=%u)\n", devid, access_node->va,
                 access_node->size, handle->type);
+        if (ret == DRV_ERROR_NO_RESOURCES) {
+            svm_report_ubmem_cfg_abnormal();
+            ret = DRV_ERROR_INNER_ERR;
+        }
         return ret;
     }
 
     return 0;
 }
 
-static void _vmm_access_single_do_unmap(struct svm_vmm_access_node *access_node, u32 devid)
+static int vmm_access_non_owner_do_unmap(struct svm_vmm_access_node *access_node, u32 devid)
 {
     drv_mem_handle_t *handle = access_node->handle;
     int ret;
@@ -2435,14 +2742,77 @@ static void _vmm_access_single_do_unmap(struct svm_vmm_access_node *access_node,
         svm_dst_va_pack(devid, PROCESS_CP1, access_node->va, access_node->size, &dst_info);
         ret = svm_smm_client_unmap(&dst_info, &access_node->src_info, smm_flag);
     }
-    if (ret != 0) { /* not need rollback */
-        svm_warn("Munmap failed. (devid=%u; va=%llx; size=%llx)\n", devid, access_node->va, access_node->size);
+    if (ret != 0) {
+        svm_warn("Unmap failed. (devid=%u; va=%llx; size=%llx)\n", devid, access_node->va, access_node->size);
     }
+
+    return ret;
+}
+
+static u64 vmm_access_get_owner_mapped_svm_flag(struct svm_vmm_access_node *access_node, u64 svm_flag)
+{
+    if (access_node->handle->type == SVM_VMM_HANDLE_IMPORT_TYPE) {
+        return vmm_get_cross_app_mmap_svm_flag(access_node->va, access_node->size, svm_flag_get_module_id(svm_flag),
+                                               access_node->handle->src_pg_type, 0);
+    } else {
+        return vmm_get_single_app_mmap_svm_flag(access_node->va, access_node->size, svm_flag, 0);
+    }
+}
+
+static u64 vmm_access_get_owner_no_access_svm_flag(struct svm_vmm_access_node *access_node, u64 svm_flag)
+{
+    if (access_node->handle->type == SVM_VMM_HANDLE_IMPORT_TYPE) {
+        return vmm_get_cross_app_mmap_svm_flag(access_node->va, access_node->size, svm_flag_get_module_id(svm_flag),
+                                               access_node->handle->src_pg_type, VMM_MAP_FLAG_OWNER_NO_ACCESS);
+    } else {
+        return vmm_get_single_app_mmap_svm_flag(access_node->va, access_node->size, svm_flag,
+                                                VMM_MAP_FLAG_OWNER_NO_ACCESS);
+    }
+}
+
+static int vmm_access_owner_do_mmap(struct svm_vmm_access_node *access_node, u32 devid)
+{
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(access_node->seg_handle);
+    int ret;
+
+    if (svm_flag_is_vmm_map_owner_no_access(svm_flag)) {
+        svm_flag = vmm_access_get_owner_mapped_svm_flag(access_node, svm_flag);
+    }
+
+    ret = vmm_do_mmap(devid, access_node->va, svm_flag, &access_node->src_info, access_node->handle);
+    if (ret != 0) {
+        return ret;
+    }
+
+    svm_svmm_mod_seg_svm_flag(access_node->seg_handle, svm_flag);
+    return 0;
+}
+
+static int vmm_access_owner_do_unmap(struct svm_vmm_access_node *access_node, u32 devid)
+{
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(access_node->seg_handle);
+    int ret;
+
+    ret = vmm_do_unmap(devid, access_node->va, svm_flag, &access_node->src_info);
+    if (ret != 0) {
+        return ret;
+    }
+
+    svm_flag = vmm_access_get_owner_no_access_svm_flag(access_node, svm_flag);
+    svm_svmm_mod_seg_svm_flag(access_node->seg_handle, svm_flag);
+    return 0;
 }
 
 static int vmm_access_single_do_mmap(struct svm_vmm_access_node *access_node, u32 devid, drv_mem_access_type type)
 {
-    int ret = _vmm_access_single_do_mmap(access_node, devid, type);
+    int ret;
+
+    if (devid == access_node->handle->devid) {
+        /* TODO: Pass type to owner mmap when MEM_ACCESS_TYPE_READ is supported. */
+        ret = vmm_access_owner_do_mmap(access_node, devid);
+    } else {
+        ret = vmm_access_non_owner_do_mmap(access_node, devid, type);
+    }
     if (ret == 0) {
         access_node->access_type[devid] = type;
     }
@@ -2450,9 +2820,25 @@ static int vmm_access_single_do_mmap(struct svm_vmm_access_node *access_node, u3
     return ret;
 }
 
-static void vmm_access_single_do_unmap(struct svm_vmm_access_node *access_node, u32 devid)
+static int vmm_access_single_do_unmap(struct svm_vmm_access_node *access_node, u32 devid)
 {
-    _vmm_access_single_do_unmap(access_node, devid);
+    int ret;
+
+    if (devid == access_node->owner_devid) {
+        ret = vmm_access_owner_do_unmap(access_node, devid);
+    } else {
+        ret = vmm_access_non_owner_do_unmap(access_node, devid);
+    }
+    if (ret == 0) {
+        access_node->access_type[devid] = MEM_ACCESS_TYPE_NONE;
+    }
+
+    return ret;
+}
+
+static void vmm_access_non_owner_unmap(struct svm_vmm_access_node *access_node, u32 devid)
+{
+    (void)vmm_access_non_owner_do_unmap(access_node, devid);
     access_node->access_type[devid] = MEM_ACCESS_TYPE_NONE;
 }
 
@@ -2467,7 +2853,7 @@ static int vmm_access_node_release(void *priv, bool force)
             continue;
         }
 
-        vmm_access_single_do_unmap(access_node, i);
+        vmm_access_non_owner_unmap(access_node, i);
     }
 
     vmm_access_node_destroy(access_node);
@@ -2496,8 +2882,14 @@ static u32 vmm_access_node_show(void *priv, char *buf, u32 buf_len)
             }
         }
     } else {
-        int len = snprintf_s(buf, buf_len, buf_len - 1, "owner_devid 0x%llx va 0x%llx size 0x%llx\n",
-                             access_node->owner_devid, access_node->va, access_node->size);
+        int len;
+
+        if (buf_len == 0) {
+            return 0;
+        }
+
+        len = snprintf_s(buf, buf_len, buf_len - 1, "owner_devid 0x%llx va 0x%llx size 0x%llx\n",
+                         access_node->owner_devid, access_node->va, access_node->size);
         if (len < 0) {
             return 0;
         }
@@ -2505,6 +2897,9 @@ static u32 vmm_access_node_show(void *priv, char *buf, u32 buf_len)
 
         for (i = 0; i < SVM_MAX_DEV_NUM; i++) {
             if (access_node->access_type[i] != MEM_ACCESS_TYPE_NONE) {
+                if (data_len >= buf_len) {
+                    break;
+                }
                 len = snprintf_s(buf + data_len, buf_len - data_len, buf_len - data_len - 1,
                                  "    devid %u access type %u\n", i, access_node->access_type[i]);
                 if (len < 0) {
@@ -2525,14 +2920,15 @@ static struct svm_svmm_seg_priv_ops vmm_access_node_priv_ops = {
 };
 
 static struct svm_vmm_access_node *vmm_create_access_node(void *seg_handle, u32 owner_devid, u64 va, u64 size,
-                                                          struct svm_global_va *src_info)
+                                                          struct svm_global_va *src_info,
+                                                          drv_mem_access_type owner_access_type)
 {
     struct svm_vmm_access_node *access_node = NULL;
 
     access_node = vmm_get_access_node(seg_handle);
     /* if access_node is null, but svm_svmm_get_seg_priv(seg_handle) is not null, the priv is occpy by prefetch */
     if ((access_node == NULL) && (svm_svmm_get_seg_priv(seg_handle) == NULL)) {
-        access_node = vmm_access_node_create(owner_devid, va, size, src_info);
+        access_node = vmm_access_node_create(owner_devid, va, size, src_info, seg_handle, owner_access_type);
         if (access_node != NULL) {
             int ret = svm_svmm_set_seg_priv(seg_handle, (void *)access_node, &vmm_access_node_priv_ops);
             if (ret != 0) {
@@ -2550,6 +2946,7 @@ static int _vmm_access_node_handle(void *va_handle, u64 va,
                                    int (*func)(struct svm_vmm_access_node *access_node, void *priv), void *priv)
 {
     struct svm_vmm_access_node *access_node = NULL;
+    drv_mem_access_type owner_access_type;
     void *svmm_inst = NULL;
     void *seg_handle = NULL;
     u32 seg_devid;
@@ -2572,26 +2969,29 @@ static int _vmm_access_node_handle(void *va_handle, u64 va,
     seg_va = va;
     ret = svm_svmm_get_seg_by_va(svmm_inst, &seg_devid, &seg_va, &svm_flag, &src_info);
     if (ret != 0) {
-        svm_svmm_seg_handle_put(seg_handle);
         /* should not in, because we has been get seg handle */
         svm_err("Get seg info failed. (va=%llx)\n", va);
-        return ret;
+        goto out_put;
     }
 
     access_node = vmm_get_access_node(seg_handle);
     if (access_node == NULL) { /* vmm map addr first set/get access */
+        owner_access_type = svm_flag_is_vmm_map_owner_no_access(svm_flag) ? MEM_ACCESS_TYPE_NONE :
+                                                                            MEM_ACCESS_TYPE_READWRITE;
         svm_svmm_inst_occupy_pipeline(svmm_inst);
-        access_node = vmm_create_access_node(seg_handle, seg_devid, seg_va, src_info.size, &src_info);
+        access_node = vmm_create_access_node(seg_handle, seg_devid, seg_va, src_info.size, &src_info,
+                                             owner_access_type);
         svm_svmm_inst_release_pipeline(svmm_inst);
         if (access_node == NULL) {
-            svm_svmm_seg_handle_put(seg_handle);
-            return DRV_ERROR_OUT_OF_MEMORY;
+            ret = DRV_ERROR_OUT_OF_MEMORY;
+            goto out_put;
         }
     }
 
     ret = func(access_node, priv);
-    svm_svmm_seg_handle_put(seg_handle);
 
+out_put:
+    svm_svmm_seg_handle_put(seg_handle);
     return ret;
 }
 
@@ -2610,7 +3010,7 @@ static int vmm_access_node_handle(void *ptr, int (*func)(struct svm_vmm_access_n
     }
 
     if ((!svm_flag_cap_is_support_vmm_unmap(prop.flag)) && (!svm_flag_cap_is_support_vmm_ipc_unmap(prop.flag))) {
-        svm_err("Addr cap does not support set access, it is not vmm map address. (va=0x%llx)\n", va);
+        svm_err("Addr cap does not support set access. (va=0x%llx)\n", va);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -2632,8 +3032,8 @@ static int vmm_set_access_check(struct svm_vmm_access_node *access_node, u64 va,
     u32 i;
 
     if ((va != access_node->va) || (size != access_node->size)) {
-        svm_err("va and size not the same as mmap. (va=0x%llx; size=0x%llx; mmap start=0x%llx; size=0x%llx)\n", va,
-                size, access_node->va, access_node->size);
+        svm_err("va and size not same with mmap. (va=0x%llx; size=0x%llx; mmap start=0x%llx; size=0x%llx)\n", va, size,
+                access_node->va, access_node->size);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -2641,8 +3041,8 @@ static int vmm_set_access_check(struct svm_vmm_access_node *access_node, u64 va,
         u32 dst_devid = vmm_access_location_to_devid(&desc[i].location);
         int ret;
 
-        if (dst_devid == access_node->owner_devid) {
-            /* modify read write prop, support latter */
+        if ((dst_devid == access_node->owner_devid) || (desc[i].type == MEM_ACCESS_TYPE_NONE)) {
+            /* Owner access and unset do not require a new source-to-destination route. */
             continue;
         }
 
@@ -2650,21 +3050,13 @@ static int vmm_set_access_check(struct svm_vmm_access_node *access_node, u64 va,
         if (ret != DRV_ERROR_NONE) {
             return ret;
         }
-
-        if (access_node->access_type[dst_devid] != MEM_ACCESS_TYPE_NONE) {
-            if (access_node->access_type[dst_devid] != desc[i].type) {
-                svm_err("Repeat set with diff type. (ptr=0x%llx; size=0x%llx; dst_devid=%u; desc.type=%u; type=%u\n",
-                        va, size, dst_devid, desc[i].type, access_node->access_type[dst_devid]);
-                return DRV_ERROR_BUSY;
-            }
-        }
     }
 
     return 0;
 }
 
-static int vmm_set_access_do_mmap(struct svm_vmm_access_node *access_node, u64 va, u64 size,
-                                  struct drv_mem_access_desc *desc, u32 count)
+static int _vmm_set_access(struct svm_vmm_access_node *access_node, u64 va, u64 size, struct drv_mem_access_desc *desc,
+                           u32 count)
 {
     u32 i;
 
@@ -2672,13 +3064,24 @@ static int vmm_set_access_do_mmap(struct svm_vmm_access_node *access_node, u64 v
         u32 dst_devid = vmm_access_location_to_devid(&desc[i].location);
         int ret;
 
-        if (access_node->access_type[dst_devid] != MEM_ACCESS_TYPE_NONE) {
+        if (access_node->access_type[dst_devid] == desc[i].type) {
             continue;
         }
 
-        ret = vmm_access_single_do_mmap(access_node, dst_devid, desc[i].type);
+        if ((access_node->access_type[dst_devid] != MEM_ACCESS_TYPE_NONE) && (desc[i].type != MEM_ACCESS_TYPE_NONE)) {
+            svm_warn("Repeat set with different type. (devid=%u; current_type=%u; new_type=%u)\n", dst_devid,
+                     access_node->access_type[dst_devid], desc[i].type);
+            return DRV_ERROR_BUSY;
+        }
+
+        if (desc[i].type == MEM_ACCESS_TYPE_NONE) {
+            ret = vmm_access_single_do_unmap(access_node, dst_devid);
+        } else {
+            ret = vmm_access_single_do_mmap(access_node, dst_devid, desc[i].type);
+        }
         if (ret != 0) { /* not need rollback */
-            svm_err("Smm map failed. (devid=%u; va=%llx; size=%llx)\n", dst_devid, va, size);
+            svm_err("Set access failed. (ret=%d; devid=%u; va=%llx; size=%llx; type=%u)\n", ret, dst_devid, va, size,
+                    desc[i].type);
             return ret;
         }
     }
@@ -2686,8 +3089,6 @@ static int vmm_set_access_do_mmap(struct svm_vmm_access_node *access_node, u64 v
     return 0;
 }
 
-/* cancel access can only be called by vmm unmap, then we will unmap all access device
-   call trace: halMemUnmap->svm_svmm_del_seg->vmm_access_node_release->svm_smm_client_unmap */
 static int vmm_set_access(struct svm_vmm_access_node *access_node, void *priv)
 {
     struct svm_vmm_set_access_para *para = priv;
@@ -2701,7 +3102,7 @@ static int vmm_set_access(struct svm_vmm_access_node *access_node, void *priv)
 
     ret = vmm_set_access_check(access_node, va, size, desc, count);
     if (ret == 0) {
-        ret = vmm_set_access_do_mmap(access_node, va, size, desc, count);
+        ret = _vmm_set_access(access_node, va, size, desc, count);
     }
 
     pthread_rwlock_unlock(&access_node->rwlock);
@@ -2729,9 +3130,11 @@ drvError_t halMemSetAccess(void *ptr, size_t size, struct drv_mem_access_desc *d
     struct svm_vmm_set_access_para para;
     drvError_t ret;
 
-    if (ptr == NULL) {
-        svm_err("Null ptr.\n");
-        return DRV_ERROR_INVALID_VALUE;
+    DRV_CURRENT_API_SCOPE();
+
+    ret = vmm_access_ptr_check(ptr);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
     }
 
     ret = vmm_access_desc_check(desc, count);
@@ -2745,7 +3148,10 @@ drvError_t halMemSetAccess(void *ptr, size_t size, struct drv_mem_access_desc *d
     para.count = (u32)count;
     svm_debug("SetAccess. (ptr=0x%llx; size=%llu; count=%llu)\n", (u64)(uintptr_t)ptr, size, count);
 
-    return vmm_access_node_handle(ptr, vmm_set_access, &para);
+    svm_use_pipeline();
+    ret = vmm_access_node_handle(ptr, vmm_set_access, &para);
+    svm_unuse_pipeline();
+    return ret;
 }
 
 drvError_t halMemGetAccess(void *ptr, struct drv_mem_location *location, uint64_t *flags)
@@ -2764,7 +3170,9 @@ drvError_t halMemGetAccess(void *ptr, struct drv_mem_location *location, uint64_
     }
 
     para.location = location;
+    svm_use_pipeline();
     ret = vmm_access_node_handle(ptr, vmm_get_access, &para);
+    svm_unuse_pipeline();
     if (ret != DRV_ERROR_NONE) {
         svm_err("Get access failed. (side=%u; id=%u)\n", location->side, location->id);
         return ret;
@@ -2834,8 +3242,8 @@ drvError_t halMemGetAddressReserveRange(void **ptr, size_t *size, drv_mem_addr_r
 
     *ptr = (void *)(uintptr_t)get_va;
     *size = (size_t)get_size;
-    svm_debug("GetAddressReserveRange. (va=0x%llx; size=%llu bytes; type=%u; flag=0x%llx)\n", get_va, get_size,
-              (u32)type, flag);
+    svm_debug("GetAddressReserveRange. (va=0x%llx; size=%llu; type=%u; flag=0x%llx)\n", get_va, get_size, (u32)type,
+              flag);
     return DRV_ERROR_NONE;
 }
 
@@ -2870,7 +3278,7 @@ static int vmm_seg_access_criu_restore(struct svm_vmm_access_node *access_node)
 
     for (devid = 0; devid < SVM_MAX_DEV_NUM; devid++) {
         if ((devid != access_node->owner_devid) && (access_node->access_type[devid] != MEM_ACCESS_TYPE_NONE)) {
-            return _vmm_access_single_do_mmap(access_node, devid, access_node->access_type[devid]);
+            return vmm_access_non_owner_do_mmap(access_node, devid, access_node->access_type[devid]);
         }
     }
     return DRV_ERROR_NONE;
@@ -2880,17 +3288,20 @@ static void vmm_seg_cross_app_map_criu_reset(void *svmm_inst, void *seg_handle, 
                                              struct svm_global_va *src_info)
 {
     drv_mem_handle_t *handle = vmm_get_seg_pa_handle(src_info);
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
+
     svm_svmm_del_seg_handle(svmm_inst, seg_handle);
-    (void)svm_casm_mem_unmap(devid, start, src_info->size);
+    if (!svm_flag_is_vmm_map_owner_no_access(svm_flag)) {
+        (void)svm_casm_mem_unmap(devid, start, src_info->size);
+    }
     vmm_import_handle_no_ref_destroy(handle);
 }
 
 static int vmm_seg_single_app_map_criu_restore(void *seg_handle, u32 devid, u64 start, struct svm_global_va *src_info)
 {
-    struct svm_dst_va dst_info;
     struct svm_global_va real_src_info = *src_info;
     struct svm_prop src_prop;
-    u64 svm_flag;
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
     int ret;
 
     vmm_restore_real_src_va(&real_src_info);
@@ -2903,23 +3314,14 @@ static int vmm_seg_single_app_map_criu_restore(void *seg_handle, u32 devid, u64 
     svm_svmm_mod_seg_src_tgid(seg_handle, src_prop.tgid);
     real_src_info.tgid = src_prop.tgid;
 
-    svm_dst_va_pack(devid, PROCESS_CP1, start, real_src_info.size, &dst_info);
-    ret = svm_smm_client_map(&dst_info, &real_src_info, 0);
-    if (ret != DRV_ERROR_NONE) {
-        svm_err("Restore vmm single app map failed. (ret=%d; devid=%u; va=0x%llx; size=0x%llx)\n", ret, devid, start,
-                real_src_info.size);
-        return ret;
+    if (!svm_flag_is_vmm_map_owner_no_access(svm_flag)) {
+        ret = vmm_do_single_app_mmap(devid, start, svm_flag, &real_src_info);
+        if (ret != 0) {
+            svm_err("Do single app mmap failed. (ret=%d; devid=%u; start=0x%llx; size=%llu)\n", ret, devid, start,
+                    real_src_info.size);
+            return ret;
+        }
     }
-
-    svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
-    ret = vmm_ops_post_map(seg_handle, devid, start, svm_flag, &real_src_info);
-    if (ret != DRV_ERROR_NONE) {
-        svm_err("Restore vmm post map failed. (ret=%d; devid=%u; va=0x%llx; size=0x%llx)\n", ret, devid, start,
-                real_src_info.size);
-        (void)svm_smm_client_unmap(&dst_info, &real_src_info, 0);
-        return ret;
-    }
-
     return 0;
 }
 

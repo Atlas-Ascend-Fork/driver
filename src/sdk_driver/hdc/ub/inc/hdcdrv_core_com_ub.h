@@ -15,6 +15,7 @@
 
 #include "dmc_kernel_interface.h"
 #include "hdcdrv_log.h"
+#include "hdcdrv_ka_memory.h"
 
 #define HDCDRV_VALID 1
 #define HDCDRV_INVALID 0

@@ -103,7 +103,7 @@ STATIC int get_cdr_reg_info(int logic_id, u32 size, u32 base_offset, u8 cdr_lane
     while (size_tmp > 0) {
         cur_get_cdr_reg_size = (size_tmp > ONE_CMD_MAX_CDR_REG_SIZE) ? ONE_CMD_MAX_CDR_REG_SIZE : size_tmp;
         size_tmp -= cur_get_cdr_reg_size;
-        cur_get_cdr_reg_size = cur_get_cdr_reg_size & (~0x7U);  // data get from imp must be align with 8Byte
+        cur_get_cdr_reg_size = cur_get_cdr_reg_size & (~0x7U); // data get from imp must be align with 8Byte
         cdr_reg_info.head.start_offset = base_offset_tmp;
         cdr_reg_info.head.size = cur_get_cdr_reg_size;
         cdr_reg_info.head.cdr_logic_lane_id = cdr_lane_logic_id;
@@ -206,10 +206,9 @@ STATIC int tool_write_cdr_log_to_file(char *buf, int len, int dev_id, int cdr_id
         return UDA_TOOL_SYS_TIME_OP_ERR;
     }
 
-    ret = sprintf_s(log_name, MAX_CDR_LOG_NAME_LEN, "device-%d-cdr-%d_%04d%02d%02d%02d%02d%02d%03ld.log",
-        dev_id, cdr_id, nowTime.tm_year + TIME_BEGIN_YEAR, nowTime.tm_mon + 0x1,
-        nowTime.tm_mday, nowTime.tm_hour, nowTime.tm_min,
-        nowTime.tm_sec, (timeVal.tv_usec / MS_TO_US_CNT));
+    ret = sprintf_s(log_name, MAX_CDR_LOG_NAME_LEN, "device-%d-cdr-%d_%04d%02d%02d%02d%02d%02d%03ld.log", dev_id,
+                    cdr_id, nowTime.tm_year + TIME_BEGIN_YEAR, nowTime.tm_mon + 0x1, nowTime.tm_mday, nowTime.tm_hour,
+                    nowTime.tm_min, nowTime.tm_sec, (timeVal.tv_usec / MS_TO_US_CNT));
     if (ret <= 0) {
         roce_err("Sprintf_s log name failed. (ret=%d)", ret);
         return UDA_TOOL_SYS_TIME_OP_ERR;

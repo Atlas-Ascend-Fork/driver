@@ -39,6 +39,10 @@ STATIC int urd_forward_ubmem_dev_repair(void *feature, char *in, u32 in_len, cha
 STATIC int urd_forward_ubmem_map_route_check(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 BEGIN_DMS_MODULE_DECLARATION(DMS_URD_FORWARD_CMD_NAME)
 BEGIN_FEATURE_COMMAND()
+#ifdef CFG_FEATURE_CC_INFO
+ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CC_INFO, NULL, NULL, DMS_SUPPORT_ALL,
+                    dms_send_msg_to_device_by_h2d)
+#endif
 #ifdef CFG_FEATURE_QUERY_FREQ_INFO
 ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_MAIN_CMD_LPM, DMS_SUBCMD_GET_FREQUENCY, NULL, NULL, DMS_SUPPORT_ALL,
                     dms_send_msg_to_device_by_h2d)
@@ -73,11 +77,11 @@ ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_GET_SET_DEVICE_INFO_CMD, ZERO_
                     DMS_ACC_ROOT | DMS_ENV_NOT_NORMAL_DOCKER | DMS_VDEV_NOTSUPPORT,
                     dms_send_msg_to_device_lp_stress_set) /* LP SET STRESS TEST */
 ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_GET_SET_DEVICE_INFO_CMD, ZERO_CMD, "module=0xd,info=0x2b", NULL,
-                    DMS_ACC_ROOT | DMS_ENV_NOT_NORMAL_DOCKER | DMS_VDEV_NOTSUPPORT,
-                    dms_send_msg_to_device_l2buff_m_ecc_resume) /* L2BUFF MULTI ECC RESUME */
+                    DMS_ACC_ALL | DMS_ENV_ALL, dms_send_msg_to_device_l2buff_comm) /* L2BUFF MULTI ECC RESUME */
 ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD, "module=0xd,info=0x2c", NULL,
-                    DMS_ACC_ROOT | DMS_ENV_NOT_NORMAL_DOCKER | DMS_VDEV_NOTSUPPORT,
-                    dms_get_l2buff_m_ecc_resume_cnt) /* GET L2BUFF MULTI ECC RESUME CNT */
+                    DMS_ACC_ALL | DMS_ENV_ALL, dms_get_l2buff_m_ecc_resume_cnt) /* GET L2BUFF MULTI ECC RESUME CNT */
+ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_GET_SET_DEVICE_INFO_CMD, ZERO_CMD, "module=0xd,info=0x41", NULL,
+                    DMS_ACC_ALL | DMS_ENV_ALL, dms_send_msg_to_device_l2buff_comm) /* L2BUFF INVALID CACHE */
 ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD, "module=0x0,info=0x2d", NULL,
                     DMS_SUPPORT_ALL, dms_send_msg_to_device_get_sdk_ex_version)
 ADD_FEATURE_COMMAND(DMS_URD_FORWARD_CMD_NAME, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD, "module=0x0,info=0x2e", NULL,
@@ -184,6 +188,9 @@ int dms_set_urd_msg(DMS_FEATURE_S *feature_cfg, char *in, u32 in_len, u32 out_le
             dms_err("memcpy_s failed. (size=%d, ret=%d)\n", in_len, ret);
             return ret;
         }
+    } else if (in_len != 0) {
+        dms_err("Invalid parameter, in is NULL but in_len is not 0. (in_len=%u)\n", in_len);
+        return -EINVAL;
     }
     urd_msg->payload_len = in_len;
     urd_msg->output_len = out_len;
@@ -298,13 +305,13 @@ STATIC int urd_forward_ubmem_dev_repair(void *feature, char *in, u32 in_len, cha
     }
 
     if (uda_is_phy_dev(udevid) == false) {
-        dms_info("Udevid is not physical device. (devid=%u; udevid=%u)\n", devid, udevid);
+        dms_debug("Udevid is not physical device. (devid=%u; udevid=%u)\n", devid, udevid);
         return -EOPNOTSUPP;
     }
 
     chip_type = uda_get_chip_type(udevid);
     if ((chip_type != HISI_CLOUD_V4) && (chip_type != HISI_MINI_V4)) {
-        dms_info("Chip type is not supported. (udevid=%u; chip_type=%u)\n", udevid, chip_type);
+        dms_debug("Chip type is not supported. (udevid=%u; chip_type=%u)\n", udevid, chip_type);
         return -EOPNOTSUPP;
     }
 
@@ -450,14 +457,15 @@ int dms_send_msg_to_device_lp_stress_set(void *feature, char *in, u32 in_len, ch
     return ret;
 }
 
-int dms_send_msg_to_device_l2buff_m_ecc_resume(void *feature, char *in, u32 in_len, char *out, u32 out_len)
+#define DMS_INFO_TYPE_L2BUFF_RESUME 0x2b /* INFO_TYPE_L2BUFF_RESUME */
+int dms_send_msg_to_device_l2buff_comm(void *feature, char *in, u32 in_len, char *out, u32 out_len)
 {
     struct dms_hal_device_info_stru *forward_stru = NULL;
     u32 phy_devid, vfid;
     int ret = 0;
 
     if ((feature == NULL) || (in == NULL) || (in_len < (DMS_HAL_DEV_INFO_HEAD_LEN + sizeof(int)))) {
-        dms_err("Param invalid. (feature=%d; in=%d; in_len=%u)\n", feature != NULL, in != NULL, in_len);
+        dms_err("Params invalid. (feature=%d; in=%d; in_len=%u)\n", feature != NULL, in != NULL, in_len);
         return -EINVAL;
     }
 
@@ -469,9 +477,11 @@ int dms_send_msg_to_device_l2buff_m_ecc_resume(void *feature, char *in, u32 in_l
     }
 
     if (phy_devid >= ASCEND_DEV_MAX_NUM) {
-        dms_err("Devid invalid. (udevid=%u; max=%d)\n", phy_devid, ASCEND_DEV_MAX_NUM);
+        dms_err("Phy_devid invalid. (phy_devid=%u; max=%d)\n", phy_devid, ASCEND_DEV_MAX_NUM);
         return -EINVAL;
     }
+
+    dms_debug("Cfg. (devid=%u, phy_devid=%u; type=%d)\n", forward_stru->dev_id, phy_devid, forward_stru->info_type);
 
     ret = dms_send_msg_to_device_by_h2d(feature, in, in_len, out, out_len);
     if (ret != 0) {
@@ -479,7 +489,10 @@ int dms_send_msg_to_device_l2buff_m_ecc_resume(void *feature, char *in, u32 in_l
         return ret;
     }
 
-    dms_l2buff_m_ecc_resume_cnt[phy_devid] = 1;
+    if (forward_stru->info_type == DMS_INFO_TYPE_L2BUFF_RESUME) {
+        dms_l2buff_m_ecc_resume_cnt[phy_devid] = 1;
+    }
+
     return 0;
 }
 
@@ -504,7 +517,7 @@ int dms_get_l2buff_m_ecc_resume_cnt(void *feature, char *in, u32 in_len, char *o
     }
 
     if (phy_devid >= ASCEND_DEV_MAX_NUM) {
-        dms_err("Devid invalid. (udevid=%u)\n", phy_devid);
+        dms_err("Devid invalid. (udevid=%u; max=%d)\n", phy_devid, ASCEND_DEV_MAX_NUM);
         return -EINVAL;
     }
 

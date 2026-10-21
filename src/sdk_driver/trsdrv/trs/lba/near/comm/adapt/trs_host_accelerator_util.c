@@ -146,7 +146,7 @@ static int trs_notice_tsfw_get_util_start(struct trs_id_inst *inst, enum acceler
 
     ret = trs_notice_tsfw_get_util(inst, type, TRS_MBOX_QUERY_CORE_RATE_START);
     if ((ret == 0) && (trs_util_status_is_conflict(base) == true)) {
-        trs_debug("Start failed. (type=%d; ret=%d; status=%u)\n", type, ret, *base);
+        trs_debug("Start not success. (type=%d; ret=%d; status=%u)\n", type, ret, *base);
         ret = -ENODATA;
     }
 
@@ -164,7 +164,7 @@ static int _trs_get_accelerator_util(u32 devid, enum accelerator_core_type type,
 
     ret = trs_notice_tsfw_get_util_start(&inst, type, base);
     if (ret != 0) {
-        trs_debug("Start failed. (devid=%u; type=%d; ret=%d)\n", devid, type, ret);
+        trs_debug("Start not success. (devid=%u; type=%d; ret=%d)\n", devid, type, ret);
         return ret;
     }
 
@@ -206,20 +206,20 @@ static int trs_get_accelerator_util(u32 devid, enum accelerator_core_type type, 
 
     ret = devdrv_get_addr_info(devid, DEVDRV_ADDR_TSDRV_RESV_BASE, 0, &addr, &size);
     if ((ret != 0) || (addr == 0) || (size < TRS_CORE_UTILSTORE_SIZE)) {
-        trs_warn("Get base address not successful. (devid=%u; type=%d; ret=%d; size=%lx)\n", devid, type, ret, size);
+        trs_warn("Get base address not success. (devid=%u; type=%d; ret=%d; size=%lx)\n", devid, type, ret, size);
         return -ENODATA;
     }
 
     base = ka_mm_ioremap(addr, size);
     if (base == NULL) {
-        trs_warn("Ioremap failed. (devid=%u; type=%d)\n", devid, type);
+        trs_warn("Ioremap not success. (devid=%u; type=%d)\n", devid, type);
         return -ENODATA;
     }
 
     ka_task_mutex_lock(&g_util_mutex[devid]);
     ret = _trs_get_accelerator_util(devid, type, (u8 *)base, udis_info);
     if (ret != 0) {
-        trs_warn("Get accelerator util not successful. (devid=%u; type=%d)\n", devid, type);
+        trs_warn("Get accelerator util not success. (devid=%u; type=%d)\n", devid, type);
     }
     ka_task_mutex_unlock(&g_util_mutex[devid]);
 

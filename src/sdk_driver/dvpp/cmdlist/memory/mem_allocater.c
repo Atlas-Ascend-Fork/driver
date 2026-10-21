@@ -108,7 +108,7 @@ struct mem_node *alloc_node_from_pool(struct mem_pool_info *mem_pool)
 
     // 等待池子中有可用的node节点
     if (ka_task_down_interruptible(&mem_pool->sem) != 0) {
-        DVPP_CMDLIST_LOG_ERROR("waiting for mem_pool->sem fail, interrupt by signal\n");
+        DVPP_CMDLIST_LOG_ERROR("waiting for mem_pool->sem fail, interrupted by signal\n");
         return NULL;
     }
 

@@ -35,10 +35,12 @@
  */
 int devdrv_get_platform_type(unsigned int *p_type, unsigned int *version);
 
-#define DEVDRV_P2P_TYPE_ALL 0
-#define DEVDRV_P2P_TYPE_MEM 1
-#define DEVDRV_P2P_TYPE_NOTIFY 2
-#define DEVDRV_P2P_TYPE_MAX 3
+typedef enum {
+    DEVDRV_P2P_TYPE_ALL = 0,
+    DEVDRV_P2P_TYPE_MEM,
+    DEVDRV_P2P_TYPE_NOTIFY,
+    DEVDRV_P2P_TYPE_MAX
+} devdrv_p2p_type;
 
 #define DEVDRV_HOST_PHY_MACH_FLAG_OFFSET 0x400 /* HOST_FLAG offset in BAR4 */
 #define DEVDRV_ERROR_CODE_OFFSET 0x404         /* ERROR_CODE offset in BAR4 */
@@ -61,14 +63,6 @@ bool devdrv_is_mdev_pm_boot_mode(u32 udevid);
 bool devdrv_is_mdev_vm_full_spec(u32 udevid);
 
 int devdrv_mdev_set_pm_iova_addr_range(int devid, ka_dma_addr_t iova_base, u64 iova_size);
-
-#define DEVDRV_PHY_BOOT 0
-#define DEVDRV_SRIOV_VF_BOOT 1
-#define DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT 2
-#define DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT 3
-#define DEVDRV_MDEV_VF_PM_BOOT 4
-#define DEVDRV_MDEV_VF_VM_BOOT 5
-#define DEVDRV_MAX_ENV_BOOT_TYPE 6
 
 #define DEVDRV_DMA_DATA_COMM_CHAN_NUM 1
 #define DEVDRV_DMA_DATA_PCIE_MSG_CHAN_NUM 1
@@ -163,12 +157,6 @@ int devdrv_dma_copy_cq_desc_to_slave(void *msg_chan, struct devdrv_asyn_dma_para
 #define AGENTDRV_S2S_TO_HOST 0x1
 
 int devdrv_get_support_msg_chan_cnt(u32 udevid, enum devdrv_msg_client_type module_type);
-
-typedef int (*devdrv_p2p_msg_recv)(u32 local_devid, u32 sdid, struct data_input_info *data_info);
-int devdrv_register_p2p_msg_proc_func(enum devdrv_msg_client_type msg_type, devdrv_p2p_msg_recv func);
-int devdrv_unregister_p2p_msg_proc_func(enum devdrv_msg_client_type msg_type);
-int devdrv_p2p_msg_send(u32 local_devid, u32 sdid, enum devdrv_msg_client_type msg_type,
-                        struct data_input_info *data_info);
 /* **************************** device **************************** */
 /* trans msg client */
 struct agentdrv_trans_msg_client {
@@ -616,7 +604,7 @@ bool devdrv_get_device_boot_finish(u32 dev_id);
 bool devdrv_check_half_probe_finish(u32 dev_id);
 
 bool agentdrv_is_mdev_vm_full_spec(u32 udevid);
-
+int devdrv_pci_get_pm_devid_by_vm_devid(u32 index_id, u32 *pm_index_id);
 int devdrv_get_devid_by_pfvf_id(u32 pf_id, u32 vf_id, u32 *udevid);
 int devdrv_get_pfvf_id_by_devid(u32 udevid, u32 *pf_id, u32 *vf_id);
 int devdrv_get_device_vfid(u32 dev_id, u32 *vf_en, u32 *vf_id);
@@ -646,7 +634,7 @@ ka_dma_addr_t devdrv_pci_dma_map_resource(ka_device_t *dev, phys_addr_t phys_add
 void devdrv_pci_dma_unmap_resource(ka_device_t *dev, ka_dma_addr_t addr, size_t size, ka_dma_data_direction_t dir,
                                    unsigned long attrs);
 int devdrv_get_reserve_mem_info(u32 devid, enum devdrv_msg_client_type msg_type, phys_addr_t *pa, size_t *size);
-
+int devdrv_pci_get_dma_copy_support_mode(u32 udevid, u32 *support_mode);
 /* agent smmu only can transform 32 addr one time */
 #define DEVDRV_AGENT_SMMU_SUPPORT_MAX_NUM 120
 int agentdrv_smmu_iova_to_phys(u32 dev_id, ka_dma_addr_t *va, u32 va_cnt, phys_addr_t *pa);
@@ -739,7 +727,7 @@ int hisi_pcie_pmu_get_profiling_info(u32 dev_id, struct agentdrv_profiling_buf *
 int devdrv_get_heartbeat_count(u32 devid, u64 *count);
 int devdrv_set_heartbeat_count(u32 devid, u64 count);
 
-int xcom_get_remote_dma_addr_by_offset(u32 sdid, u32 offset, ka_dma_addr_t *addr);
+int xcom_get_remote_dma_addr_by_offset(u32 devid, enum devdrv_msg_client_type type, u32 offset, ka_dma_addr_t *addr);
 typedef int (*devdrv_p2p_status_notify)(u32 sdid, u32 status);
 int devdrv_register_p2p_status_notifier(enum devdrv_msg_client_type type, devdrv_p2p_status_notify func);
 int devdrv_unregister_p2p_status_notifier(enum devdrv_msg_client_type type);

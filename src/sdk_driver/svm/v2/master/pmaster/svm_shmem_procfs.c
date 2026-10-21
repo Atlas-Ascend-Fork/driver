@@ -16,6 +16,7 @@
 #include "svm_shmem_node.h"
 #include "svm_shmem_procfs.h"
 #include "ka_fs_pub.h"
+#include "ka_task_pub.h"
 
 #define PROC_FS_TOP_NAME "svm_shmem"
 #define PROC_FS_MODE 0400
@@ -39,12 +40,14 @@ static int devmm_ipc_procfs_sum_show(ka_seq_file_t *seq, void *offset)
                      node->attr.is_reserve_addr, node->attr.need_set_wlist, node->valid, node->key,
                      ka_base_kref_read(&node->ref), node->mem_repair_record);
     ka_fs_seq_printf(seq, "White List:\n");
+    ka_task_mutex_lock(&node->mutex);
     ka_list_for_each_entry(wlist, &node->wlist_head, list)
     {
         ka_fs_seq_printf(seq, "   [%d]:sdid=%u;pid=%d;set_time=%lu;vptr=0x%llx\n", i++, wlist->sdid, wlist->pid,
                          wlist->set_time, wlist->vptr);
         devmm_try_cond_resched(&stamp);
     }
+    ka_task_mutex_unlock(&node->mutex);
 #endif
     return 0;
 }

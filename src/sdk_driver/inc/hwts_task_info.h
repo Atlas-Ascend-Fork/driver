@@ -62,17 +62,15 @@ typedef enum hwts_task_status {
     TASK_STATUS_MAX,
 } HWTS_TASK_STATUS;
 
-
-#define HWTS_RESPONSE_RSV   3
+#define HWTS_RESPONSE_RSV 3
 struct hwts_response {
     unsigned int result;
     unsigned int mailbox_id;
     unsigned long long serial_no;
     unsigned int status;
     int rsv[HWTS_RESPONSE_RSV];
-    char* msg;
+    char *msg;
     int len;
 };
 
 #endif
-

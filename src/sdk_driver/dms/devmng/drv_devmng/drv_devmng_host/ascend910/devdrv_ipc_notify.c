@@ -95,10 +95,15 @@ void devdrv_manager_resource_recycle(struct devdrv_manager_context *dev_manager_
 STATIC inline int devdrv_manager_drv_ops_check(void)
 {
 #ifndef DEVDRV_MANAGER_HOST_UT_TEST
-    if (devdrv_manager_get_drv_ops()->ipc_notify_create == NULL || devdrv_manager_get_drv_ops()->ipc_notify_open == NULL ||
-        devdrv_manager_get_drv_ops()->ipc_notify_close == NULL || devdrv_manager_get_drv_ops()->ipc_notify_destroy == NULL ||
-        devdrv_manager_get_drv_ops()->ipc_notify_set_pid == NULL || devdrv_manager_get_drv_ops()->ipc_notify_get_info == NULL ||
-        devdrv_manager_get_drv_ops()->ipc_notify_set_attr == NULL || devdrv_manager_get_drv_ops()->ipc_notify_get_attr == NULL) {
+    if (devdrv_manager_get_drv_ops()->ipc_notify_create == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_open == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_close == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_destroy == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_set_pid == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_get_info == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_set_attr == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_get_attr == NULL ||
+        devdrv_manager_get_drv_ops()->ipc_notify_record == NULL) {
         return -EINVAL;
     }
 #endif
@@ -127,8 +132,7 @@ int devdrv_manager_ipc_notify_ioctl(ka_file_t *filep, unsigned int cmd, unsigned
         return -ENODEV;
     }
 
-    ret = copy_from_user_safe(&notify_ioctl_info, (void *)((uintptr_t)arg),
-        sizeof(struct devdrv_notify_ioctl_info));
+    ret = copy_from_user_safe(&notify_ioctl_info, (void *)((uintptr_t)arg), sizeof(struct devdrv_notify_ioctl_info));
     if (ret) {
         devdrv_drv_err("copy from user failed, ret(%d).\n", ret);
         return -EFAULT;
@@ -144,32 +148,41 @@ int devdrv_manager_ipc_notify_ioctl(ka_file_t *filep, unsigned int cmd, unsigned
 
     switch (cmd) {
         case DEVDRV_MANAGER_IPC_NOTIFY_CREATE:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_create((void*)context, arg, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_create((void *)context, arg,
+                                                                  (void *)(uintptr_t)&notify_ioctl_info);
             break;
         case DEVDRV_MANAGER_IPC_NOTIFY_OPEN:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_open((void*)context, arg, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_open((void *)context, arg,
+                                                                (void *)(uintptr_t)&notify_ioctl_info);
             break;
         case DEVDRV_MANAGER_IPC_NOTIFY_CLOSE:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_close((void*)context, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_close((void *)context,
+                                                                 (void *)(uintptr_t)&notify_ioctl_info);
             break;
         case DEVDRV_MANAGER_IPC_NOTIFY_DESTROY:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_destroy((void*)context, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_destroy((void *)context,
+                                                                   (void *)(uintptr_t)&notify_ioctl_info);
             break;
         case DEVDRV_MANAGER_IPC_NOTIFY_SET_PID:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_set_pid((void*)context, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_set_pid((void *)context,
+                                                                   (void *)(uintptr_t)&notify_ioctl_info);
             break;
 #ifndef DEVDRV_MANAGER_HOST_UT_TEST
         case DEVDRV_MANAGER_IPC_NOTIFY_RECORD:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_record((void*)context, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_record((void *)context,
+                                                                  (void *)(uintptr_t)&notify_ioctl_info);
             break;
         case DEVDRV_MANAGER_IPC_NOTIFY_SET_ATTR:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_set_attr((void*)context, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_set_attr((void *)context,
+                                                                    (void *)(uintptr_t)&notify_ioctl_info);
             break;
         case DEVDRV_MANAGER_IPC_NOTIFY_GET_INFO:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_get_info((void*)context, arg, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_get_info((void *)context, arg,
+                                                                    (void *)(uintptr_t)&notify_ioctl_info);
             break;
         case DEVDRV_MANAGER_IPC_NOTIFY_GET_ATTR:
-            ret = devdrv_manager_get_drv_ops()->ipc_notify_get_attr((void*)context, arg, (void*)(uintptr_t)&notify_ioctl_info);
+            ret = devdrv_manager_get_drv_ops()->ipc_notify_get_attr((void *)context, arg,
+                                                                    (void *)(uintptr_t)&notify_ioctl_info);
             break;
 #endif
         default:
@@ -181,7 +194,7 @@ int devdrv_manager_ipc_notify_ioctl(ka_file_t *filep, unsigned int cmd, unsigned
 #ifndef DEVDRV_MANAGER_HOST_UT_TEST
     if ((ret == 0) && ((cmd == DEVDRV_MANAGER_IPC_NOTIFY_CLOSE) || (cmd == DEVDRV_MANAGER_IPC_NOTIFY_DESTROY))) {
         ret = copy_to_user_safe((void *)((uintptr_t)arg), (void *)&notify_ioctl_info,
-            sizeof(struct devdrv_notify_ioctl_info));
+                                sizeof(struct devdrv_notify_ioctl_info));
         if (ret != 0) {
             devdrv_drv_err("copy to user failed. (cmd=%u; ret=%d).\n", cmd, ret);
         }

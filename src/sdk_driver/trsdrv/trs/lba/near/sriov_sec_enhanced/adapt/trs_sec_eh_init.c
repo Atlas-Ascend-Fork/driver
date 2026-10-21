@@ -69,7 +69,7 @@ static int trs_ts_func_init(struct trs_id_inst *inst)
             for (i = type - 1; i >= 0; i--) {
                 g_trs_func_uninit[i](inst);
             }
-            trs_err("Failed to func init. (type=%d; ret=%d)\n", type, ret);
+            trs_err("Failed to init func. (type=%d; ret=%d)\n", type, ret);
             return ret;
         }
     }
@@ -96,11 +96,11 @@ static int trs_ts_init(struct trs_id_inst *inst)
     }
     ret = trs_ts_func_init(inst);
     if (ret != 0) {
-        trs_err("Failed to init func. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        trs_err("Failed to exec init func. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
         trs_ts_hw_uninit(inst);
         return ret;
     }
-    trs_res_ops_init(inst->devid);
+    trs_res_ops_init(trs_id_inst_to_ts_inst(inst));
     trs_ts_status_mng_init(inst);
 
     return ret;
@@ -109,14 +109,15 @@ static int trs_ts_init(struct trs_id_inst *inst)
 static void trs_ts_uninit(struct trs_id_inst *inst)
 {
     trs_ts_status_mng_exit(inst);
-    trs_res_ops_uninit(inst->devid);
+    trs_res_ops_uninit(trs_id_inst_to_ts_inst(inst));
     trs_ts_func_uninit(inst);
     trs_ts_hw_uninit(inst);
 }
 
 int trs_sec_eh_init(u32 devid)
 {
-    u32 ts_num, tsid;
+    u32 ts_num = 0;
+    u32 tsid;
     int ret;
 
     ret = soc_resmng_subsys_get_num(devid, TS_SUBSYS, &ts_num);
@@ -145,7 +146,8 @@ int trs_sec_eh_init(u32 devid)
 
 void trs_sec_eh_unint(u32 devid)
 {
-    u32 ts_num, tsid;
+    u32 ts_num = 0;
+    u32 tsid;
     int ret;
 
     ret = soc_resmng_subsys_get_num(devid, TS_SUBSYS, &ts_num);

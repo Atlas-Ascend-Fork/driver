@@ -139,7 +139,7 @@ STATIC int devmm_prefetch_to_device(struct devmm_svm_process *svm_proc, u64 dev_
     devmm_fill_attr_after_prefetch(svm_proc, query_arg, attr, &device_attr);
 
     if (!devmm_acquire_aligned_addr_and_cnt(dev_ptr, byte_cnt, attr->is_svm_huge, &aligned_down_addr, &aligned_cnt)) {
-        devmm_drv_err("Acquire aligned addr and cnt failed. (dev_ptr=0x%llx; byte_count=%llx)\n", dev_ptr, byte_cnt);
+        devmm_drv_err("Acquire aligned addr and cnt failed. (dev_ptr=0x%llx; byte_count=%llx\n", dev_ptr, byte_cnt);
         return -EINVAL;
     }
     devmm_set_device_maped(svm_proc, aligned_down_addr, aligned_cnt, device_attr.logical_devid, attr->page_size);
@@ -186,7 +186,7 @@ STATIC int devmm_prefetch_to_device_proc(struct devmm_svm_process *svm_pro, u64 
         return tmp_ret;
     }
     if (!devmm_acquire_aligned_addr_and_cnt(ptr, byte_count, attr.is_svm_huge, &aligned_down_addr, &aligned_count)) {
-        devmm_drv_err("Acquire aligned addr and cnt failed. (dev_ptr=0x%llx; byte_count=%llx)\n", ptr, byte_count);
+        devmm_drv_err("Acquire aligned addr and cnt failed. (dev_ptr=0x%llx; byte_count=%llx\n", ptr, byte_count);
         return -EINVAL;
     }
     per_max_cnt = DEVMM_PREFETCH_COPY_NUM * KA_MM_PAGE_SIZE;
@@ -545,7 +545,7 @@ static int devmm_ioctl_advise_populate(struct devmm_svm_process *svm_proc, struc
             if (devmm_page_bitmap_get_devid(page_bitmap) == arg->head.logical_devid) {
                 return 0;
             } else {
-                devmm_drv_err("Va has already locked by other device. (va=0x%llx)\n", arg->data.advise_para.ptr);
+                devmm_drv_err("Va has already been locked by other device. (va=0x%llx)\n", arg->data.advise_para.ptr);
                 return -EINVAL;
             }
         }
@@ -617,7 +617,7 @@ static int devmm_advise_check(struct devmm_svm_heap *heap, struct devmm_svm_proc
     if (devmm_is_host_agent(dev_id) &&
         ((heap->heap_sub_type != SUB_DEVICE_TYPE) || heap->heap_type != DEVMM_HEAP_CHUNK_PAGE)) {
 #ifndef EMU_ST
-        devmm_drv_run_info("Host agent only supports heap SUB_DEVICE_TYPE DEVMM_HEAP_CHUNK_PAGE."
+        devmm_drv_run_info("Host agent only support heap SUB_DEVICE_TYPE DEVMM_HEAP_CHUNK_PAGE."
                            " (heap_sub_type=%u; heap_type=%u)\n",
                            heap->heap_sub_type, heap->heap_type);
 #endif

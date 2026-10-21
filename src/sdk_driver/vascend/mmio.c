@@ -68,7 +68,7 @@ STATIC void hw_vdavinci_reset_sparse_mmio(struct hw_vdavinci *vdavinci, struct v
             ret = memset_s(map->vaddr, map->size, 0, map->size);
             if (ret != 0) {
                 vascend_err(vdavinci_to_dev(vdavinci),
-                            "vdavinci reset mmio sapce "
+                            "vdavinci reset mmio space "
                             "failed, vid: %u, ret: %d\n",
                             vdavinci->id, ret);
             }
@@ -122,7 +122,7 @@ STATIC int hw_vdavinci_mmio_check_sparse(struct hw_vdavinci *vdavinci)
         if (i == (vdavinci->mmio.mem_sparse.num - 1)) {
             if (map->offset + map->size != vdavinci->type->bar4_size) {
                 vascend_err(vdavinci_to_dev(vdavinci),
-                            "check sparse failed: last map"
+                            "check sparse failed: last map "
                             "offset:%lx + size:%lx != bar4_size:%lx\n",
                             map->offset, map->size, vdavinci->type->bar4_size);
                 return -EINVAL;
@@ -158,7 +158,7 @@ STATIC void hw_vdavinci_sparse_mmio_uninit(struct hw_vdavinci *vdavinci, struct 
     u64 i = 0;
     ka_pci_dev_t *pdev = NULL;
     ka_device_t *res_dev = NULL;
-    struct vdavinci_bar_map *map;
+    struct vdavinci_bar_map *map = NULL;
 
     for (i = 0; i < mmio_map_info->num; i++) {
         map = &mmio_map_info->map_info[i];
@@ -169,9 +169,14 @@ STATIC void hw_vdavinci_sparse_mmio_uninit(struct hw_vdavinci *vdavinci, struct 
     }
 
     mmio_map_info->num = 0;
+    /* Safe without cache_lock: mmio_uninit only runs on the destroy path,
+     * after the device is deactivated and its fd closed, so no concurrent
+     * hw_vdavinci_get_bar_io_addr can be using this mapping. */
     if (mmio_map_info->io_addr != NULL) {
         res_dev = vdavinci_resource_dev(vdavinci);
         if (res_dev == NULL) {
+            vascend_err(vdavinci_to_dev(vdavinci), "resource dev is null before iounmap. (io_addr=%p, vid=%u)\n",
+                        mmio_map_info->io_addr, vdavinci->id);
             return;
         }
         pdev = ka_container_of(res_dev, ka_pci_dev_t, dev);

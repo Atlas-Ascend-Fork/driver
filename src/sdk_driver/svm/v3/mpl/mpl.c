@@ -67,7 +67,7 @@ static int mpl_comm_para_check(u32 udevid, u64 va, u64 size, u64 page_size, stru
     u32 i = 0;
 
     if (count > POPULATE_MAX_VA) {
-        svm_err("Mpl para check failed. Not support mapped va more than %d\n", POPULATE_MAX_VA);
+        svm_err("Not support mapped va count. (cur=%u; max=%u)\n", count, (u32)POPULATE_MAX_VA);
         return -EINVAL;
     }
 
@@ -140,7 +140,7 @@ static int mpl_populate_others(u32 udevid, struct svm_mpl_populate_para *para, k
 
         ret = pmm_add_seg(udevid, va_array[idx], size, PMM_SEG_WITH_PA);
         if (ret != 0) {
-            svm_err("Add seg failed. (va=0x%llx; va=0x%llx; ret=%d)\n", va_array[idx], size, ret);
+            svm_err("Add seg failed. (va=0x%llx; size=%llu; ret=%d)\n", va_array[idx], size, ret);
             goto mpl_err;
         }
         svm_set_vma_status(vma, VMA_STATUS_NORMAL_OP);
@@ -187,7 +187,7 @@ static int _mpl_populate(u32 udevid, struct svm_mpl_populate_para *para, ka_page
 
     ret = pmm_add_seg(udevid, va, size, PMM_SEG_WITH_PA);
     if (ret != 0) {
-        svm_err("Add seg failed. (va=0x%llx; va=0x%llx; ret=%d)\n", va, size, ret);
+        svm_err("Add seg failed. (va=0x%llx; size=%llu; ret=%d)\n", va, size, ret);
         return ret;
     }
 
@@ -421,7 +421,7 @@ static int mpl_ioctl_depopulate(u32 udevid, u32 cmd, unsigned long arg)
 
     ret = svm_call_ioctl_pre_handler(udevid, cmd, (void *)&para);
     if (ret != 0) {
-        svm_err("Pre handle failed. (ret=%d; va=0x%llx)\n", ret, para.va);
+        svm_err_if((ret != -EBUSY), "Pre handle failed. (ret=%d; va=0x%llx)\n", ret, para.va);
         return ret;
     }
 

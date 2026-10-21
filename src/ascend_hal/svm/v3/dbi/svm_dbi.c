@@ -7,7 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
-
+#include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <stdio.h>
 
@@ -20,6 +20,7 @@
 #include "svm_pub.h"
 #include "svm_log.h"
 #include "svm_dbi.h"
+#include "dbi_def.h"
 
 #define SVM_SERVER_ID_UNSET (SVM_INVALID_SERVER_ID + 1U)
 
@@ -27,20 +28,39 @@ static struct svm_device_basic_info svm_dbi[SVM_MAX_DEV_NUM];
 static int svm_dbi_valid[SVM_MAX_DEV_NUM];
 static u32 device_connect_type[SVM_MAX_DEV_NUM];
 static u32 g_cur_server_id = SVM_SERVER_ID_UNSET;
-
-static bool svm_dev_cap_is_support_sva(u32 flag)
+#ifndef EMU_ST /* Simulation ST dynamic set */
+bool svm_dbi_is_cc_vm(void)
 {
-    return ((flag & SVM_DEV_CAP_SVA) != 0);
+    static int is_cc_vm = -1;
+
+    if (is_cc_vm != -1) {
+        return (is_cc_vm != 0);
+    }
+
+#if defined(__x86_64__)
+    struct stat st;
+
+    /* Temporary user-mode detection until a unified confidential-computing capability is available. */
+    is_cc_vm = ((stat("/dev/sev-guest", &st) == 0) && S_ISCHR(st.st_mode)) ? 1 : 0;
+#else
+    is_cc_vm = 0;
+#endif
+    return (is_cc_vm == 1);
+}
+#endif
+static bool svm_dev_cap_is_support_sva(svm_dev_cap_t flag)
+{
+    return svm_dev_cap_is_support(flag, SVM_DEV_CAP_BIT_SVA);
 }
 
-static bool svm_dev_cap_is_support_assign_gap(u32 flag)
+static bool svm_dev_cap_is_support_assign_gap(svm_dev_cap_t flag)
 {
-    return ((flag & SVM_DEV_CAP_ASSIGN_GAP) != 0);
+    return svm_dev_cap_is_support(flag, SVM_DEV_CAP_BIT_ASSIGN_GAP);
 }
 
-static bool svm_dev_cap_is_support_pci_bar(u32 flag)
+static bool svm_dev_cap_is_support_host_access_dev(svm_dev_cap_t flag)
 {
-    return ((flag & SVM_DEV_CAP_PCI_BAR) != 0);
+    return svm_dev_cap_is_support(flag, SVM_DEV_CAP_BIT_HOST_ACCESS_DEV);
 }
 
 int svm_dbi_query_host_align_page_size(u32 devid, u64 *page_size)
@@ -117,6 +137,25 @@ bool svm_dbi_is_support_sva(u32 devid)
     return svm_dev_cap_is_support_sva(svm_dbi[devid].cap_flag);
 }
 
+int svm_dbi_query_smmu_mode(u32 devid, enum svm_smmu_mode *mode)
+{
+    if (devid == svm_get_host_devid()) {
+        *mode = SVM_SMMU_MODE_IOVA;
+        return DRV_ERROR_NONE;
+    }
+
+    if ((devid >= SVM_MAX_DEV_NUM) || (svm_dbi_valid[devid] == 0)) {
+        return DRV_ERROR_INVALID_DEVICE;
+    }
+
+    if (svm_dbi[devid].smmu_mode >= SVM_SMMU_MODE_INVALID) {
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    *mode = (enum svm_smmu_mode)svm_dbi[devid].smmu_mode;
+    return DRV_ERROR_NONE;
+}
+
 bool svm_dbi_is_support_assign_gap(u32 devid)
 {
     if ((devid >= SVM_MAX_DEV_NUM) || (svm_dbi_valid[devid] == 0)) {
@@ -127,19 +166,18 @@ bool svm_dbi_is_support_assign_gap(u32 devid)
     return svm_dev_cap_is_support_assign_gap(svm_dbi[devid].cap_flag);
 }
 
-bool svm_dbi_is_support_pci_bar(u32 devid)
+bool svm_dbi_is_support_host_access_dev(u32 devid)
 {
     if ((devid >= SVM_MAX_DEV_NUM) || (svm_dbi_valid[devid] == 0)) {
-        svm_err("Invalid device. (devid=%u)\n", devid);
         return false;
     }
 
-    return svm_dev_cap_is_support_pci_bar(svm_dbi[devid].cap_flag);
+    return svm_dev_cap_is_support_host_access_dev(svm_dbi[devid].cap_flag);
 }
 
 static int dbi_user_query(u32 devid, struct svm_device_basic_info *dbi)
 {
-    struct svm_dbi_query_para para;
+    struct svm_dbi_query_para para = {{0}};
     int ret;
 
     ret = svm_cmd_ioctl(devid, SVM_DBI_QUERY, (void *)&para);
@@ -151,6 +189,10 @@ static int dbi_user_query(u32 devid, struct svm_device_basic_info *dbi)
     if ((para.dbi.npage_size == 0) || (para.dbi.hpage_size == 0) || (para.dbi.gpage_size == 0)) {
         svm_err("Invalid page_size. (page_size=0x%llx; hpage_size=0x%llx; gpage_size=0x%llx)\n", para.dbi.npage_size,
                 para.dbi.hpage_size, para.dbi.gpage_size);
+        return DRV_ERROR_INNER_ERR;
+    }
+    if (para.dbi.smmu_mode >= SVM_SMMU_MODE_INVALID) {
+        svm_err("Invalid smmu mode. (devid=%u; smmu_mode=%u)\n", devid, para.dbi.smmu_mode);
         return DRV_ERROR_INNER_ERR;
     }
 

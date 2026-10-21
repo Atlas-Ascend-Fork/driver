@@ -70,9 +70,15 @@ static bool copy_subtask_flag_is_auto_recycle(u32 flag)
     return ((flag & SVM_COPY_SUBTASK_AUTO_RECYCLE) != 0);
 }
 
-static int svm_copy_res_dma_addr_init(u32 udevid, struct svm_copy_res *res)
+static bool svm_copy_res_is_cc_host_mem(const struct svm_copy_res *res)
+{
+    return (res->va_info.udevid == uda_get_host_id()) && svm_dbi_kern_is_cc_vm();
+}
+
+static int _svm_copy_res_dma_addr_init(u32 udevid, struct svm_copy_res *res)
 {
     u32 map_flag = (res->is_src) ? 0 : SVM_DMA_MAP_ACCESS_WRITE;
+    u64 dst_page_size;
     int ret;
 
     if (res->va_info.udevid != uda_get_host_id()) {
@@ -86,16 +92,23 @@ static int svm_copy_res_dma_addr_init(u32 udevid, struct svm_copy_res *res)
     }
 
     res->dma_handle = NULL;
-    ret = svm_dma_addr_get(udevid, res->host_tgid, &res->va_info, &res->dma_info);
+    ret = svm_dma_addr_get(udevid, res->host_tgid, &res->va_info, &res->dma_info, &res->dma_handle);
     if (ret == 0) {
         if ((res->dma_info.is_write == false) && (res->is_src == false)) {
-            svm_dma_addr_put(udevid, res->host_tgid, &res->va_info);
+            svm_dma_addr_put_by_handle(res->dma_handle);
+            res->dma_handle = NULL;
         } else {
             return 0;
         }
     }
 
-    ret = svm_dma_map_addr(udevid, res->host_tgid, &res->va_info, map_flag, &res->dma_handle);
+    ret = svm_dbi_kern_query_npage_size(res->va_info.udevid, &dst_page_size);
+    if (ret != 0) {
+        svm_err("Get page size failed. (udevid=%u)\n", res->va_info.udevid);
+        return ret;
+    }
+
+    ret = svm_dma_map_addr(udevid, res->host_tgid, &res->va_info, dst_page_size, map_flag, &res->dma_handle);
     if (ret != 0) {
         svm_err("Dma map failed. (udevid=%u)\n", res->va_info.udevid);
         return ret;
@@ -103,7 +116,7 @@ static int svm_copy_res_dma_addr_init(u32 udevid, struct svm_copy_res *res)
 
     ret = svm_dma_addr_query_by_handle(res->dma_handle, &res->va_info, &res->dma_info);
     if (ret != 0) {
-        svm_dma_unmap_addr_by_handle(res->dma_handle);
+        svm_dma_addr_put_by_handle(res->dma_handle);
         res->dma_handle = NULL;
         svm_err("Query Dma info failed. (udevid=%u)\n", res->va_info.udevid);
         return ret;
@@ -112,17 +125,40 @@ static int svm_copy_res_dma_addr_init(u32 udevid, struct svm_copy_res *res)
     return 0;
 }
 
-static void svm_copy_res_dma_addr_uninit(u32 udevid, struct svm_copy_res *res)
+static int svm_copy_res_dma_addr_init(u32 udevid, struct svm_copy_res *res)
 {
-    if (res->dma_handle != NULL) {
-        svm_dma_unmap_addr_by_handle(res->dma_handle);
-        res->dma_handle = NULL;
-    } else {
-        svm_dma_addr_put(udevid, res->host_tgid, &res->va_info);
+    int ret;
+
+    ret = _svm_copy_res_dma_addr_init(udevid, res);
+    if (ret != 0) {
+        return ret;
     }
+
+    if (res->is_src && svm_copy_res_is_cc_host_mem(res)) {
+        /* Flush CPU memory to the bounce buffer before DMA. */
+        svm_dma_addr_sync_for_device(udevid, &res->dma_info);
+    }
+
+    return 0;
+}
+
+static void _svm_copy_res_dma_addr_uninit(u32 udevid, struct svm_copy_res *res)
+{
+    svm_dma_addr_put_by_handle(res->dma_handle);
+    res->dma_handle = NULL;
 
     res->dma_info.dma_addr_seg_num = 0;
     res->dma_info.seg = NULL;
+}
+
+static void svm_copy_res_dma_addr_uninit(u32 udevid, struct svm_copy_res *res)
+{
+    if (!res->is_src && svm_copy_res_is_cc_host_mem(res)) {
+        /* Flush the bounce buffer back to CPU memory after DMA. */
+        svm_dma_addr_sync_for_cpu(udevid, &res->dma_info);
+    }
+
+    _svm_copy_res_dma_addr_uninit(udevid, res);
 }
 
 static int svm_copy_res_sva_addr_init(struct svm_copy_res *res)

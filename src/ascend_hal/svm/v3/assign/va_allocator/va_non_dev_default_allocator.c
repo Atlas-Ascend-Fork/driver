@@ -46,9 +46,6 @@ static int va_non_dev_default_va_expand(void *mga_inst, u64 *size, u64 *va)
         return ret;
     }
 
-    /* avoid alloc a gap va. */
-    *size -= svm_align_up(svm_va_get_gap(), mga_get_max_align_size(mga_inst));
-
     return DRV_ERROR_NONE;
 }
 
@@ -122,7 +119,7 @@ int va_non_dev_default_alloc(u64 align, u64 size, u64 *va)
 int va_non_dev_default_free(u64 va, u64 size, u64 align)
 {
     if (g_non_dev_default_mga_inst == NULL) {
-        svm_err("Hasn't been inited.\n");
+        svm_err("Hasn't inited.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
 

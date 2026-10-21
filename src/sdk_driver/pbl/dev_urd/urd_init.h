@@ -23,10 +23,10 @@ struct urd_file_private_stru {
     ka_atomic_t work_count;
 };
 
-#define MSG_FROM_USER           0
-#define MSG_FROM_KERNEL         1
-#define MSG_FROM_USER_REST_ACC  2   /* restrict access */
-#define MSG_FROM_TYPE_MAX       3
+#define MSG_FROM_USER 0
+#define MSG_FROM_KERNEL 1
+#define MSG_FROM_USER_REST_ACC 2 /* restrict access */
+#define MSG_FROM_TYPE_MAX 3
 
 int urd_init(void);
 void urd_exit(void);

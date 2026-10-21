@@ -216,7 +216,9 @@ int vmng_msg_reply_data(struct vmng_msg_chan_tx *msg_chan, void *data, u32 out_d
 
     *real_out_data_len = bd_desc->real_out_len;
     if ((*real_out_data_len > out_data_len) || (*real_out_data_len > VMNG_MSG_SQ_DATA_MAX_SIZE)) {
-        vmng_err("Real out length is overflow. (real_out_len=%d; out_date_len=%d)\n", *real_out_data_len, out_data_len);
+#ifndef DRV_UT
+        vmng_err("Real out length is overflow. (real_out_len=%d; out_data_len=%d)\n", *real_out_data_len, out_data_len);
+#endif
         return -EINVAL;
     }
     /* real_out_len could be zero */
@@ -260,7 +262,7 @@ STATIC int vmng_alloc_chan_wait(struct vmng_msg_cluster *msg_cluster)
     struct vmng_msg_chan_tx *msg_chan = NULL;
 
     if (msg_cluster->res.tx_num == 0) {
-        vmng_err("chan_type no tx ability. (dev_id=%u;fid=%u;chan_type=%u) \n", msg_cluster->dev_id, msg_cluster->fid,
+        vmng_err("chan_type no tx ability. (dev_id=%u; fid=%u; chan_type=%u) \n", msg_cluster->dev_id, msg_cluster->fid,
                  msg_cluster->chan_type);
         return -EINVAL;
     }
@@ -358,8 +360,10 @@ STATIC int vmng_sync_msg_send_para_chk(struct vmng_msg_cluster *msg_cluster,
     }
 
     if (tx_info->out_data_len >= VMNG_MSG_SQ_DATA_MAX_SIZE) {
-        vmng_err("Input parameter is out_data_len error. (dev_id=%u; fid=%u; out_data_len=%u)\n", dev_id, fid,
-                 tx_info->out_data_len);
+#ifndef DRV_UT
+        vmng_err("Input parameter is invalid. (out_data_len=%u;dev_id=%u;fid=%u;)\n", tx_info->out_data_len, dev_id,
+                 fid);
+#endif
         return -EINVAL;
     }
     if (msg_cluster->status != VMNG_MSG_CLUSTER_STATUS_ENABLE) {
@@ -464,6 +468,7 @@ void vmng_msg_rx_msg_task(ka_work_struct_t *p_work)
     if ((desc->status == VMNG_MSG_SQ_STATUS_PREPARE) && (msg_chan->rx_proc != NULL)) {
         desc->status = VMNG_MSG_SQ_STATUS_ENTER_PROC;
         ret = msg_chan->rx_proc((void *)msg_chan, &proc_info);
+        ka_wmb();
         if (ret == 0) {
             if (desc->real_out_len <= desc->out_data_len) {
                 desc->status = VMNG_MSG_SQ_STATUS_PROC_SUCCESS;
@@ -649,8 +654,10 @@ STATIC void vmng_init_msg_cluster_rx_chan(struct vmng_msg_cluster *msg_cluster, 
         msg_chan->rx_wq = ka_task_create_singlethread_workqueue("vpc_msg_chan_proc");
         if (msg_chan->rx_wq == NULL) {
             vmng_uninit_msg_cluster_rx_chan(msg_cluster, ops);
-            vmng_err("Create workqueue failed. (dev_id=%u;fid=%u;chan_id=%u)\n", msg_cluster->dev_id, msg_cluster->fid,
-                     msg_chan->chan_id);
+#ifndef DRV_UT
+            vmng_err("Create workqueue failed. (dev_id=%u; fid=%u; chan_id=%u)\n", msg_cluster->dev_id,
+                     msg_cluster->fid, msg_chan->chan_id);
+#endif
             return;
         }
         KA_TASK_INIT_WORK(&msg_chan->rx_work, vmng_msg_rx_msg_task); /* init workqueue of irq half bottom */
@@ -711,8 +718,8 @@ int vmng_alloc_local_msg_cluster(struct vmng_msg_dev *msg_dev, enum vmng_msg_cha
     ka_task_mutex_lock(&admin_msg_cluster->mutex);
     if (msg_cluster->status != VMNG_MSG_CLUSTER_STATUS_DISABLE) {
         ka_task_mutex_unlock(&admin_msg_cluster->mutex);
-        vmng_err("Message cluster already register. (dev_id=%u; fid=%u; chan_type=%u)\n", msg_dev->dev_id, msg_dev->fid,
-                 chan_type);
+        vmng_err("Message cluster already registered. (dev_id=%u; fid=%u; chan_type=%u)\n", msg_dev->dev_id,
+                 msg_dev->fid, chan_type);
         return -EINVAL;
     }
 

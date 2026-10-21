@@ -311,7 +311,7 @@ static int devmm_ioctl_ipc_node_attr_pack(struct devmm_svm_process *svm_proc, st
 
     ret = devmm_get_memory_attributes(svm_proc, karg->vptr, &mem_attr);
     if (ret != 0) {
-        devmm_drv_err("Get mem attr failed. (ret=%d; vptr=0x%llx)\n", ret, karg->vptr);
+        devmm_drv_err("Get mem attr fail. (ret=%d; vptr=0x%llx)\n", ret, karg->vptr);
         return ret;
     }
 
@@ -348,7 +348,7 @@ int devmm_ioctl_ipc_mem_create(struct devmm_svm_process *svm_proc, struct devmm_
     int ret;
 
     if (karg->name_len < DEVMM_MAX_NAME_SIZE) {
-        devmm_drv_err("Input name len error. (Name_len=%u)\n", karg->name_len);
+        devmm_drv_err("Input name len error. (name_len=%u; max_len=%u)\n", karg->name_len, DEVMM_MAX_NAME_SIZE);
         return -EINVAL;
     }
 
@@ -473,7 +473,7 @@ int devmm_ioctl_ipc_mem_set_pid(struct devmm_svm_process *svm_pro, struct devmm_
 
     ret = devmm_ipc_node_set_pids(&attr);
     if (ret != 0) {
-        devmm_drv_err("Set pid failed. (ret=%d; name=%s; sdid=%u)\n", ret, karg->name, karg->sdid);
+        devmm_drv_err("Set pid fail. (ret=%d; name=%s; sdid=%u)\n", ret, karg->name, karg->sdid);
         return ret;
     }
     return 0;

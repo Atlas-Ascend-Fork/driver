@@ -706,6 +706,7 @@ int buff_pool_poll_exit_task(int pool_id, unsigned long long *proc_uid)
 drvError_t buff_pool_feature_get_all(struct xsm_feature_get_arg *all_features)
 {
     drvError_t ret;
+    all_features->user_feature_num = BUFF_FEATURE_MAX;
     ret = buff_pool_ioctrl((int)XSMEM_FEATURE_GET, (void *)all_features);
     if (ret != DRV_ERROR_NONE) {
         buff_err("buff_pool_feature_get_all: ioctl XSMEM_FEATURE_GET failed. (ret=%d)\n", ret);

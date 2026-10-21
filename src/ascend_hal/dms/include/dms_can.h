@@ -29,7 +29,7 @@ struct can_status_stru {
 };
 
 int DmsGetCanStatus(unsigned int dev_id, const char *name, unsigned int name_len,
-    struct dsmi_can_status_stru *can_status_data);
+                    struct dsmi_can_status_stru *can_status_data);
 int DmsSetCanCfg(unsigned int dev_id, unsigned int sub_cmd, void *buf, unsigned int size);
 int DmsGetCanCfg(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 

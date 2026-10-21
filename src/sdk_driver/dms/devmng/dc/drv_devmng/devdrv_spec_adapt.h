@@ -25,7 +25,7 @@
 #if defined(CFG_FEATURE_VF_USE_DEVID)
 #define VFID_NUM_MAX 1
 #else
-#define VFID_NUM_MAX 32  /* virtual function id max num */
+#define VFID_NUM_MAX 32 /* virtual function id max num */
 #endif
 
 #endif

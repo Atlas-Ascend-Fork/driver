@@ -48,6 +48,7 @@ static const ka_pci_device_id_t trs_pm_adapt_tbl[] = {
     {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
     {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
     {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
     {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
@@ -135,7 +136,7 @@ static int trs_near_ts_inst_notifier(struct trs_id_inst *pm_inst, enum uda_notif
     } else if (action == UDA_TO_MIA) {
         ret = trs_set_ts_inst_feature_mode(pm_inst, TRS_INST_PART_FEATUR_MODE, TRS_SET_TS_INST_MODE_FORCE_LEVEL_NONE);
         if (ret != 0) {
-            trs_err("Failed to set inst feature mode (devid=%u; ret=%d)\n", pm_inst->devid, ret);
+            trs_err("Failed to get mia base info. (devid=%u; ret=%d)\n", pm_inst->devid, ret);
             return ret;
         }
 #ifdef CFG_FEATURE_SUPPORT_UB_CONNECTION
@@ -190,7 +191,8 @@ static bool trs_near_need_proc_action(enum uda_notified_action action)
 static int trs_near_notifier_func(u32 udevid, enum uda_notified_action action)
 {
     struct trs_id_inst pm_inst;
-    u32 ts_num, tsid, i;
+    u32 ts_num = 0;
+    u32 tsid, i;
     int ret;
 
     if (!trs_near_need_proc_action(action)) {

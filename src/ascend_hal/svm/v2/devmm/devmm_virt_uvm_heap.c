@@ -79,6 +79,7 @@ DVresult devmm_virt_init_uvm_heap(struct devmm_virt_heap_mgmt *mgmt)
         heap_info.need_cache_thres[i] = 0; /* not used in uvm heap */
     }
     heap_info.is_limited = true; /* means base heap can not be expanded */
+    heap_info.is_host_pin = false;
     heap_info.is_base_heap = false;
     heap_info.is_uvm_heap = true;
 

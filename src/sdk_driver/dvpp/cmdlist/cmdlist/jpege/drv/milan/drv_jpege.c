@@ -21,13 +21,13 @@
 #include "dvpp_cmdlist_define.h"
 
 const uint32_t DVPP_JPEGE_PREFETCH_DELAY = 1210; // 两个预取命令之间的最小周期数典型值为1210
-const uint32_t MASK_IRQ = 0xB0023;      // 默认走stars, 错误中断merge
-const uint32_t LAST_MASK_IRQ = 0xB0022; // 默认走stars, mask正常中断, 错误中断merge
+const uint32_t MASK_IRQ = 0xB0023;               // 默认走stars, 错误中断merge
+const uint32_t LAST_MASK_IRQ = 0xB0022;          // 默认走stars, mask正常中断, 错误中断merge
 const uint32_t DVPP_JPEGE_INPUT_ADDR_OFFSET = 4;
 const uint32_t DVPP_JPEGE_INPUT_HIGH_ADDR_OFFSET = 34;
 
 #define QTABLE_SIZE 64
-#define G_LUMA_DC_BITS_COUNT 16 // LUMA DC位表大小
+#define G_LUMA_DC_BITS_COUNT 16  // LUMA DC位表大小
 #define G_LUMA_DC_VALUE_COUNT 12 // LUMA DC位值大小
 #define G_LUMA_AC_BITS_COUNT 16
 #define G_LUMA_AC_VALUE_COUNT 162
@@ -150,7 +150,7 @@ static void config_jpege_synchronization(struct CmdNode *node)
     DVPP_CMDLIST_JPEGE_LOG_DEBUG("jpege source synchronization reg set ready!");
 }
 
-static void config_jpege_addr(struct CmdNode *node, const jpege_config* jpege_cfg, uint64_t buf_addr)
+static void config_jpege_addr(struct CmdNode *node, const jpege_config *jpege_cfg, uint64_t buf_addr)
 {
     // 配置输入地址
     uint32_t reg_val = (uint32_t)((jpege_cfg->y_phy_addr >> NUM_32) & 0xFFFFFFFF);
@@ -211,7 +211,7 @@ static void config_jpege_icr(struct CmdNode *node)
     DVPP_CMDLIST_JPEGE_LOG_DEBUG("jpege icr reg set ready!");
 }
 
-static void config_jpege_pic_format(struct CmdNode *node, const jpege_config* jpege_cfg)
+static void config_jpege_pic_format(struct CmdNode *node, const jpege_config *jpege_cfg)
 {
     union inputSwap swap;
 
@@ -230,11 +230,11 @@ static void config_jpege_pic_format(struct CmdNode *node, const jpege_config* jp
     DVPP_CMDLIST_JPEGE_LOG_DEBUG("jpege format:%u, input swap:%u\n", jpege_cfg->is_yuv420, swap.u32);
 }
 
-static void config_jpege_pic_size(struct CmdNode *node, const jpege_config* jpege_cfg)
+static void config_jpege_pic_size(struct CmdNode *node, const jpege_config *jpege_cfg)
 {
     uint32_t reg_val = 0;
-    DVPP_CMDLIST_JPEGE_LOG_DEBUG("input frame width_minus1 %u, height_minus1 %u\n",
-        jpege_cfg->width_minus1, jpege_cfg->height_minus1);
+    DVPP_CMDLIST_JPEGE_LOG_DEBUG("input frame width_minus1 %u, height_minus1 %u\n", jpege_cfg->width_minus1,
+                                 jpege_cfg->height_minus1);
 
     // JPE_ENC_HRIGHT1寄存器配置图像宽(实际宽-1)
     reg_val = jpege_cfg->width_minus1;
@@ -252,7 +252,7 @@ static void config_jpege_pic_size(struct CmdNode *node, const jpege_config* jpeg
     dvpp_seq_set_cmdnode_val(node, reg_val);
 }
 
-static void config_jpege_quant(struct CmdNode *node, const jpege_config* jpege_cfg)
+static void config_jpege_quant(struct CmdNode *node, const jpege_config *jpege_cfg)
 {
     // 前面准备语法头时，已经根据质量参数更新量化表，这里只需要写进去就行，YUV使用0,1,1
     // 当前芯片UV分量只支持使用同一张量化表
@@ -325,7 +325,7 @@ static void config_jpege_huffman_dc0(struct CmdNode *node, const jpege_config *j
 
     for (i = 1; i < G_LUMA_DC_BITS_COUNT; i += NUM_2) {
         data.u32 = 0;
-        data.bits.tableWdataH = jpege_cfg->dc0_bits_table[i -1];
+        data.bits.tableWdataH = jpege_cfg->dc0_bits_table[i - 1];
         data.bits.tableWdataL = jpege_cfg->dc0_bits_table[i];
         dvpp_seq_set_cmdnode_val(node, SOC_JPGENC_JPE_TABLE_DATA_REG & CMDLIST_FIX_WRITE);
         dvpp_seq_set_cmdnode_val(node, data.u32);
@@ -355,8 +355,8 @@ static void config_jpege_huffman_ac0(struct CmdNode *node, const jpege_config *j
 
     for (i = 1; i < G_LUMA_AC_BITS_COUNT; i += NUM_2) {
         data.u32 = 0;
-        data.bits.tableWdataH =  jpege_cfg->ac0_bits_table[i - 1];
-        data.bits.tableWdataL =  jpege_cfg->ac0_bits_table[i];
+        data.bits.tableWdataH = jpege_cfg->ac0_bits_table[i - 1];
+        data.bits.tableWdataL = jpege_cfg->ac0_bits_table[i];
         dvpp_seq_set_cmdnode_val(node, SOC_JPGENC_JPE_TABLE_DATA_REG & CMDLIST_FIX_WRITE);
         dvpp_seq_set_cmdnode_val(node, data.u32);
     }
@@ -456,7 +456,7 @@ static void config_jpege_err_int(struct CmdNode *node)
     DVPP_CMDLIST_JPEGE_LOG_DEBUG("jpege err int reg set ready!");
 }
 
-static void config_jpege_input_addr(struct CmdNode *node, const jpege_config* jpege_cfg)
+static void config_jpege_input_addr(struct CmdNode *node, const jpege_config *jpege_cfg)
 {
     uint32_t reg_val = (jpege_cfg->y_phy_addr & 0x3FFFFFFF0) >> DVPP_JPEGE_INPUT_ADDR_OFFSET;
     union frameStride strideValue;
@@ -491,7 +491,7 @@ static void config_jpege_input_addr(struct CmdNode *node, const jpege_config* jp
     }
 
     // stride
-    
+
     strideValue.u32 = 0;
     strideValue.bits.stride = jpege_cfg->y_stride >> NUM_4;
     dvpp_seq_set_cmdnode_val(node, SOC_JPGENC_STRIDE_REG & CMDLIST_FIX_WRITE);
@@ -512,7 +512,7 @@ static void config_jpege_output_addr(struct CmdNode *node, uint64_t buf_addr)
     dvpp_seq_set_cmdnode_val(node, reg_val);
 }
 
-static void config_jpege_pic_info(struct CmdNode *node, jpege_config* jpege_cfg, uint64_t buf_addr)
+static void config_jpege_pic_info(struct CmdNode *node, jpege_config *jpege_cfg, uint64_t buf_addr)
 {
     // 1. JPE_STATUS_ICR寄存器配置
     config_jpege_icr(node);
@@ -561,12 +561,12 @@ static void config_cmdnode_length(struct CmdNode *node)
 {
     // 1.配置cmdlst第一个节点的长度
     node->len0 = node->dataSize;
-    node->len1 = sizeof(uint32_t); // 回读1个寄存器，所以长度是1
-    node->len1 = ALIGN_UP(node->len1, ADDR_ALIGN_SIZE); // 128对齐
+    node->len1 = sizeof(uint32_t);                           // 回读1个寄存器，所以长度是1
+    node->len1 = DVPP_ALIGN_UP(node->len1, ADDR_ALIGN_SIZE); // 128对齐
     DVPP_CMDLIST_JPEGE_LOG_DEBUG("1. cmdlist current:%u, len0:%u, len1:%u", node->dataSize, node->len0, node->len1);
 }
 
-void config_jpege_dump_addr(struct CmdNode *node, jpege_config* jpege_cfg)
+void config_jpege_dump_addr(struct CmdNode *node, jpege_config *jpege_cfg)
 {
     uint32_t high_addr = 0;
     uint32_t low_addr = 0;
@@ -581,7 +581,7 @@ void config_jpege_dump_addr(struct CmdNode *node, jpege_config* jpege_cfg)
     dvpp_seq_set_cmdnode_val(node, low_addr);
 }
 
-static void config_jpege_reg(struct CmdNode *node, jpege_config* jpege_cfg)
+static void config_jpege_reg(struct CmdNode *node, jpege_config *jpege_cfg)
 {
     uint64_t buf_addr = 0;
     // 4. 配置回读操作地址
@@ -618,7 +618,7 @@ static void config_jpege_reg(struct CmdNode *node, jpege_config* jpege_cfg)
     add_padding_data(node);
 }
 
-void config_jpege_cmdnode(struct CmdNode *node, jpege_config* jpege_cfg)
+void config_jpege_cmdnode(struct CmdNode *node, jpege_config *jpege_cfg)
 {
     config_jpege_cmdnode_reverse_space(node);
 
@@ -630,15 +630,15 @@ void config_jepge_next_node(struct CmdBuf *cmd_buf, struct CmdNode *node)
     uint64_t baseAddr = 0;
     // 1. 填写下一个节点在ddr中的长度
     // 配置CMDLST_HW_BUF_LEN, 回读寄存器占用的cmdlist buffer长度, 目前仅回读一个寄存器JPG_BYTE_CNT
-    DVPP_CMDLIST_JPEGE_LOG_DEBUG("2. cmdlist current:%u, len0:%u, len1:%u",
-        node->next->dataSize, node->next->len0, node->next->len1);
+    DVPP_CMDLIST_JPEGE_LOG_DEBUG("2. cmdlist current:%u, len0:%u, len1:%u", node->next->dataSize, node->next->len0,
+                                 node->next->len1);
     dvpp_ext_set_cmdnode_val(node, SOC_CMDLST_REG_CMDLST_HW_BUF_LEN_REG & CMDLIST_FIX_WRITE);
     dvpp_ext_set_cmdnode_val(node, (node->next->len0 >> DVPP_JPEGE_INPUT_ADDR_OFFSET) |
-              ((node->next->len1 >> DVPP_JPEGE_INPUT_ADDR_OFFSET) << NUM_16));
+                                       ((node->next->len1 >> DVPP_JPEGE_INPUT_ADDR_OFFSET) << NUM_16));
 
     // 2. 预测计算下一个节点的地址
     baseAddr = (uint64_t)(uintptr_t)(node->next->startAddr) - (uint64_t)(uintptr_t)(cmd_buf->startAddr) +
-                        cmd_buf->ioStartAddr;
+               cmd_buf->ioStartAddr;
 
     // 3.1计算高位地址
     dvpp_ext_set_cmdnode_val(node, SOC_CMDLST_REG_CMDLST_HW_AXI_ADDR_H_REG & CMDLIST_FIX_WRITE);
@@ -688,14 +688,14 @@ void drv_jpege_config_sqe(struct CmdBuf *cmd_buf, enum dvpp_sqe_ptr_mode mode, u
                             ((cmd_buf->cmdHeadNode->len1 >> ALIGN_LEN) << NUM_16);
     } else {
         // TD 二级链表模式(多block dim)
-        sqe->filed[NUM_0] |= DVPP_SQE_JPEGE; // Type=13 JPEGE任务
+        sqe->filed[NUM_0] |= DVPP_SQE_JPEGE;                // Type=13 JPEGE任务
         sqe->filed[NUM_0] |= (blkdim << SQE_BLKDIM_OFFSET); // 第0个4字节的第16-31位表示blockdim的数量
         sqe->filed[NUM_3] = (KERNEL_CREDIT << SQE_TIMEOUT_OFFSET); // 第3个4字节的第16-23位表示kernel_credit(timeout):
-                                                          // 全1表示该任务不记录超时
+                                                                   // 全1表示该任务不记录超时
         sqe->filed[NUM_3] |= (0x1 << SQE_PTRMODE_OFFSET); // 第3个4字节的第24位表示链表模式，1表示二级
         sqe->filed[NUM_4] = GET_LOW_ADDR(cmd_buf->ioAddr); // 第4个4字节存放二级链表的低32位地址
         sqe->filed[NUM_5] = GET_HIGH_ADDR(cmd_buf->ioAddr); // 第5个4字节的低16位存放二级链表的高16位地址
-        sqe->filed[NUM_5] &= 0x1FFFF; // 第5个4字节的17~30bit是保留字段
+        sqe->filed[NUM_5] &= 0x1FFFF;                       // 第5个4字节的17~30bit是保留字段
         sqe->filed[NUM_5] |= (0x1 << SQE_ADDRTYPE_OFFSET); // 第5个4字节的最高位表示地址类型 1:虚拟地址 0:物理地址
     }
 }

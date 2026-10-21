@@ -141,7 +141,7 @@ static int _apm_master_domain_add_slave(struct apm_cmd_bind *para, int master_tg
     if (local_flag == 1) {
         ret = apm_master_domain_ops_bind_unbind(APM_OP_BIND, tgid, slave_tgid, para);
         if (ret != 0) {
-            (void)apm_master_del_slave(master_domain, tgid, slave_tgid, para);
+            (void)apm_master_del_slave(master_domain, tgid, slave_tgid, local_flag, para);
             apm_err("Ops failed. (ret=%d; devid=%u; proc_type=%d; mode=%d; slave_pid=%d; master_pid=%d)\n", ret,
                     para->devid, para->proc_type, para->mode, para->slave_pid, para->master_pid);
             return ret;
@@ -155,7 +155,7 @@ static int _apm_master_domain_del_slave(struct apm_cmd_bind *para, int master_tg
 {
     int tgid = master_tgid, ret;
 
-    ret = apm_master_del_slave(master_domain, tgid, slave_tgid, para);
+    ret = apm_master_del_slave(master_domain, tgid, slave_tgid, local_flag, para);
     if (ret != 0) {
         apm_warn("Del warn. (ret=%d; devid=%u; proc_type=%d; mode=%d; slave_pid=%d; master_pid=%d)\n", ret, para->devid,
                  para->proc_type, para->mode, para->slave_pid, para->master_pid);
@@ -238,13 +238,14 @@ static int apm_master_domain_get_master_tgid(int master_pid, int *master_tgid)
     return task_get_tgid_by_vpid(master_pid, master_tgid);
 }
 
-int apm_master_domain_set_slave_status(int master_tgid, u32 udevid, int slave_tgid, int type, int status)
+int apm_master_domain_set_slave_status(int master_tgid, u32 udevid, int slave_tgid, int type, int status,
+                                       int local_flag)
 {
     switch (type) {
         case SLAVE_STATUS_EXIT:
-            return apm_master_set_slave_exit_stage(master_domain, master_tgid, udevid, slave_tgid, status);
+            return apm_master_set_slave_exit_stage(master_domain, master_tgid, udevid, slave_tgid, status, local_flag);
         case SLAVE_STATUS_OOM:
-            return apm_master_set_slave_oom_status(master_domain, master_tgid, udevid, slave_tgid, status);
+            return apm_master_set_slave_oom_status(master_domain, master_tgid, udevid, slave_tgid, status, local_flag);
         default:
             break;
     }
@@ -500,7 +501,7 @@ static int apm_query_slave_meminfo_by_master(int master_tgid, unsigned int udevi
     }
 
     if ((mem_type >= PROC_MEM_MAX) || (process_type >= PROCESS_CPTYPE_MAX) || (process_type == PROCESS_USER)) {
-        apm_info("Not support type. (mem_type=%u; cp_type=%d)\n", mem_type, process_type);
+        apm_debug("Unsupported type. (mem_type=%u; cp_type=%d)\n", mem_type, process_type);
         return -EOPNOTSUPP;
     }
 
@@ -646,6 +647,11 @@ int apm_get_all_master_tgids(int *tgids, unsigned int len, unsigned int *cnt)
 }
 KA_EXPORT_SYMBOL_GPL(apm_get_all_master_tgids);
 
+int apm_master_domain_check_all_master_is_bind_slave(u32 udevid)
+{
+    return apm_master_check_all_master_is_bind_slave(master_domain, udevid);
+}
+
 /* stub */
 int devdrv_query_process_by_host_pid(unsigned int host_pid, unsigned int udevid, enum devdrv_process_type proc_type,
                                      unsigned int vfid, int *slave_pid)
@@ -690,13 +696,18 @@ static int apm_master_domain_task_exit_notifier(ka_notifier_block_t *self, unsig
     int tgid = apm_get_exit_tgid(val);
     int stage = apm_get_exit_stage(val);
 
+    if (stage > (APM_STAGE_MAX - 1)) {
+        goto exit;
+    }
+
     (void)apm_master_set_exit_stage(master_domain, tgid, NULL, stage);
 
-    if (stage == APM_STAGE_RECYCLE_RES) {
+    if (stage == (APM_STAGE_MAX - 1)) {
         apm_master_domain_ops_destroy(tgid);
         apm_master_ctx_destroy(master_domain, tgid);
     }
 
+exit:
     apm_info("Master exit notifier. (tgid=%d; stage=%d)\n", tgid, stage);
     return KA_NOTIFY_OK;
 }

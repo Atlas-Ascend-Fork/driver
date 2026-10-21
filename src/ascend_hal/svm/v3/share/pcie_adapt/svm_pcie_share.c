@@ -32,7 +32,7 @@ static int svm_pcie_share_register(u32 devid)
     return DRV_ERROR_NONE;
 }
 
-static void __attribute__((constructor(SVM_INIT_PRI_MEDIUM))) svm_pcie_share_init(void)
+static void __attribute__((constructor(SVM_INIT_PRI_FISRT))) svm_pcie_share_init(void)
 {
     int ret;
 

@@ -33,7 +33,8 @@ int svm_dbi_query_host_align_page_size(u32 devid, u64 *page_size);
 int svm_dbi_query_d2h_acc_mask(u32 devid, u64 *acc_mask);
 
 bool svm_dbi_is_support_sva(u32 devid);
+bool svm_dbi_is_cc_vm(void);
 bool svm_dbi_is_support_assign_gap(u32 devid);
-bool svm_dbi_is_support_pci_bar(u32 devid);
+bool svm_dbi_is_support_host_access_dev(u32 devid);
 
 #endif

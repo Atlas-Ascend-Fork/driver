@@ -24,6 +24,7 @@
 #include "pbl_user_interface.h"
 #include "pbl_urd_main_cmd_def.h"
 #include "pbl_urd_sub_cmd_common.h"
+#include "pbl_urd_user.h"
 
 #include "trs_shr_id_fd.h"
 #include "trs_ioctl.h"
@@ -50,6 +51,11 @@ int trs_munmap(void *addr, size_t length);
 #define trs_munmap munmap
 #endif
 
+struct trs_feature_trans {
+    drvFeature_t feature;
+    uint32_t feature_bit;
+};
+
 static int trs_dev_fd[TRS_DEV_NUM] = {
     -1,
 };
@@ -57,6 +63,108 @@ static int trs_dev_mmap_fd[TRS_DEV_NUM] = {
     -1,
 };
 static pthread_mutex_t trs_dev_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+static struct trs_dev_ctx dev_ctx[TRS_DEV_NUM] = {0};
+
+static struct trs_feature_trans g_trs_feature_trans[] = {
+    {FEATURE_MAX, TRS_FEATURE_MAX},
+};
+
+struct trs_dev_ctx *trs_get_dev_ctx(uint32_t dev_id)
+{
+    return &dev_ctx[dev_id];
+}
+
+bool trs_is_stars_inst(uint32_t dev_id, uint32_t ts_id)
+{
+    (void)ts_id;
+    return (dev_ctx[dev_id].hw_type == TRS_HW_TYPE_STARS);
+}
+
+int trs_hw_info_init(uint32_t dev_id)
+{
+    struct trs_hw_info_query_para para;
+    int ret = trs_dev_io_ctrl(dev_id, TRS_HW_INFO_QUERY, &para);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    dev_ctx[dev_id].hw_type = para.hw_type;
+    dev_ctx[dev_id].ts_num = (uint32_t)para.tsnum;
+    dev_ctx[dev_id].connection_type = para.connection_type;
+    dev_ctx[dev_id].sq_send_mode = para.sq_send_mode;
+    dev_ctx[dev_id].die_id = para.die_id;
+    (void)pthread_mutex_init(&dev_ctx[dev_id].dev_mutex, NULL);
+    (void)pthread_mutex_init(&dev_ctx[dev_id].stream_mutex, NULL);
+    (void)pthread_mutex_init(&dev_ctx[dev_id].urma_mutex, NULL);
+
+    return 0;
+}
+
+void trs_dev_ctx_mutex_lock(uint32_t dev_id)
+{
+    (void)pthread_mutex_lock(&dev_ctx[dev_id].dev_mutex);
+}
+void trs_dev_ctx_mutex_un_lock(uint32_t dev_id)
+{
+    (void)pthread_mutex_unlock(&dev_ctx[dev_id].dev_mutex);
+}
+void trs_dev_ctx_stream_mutex_lock(uint32_t dev_id)
+{
+    (void)pthread_mutex_lock(&dev_ctx[dev_id].stream_mutex);
+}
+void trs_dev_ctx_stream_mutex_unlock(uint32_t dev_id)
+{
+    (void)pthread_mutex_unlock(&dev_ctx[dev_id].stream_mutex);
+}
+void trs_dev_ctx_urma_mutex_lock(uint32_t dev_id)
+{
+    (void)pthread_mutex_lock(&dev_ctx[dev_id].urma_mutex);
+}
+void trs_dev_ctx_urma_mutex_unlock(uint32_t dev_id)
+{
+    (void)pthread_mutex_unlock(&dev_ctx[dev_id].urma_mutex);
+}
+void *trs_get_d2d_dev_ctx(uint32_t recv_dev_id, trs_d2d_index_t d2d_index)
+{
+    return dev_ctx[recv_dev_id].d2d_dev_ctx[d2d_index];
+}
+void trs_set_d2d_dev_ctx(uint32_t recv_dev_id, trs_d2d_index_t d2d_index, void *ctx)
+{
+    dev_ctx[recv_dev_id].d2d_dev_ctx[d2d_index] = ctx;
+}
+void trs_set_dev_open_status(uint32_t dev_id, bool dev_open)
+{
+    dev_ctx[dev_id].dev_open = dev_open;
+}
+bool trs_is_dev_open(uint32_t dev_id)
+{
+    return dev_ctx[dev_id].dev_open;
+}
+void trs_set_ubdma_cqe_addr(uint32_t dev_id, uint64_t ubdma_cqe_addr)
+{
+    dev_ctx[dev_id].ubdma_cqe_addr = ubdma_cqe_addr;
+}
+uint64_t trs_get_ubdma_cqe_addr(uint32_t dev_id)
+{
+    return dev_ctx[dev_id].ubdma_cqe_addr;
+}
+int trs_get_connection_type(uint32_t dev_id)
+{
+    return dev_ctx[dev_id].connection_type;
+}
+int trs_get_sq_send_mode(uint32_t dev_id)
+{
+    return dev_ctx[dev_id].sq_send_mode;
+}
+int trs_get_stars_die_id(uint32_t dev_id)
+{
+    return dev_ctx[dev_id].die_id;
+}
+uint32_t trs_get_ts_num(uint32_t dev_id)
+{
+    return dev_ctx[dev_id].ts_num;
+}
 
 #define TRS_DEV_INT_HANDLE_NUM_MAX 4
 
@@ -377,9 +485,7 @@ static drvError_t drvDeviceOpenComm(void **dev_info, uint32_t dev_id)
         (void)trs_char_dev_close(udev_id, fd);
         (void)pthread_mutex_unlock(&trs_dev_mutex);
         share_log_destroy(HAL_MODULE_TYPE_TS_DRIVER);
-#ifndef EMU_ST
         return DRV_ERROR_NO_DEVICE;
-#endif
     }
 
     trs_set_dev_fd(dev_id, fd);
@@ -401,7 +507,13 @@ static drvError_t drvDeviceOpenComm(void **dev_info, uint32_t dev_id)
 
 drvError_t drvTrsDeviceCloseUserResInner(uint32_t dev_id, halDevCloseIn *in)
 {
+    if (dev_id >= TRS_DEV_NUM) {
+        trs_err("Invalid para. (devid=%u)\n", dev_id);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
     (void)pthread_mutex_lock(&trs_dev_mutex);
+    trs_dev_res_id_uninit(dev_id);
     shrid_set_fd(-1);
     trs_set_dev_mmap_fd(dev_id, -1);
     trs_set_dev_fd(dev_id, -1);
@@ -767,7 +879,7 @@ drvError_t halTsdrvCtl(uint32_t devId, int cmd, void *param, size_t paramSize, v
         case TSDRV_CTL_CMD_CTRL_MSG:
             return trs_mbox_msg_ctrl(devId, param, paramSize, out, outSize);
         default:
-            trs_warn("Cmd_type is not supported, (devid=%u, type=%d).\n", devId, cmd_type);
+            trs_warn("Cmd_type is not supported. (devid=%u, type=%d).\n", devId, cmd_type);
             return DRV_ERROR_NOT_SUPPORT;
     }
 }
@@ -794,7 +906,7 @@ static drvError_t trs_mode_op_by_urd(struct trs_mode_info *info, enum urd_main_c
     (void)pthread_mutex_lock(&trs_dev_mutex);
     ret = urd_usr_cmd(&cmd, &cmd_para);
     if ((ret != 0) && (ret != DRV_ERROR_NOT_SUPPORT)) {
-        trs_err("Op mode failed. (dev_id=%u; ts_id=%u; ret=%d)\n", info->dev_id, info->ts_id, ret);
+        trs_err("Op mode by urd failed. (dev_id=%u; ts_id=%u; ret=%d)\n", info->dev_id, info->ts_id, ret);
     }
 
     (void)pthread_mutex_unlock(&trs_dev_mutex);
@@ -809,4 +921,94 @@ drvError_t trs_mode_config(struct trs_mode_info *info)
 drvError_t trs_mode_query(struct trs_mode_info *info)
 {
     return trs_mode_op_by_urd(info, URD_TRS_MODE_QUERY_CMD);
+}
+
+#ifdef DRV_HOST
+static int trs_dev_feature_query(uint32_t dev_id, trs_feat_bitmap_t *bitmap)
+{
+    struct trs_feature_query_para para = {.dev_id = dev_id, .bitmap_size = sizeof(trs_feat_bitmap_t)};
+    struct urd_cmd_para cmd_para = {
+        .input = (void *)&para, .input_len = sizeof(para), .output = (void *)&para, .output_len = sizeof(para)};
+    struct urd_cmd cmd = {
+        .main_cmd = DMS_MAIN_CMD_TRS, .sub_cmd = DMS_SUBCMD_QUERY_TRS_FEATURE, .filter = NULL, .filter_len = 0};
+    int ret;
+
+    ret = urd_dev_usr_cmd(dev_id, &cmd, &cmd_para);
+    if (ret != 0) {
+        trs_run_info("Feature ioctl query completed. (ret=%d; devid=%u)\n", ret, dev_id);
+        return ret;
+    }
+
+    ret = memcpy_s(bitmap, sizeof(trs_feat_bitmap_t), para.bitmap, sizeof(trs_feat_bitmap_t));
+    if (ret != 0) {
+        return DRV_ERROR_INVALID_VALUE;
+    }
+    return 0;
+}
+#endif
+
+static int trs_dev_feature_init(uint32_t dev_id)
+{
+#ifdef DRV_HOST
+    int ret;
+
+    if (!dev_ctx[dev_id].feature_inited) {
+        ret = trs_dev_feature_query(dev_id, &dev_ctx[dev_id].feature_bitmap);
+        if (ret != 0) {
+            trs_run_info("Trs feature dev init completed. (ret=%d; dev_id=%u)\n", ret, dev_id);
+            return ret;
+        }
+        dev_ctx[dev_id].feature_inited = true;
+    }
+#else
+    (void)dev_id;
+#endif
+    return 0;
+}
+
+int trs_dev_feature_init_locked(uint32_t dev_id)
+{
+    int ret;
+
+    (void)pthread_mutex_lock(&trs_dev_mutex);
+    ret = trs_dev_feature_init(dev_id);
+    (void)pthread_mutex_unlock(&trs_dev_mutex);
+
+    return ret;
+}
+
+bool trs_feature_is_inited(uint32_t dev_id)
+{
+    return dev_ctx[dev_id].feature_inited;
+}
+
+bool _trs_feature_is_support(uint32_t dev_id, drvFeature_t type)
+{
+    uint32_t trans_size = (uint32_t)(sizeof(g_trs_feature_trans) / sizeof(g_trs_feature_trans[0]));
+    const struct trs_feature_trans *trans = NULL;
+    uint32_t i;
+
+    for (i = 0; i < trans_size; i++) {
+        trans = &g_trs_feature_trans[i];
+        if (trans->feature == type) {
+            return trs_dev_feat_is_support(dev_ctx[dev_id].feature_bitmap, trans->feature_bit);
+        }
+    }
+
+    return false;
+}
+
+/* dev_uninit is not required: feature query does not need open device, so no uninit on close device */
+static struct trs_dev_init_ops g_feature_dev_ops = {
+    .dev_init = trs_dev_feature_init,
+};
+
+void __attribute__((constructor)) trs_feature_init(void)
+{
+    int ret;
+
+    ret = trs_register_dev_init_ops(&g_feature_dev_ops);
+    if (ret != DRV_ERROR_NONE) {
+        trs_err("Register feature dev ops completed. (ret=%d)\n", ret);
+    }
 }

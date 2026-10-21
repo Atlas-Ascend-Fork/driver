@@ -16,10 +16,7 @@
 #include "pbl/pbl_runenv_config.h"
 #include "esched_ioctl.h"
 #include "esched_fops.h"
-#if !defined CFG_ENV_HOST && defined CFG_FEATURE_HARDWARE_SCHED
-#include "esched_drv_adapt_common.h"
-#include "esched_drv_adapt.h"
-#endif
+#include "esched_adapt_platform.h"
 #include "ka_compiler_pub.h"
 #include "ka_kernel_def_pub.h"
 #include "ka_memory_pub.h"
@@ -48,31 +45,6 @@ int32_t sched_fop_query_sync_msg_trace(u32 devid, unsigned long arg)
                           sizeof(struct sched_sync_event_trace)) != 0) {
         return DRV_ERROR_COPY_USER_FAIL;
     }
-#endif
-    return 0;
-}
-
-int sched_check_cp2_dest_pid(struct sched_published_event_info *event_info)
-{
-#ifndef EMU_ST
-#ifndef CFG_ENV_HOST
-    int ret;
-    int cust_mode = DBL_CUST_OP_ENHANCE_DISABLE;
-    int pid = ka_task_get_current()->tgid;
-    u32 dev_id, vfid, host_pid;
-    enum devdrv_process_type cp_type;
-
-    ret = hal_kernel_devdrv_query_process_host_pid(pid, &dev_id, &vfid, &host_pid, &cp_type);
-    if (ret != 0) {
-        return 0;
-    }
-    (void)dbl_get_cust_op_enhance_mode(dev_id, &cust_mode);
-    if ((cp_type == DEVDRV_PROCESS_CP2) && (event_info->pid != pid) && (cust_mode == DBL_CUST_OP_ENHANCE_DISABLE)) {
-        sched_warn("Custom process is not allowed. (pid=%u; cp2_pid=%d; custom_mode=%u)\n", event_info->pid, pid,
-                   cust_mode);
-        return DRV_ERROR_INNER_ERR;
-    }
-#endif
 #endif
     return 0;
 }
@@ -119,17 +91,7 @@ void esched_wait_trace_update(struct sched_proc_ctx *proc_ctx, struct sched_even
         return;
     }
 
-#ifdef CFG_ENV_HOST
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].src_wait_start_timestamp = tick_to_millisecond(
-        event->timestamp.subscribe_in_kernel);
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].src_wait_end_timestamp = tick_to_millisecond(
-        event->timestamp.subscribe_out_kernel);
-#else
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].dst_wait_start_timestamp = tick_to_millisecond(
-        event->timestamp.subscribe_in_kernel);
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].dst_wait_end_timestamp = tick_to_millisecond(
-        event->timestamp.subscribe_out_kernel);
-#endif
+    esched_adapt_wait_trace_update(proc_ctx, dfx_gid, dfx_tid, event);
     return;
 }
 
@@ -154,16 +116,7 @@ void esched_publish_trace_update(struct sched_proc_ctx *proc_ctx, struct sched_e
         (dfx_tid >= SCHED_MAX_SYNC_THREAD_NUM_PER_GRP)) {
         return;
     }
-#ifdef CFG_ENV_HOST
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].src_publish_timestamp = tick_to_millisecond(curr_time);
-#else
-    (void)memset_s(&proc_ctx->sched_dfx[dfx_gid][dfx_tid], sizeof(struct sched_sync_event_trace), 0,
-                   sizeof(struct sched_sync_event_trace));
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].dst_publish_timestamp = tick_to_millisecond(curr_time);
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].gid = gid;
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].event_id = event_id;
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].subevent_id = subevent_id;
-#endif
+    esched_adapt_publish_trace_update(proc_ctx, dfx_gid, dfx_tid, curr_time, gid, event_id, subevent_id);
     return;
 }
 
@@ -209,20 +162,7 @@ void esched_submit_trace_update(u32 chip_id, u32 event_src, struct sched_publish
         return;
     }
 
-#ifdef CFG_ENV_HOST
-    (void)memset_s(&proc_ctx->sched_dfx[dfx_gid][dfx_tid], sizeof(struct sched_sync_event_trace), 0,
-                   sizeof(struct sched_sync_event_trace));
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].gid = gid;
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].event_id = event_id;
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].subevent_id = subevent_id;
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].src_submit_user_timestamp = tick_to_millisecond(
-        event_info->publish_timestamp);
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].src_submit_kernel_timestamp = tick_to_millisecond(curr_time);
-#else
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].dst_submit_user_timestamp = tick_to_millisecond(
-        event_info->publish_timestamp);
-    proc_ctx->sched_dfx[dfx_gid][dfx_tid].dst_submit_kernel_timestamp = tick_to_millisecond(curr_time);
-#endif
+    esched_adapt_submit_trace_update(proc_ctx, dfx_gid, dfx_tid, event_info, curr_time, gid, event_id, subevent_id);
     esched_proc_put(proc_ctx);
     esched_dev_put(node);
     return;
@@ -308,23 +248,6 @@ void esched_ts_platform_uninit(void)
     return;
 #endif
 }
-
-#if defined CFG_FEATURE_HARDWARE_SCHED && !defined CFG_ENV_HOST
-int esched_drv_init_cpu_port_adapt(u32 chip_id, u32 start_id, u32 chan_num)
-{
-    return esched_drv_init_all_cpu_port(chip_id, start_id, chan_num);
-}
-void esched_drv_uninit_cpu_port_adapt(u32 chip_id, u32 start_id, u32 chan_num)
-{
-    return esched_drv_uninit_all_cpu_port(chip_id, start_id, chan_num);
-}
-
-int esched_drv_init_msgq_config_adapt(struct sched_numa_node *node, u32 start_id, u32 aicpu_chan_num,
-                                      u32 comcpu_chan_num)
-{
-    return esched_drv_init_msgq_config(node, start_id, aicpu_chan_num, comcpu_chan_num);
-}
-#endif
 
 int sched_get_sentry_mode(struct sched_numa_node *node, int *mode)
 {

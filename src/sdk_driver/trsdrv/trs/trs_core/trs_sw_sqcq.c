@@ -50,7 +50,7 @@ static void trs_sw_cq_recv_proc(struct trs_core_ts_inst *ts_inst, u32 cqid, void
 {
     struct trs_cq_ctx *cq_ctx = &ts_inst->sw_cq_ctx[cqid];
     struct trs_ctrl_cqe *ctrl_cqe = (struct trs_ctrl_cqe *)cqe;
-    struct trs_logic_cqe logic_cqe;
+    struct trs_logic_cqe logic_cqe = {0};
 
     trs_ctrl_cqe_to_logic_cqe(ctrl_cqe, &logic_cqe);
 
@@ -123,6 +123,11 @@ int trs_sw_sqcq_alloc(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts
 
     if (trs_is_proc_res_limited(proc_ctx, ts_inst, TRS_SW_SQ)) {
         return -ENOSPC;
+    }
+
+    if (para->sqeDepth < TRS_CTRL_USE_SQE_NUM) {
+        trs_err("Invalid sqeDepth. (sqeDepth=%u)\n", para->sqeDepth);
+        return -EINVAL;
     }
 
     ret = trs_sw_alloc_chan(proc_ctx, &ts_inst->inst, para, &chan_id);
@@ -246,7 +251,7 @@ void trs_sw_sqcq_recycle(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst 
 #ifndef EMU_ST
     struct trs_id_inst *inst = &ts_inst->inst;
 
-    if (res_type == TRS_HW_SQ) {
+    if (res_type == TRS_SW_SQ) {
         (void)trs_chan_ctrl(inst, ts_inst->sw_sq_ctx[res_id].chan_id, CHAN_CTRL_CMD_NOT_NOTICE_TS, 0);
         _trs_sw_sqcq_free(proc_ctx, ts_inst, res_id, ts_inst->sw_sq_ctx[res_id].cqid);
     } else {

@@ -23,11 +23,21 @@
     PMQ: physical memory query
 */
 
-/* queried pa seg is <= size accord to seg num space */
+/* queried pa seg is <= size accord to seg num space, will merge continues pa */
 int svm_pmq_pa_query(int tgid, u64 va, u64 size, struct svm_pa_seg pa_seg[], u64 *seg_num);
 int svm_pmq_pa_get(int tgid, u64 va, u64 size, struct svm_pa_seg pa_seg[], u64 *seg_num);
 void svm_pmq_pa_put(struct svm_pa_seg pa_seg[], u64 seg_num);
 int svm_pmq_query_va(int tgid, u64 pa, u64 start_va, u64 end_va, u64 *matched_va);
+
+/* Will not merge continues pa */
+static inline int svm_pmq_get_pa(int tgid, u64 va, u64 size, struct svm_pa_seg pa_seg[], u64 *seg_num)
+{
+    int ret = svm_pmq_pa_get(tgid, va, size, pa_seg, seg_num);
+    if (ret == 0) {
+        svm_pmq_pa_put(pa_seg, *seg_num);
+    }
+    return ret;
+}
 
 static inline void pmq_try_recycle_local_mem(struct svm_global_va *src_info, struct svm_pa_seg pa_seg[], u64 seg_num)
 {

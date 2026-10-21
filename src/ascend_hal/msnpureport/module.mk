@@ -41,9 +41,8 @@ endif
 
 LOCAL_CFLAGS += -DOS_TYPE=0 -Wall -O0 -fPIC -Werror -g -fvisibility=hidden
 
-LOCAL_STATIC_LIBRARIES := libc_sec libmmpa libadcore libslog libbbox_dump libadcore
+LOCAL_STATIC_LIBRARIES := libc_sec libmmpa libmsn_adcore libslog libbbox_dump libmsn_adcore
 
 LOCAL_SHARED_LIBRARIES := libascend_hal
 
 include $(BUILD_HOST_EXECUTABLE)
-

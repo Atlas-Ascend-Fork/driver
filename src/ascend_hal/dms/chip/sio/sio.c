@@ -24,8 +24,8 @@ int DmsGetSioInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, 
     (void)vfid;
 
     if ((buf == NULL) || (size == NULL)) {
-        DMS_ERR("Size or buf is NULL. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n",
-            dev_id, (buf == NULL), (size == NULL));
+        DMS_ERR("Size or buf is NULL. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n", dev_id, (buf == NULL),
+                (size == NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -35,12 +35,12 @@ int DmsGetSioInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, 
     }
 
     sio_sub_cmd = sub_cmd & DSMI_SIO_SUB_CMD_BIT;
-    info.sllc_index  = (unsigned char)((sub_cmd & DSMI_SIO_SLLC_INDEX_BIT) >> DSMI_SIO_SLLC_INDEX_OFFSET);
+    info.sllc_index = (unsigned char)((sub_cmd & DSMI_SIO_SLLC_INDEX_BIT) >> DSMI_SIO_SLLC_INDEX_OFFSET);
 
-    ret = DmsGetDeviceInfoEx(dev_id, DSMI_MAIN_CMD_SIO, sio_sub_cmd, &info, &out_len);
+    ret = halDmsGetDeviceInfoEx(dev_id, DSMI_MAIN_CMD_SIO, sio_sub_cmd, &info, &out_len);
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Get device info failed. (dev_id=%u; sub_cmd=%u; index=%u; ret=%d)\n",
-            dev_id, sio_sub_cmd, info.sllc_index, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Get device info failed. (dev_id=%u; sub_cmd=%u; index=%u; ret=%d)\n", dev_id,
+                              sio_sub_cmd, info.sllc_index, ret);
         return ret;
     }
 
@@ -57,4 +57,3 @@ int DmsGetSioInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, 
 
     return ret;
 }
-

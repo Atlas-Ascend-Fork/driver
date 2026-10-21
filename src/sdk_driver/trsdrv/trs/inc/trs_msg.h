@@ -15,7 +15,7 @@
 
 #include "ka_type.h"
 #ifdef CFG_FEATURE_SUPPORT_UB_CONNECTION
-#include "ubcore_uapi.h"
+#include "uba/ubcore_adapt.h"
 #endif
 #include "trs_chan.h"
 #include "trs_pm_adapt.h"

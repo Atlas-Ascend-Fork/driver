@@ -16,12 +16,19 @@ target_sources(commlib_obj PRIVATE
     atomic_ref.c
     drv_comm_intf.c
     drv_repair_fault.c
+    drv_current.c
+    drv_module_feature.c
+)
+
+target_compile_options(commlib_obj PRIVATE
+    -fPIC
 )
 
 target_include_directories(commlib_obj PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}
     ${DRIVER_USER_DIR}/inc
     ${DRIVER_USER_DIR}/inc/trs
+    ${DRIVER_USER_DIR}/inc/pbl
     ${DRIVER_HAL_INC_DIR}
     ${C_SEC_INCLUDE}
     ${DRIVER_USER_DIR}/msnpureport/inc/slog

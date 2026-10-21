@@ -29,7 +29,7 @@ struct uvm_memory_attributes {
     uint64_t pa;
     uint32_t devid;
     int device_count;
-    int device_ids[DEVMM_UVM_MAX_DEVICE_NUM];
+    int device_ids[BITMAP_BITS_COUNT];
 };
 
 static int uvm_memset_send_device_msg(struct devmm_svm_process *svm_proc, struct devmm_mem_memset_para *memset_para,
@@ -93,8 +93,36 @@ static int uvm_memset_device_process(struct devmm_svm_process *svm_proc, struct 
     return 0;
 }
 
+static int uvm_memset_alloc_host_page(struct devmm_svm_process *svm_proc, struct uvm_memory_attributes *attr,
+                                      struct uvm_page_info *page_info, uint64_t va_start, uint64_t memset_count,
+                                      uint64_t total_memset_size)
+{
+    int ret;
+
+    ret = uvm_host_alloc_and_map_page(svm_proc, page_info, page_info->va_align, -1, false);
+    if (ret != 0) {
+#ifndef EMU_ST
+        struct ka_sysinfo mem_info = {0};
+        ka_si_meminfo(&mem_info);
+        devmm_drv_err("OOM: alloc huge pages fail, out of memory. (ret=%d; hostpid=%d; vfid=%u; "
+                      "total_memset_size=0x%llx; free_mem=0x%llx; va=0x%llx)\n",
+                      ret, svm_proc->process_id.hostpid, svm_proc->process_id.vfid, total_memset_size,
+                      (uint64_t)mem_info.freeram << KA_MM_PAGE_SHIFT, va_start);
+#else
+        (void)memset_count;
+#endif
+        return ret;
+    }
+
+    uvm_set_bitmap_mapped(page_info->page_bitmap, UVM_HOST_ID);
+    attr->pa = page_info->page_map->pa_addr;
+    devmm_drv_debug("Memset alloc host page succeeded. (dst=0x%llx; byte_count=%llu)\n", va_start, memset_count);
+    return 0;
+}
+
 static int uvm_memset_host_process(struct devmm_svm_process *svm_proc, struct devmm_mem_memset_para *memset_para,
-                                   struct uvm_memory_attributes *attr, struct uvm_page_info *page_info)
+                                   struct uvm_memory_attributes *attr, struct uvm_page_info *page_info,
+                                   uint64_t total_memset_size)
 {
     int ret;
     void *kvaddr;
@@ -116,16 +144,11 @@ static int uvm_memset_host_process(struct devmm_svm_process *svm_proc, struct de
     }
 
     if (attr->is_uvm_non_page) {
-        ret = uvm_host_alloc_and_map_page(svm_proc, page_info, page_info->va_align, -1, false);
+        devmm_zap_vma_ptes(vma, page_info->va_align, DEVMM_UVM_PAGE_SIZE);
+        ret = uvm_memset_alloc_host_page(svm_proc, attr, page_info, va_start, memset_para->count, total_memset_size);
         if (ret != 0) {
-            devmm_drv_err("Failed to alloc host page for va=0x%llx, ret=%d\n", va_start, ret);
             return ret;
         }
-
-        uvm_set_bitmap_mapped(page_info->page_bitmap, UVM_HOST_ID);
-        attr->pa = page_info->page_map->pa_addr;
-        devmm_drv_debug("Memset alloc host page succeeded. (dst=0x%llx; byte_count=%llu)\n", va_start,
-                        memset_para->count);
     }
 
     paddr = attr->pa;
@@ -182,7 +205,7 @@ static int uvm_get_memory_attributes(struct devmm_uvm_heap *uvm_heap, uint64_t a
     attr->is_readmostly = page_bitmap_get_read_mostly(page_bitmap);
     attr->devid = page_map->devid;
     attr->pa = page_map->pa_addr;
-    attr->device_count = get_present_devices(device_bitmap, attr->device_ids);
+    attr->device_count = get_present_devices(device_bitmap, attr->device_ids, BITMAP_BITS_COUNT);
     attr->is_uvm_non_page = (!attr->is_uvm_host && !attr->is_uvm_device);
 
     return 0;
@@ -190,7 +213,7 @@ static int uvm_get_memory_attributes(struct devmm_uvm_heap *uvm_heap, uint64_t a
 
 static int devmm_memset_page_processing(struct devmm_svm_process *svm_proc, struct devmm_uvm_heap *uvm_heap,
                                         uint64_t vaddr, uint64_t memset_size, uint64_t value,
-                                        struct uvm_page_info *page_info)
+                                        struct uvm_page_info *page_info, uint64_t total_memset_size)
 {
     int ret;
     struct uvm_memory_attributes attr = {};
@@ -209,7 +232,7 @@ static int devmm_memset_page_processing(struct devmm_svm_process *svm_proc, stru
     current_para.value = value;
 
     if (attr.is_uvm_non_page || attr.is_uvm_host) {
-        ret = uvm_memset_host_process(svm_proc, &current_para, &attr, page_info);
+        ret = uvm_memset_host_process(svm_proc, &current_para, &attr, page_info, total_memset_size);
 #ifndef EMU_ST
         if (ret != 0) {
             devmm_drv_err("uvm_memset_host_process failed. (ret=%d; dst=0x%llx)\n", ret, current_para.dst);
@@ -231,12 +254,74 @@ static int devmm_memset_page_processing(struct devmm_svm_process *svm_proc, stru
     return 0;
 }
 
+#ifndef EMU_ST
+static void devmm_memset_rollback_alloced(struct devmm_svm_process *svm_proc, struct devmm_uvm_heap *uvm_heap,
+                                          uint64_t *alloced_vaddrs, uint32_t alloced_count)
+{
+    uint32_t i;
+    struct uvm_page_info rb_info;
+
+    for (i = 0; i < alloced_count; i++) {
+        if (uvm_get_page_info_by_va(uvm_heap, alloced_vaddrs[i], &rb_info) != 0) {
+            devmm_drv_err("Rollback: failed to get page_info. (va=0x%llx)\n", alloced_vaddrs[i]);
+            continue;
+        }
+        ka_task_down_write(rb_info.page_rwlock);
+        (void)uvm_free_host_page(svm_proc, &rb_info, 0);
+        ka_task_up_write(rb_info.page_rwlock);
+    }
+}
+#endif
+
+static int devmm_memset_partial_proc_one(struct devmm_svm_process *svm_proc, struct devmm_uvm_heap *uvm_heap,
+                                         uint64_t vaddr, uint64_t memset_size, uint64_t value,
+                                         struct uvm_page_info *page_info, bool *was_alloced, uint64_t total_memset_size)
+{
+    int ret;
+    bool was_no_mapped;
+
+    ret = uvm_get_page_info_by_va(uvm_heap, vaddr, page_info);
+#ifndef EMU_ST
+    if (ret) {
+        devmm_drv_err("Failed to get page_info for va=0x%llx\n", vaddr);
+        return ret;
+    }
+#endif
+    ka_task_down_write(page_info->page_rwlock);
+
+    if (!page_bitmap_get_alloced(page_info->page_bitmap)) {
+#ifndef EMU_ST
+        devmm_drv_err("Va is not alloced, va = 0x%llx.\n", vaddr);
+#endif
+        ka_task_up_write(page_info->page_rwlock);
+        return -EINVAL;
+    }
+
+    was_no_mapped = page_is_no_mapped(page_info->page_bitmap);
+
+    ret = devmm_memset_page_processing(svm_proc, uvm_heap, vaddr, memset_size, value, page_info, total_memset_size);
+
+    ka_task_up_write(page_info->page_rwlock);
+
+    if (ret != 0) {
+        return ret;
+    }
+
+    *was_alloced = was_no_mapped;
+    return 0;
+}
+
 static int devmm_memset_partial(struct devmm_svm_process *svm_proc, struct devmm_uvm_heap *uvm_heap,
-                                struct devmm_mem_memset_para *memset_para)
+                                struct devmm_mem_memset_para *memset_para, uint64_t total_memset_size)
 {
     int ret;
     uint64_t vaddr, left_size, offset_size, page_size, memset_size;
+    uint64_t max_pages;
+    uint32_t alloced_count = 0;
+    uint64_t *alloced_vaddrs = NULL;
+    bool was_alloced = false;
     struct uvm_page_info page_info = {};
+    u32 stamp = (u32)ka_jiffies;
 
     devmm_drv_debug("Memset parameter. (dst=0x%llx; value=0x%llx; count=%llu)\n", memset_para->dst, memset_para->value,
                     memset_para->count);
@@ -244,6 +329,15 @@ static int devmm_memset_partial(struct devmm_svm_process *svm_proc, struct devmm
     left_size = memset_para->count;
     page_size = DEVMM_UVM_PAGE_SIZE;
     vaddr = memset_para->dst;
+
+    max_pages = (memset_para->count + page_size - 1) / page_size + 1;
+    alloced_vaddrs = (uint64_t *)devmm_kvalloc(sizeof(uint64_t) * max_pages, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    if (alloced_vaddrs == NULL) {
+#ifndef EMU_ST
+        devmm_drv_err("Failed to alloc rollback tracking array. (max_pages=%llu)\n", max_pages);
+        return -ENOMEM;
+#endif
+    }
 
     do {
         offset_size = vaddr & (page_size - 1);
@@ -253,34 +347,40 @@ static int devmm_memset_partial(struct devmm_svm_process *svm_proc, struct devmm
             break;
         }
 
-        ret = uvm_get_page_info_by_va(uvm_heap, vaddr, &page_info);
-#ifndef EMU_ST
-        if (ret) {
-            devmm_drv_err("Failed to get page_info for va=0x%llx\n", vaddr);
-            return ret;
-        }
-#endif
-        ka_task_down_write(page_info.page_rwlock);
+        devmm_try_cond_resched(&stamp);
 
-        if (!page_bitmap_get_alloced(page_info.page_bitmap)) {
-            devmm_drv_err("Va is not alloced, va = 0x%llx.\n", vaddr);
-            ka_task_up_write(page_info.page_rwlock);
-            return -EINVAL;
-        }
-
-        ret = devmm_memset_page_processing(svm_proc, uvm_heap, vaddr, memset_size, memset_para->value, &page_info);
-
-        ka_task_up_write(page_info.page_rwlock);
-
+        ret = devmm_memset_partial_proc_one(svm_proc, uvm_heap, vaddr, memset_size, memset_para->value, &page_info,
+                                            &was_alloced, total_memset_size);
         if (ret != 0) {
+#ifndef EMU_ST
+            devmm_memset_rollback_alloced(svm_proc, uvm_heap, alloced_vaddrs, alloced_count);
+            devmm_kvfree(alloced_vaddrs);
+#endif
             return ret;
+        }
+
+        if (was_alloced) {
+            alloced_vaddrs[alloced_count++] = page_info.va_align;
         }
 
         vaddr += memset_size;
         left_size -= memset_size;
     } while (left_size > 0);
 
+    devmm_kvfree(alloced_vaddrs);
     return 0;
+}
+
+static int devmm_memset_partial_range(struct devmm_svm_process *svm_proc, struct devmm_uvm_heap *uvm_heap,
+                                      struct devmm_mem_memset_para *memset_para, uint64_t vaddr, uint64_t size,
+                                      uint64_t total_memset_size)
+{
+    if (size == 0) {
+        return 0;
+    }
+    memset_para->dst = vaddr;
+    memset_para->count = size;
+    return devmm_memset_partial(svm_proc, uvm_heap, memset_para, total_memset_size);
 }
 
 int devmm_uvm_ioctl_memset_process(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg)
@@ -301,6 +401,11 @@ int devmm_uvm_ioctl_memset_process(struct devmm_svm_process *svm_proc, struct de
     memset_para.dst = arg->data.memset_para.dst;
     memset_para.value = arg->data.memset_para.value;
     memset_para.count = arg->data.memset_para.count;
+    if (memset_para.count > DEVMM_UVM_MEM_SIZE) {
+        devmm_drv_err("Memset count exceeds UVM range. (count=%llu; max=%llu)\n", memset_para.count,
+                      (u64)DEVMM_UVM_MEM_SIZE);
+        return -EINVAL;
+    }
 
     head_size = (DEVMM_UVM_PAGE_SIZE - (arg->data.memset_para.dst & ~UVM_PAGE_MASK)) % DEVMM_UVM_PAGE_SIZE;
     if (arg->data.memset_para.count < head_size) {
@@ -309,34 +414,17 @@ int devmm_uvm_ioctl_memset_process(struct devmm_svm_process *svm_proc, struct de
     tail_size = (arg->data.memset_para.count - head_size) & ~UVM_PAGE_MASK;
     middle_size = arg->data.memset_para.count - head_size - tail_size;
 
-    if (head_size != 0) {
-        memset_para.dst = vaddr;
-        memset_para.count = head_size;
-        ret = devmm_memset_partial(svm_proc, uvm_heap, &memset_para);
-        if (ret) {
-            return ret;
-        }
+    ret = devmm_memset_partial_range(svm_proc, uvm_heap, &memset_para, vaddr, head_size, arg->data.memset_para.count);
+    if (ret != 0) {
+        return ret;
     }
     vaddr += head_size;
 
-    if (middle_size != 0) {
-        memset_para.dst = vaddr;
-        memset_para.count = middle_size;
-        ret = devmm_memset_partial(svm_proc, uvm_heap, &memset_para);
-        if (ret) {
-            return ret;
-        }
+    ret = devmm_memset_partial_range(svm_proc, uvm_heap, &memset_para, vaddr, middle_size, arg->data.memset_para.count);
+    if (ret != 0) {
+        return ret;
     }
     vaddr += middle_size;
 
-    if (tail_size != 0) {
-        memset_para.dst = vaddr;
-        memset_para.count = tail_size;
-        ret = devmm_memset_partial(svm_proc, uvm_heap, &memset_para);
-        if (ret) {
-            return ret;
-        }
-    }
-
-    return 0;
+    return devmm_memset_partial_range(svm_proc, uvm_heap, &memset_para, vaddr, tail_size, arg->data.memset_para.count);
 }

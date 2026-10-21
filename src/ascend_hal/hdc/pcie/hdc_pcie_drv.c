@@ -136,6 +136,9 @@ signed int hdc_ioctl(mmProcess handle, signed int ioctl_code, union hdcdrv_cmd *
         HDC_SHARE_LOG_READ_INFO();
     } while (ret == EINTR);
 
+    if (ret == -HDCDRV_NOT_SUPPORT) {
+        ret = DRV_ERROR_NOT_SUPPORT;
+    }
     return ret;
 }
 
@@ -240,8 +243,9 @@ signed int hdc_pcie_server_destroy(mmProcess handle, signed int devId, signed in
 
 signed int hdc_pcie_accept(mmProcess handle, signed int devId, signed int serviceType, struct hdc_session *pSession)
 {
-    signed int ret;
     union hdcdrv_cmd hdcCmd;
+    int retry_cnt = 0;
+    signed int ret;
 
     if (handle == (mmProcess)EN_ERROR) {
         HDC_LOG_ERR("Input parameter handle is invalid.\n");
@@ -251,16 +255,21 @@ signed int hdc_pcie_accept(mmProcess handle, signed int devId, signed int servic
     hdcCmd.accept.dev_id = devId;
     hdcCmd.accept.service_type = serviceType;
 
-retry:
-    ret = hdc_ioctl(handle, HDCDRV_ACCEPT, &hdcCmd);
-    if (ret == 0) {
-        pSession->sockfd = hdcCmd.accept.session;
-        pSession->device_id = (unsigned int)devId;
-        pSession->session_cur_alloc_idx = hdcCmd.accept.session_cur_alloc_idx;
-    }
-    if (ret == ERESTARTSYS) {
-        goto retry;
-    }
+    do {
+        ret = hdc_ioctl(handle, HDCDRV_ACCEPT, &hdcCmd);
+        if (ret == 0) {
+            pSession->sockfd = hdcCmd.accept.session;
+            pSession->device_id = (unsigned int)devId;
+            pSession->session_cur_alloc_idx = hdcCmd.accept.session_cur_alloc_idx;
+            return 0;
+        }
+        if (ret == ERESTARTSYS) {
+            retry_cnt++;
+            continue;
+        }
+        return ret;
+    } while (retry_cnt < 1000); // 1000 is retry times
+
     return ret;
 }
 
@@ -269,7 +278,7 @@ signed int hdc_pcie_connect(mmProcess handle, signed int devId, signed int servi
 {
     struct timespec now_time = {0, 0};
     unsigned long start_time = 0;
-    unsigned int cost_time = 0;
+    unsigned long cost_time = 0;
     union hdcdrv_cmd hdcCmd;
     signed int ret;
 
@@ -295,9 +304,8 @@ signed int hdc_pcie_connect(mmProcess handle, signed int devId, signed int servi
             return 0;
         } else if (ret == ERESTARTSYS) {
             (void)clock_gettime(CLOCK_MONOTONIC, &now_time);
-            cost_time = (unsigned int)((unsigned long)((now_time.tv_sec * CONVERT_MS_TO_S) +
-                                                       (now_time.tv_nsec / CONVERT_MS_TO_NS)) -
-                                       start_time);
+            cost_time = ((unsigned long)((now_time.tv_sec * CONVERT_MS_TO_S) + (now_time.tv_nsec / CONVERT_MS_TO_NS)) -
+                         start_time);
             if (cost_time > (hdcCmd.connect.timeout * CONVERT_MS_TO_S)) {
                 return -HDCDRV_CONNECT_TIMEOUT;
             }
@@ -313,8 +321,9 @@ signed int hdc_pcie_close(mmProcess handle, unsigned int devId, const struct hdc
     union hdcdrv_cmd hdcCmd;
     (void)devId;
 
-    if (handle == (mmProcess)EN_ERROR) {
-        HDC_LOG_INFO("Input parameter handle is not correct.\n");
+    if ((handle == (mmProcess)EN_ERROR) || (pSession == NULL)) {
+        HDC_LOG_INFO("Handle is not available or session is NULL. (handle=%d;pSession_is_null=%d;)\n", handle,
+                     (pSession == NULL));
         return DRV_ERROR_INVALID_HANDLE;
     }
 
@@ -334,9 +343,9 @@ signed int hdc_pcie_send(mmProcess handle, const struct hdc_session *pSession, s
     union hdcdrv_cmd hdcCmd;
     struct timespec now_time = {0, 0};
     unsigned long start_time;
-    unsigned int cost_time = 0;
+    unsigned long cost_time = 0;
 
-    if (handle == (mmProcess)EN_ERROR) {
+    if ((handle == (mmProcess)EN_ERROR) || (pSession == NULL)) {
         HDC_LOG_ERR("Input parameter handle is invalid.\n");
         return DRV_ERROR_INVALID_HANDLE;
     }
@@ -359,11 +368,10 @@ retry:
     if (ret == ERESTARTSYS) {
         if (wait == HDC_WAIT_TIMEOUT) {
             (void)clock_gettime(CLOCK_MONOTONIC, &now_time);
-            cost_time = (unsigned int)((unsigned long)((now_time.tv_sec * CONVERT_MS_TO_S) +
-                                                       (now_time.tv_nsec / CONVERT_MS_TO_NS)) -
-                                       start_time);
-            if (cost_time < timeout) {
-                hdcCmd.send.timeout = timeout - cost_time;
+            cost_time = ((unsigned long)((now_time.tv_sec * CONVERT_MS_TO_S) + (now_time.tv_nsec / CONVERT_MS_TO_NS)) -
+                         start_time);
+            if (cost_time < (unsigned long)timeout) {
+                hdcCmd.send.timeout = timeout - (unsigned int)cost_time;
                 goto retry;
             } else {
                 return -HDCDRV_TX_TIMEOUT;
@@ -382,11 +390,12 @@ signed int hdc_pcie_recv_peek(mmProcess handle, const struct hdc_session *pSessi
     signed int ret;
     union hdcdrv_cmd hdcCmd;
     struct timespec now_time = {0, 0};
-    unsigned long start_time;
+    unsigned long start_time = 0;
     unsigned long cost_time = 0;
 
-    if (handle == (mmProcess)EN_ERROR) {
-        HDC_LOG_INFO("Input parameter handle is not correct.\n");
+    if ((handle == (mmProcess)EN_ERROR) || (pSession == NULL)) {
+        HDC_LOG_INFO("Handle is not available or session is NULL. (handle=%d;pSession_is_null=%d;)\n", handle,
+                     (pSession == NULL));
         return DRV_ERROR_INVALID_HANDLE;
     }
 
@@ -435,8 +444,9 @@ signed int hdc_pcie_recv(mmProcess handle, const struct hdc_session *pSession, c
     signed int ret;
     union hdcdrv_cmd hdcCmd;
 
-    if (handle == (mmProcess)EN_ERROR) {
-        HDC_LOG_INFO("Input parameter handle is not correct.\n");
+    if ((handle == (mmProcess)EN_ERROR) || (pSession == NULL)) {
+        HDC_LOG_INFO("Handle is not available or session is NULL. (handle=%d;pSession_is_null=%d;)\n", handle,
+                     (pSession == NULL));
         return DRV_ERROR_INVALID_HANDLE;
     }
 
@@ -860,6 +870,34 @@ signed int hdc_pcie_get_session_info(mmProcess handle, const struct hdc_session 
     if (ret == 0) {
         info->devid = pSession->device_id;
         info->fid = hdcCmd.get_session_info.fid;
+    }
+
+    return ret;
+}
+
+signed int hdc_pcie_get_feature_info(mmProcess handle, int device_id, unsigned int feature_type,
+                                     unsigned int *is_support, unsigned int *version)
+{
+    signed int ret;
+    union hdcdrv_cmd hdcCmd;
+
+    if (handle == (mmProcess)EN_ERROR) {
+        HDC_LOG_ERR("Input parameter handle is invalid.\n");
+        return DRV_ERROR_INVALID_HANDLE;
+    }
+
+    if (is_support == NULL || version == NULL) {
+        HDC_LOG_ERR("Input parameter is_support or version is null.\n");
+        return DRV_ERROR_INVALID_HANDLE;
+    }
+
+    hdcCmd.get_feature_info.feature_type = feature_type;
+    hdcCmd.get_feature_info.dev_id = device_id;
+
+    ret = hdc_ioctl(handle, HDCDRV_GET_FEATURE_INFO, &hdcCmd);
+    if (ret == 0) {
+        *is_support = hdcCmd.get_feature_info.is_support;
+        *version = hdcCmd.get_feature_info.version;
     }
 
     return ret;

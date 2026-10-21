@@ -13,6 +13,7 @@
 #include "hdc_core.h"
 #include "hdc_adapt.h"
 #include "hdc_file_common.h"
+#include "ascend_inpackage_hal.h"
 #include "hdcdrv_cmd_ioctl.h"
 
 #ifdef CFG_SOC_PLATFORM_HELPER_V51

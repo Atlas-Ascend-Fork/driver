@@ -44,7 +44,7 @@ static int trs_chan_ops_set_sqcq_rsv_mem_dev_addr(struct trs_id_inst *inst, phys
     ret = soc_resmng_set_rsv_mem(&res_inst, "DEV_TS_SQCQ_MEM", &rsv_mem);
     if (ret != 0) {
 #ifndef EMU_ST
-        trs_info("Set rsv mem failed. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        trs_info("Set rsv mem completed. (ret=%d; devid=%u; tsid=%u)\n", ret, inst->devid, inst->tsid);
 #endif
         return ret;
     }
@@ -160,7 +160,7 @@ static int trs_chan_ops_update_sqcq_rsv_mem(struct trs_id_inst *inst, phys_addr_
 
 static int trs_chan_ops_dev_sqcq_rsv_mem_addr_init(struct trs_id_inst *inst)
 {
-    struct trs_msg_data msg;
+    struct trs_msg_data msg = {0};
     struct trs_msg_get_phy_addr *info = (struct trs_msg_get_phy_addr *)msg.payload;
     struct trs_chan_type types = {.type = CHAN_TYPE_HW, .sub_type = CHAN_SUB_TYPE_HW_RTS};
     const char *name = "TS_SQCQ_MEM";

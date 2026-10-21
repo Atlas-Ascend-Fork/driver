@@ -18,59 +18,115 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/syscall.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "ascend_hal_define.h"
-#include "slog.h"
+#include "dlog_pub.h"
 #include "dmc_share_log.h"
 #include "securec.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-const char *drv_log_get_module_str(enum devdrv_module_type module);
+
+#ifdef __linux
+#define DLLEXPORT __attribute__((visibility("default")))
+#else
+#define DLLEXPORT _declspec(dllexport)
+#endif
 
 int32_t errno_to_user_errno(int32_t kern_err_no);
 drvError_t drvMngGetConsoleLogLevel(unsigned int *logLevel); // This function is defined in devdrv_manage.
 int32_t drv_log_out_handle_register(struct log_out_handle *handle, size_t input_size, uint32_t flag);
 int32_t drv_log_out_handle_unregister(void);
-int32_t is_run_log(void);
-
-uint32_t get_con_log_level(void);
-const char *get_log_get_level_string(uint32_t level);
-const char *get_log_get_level_string_default(uint32_t level);
-const char *get_log_get_print_time(void);
-const char *get_log_get_print_time_default(void);
-uint32_t get_log_level_shift(uint32_t level);
-void (*get_log_Print(void))(int32_t, int32_t, const char *, ...);
 int dsmi_printf(const char *fmt, ...);
-const char *get_process_name(void);
+
+DLLEXPORT uint32_t get_con_log_level(void);
+DLLEXPORT const char *get_log_get_level_string(uint32_t level);
+DLLEXPORT const char *get_log_get_print_time(void);
+DLLEXPORT uint32_t get_log_level_shift(uint32_t level);
+DLLEXPORT void (*get_log_Print(void))(int32_t, int32_t, const char *, ...);
+DLLEXPORT const char *drv_log_get_module_str(enum devdrv_module_type module);
+
+DLLEXPORT int halDsmiPrintf(const char *fmt, ...);
+DLLEXPORT int32_t halIsRunLog(void);
+DLLEXPORT const char *halDrvLogGetModuleStr(enum devdrv_module_type module);
+DLLEXPORT uint32_t halGetConLogLevel(void);
+DLLEXPORT const char *halGetLogGetLevelString(uint32_t level);
+DLLEXPORT const char *halGetLogGetLevelStringDefault(uint32_t level);
+DLLEXPORT const char *halGetLogGetPrintTime(void);
+DLLEXPORT const char *halGetLogGetPrintTimeDefault(void);
+DLLEXPORT uint32_t halGetLogLevelShift(uint32_t level);
+DLLEXPORT void (*halGetLogPrint(void))(int32_t, int32_t, const char *, ...);
+DLLEXPORT const char *halGetProcessName(void);
 
 #ifdef DRV_HOST
-#define DRV_SYSLOG_BASE(LEVEL, module, mask, actual_print_level, fmt, ...)                                         \
-    do {                                                                                                           \
-        if ((uint32_t)LEVEL <= (uint32_t)actual_print_level) {                                                     \
-            (*get_log_Print())(mask, (int32_t)get_log_level_shift((uint32_t)LEVEL),                                \
-                               "%s%s[%s:%d][ascend][curpid:%d,%d][drv][%s][%s]" fmt,                               \
-                               get_log_get_level_string((uint32_t)LEVEL), get_log_get_print_time(), __FILE__,      \
-                               __LINE__, getpid(), syscall(__NR_gettid), drv_log_get_module_str(module), __func__, \
-                               ##__VA_ARGS__);                                                                     \
-            if (module == HAL_MODULE_TYPE_DMP || module == HAL_MODULE_TYPE_DEV_MANAGER) {                          \
-                dsmi_printf(                                                                                       \
-                    "%s DRV(%d, %s):%s[%s:%d][ascend][curpid:%d,%ld][drv][%s][%s]" fmt,                            \
-                    get_log_get_level_string_default((uint32_t)((mask & RUN_LOG_MASK) == 0 ? LEVEL : LOG_CRIT)),   \
-                    getpid(), get_process_name(), get_log_get_print_time_default(), __FILE__, __LINE__, getpid(),  \
-                    syscall(__NR_gettid), drv_log_get_module_str(module), __func__, ##__VA_ARGS__);                \
-            }                                                                                                      \
-        }                                                                                                          \
+#define DRV_DSMI_PRINTF(module, mask, LEVEL, fmt, ...)                                                                 \
+    do {                                                                                                               \
+        if (module == HAL_MODULE_TYPE_DMP || module == HAL_MODULE_TYPE_DEV_MANAGER) {                                  \
+            halDsmiPrintf("%s DRV(%d, %s):%s[%s:%d][ascend][curpid:%d,%ld][drv][%s][%s]" fmt,                          \
+                          halGetLogGetLevelStringDefault((uint32_t)((mask & RUN_LOG_MASK) == 0 ? LEVEL : LOG_CRIT)),   \
+                          getpid(), halGetProcessName(), halGetLogGetPrintTimeDefault(), __FILE__, __LINE__, getpid(), \
+                          syscall(__NR_gettid), halDrvLogGetModuleStr(module), __func__, ##__VA_ARGS__);               \
+        }                                                                                                              \
+    } while (0)
+#else
+#define DRV_DSMI_PRINTF(module, mask, LEVEL, fmt, ...) \
+    do {                                               \
+    } while (0)
+#endif
+
+#define DRV_SYSLOG_BASE(LEVEL, module, mask, actual_print_level, fmt, ...)                                             \
+    do {                                                                                                               \
+        if ((uint32_t)LEVEL <= (uint32_t)actual_print_level) {                                                         \
+            (*halGetLogPrint())(mask, (int32_t)halGetLogLevelShift((uint32_t)LEVEL),                                   \
+                                "%s%s[%s:%d][ascend][curpid:%d,%d][drv][%s][%s]" fmt,                                  \
+                                halGetLogGetLevelString((uint32_t)LEVEL), halGetLogGetPrintTime(), __FILE__, __LINE__, \
+                                getpid(), syscall(__NR_gettid), halDrvLogGetModuleStr(module), __func__,               \
+                                ##__VA_ARGS__);                                                                        \
+            DRV_DSMI_PRINTF(module, mask, LEVEL, fmt, ##__VA_ARGS__);                                                  \
+        }                                                                                                              \
     } while (0)
 
-#define DRV_SYSLOG(LEVEL, module, fmt, ...) DRV_SYSLOG_BASE(LEVEL, module, DRV, get_con_log_level(), fmt, ##__VA_ARGS__)
+#define DRV_SYSLOG(LEVEL, module, fmt, ...) DRV_SYSLOG_BASE(LEVEL, module, DRV, halGetConLogLevel(), fmt, ##__VA_ARGS__)
 #define DRV_SYSLOG_RUN(LEVEL, module, fmt, ...) \
     DRV_SYSLOG_BASE(LEVEL, module, (DRV | RUN_LOG_MASK), LOG_INFO, fmt, ##__VA_ARGS__)
-
+#ifdef DRV_HOST
 /* debug log, the default log level is LOG_ERR. */
 #define DRV_ERR(module, fmt, ...) DRV_SYSLOG(LOG_ERR, module, fmt, ##__VA_ARGS__)
+#else
+#ifdef CFG_BUILD_DEBUG
+/* In debug build, DlogFlush in DRV_ERR can be disabled via env DRV_ERR_FLUSH_DISABLE to reduce perf overhead. */
+static inline bool drv_err_flush_disabled(void)
+{
+    static bool checked = false;
+    static bool disabled = false;
+    if (!checked) {
+        if (getenv("DRV_ERR_FLUSH_DISABLE") != NULL) {
+            disabled = true;
+        }
+        checked = true;
+    }
+    return disabled;
+}
+/* debug log, the default log level is LOG_ERR. */
+#define DRV_ERR(module, fmt, ...)                        \
+    do {                                                 \
+        DRV_SYSLOG(LOG_ERR, module, fmt, ##__VA_ARGS__); \
+        if (!drv_err_flush_disabled()) {                 \
+            DlogFlush();                                 \
+        }                                                \
+    } while (0)
+#else
+#define DRV_ERR(module, fmt, ...)                        \
+    do {                                                 \
+        DRV_SYSLOG(LOG_ERR, module, fmt, ##__VA_ARGS__); \
+        DlogFlush();                                     \
+    } while (0)
+#endif
+#endif
+
 #define DRV_WARN(module, fmt, ...) DRV_SYSLOG(LOG_WARNING, module, fmt, ##__VA_ARGS__)
 #define DRV_INFO(module, fmt, ...) DRV_SYSLOG(LOG_INFO, module, fmt, ##__VA_ARGS__)
 #define DRV_DEBUG(module, fmt, ...) DRV_SYSLOG(LOG_DEBUG, module, fmt, ##__VA_ARGS__)
@@ -86,7 +142,7 @@ const char *get_process_name(void);
 
 #define DRV_LOG_CMPT(LEVEL, module, fmt, ...)                  \
     do {                                                       \
-        if (is_run_log()) {                                    \
+        if (halIsRunLog()) {                                   \
             DRV_SYSLOG_RUN(LEVEL, module, fmt, ##__VA_ARGS__); \
         } else {                                               \
             DRV_SYSLOG(LOG_CRIT, module, fmt, ##__VA_ARGS__);  \
@@ -99,33 +155,6 @@ const char *get_process_name(void);
 #define DRV_RUN_INFO(module, fmt, ...) DRV_LOG_CMPT(LOG_INFO, module, fmt, ##__VA_ARGS__)
 #define DRV_RUN_DEBUG(module, fmt, ...) DRV_LOG_CMPT(LOG_DEBUG, module, fmt, ##__VA_ARGS__)
 
-#else
-/* debug log, the default log level is LOG_DEBUG. */
-#define DRV_EMERG(module, fmt, ...) \
-    dlog_error(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#define DRV_ALERT(module, fmt, ...) \
-    dlog_error(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#define DRV_ERR(module, fmt, ...) \
-    dlog_error(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#define DRV_WARN(module, fmt, ...) \
-    dlog_warn(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#define DRV_INFO(module, fmt, ...) \
-    dlog_info(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#define DRV_DEBUG(module, fmt, ...) \
-    dlog_debug(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-
-/* alarm event log, non-alarm events use debug or run log */
-#define DRV_CRIT(module, fmt, ...) \
-    dlog_event(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#define DRV_NOTICE(module, fmt, ...) \
-    dlog_event(DRV, "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#define DRV_EVENT(module, fmt, ...) DRV_CRIT(module, fmt, ##__VA_ARGS__)
-
-/* run log, the default log level is LOG_INFO. */
-#define DRV_RUN_INFO(module, fmt, ...) \
-    dlog_info((DRV | RUN_LOG_MASK), "[%s] [%s] " fmt, drv_log_get_module_str(module), __func__, ##__VA_ARGS__)
-#endif
-
 int32_t __attribute__((weak)) drv_log_report_err_msg_handle_register(struct err_msg_report_handle *handle,
                                                                      size_t input_size);
 int32_t __attribute__((weak)) drv_log_report_err_msg_handle_unregister(void);
@@ -135,6 +164,8 @@ report_inner_err_msg_func get_inner_err_msg_report_func(void);
 #define MAX_MEM_SIZE_STR_SIZE 32
 #define MAX_PARA_VALUE_STR_SIZE 30
 #define MAX_REASON_STR_SIZE 300
+void report_enum_arg_out_of_range(const char *func_name, const char *para_name, unsigned int para_value,
+                                  const char *enum_name);
 void report_arg_out_of_range(const char *func_name, const char *para_name, unsigned int para_value, unsigned int left,
                              unsigned int right);
 void report_arg_equal_to_zero(const char *func_name, const char *para_name);
@@ -217,6 +248,7 @@ static inline int drv_hex_format_line(char *buf, size_t bufsz, const unsigned ch
         }                                                                                            \
     } while (0)
 
+int32_t drv_log_set_module_log_level(int32_t level, int32_t *module_ids, int32_t size);
 #define DRV_LOG_ERR(fmt, ...) DRV_ERR(HAL_MODULE_TYPE_LOG, fmt, ##__VA_ARGS__)
 #define DRV_LOG_WARN(fmt, ...) DRV_WARN(HAL_MODULE_TYPE_LOG, fmt, ##__VA_ARGS__)
 #define DRV_LOG_INFO(fmt, ...) DRV_INFO(HAL_MODULE_TYPE_LOG, fmt, ##__VA_ARGS__)

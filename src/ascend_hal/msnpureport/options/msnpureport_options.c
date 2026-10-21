@@ -52,23 +52,22 @@ enum ConfigArgType {
 #define CONFIG_OPT "g:m:e:d:h"
 
 static const mmStructOption CONFIG_OPTS[] = {
-    {"docker",              MMPA_NO_ARGUMENT,       NULL, CONFIG_ARGS_DOCKER},
-    {"set",                 MMPA_NO_ARGUMENT,       NULL, CONFIG_ARGS_SET},
-    {"get",                 MMPA_NO_ARGUMENT,       NULL, CONFIG_ARGS_GET},
-    {"icachecheck",         MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_ICACHE_CHECK},
+    {"docker", MMPA_NO_ARGUMENT, NULL, CONFIG_ARGS_DOCKER},
+    {"set", MMPA_NO_ARGUMENT, NULL, CONFIG_ARGS_SET},
+    {"get", MMPA_NO_ARGUMENT, NULL, CONFIG_ARGS_GET},
+    {"icachecheck", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_ICACHE_CHECK},
     {"accelerator_recover", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_ACCELERATOR_RECOVER},
-    {"aic_switch",          MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_AIC_SWITCH},
-    {"aiv_switch",          MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_AIV_SWITCH},
-    {"singlecommit",        MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_SINGLE_COMMIT},
-    {"coreid",              MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_CORE_ID},
-    {"log",                 MMPA_NO_ARGUMENT,       NULL, CONFIG_ARGS_LOG_LEVEL},
-    {"global",              MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_GLOBAL_LEVEL},
-    {"module",              MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_MODULE_LEVEL},
-    {"event",               MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_EVENT_LEVEL},
-    {"device",              MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_DEVICE},
-    {"help",                MMPA_NO_ARGUMENT,       NULL, CONFIG_ARGS_HELP},
-    {NULL,                  0,                      NULL, 0}
-};
+    {"aic_switch", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_AIC_SWITCH},
+    {"aiv_switch", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_AIV_SWITCH},
+    {"singlecommit", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_SINGLE_COMMIT},
+    {"coreid", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_CORE_ID},
+    {"log", MMPA_NO_ARGUMENT, NULL, CONFIG_ARGS_LOG_LEVEL},
+    {"global", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_GLOBAL_LEVEL},
+    {"module", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_MODULE_LEVEL},
+    {"event", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_EVENT_LEVEL},
+    {"device", MMPA_REQUIRED_ARGUMENT, NULL, CONFIG_ARGS_DEVICE},
+    {"help", MMPA_NO_ARGUMENT, NULL, CONFIG_ARGS_HELP},
+    {NULL, 0, NULL, 0}};
 
 enum ReportArgType {
     REPORT_ARGS_DOCKER = 0,
@@ -99,85 +98,78 @@ enum ReportArgType {
 #define REPORT_OPT "t:afhd:o:"
 
 STATIC mmStructOption g_reportOptions[] = {
-    {"docker",          MMPA_NO_ARGUMENT,       NULL, REPORT_ARGS_DOCKER},
-    {"all",             MMPA_NO_ARGUMENT,       NULL, REPORT_ARGS_REPORT_ALL},
-    {"type",            MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_REPORT_TYPE},
-    {"force",           MMPA_NO_ARGUMENT,       NULL, REPORT_ARGS_REPORT_FORCE},
-    {"print",           MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_PRINT},
-    {"log_level",       MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_MSN_LOG_LEVEL},
-    {"device",          MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_DEVICE},
-    {"help",            MMPA_NO_ARGUMENT,       NULL, REPORT_ARGS_REPORT_HELP},
-    {"permanent",       MMPA_NO_ARGUMENT,       NULL, REPORT_ARGS_PERMANENT},
-    {"sys_log_num",     MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SYS_LOG_NUM},
-    {"sys_log_size",    MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SYS_LOG_SIZE},
-    {"fw_log_num",      MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_FW_LOG_NUM},
-    {"fw_log_size",     MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_FW_LOG_SIZE},
-    {"event_log_num",   MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_EVENT_LOG_NUM},
-    {"event_log_size",  MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_EVENT_LOG_SIZE},
-    {"sec_log_num",     MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SEC_LOG_NUM},
-    {"sec_log_size",    MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SEC_LOG_SIZE},
-    {"stackcore_num",   MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_STACKCORE_NUM},
+    {"docker", MMPA_NO_ARGUMENT, NULL, REPORT_ARGS_DOCKER},
+    {"all", MMPA_NO_ARGUMENT, NULL, REPORT_ARGS_REPORT_ALL},
+    {"type", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_REPORT_TYPE},
+    {"force", MMPA_NO_ARGUMENT, NULL, REPORT_ARGS_REPORT_FORCE},
+    {"print", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_PRINT},
+    {"log_level", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_MSN_LOG_LEVEL},
+    {"device", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_DEVICE},
+    {"help", MMPA_NO_ARGUMENT, NULL, REPORT_ARGS_REPORT_HELP},
+    {"permanent", MMPA_NO_ARGUMENT, NULL, REPORT_ARGS_PERMANENT},
+    {"sys_log_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SYS_LOG_NUM},
+    {"sys_log_size", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SYS_LOG_SIZE},
+    {"fw_log_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_FW_LOG_NUM},
+    {"fw_log_size", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_FW_LOG_SIZE},
+    {"event_log_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_EVENT_LOG_NUM},
+    {"event_log_size", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_EVENT_LOG_SIZE},
+    {"sec_log_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SEC_LOG_NUM},
+    {"sec_log_size", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SEC_LOG_SIZE},
+    {"stackcore_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_STACKCORE_NUM},
     {"fault_event_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_FAULT_EVENT_NUM},
-    {"bbox_num",        MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_BBOX_NUM},
-    {"slogd_log_num",   MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SLOGD_LOG_NUM},
-    {"app_dir_num",     MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_DEVICE_APP_DIR_NUM},
-    {"output",          MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_OUTPUT},
-    {NULL,              0,                      NULL, 0}
-};
+    {"bbox_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_BBOX_NUM},
+    {"slogd_log_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_SLOGD_LOG_NUM},
+    {"app_dir_num", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_DEVICE_APP_DIR_NUM},
+    {"output", MMPA_REQUIRED_ARGUMENT, NULL, REPORT_ARGS_OUTPUT},
+    {NULL, 0, NULL, 0}};
 
 // [min, max, default]
 #define MIN_INDEX 0
 #define MAX_INDEX 1
 #define DEFAULT_INDEX 2
 const int32_t PERMANENT_ARGS_RANGE[REPORT_ARGS_DEVICE_APP_DIR_NUM + 1][3] = {
-    [REPORT_ARGS_SYS_LOG_NUM] = {1, 1000, 10},
-    [REPORT_ARGS_SYS_LOG_SIZE] = {1, 100, 10},
-    [REPORT_ARGS_FW_LOG_NUM] = {1, 1000, 10},
-    [REPORT_ARGS_FW_LOG_SIZE] = {1, 100, 10},
-    [REPORT_ARGS_EVENT_LOG_NUM] = {1, 1000, 10},
-    [REPORT_ARGS_EVENT_LOG_SIZE] = {1, 100, 10},
-    [REPORT_ARGS_SEC_LOG_NUM] = {1, 1000, 10},
-    [REPORT_ARGS_SEC_LOG_SIZE] = {1, 100, 10},
-    [REPORT_ARGS_STACKCORE_NUM] = {1, 100, 50},
-    [REPORT_ARGS_FAULT_EVENT_NUM] = {1, 100, 10},
-    [REPORT_ARGS_BBOX_NUM] = {1, 10000, 1000},
-    [REPORT_ARGS_SLOGD_LOG_NUM] = {1, 100, 2},
+    [REPORT_ARGS_SYS_LOG_NUM] = {1, 1000, 10},      [REPORT_ARGS_SYS_LOG_SIZE] = {1, 100, 10},
+    [REPORT_ARGS_FW_LOG_NUM] = {1, 1000, 10},       [REPORT_ARGS_FW_LOG_SIZE] = {1, 100, 10},
+    [REPORT_ARGS_EVENT_LOG_NUM] = {1, 1000, 10},    [REPORT_ARGS_EVENT_LOG_SIZE] = {1, 100, 10},
+    [REPORT_ARGS_SEC_LOG_NUM] = {1, 1000, 10},      [REPORT_ARGS_SEC_LOG_SIZE] = {1, 100, 10},
+    [REPORT_ARGS_STACKCORE_NUM] = {1, 100, 50},     [REPORT_ARGS_FAULT_EVENT_NUM] = {1, 100, 10},
+    [REPORT_ARGS_BBOX_NUM] = {1, 10000, 1000},      [REPORT_ARGS_SLOGD_LOG_NUM] = {1, 100, 2},
     [REPORT_ARGS_DEVICE_APP_DIR_NUM] = {1, 100, 8},
 };
 
 const char *g_permanentHelpMsg[REPORT_ARGS_DEVICE_APP_DIR_NUM + 1] = {
-    [REPORT_ARGS_SYS_LOG_NUM] =  "    --sys_log_num        Set max syslog file num",
-    [REPORT_ARGS_SYS_LOG_SIZE] =  "    --sys_log_size       Set max syslog file size, unit Mb",
-    [REPORT_ARGS_FW_LOG_NUM] =  "    --fw_log_num         Set max firmware log file num",
-    [REPORT_ARGS_FW_LOG_SIZE] =  "    --fw_log_size        Set max firmware log file size, unit Mb",
-    [REPORT_ARGS_EVENT_LOG_NUM] =  "    --event_log_num      Set max event log file num",
-    [REPORT_ARGS_EVENT_LOG_SIZE] =  "    --event_log_size     Set max event log file size, unit Mb",
-    [REPORT_ARGS_SEC_LOG_NUM] =  "    --sec_log_num        Set max security log file num",
-    [REPORT_ARGS_SEC_LOG_SIZE] =  "    --sec_log_size       Set max security log file size, unit Mb",
+    [REPORT_ARGS_SYS_LOG_NUM] = "    --sys_log_num        Set max syslog file num",
+    [REPORT_ARGS_SYS_LOG_SIZE] = "    --sys_log_size       Set max syslog file size, unit Mb",
+    [REPORT_ARGS_FW_LOG_NUM] = "    --fw_log_num         Set max firmware log file num",
+    [REPORT_ARGS_FW_LOG_SIZE] = "    --fw_log_size        Set max firmware log file size, unit Mb",
+    [REPORT_ARGS_EVENT_LOG_NUM] = "    --event_log_num      Set max event log file num",
+    [REPORT_ARGS_EVENT_LOG_SIZE] = "    --event_log_size     Set max event log file size, unit Mb",
+    [REPORT_ARGS_SEC_LOG_NUM] = "    --sec_log_num        Set max security log file num",
+    [REPORT_ARGS_SEC_LOG_SIZE] = "    --sec_log_size       Set max security log file size, unit Mb",
     [REPORT_ARGS_STACKCORE_NUM] = "    --stackcore_num      Set max stackcore file num",
-    [REPORT_ARGS_FAULT_EVENT_NUM] =  "    --fault_event_num    Set max fault event directory num",
-    [REPORT_ARGS_BBOX_NUM] =  "    --bbox_num           Set max bbox event directory num",
-    [REPORT_ARGS_SLOGD_LOG_NUM] =  "    --slogd_log_num      Set max slogdlog file num",
-    [REPORT_ARGS_DEVICE_APP_DIR_NUM] =  "    --app_dir_num        Set max device app directory num",
+    [REPORT_ARGS_FAULT_EVENT_NUM] = "    --fault_event_num    Set max fault event directory num",
+    [REPORT_ARGS_BBOX_NUM] = "    --bbox_num           Set max bbox event directory num",
+    [REPORT_ARGS_SLOGD_LOG_NUM] = "    --slogd_log_num      Set max slogdlog file num",
+    [REPORT_ARGS_DEVICE_APP_DIR_NUM] = "    --app_dir_num        Set max device app directory num",
 };
 
 STATIC void MsnPrintHelp(void)
 {
-    (void)fprintf(stdout,
-        "Usage: msnpureport <subcommand> [OPTIONS]\n"
-        "subcommand:\n"
-        "   config               configure settings and queries\n"
-        "   report               get device log\n"
-        "   help                 get help information\n"
-        "   version              get version information\n\n"
-        "get options information by msnpureport <subcommand> --help\n"
-        "Example:\n"
-        "\tmsnpureport config --help\n");
+    (void)fprintf(stdout, "Usage: msnpureport <subcommand> [OPTIONS]\n"
+                          "subcommand:\n"
+                          "   config               configure settings and queries\n"
+                          "   report               get device log\n"
+                          "   help                 get help information\n"
+                          "   version              get version information\n\n"
+                          "get options information by msnpureport <subcommand> --help\n"
+                          "Example:\n"
+                          "\tmsnpureport config --help\n");
 }
 
 STATIC void MsnPrintConfigHelp(void)
 {
-    (void)fprintf(stdout,
+    (void)fprintf(
+        stdout,
         "Usage: msnpureport config (--get | --set) [OPTIONS]\n"
         "Example:\n"
         "\tmsnpureport config --get --device 0                           Get device 0 configure\n"
@@ -211,16 +203,15 @@ STATIC void MsnPrintConfigHelp(void)
         "    -g, --global                 Set global log level, option: error, info, warning, debug, null\n"
         "    -m, --module                 Set module log level, option: error, info, warning, debug, null\n"
         "    -e, --event                  Set event log level, option: enable, disable\n",
-        MAX_ICACHE_CHECK_RANGE
-    );
+        MAX_ICACHE_CHECK_RANGE);
 }
 
 static int32_t MsnOptionGetValueInRange(const char *arg, const char *option, int64_t *value, int32_t min, int32_t max)
 {
     int64_t num = -1;
     if (LogStrToInt(arg, &num) != LOG_SUCCESS) {
-        MSNPU_PRINT_ERROR("Invalid value '%s' for --%s , please input a number in range[%d-%d].",
-            arg, option, min, max);
+        MSNPU_PRINT_ERROR("Invalid value '%s' for --%s , please input a number in range[%d-%d].", arg, option, min,
+                          max);
         return EN_ERROR;
     }
     char tmp[NUMBER_STR_LEN] = {0};
@@ -451,7 +442,7 @@ STATIC int32_t MsnCheckLevelStr(char *level, int32_t length, LogLevelType levelT
     }
     return EN_OK;
 }
- 
+
 STATIC int32_t MsnSetLogLevel(ArgInfo *argInfo, const char *arg, LogLevelType levelType)
 {
     if (argInfo->subCmd != LOG_LEVEL) {
@@ -642,13 +633,11 @@ STATIC int32_t MsnGetConfigOptions(int32_t argc, char **argv, ArgInfo *argInfo)
 
 STATIC void MsnPrintReportHelp(void)
 {
-    printf(
-        "Usage: msnpureport report [OPTIONS]\n"
-        "Example:\n"
-        "\tmsnpureport report               Export all log and file\n"
-        "\tmsnpureport report --all         Export all log and file, device event information in the bbox\n"
-        "\tmsnpureport report --type 1      Export device log, include slog, message and system_info\n"
-    );
+    printf("Usage: msnpureport report [OPTIONS]\n"
+           "Example:\n"
+           "\tmsnpureport report               Export all log and file\n"
+           "\tmsnpureport report --all         Export all log and file, device event information in the bbox\n"
+           "\tmsnpureport report --type 1      Export device log, include slog, message and system_info\n");
     if (!MsnIsPoolEnv()) {
         printf("\tmsnpureport report --permanent   Continuously export device slog\n");
     }
@@ -658,32 +647,37 @@ STATIC void MsnPrintReportHelp(void)
         "    --docker             Docker flag, msnpureport in docker must be explicitly used with this flag\n"
         "    -d, --device         Device ID\n"
         "    --print              Set the output location of msnpureport logs, "
-            "option: 0(syslog, default is 0), 1(stdout)\n"
+        "option: 0(syslog, default is 0), 1(stdout)\n"
         "    --log_level          Set log level of msnpureport, option: debug, info(default is info), warning, error\n"
-        "    -h, --help           Help information\n"
-    );
-    printf(
-        "\nExport device logs and files at a time:\n"
-        "    -a, --all            Export all log and file, device event information in the bbox\n"
-        "    -f, --force          Export all log and file, device event information in the bbox, "
-            "historical maintenance and measurement information in the bbox\n"
-        "    -t, --type           Export type: 0(all log and file, default is 0), 1(slog, message and system_info), "
-    #ifdef UB_SUPPORT
-            "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log), 6(ub)\n"
-    #else
-            "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log)\n"
-    #endif
+        "    -h, --help           Help information\n");
+    printf("\nExport device logs and files at a time:\n"
+           "    -a, --all            Export all log and file, device event information in the bbox\n"
+           "    -f, --force          Export all log and file, device event information in the bbox, "
+           "historical maintenance and measurement information in the bbox\n"
+           "    -t, --type           Export type: 0(all log and file, default is 0), 1(slog, message and system_info), "
+#if defined(UB_SUPPORT) && defined(AO_SUPPORT) && defined(CCU_SUPPORT) && defined(NETWORK_SUPPORT)
+           "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log), 6(ub), 7(ao self), 8(ao cnt), 9(ao "
+           "uart), 10(ccu), 11(network)\n"
+#elif defined(UB_SUPPORT)
+           "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log), 6(ub)\n"
+#elif defined(AO_SUPPORT)
+           "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log), 7(ao self), 8(ao cnt), 9(ao uart)\n"
+#elif defined(CCU_SUPPORT)
+           "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log), 10(ccu)\n"
+#elif defined(NETWORK_SUPPORT)
+           "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log), 11(network)\n"
+#else
+           "2(bbox, current register), 3(stackcore), 4(vmcore), 5(module log)\n"
+#endif
     );
     if (!MsnIsPoolEnv()) {
-        printf(
-            "\nContinuously exporting device logs:\n"
-            "    --permanent          Continuously Exporting Device log flag, "
-            "the following options must be entered after this flag\n"
-            "    -o, --output         Set output path, must be relative path\n"
-        );
+        printf("\nContinuously exporting device logs:\n"
+               "    --permanent          Continuously Exporting Device log flag, "
+               "the following options must be entered after this flag\n"
+               "    -o, --output         Set output path, must be relative path\n");
         for (int32_t i = (int32_t)REPORT_ARGS_SYS_LOG_NUM; i <= (int32_t)REPORT_ARGS_DEVICE_APP_DIR_NUM; i++) {
             printf("%s, range [%d-%d], default %d\n", g_permanentHelpMsg[i], PERMANENT_ARGS_RANGE[i][MIN_INDEX],
-                PERMANENT_ARGS_RANGE[i][MAX_INDEX], PERMANENT_ARGS_RANGE[i][DEFAULT_INDEX]);
+                   PERMANENT_ARGS_RANGE[i][MAX_INDEX], PERMANENT_ARGS_RANGE[i][DEFAULT_INDEX]);
         }
     }
 }
@@ -702,7 +696,6 @@ STATIC int32_t MsnSetReportType(ArgInfo *argInfo, const char *arg)
 
 STATIC int32_t MsnReportParamCmd(int32_t opt, ArgInfo *argInfo, int32_t optionIndex)
 {
-
     FileAgeingParam *param = (FileAgeingParam *)argInfo->value;
     uint32_t *paramValue[REPORT_ARGS_OUTPUT + 1] = {
         [REPORT_ARGS_SYS_LOG_NUM] = &param->sysLogFileNum,
@@ -724,7 +717,7 @@ STATIC int32_t MsnReportParamCmd(int32_t opt, ArgInfo *argInfo, int32_t optionIn
         if (opt == REPORT_ARGS_OUTPUT && optionIndex == 0) {
             MSNPU_PRINT_ERROR("Must input --permanent before input -o.");
         } else {
-        MSNPU_PRINT_ERROR("Must input --permanent before input --%s.", g_reportOptions[optionIndex].name);
+            MSNPU_PRINT_ERROR("Must input --permanent before input --%s.", g_reportOptions[optionIndex].name);
         }
         return EN_ERROR;
     }
@@ -747,8 +740,8 @@ STATIC int32_t MsnReportParamCmd(int32_t opt, ArgInfo *argInfo, int32_t optionIn
     }
 
     int64_t value = 0;
-    if (MsnOptionGetValueInRange(mmGetOptArg(), g_reportOptions[optionIndex].name, &value,
-        PERMANENT_ARGS_RANGE[opt][0], PERMANENT_ARGS_RANGE[opt][1]) != EN_OK) {
+    if (MsnOptionGetValueInRange(mmGetOptArg(), g_reportOptions[optionIndex].name, &value, PERMANENT_ARGS_RANGE[opt][0],
+                                 PERMANENT_ARGS_RANGE[opt][1]) != EN_OK) {
         return EN_INVALID_PARAM;
     }
 
@@ -841,7 +834,7 @@ static int32_t MsnSetSelfLogLevel(ArgInfo *argInfo, const char *arg)
         }
     }
     MSNPU_PRINT_ERROR("Input --log_level %s is invalid, please input %s, %s, %s or %s.", arg, LOG_LEVEL_ERROR_STR,
-        LOG_LEVEL_WARNING_STR, LOG_LEVEL_INFO_STR, LOG_LEVEL_DEBUG_STR);
+                      LOG_LEVEL_WARNING_STR, LOG_LEVEL_INFO_STR, LOG_LEVEL_DEBUG_STR);
     return EN_INVALID_PARAM;
 }
 
@@ -931,12 +924,12 @@ STATIC int32_t MsnGetReportOptions(int32_t argc, char **argv, ArgInfo *argInfo)
     MsnAdaptDavidPool();
     argInfo->cmdType = REPORT;
     argInfo->subCmd = REPORT_DEFAULT;
-    argInfo->reportType = (int32_t)MAX_TYPE_NUM;;
+    argInfo->reportType = (int32_t)MAX_TYPE_NUM;
+    ;
     int32_t opt = 0;
     int32_t optionIndex = 0;
     while ((opt = mmGetOptLong(argc, argv, REPORT_OPT, g_reportOptions, &optionIndex)) != -1) {
-        if (((opt >= REPORT_ARGS_PERMANENT) && (opt <= REPORT_ARGS_DEVICE_APP_DIR_NUM)) ||
-            opt == REPORT_ARGS_OUTPUT) {
+        if (((opt >= REPORT_ARGS_PERMANENT) && (opt <= REPORT_ARGS_DEVICE_APP_DIR_NUM)) || opt == REPORT_ARGS_OUTPUT) {
             if (MsnReportPermanentCmd(opt, argInfo, optionIndex) != EN_OK) {
                 return EN_INVALID_PARAM;
             }
@@ -955,7 +948,7 @@ STATIC int32_t MsnGetReportOptions(int32_t argc, char **argv, ArgInfo *argInfo)
             case REPORT_ARGS_REPORT_ALL:
             case REPORT_ARGS_REPORT_FORCE:
             case REPORT_ARGS_REPORT_TYPE:
-                if (MsnReportLogCmd(opt, argInfo) !=EN_OK) {
+                if (MsnReportLogCmd(opt, argInfo) != EN_OK) {
                     return EN_INVALID_PARAM;
                 }
                 break;
@@ -1028,18 +1021,16 @@ STATIC int32_t MsnHandleArgInfo(ArgInfo *argInfo)
 int32_t MsnOptions(int32_t argc, char **argv)
 {
     ONE_ACT_ERR_LOG(argv == NULL, return EN_ERROR, "argv is NULL.");
-    ArgInfo argInfo = {
-        .cmdType = INVALID_CMD,
-        .subCmd = (uint32_t)INVALID_TYPE,
-        .deviceId = MAX_DEV_NUM,
-        .valueLen = 0,
-        .coreSwitch = -1,
-        .reportType = 0,
-        .dockerFlag = 0,
-        .printMode = INVALID_PRINT_MODE,
-        .selfLogLevel = SYSLOG_MAX_LEVEL,
-        .value = {0}
-    };
+    ArgInfo argInfo = {.cmdType = INVALID_CMD,
+                       .subCmd = (uint32_t)INVALID_TYPE,
+                       .deviceId = MAX_DEV_NUM,
+                       .valueLen = 0,
+                       .coreSwitch = -1,
+                       .reportType = 0,
+                       .dockerFlag = 0,
+                       .printMode = INVALID_PRINT_MODE,
+                       .selfLogLevel = SYSLOG_MAX_LEVEL,
+                       .value = {0}};
 
     if ((argc < MIN_USER_ARG_LEN) || ((argv[1] != NULL) && (argv[1][0] == '-'))) {
         // old command
@@ -1055,15 +1046,15 @@ int32_t MsnOptions(int32_t argc, char **argv)
         if (MsnOptionsHandle(argc - 1, &argv[1], &argInfo) != EN_OK) {
             return EN_ERROR;
         }
-        optind++;       // To adapt subcommand
+        optind++; // To adapt subcommand
     }
 
     if (optind < argc) {
-        printf ("ERROR: Invalid option: ");
+        printf("ERROR: Invalid option: ");
         while (optind < argc) {
-            printf ("%s ", argv[optind++]);
+            printf("%s ", argv[optind++]);
         }
-        putchar ('\n');
+        putchar('\n');
         return EN_ERROR;
     }
 

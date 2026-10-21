@@ -16,12 +16,12 @@
 
 #define SERVER_ID_MAX 47
 
-#define VNIC_IPADDR_FIRST_OCTET_DEFAULT     192U
-#define VNIC_IPADDR_SECOND_OCTET_DEFAULT    168U
+#define VNIC_IPADDR_FIRST_OCTET_DEFAULT 192U
+#define VNIC_IPADDR_SECOND_OCTET_DEFAULT 168U
 
-#define DMANAGE_VNIC_IPADDR_CALCULATE(server_id, local_id, dev_id) ((0xFF & 192u) | ((0xFF & (server_id)) << 8) | \
-                                                        ((0xFF & (2u + (local_id))) << 16) |      \
-                                                        ((0xFF & (199u - (dev_id))) << 24))
+#define DMANAGE_VNIC_IPADDR_CALCULATE(server_id, local_id, dev_id)                      \
+    ((0xFF & 192u) | ((0xFF & (server_id)) << 8) | ((0xFF & (2u + (local_id))) << 16) | \
+     ((0xFF & (199u - (dev_id))) << 24))
 
 int devdrv_get_vnic_ip(unsigned int dev_id, unsigned int *ip_addr)
 {
@@ -56,7 +56,7 @@ int devdrv_get_vnic_ip_by_sdid(unsigned int sdid, unsigned int *ip_addr)
 {
     int ret;
     unsigned int device_dev_id;
-    struct halSDIDParseInfo sdid_parse = { 0 };
+    struct halSDIDParseInfo sdid_parse = {0};
 
     if (ip_addr == NULL) {
         DEVDRV_DRV_ERR("invalid input para, ip_addr is NULL. (sdid=%u)\n", sdid);

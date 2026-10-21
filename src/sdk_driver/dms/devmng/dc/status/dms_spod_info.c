@@ -43,19 +43,15 @@ int dms_set_spod_node_status(void *feature, char *in, u32 in_len, char *out, u32
 #define DMS_MODULE_SPOD_INFO "dms_spod_info"
 BEGIN_DMS_MODULE_DECLARATION(DMS_MODULE_SPOD_INFO)
 BEGIN_FEATURE_COMMAND()
-ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD,
-    "main_cmd=0xc,sub_cmd=0x1", NULL, DMS_SUPPORT_ALL_USER, dms_get_spod_info)
+ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD, "main_cmd=0xc,sub_cmd=0x1", NULL,
+                    DMS_SUPPORT_ALL_USER, dms_get_spod_info)
 #ifdef CFG_FEATURE_SUPPORT_GET_SPOD_PING_INFO
-ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD,
-    "main_cmd=0xc,sub_cmd=0x2", NULL,
-    DMS_ACC_ALL | DMS_ENV_ALL | DMS_VDEV_NOTSUPPORT,
-    dms_get_spod_node_status)
-ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_SET_DEVICE_INFO_CMD, ZERO_CMD,
-    "main_cmd=0xc,sub_cmd=0x2", NULL,
-    DMS_ACC_ROOT_ONLY | DMS_ENV_NOT_NORMAL_DOCKER | DMS_VDEV_NOTSUPPORT,
-    dms_set_spod_node_status)
-ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD,
-    "main_cmd=0x10,sub_cmd=0x2", NULL, DMS_SUPPORT_ALL, dms_get_spod_ping_info)
+ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD, "main_cmd=0xc,sub_cmd=0x2", NULL,
+                    DMS_ACC_ALL | DMS_ENV_ALL | DMS_VDEV_NOTSUPPORT, dms_get_spod_node_status)
+ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_SET_DEVICE_INFO_CMD, ZERO_CMD, "main_cmd=0xc,sub_cmd=0x2", NULL,
+                    DMS_ACC_ROOT_ONLY | DMS_ENV_NOT_NORMAL_DOCKER | DMS_VDEV_NOTSUPPORT, dms_set_spod_node_status)
+ADD_FEATURE_COMMAND(DMS_MODULE_SPOD_INFO, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD, "main_cmd=0x10,sub_cmd=0x2", NULL,
+                    DMS_SUPPORT_ALL, dms_get_spod_ping_info)
 #endif
 END_FEATURE_COMMAND()
 END_MODULE_DECLARATION();
@@ -68,23 +64,23 @@ struct sdid_status {
 typedef int (*dms_spod_notifier)(unsigned int udevid, unsigned int soc_type);
 
 STATIC int dms_dev_info_args_check(const struct dms_get_device_info_in *input, const u32 in_len,
-    const struct dms_get_device_info_out *output, const u32 out_len, const u32 min_buff)
+                                   const struct dms_get_device_info_out *output, const u32 out_len, const u32 min_buff)
 {
     if (input == NULL || in_len != sizeof(struct dms_get_device_info_in)) {
-        dms_err("Invalid parameter. (in_is_null=%d; in_len_invalid=%u; in_len_valid=%zu)\n",
-            input == NULL, in_len, sizeof(struct dms_get_device_info_in));
+        dms_err("Invalid parameter. (in_is_null=%d; in_len_invalid=%u; in_len_valid=%zu)\n", input == NULL, in_len,
+                sizeof(struct dms_get_device_info_in));
         return -EINVAL;
     }
 
     if (input->buff == NULL || input->buff_size < min_buff) {
-        dms_err("Invalid parameter. (devid=%u; buff_is_null=%d; buff_size_invalid=%u; min_size=%u)\n",
-            input->dev_id, input->buff == NULL, input->buff_size, min_buff);
+        dms_err("Invalid parameter. (devid=%u; buff_is_null=%d; buff_size_invalid=%u; min_size=%u)\n", input->dev_id,
+                input->buff == NULL, input->buff_size, min_buff);
         return -EINVAL;
     }
 
     if (output == NULL || out_len != sizeof(struct dms_get_device_info_out)) {
-        dms_err("Invalid parameter. (out_is_null=%d; out_len_invalid=%u; out_len_valid=%zu)\n",
-            output == NULL, out_len, sizeof(struct dms_get_device_info_out));
+        dms_err("Invalid parameter. (out_is_null=%d; out_len_invalid=%u; out_len_valid=%zu)\n", output == NULL, out_len,
+                sizeof(struct dms_get_device_info_out));
         return -EINVAL;
     }
 
@@ -188,15 +184,15 @@ int dms_get_spod_ping_info(void *feature, char *in, u32 in_len, char *out, u32 o
 
     ret = ka_base_copy_from_user(&sdid, (void *)((uintptr_t)input->buff), sizeof(u32));
     if (ret != 0) {
-        dms_err("Failed to invoke ka_base_copy_from_user for sdid. (devid=%u; udevid=%u; ret=%d)\n",
-            input->dev_id, udevid, ret);
+        dms_err("Failed to invoke ka_base_copy_from_user for sdid. (devid=%u; udevid=%u; ret=%d)\n", input->dev_id,
+                udevid, ret);
         return ret;
     }
 
     ret = devdrv_s2s_npu_link_check(udevid, sdid);
     if (ret != 0) {
         dms_ex_notsupport_err(ret, "Failed to invoke devdrv_s2s_npu_link_check for hccs link status. (devid=%u)\n",
-            udevid);
+                              udevid);
         return ret;
     }
     output->out_size = 0;
@@ -248,7 +244,7 @@ STATIC int dms_spod_set_node_status(unsigned int local_udevid, unsigned int remo
     DBL_SPOD_CHECK_SDID(sdid_info, ret);
     if (ret != 0) {
         dms_err("Invalid sdid. (sdid_server_id=%u; sdid_chip_id=%u; sdid_die_id=%u; sdid_udevid=%u)\n",
-                    sdid_info.server_id, sdid_info.chip_id, sdid_info.die_id, sdid_info.udevid);
+                sdid_info.server_id, sdid_info.chip_id, sdid_info.die_id, sdid_info.udevid);
         return ret;
     }
 
@@ -291,22 +287,21 @@ int dms_get_spod_node_status(void *feature, char *in, u32 in_len, char *out, u32
 
     ret = ka_base_copy_from_user(&sdid, (void *)((uintptr_t)input->buff), sizeof(u32));
     if (ret != 0) {
-        dms_err("Failed to invoke ka_base_copy_from_user for sdid. (devid=%u; udevid=%u; ret=%d)\n",
-            input->dev_id, udevid, ret);
+        dms_err("Failed to invoke ka_base_copy_from_user for sdid. (devid=%u; udevid=%u; ret=%d)\n", input->dev_id,
+                udevid, ret);
         return ret;
     }
 
     ret = hal_kernel_get_spod_node_status(udevid, sdid, &status);
     if (ret != 0) {
-        dms_ex_notsupport_err(ret, "Failed to get sdid's status. (udevid=%u; sdid=0x%x; ret=%d)\n",
-            udevid, sdid, ret);
-         return (ret != -ERANGE ? ret : -EINVAL);
+        dms_ex_notsupport_err(ret, "Failed to get sdid's status. (udevid=%u; sdid=0x%x; ret=%d)\n", udevid, sdid, ret);
+        return (ret != -ERANGE ? ret : -EINVAL);
     }
 
     ret = ka_base_copy_to_user((void *)((uintptr_t)input->buff), &status, sizeof(u32));
     if (ret != 0) {
-        dms_err("Failed to invoke ka_base_copy_to_user for status. (devid=%u; udevid=%u; ret=%d)\n",
-            input->dev_id, udevid, ret);
+        dms_err("Failed to invoke ka_base_copy_to_user for status. (devid=%u; udevid=%u; ret=%d)\n", input->dev_id,
+                udevid, ret);
         return ret;
     }
     output->out_size = sizeof(u32);
@@ -324,14 +319,14 @@ int dms_set_spod_node_status(void *feature, char *in, u32 in_len, char *out, u32
     (void)out_len;
 
     if ((input == NULL) || (in_len != sizeof(struct dms_set_device_info_in))) {
-        dms_err("Invalid parameter. (in_is_null=%d; in_len_invalid=%u; in_len_valid=%zu)\n",
-            input == NULL, in_len, sizeof(struct dms_set_device_info_in));
+        dms_err("Invalid parameter. (in_is_null=%d; in_len_invalid=%u; in_len_valid=%zu)\n", input == NULL, in_len,
+                sizeof(struct dms_set_device_info_in));
         return -EINVAL;
     }
 
     if ((input->buff == NULL) || (input->buff_size < sizeof(struct sdid_status))) {
-        dms_err("Invalid parameter. (devid=%u; buff_is_null=%d; buff_size_invalid=%u; min_size=%zu)\n",
-            input->dev_id, input->buff == NULL, input->buff_size, sizeof(struct sdid_status));
+        dms_err("Invalid parameter. (devid=%u; buff_is_null=%d; buff_size_invalid=%u; min_size=%zu)\n", input->dev_id,
+                input->buff == NULL, input->buff_size, sizeof(struct sdid_status));
         return -EINVAL;
     }
 
@@ -344,14 +339,14 @@ int dms_set_spod_node_status(void *feature, char *in, u32 in_len, char *out, u32
     ret = ka_base_copy_from_user(&para, (void *)((uintptr_t)input->buff), sizeof(struct sdid_status));
     if (ret != 0) {
         dms_err("Failed to invoke ka_base_copy_from_user for sdid and status. (devid=%u; udevid=%u; ret=%d)\n",
-            input->dev_id, udevid, ret);
+                input->dev_id, udevid, ret);
         return ret;
     }
 
     ret = dms_spod_set_node_status(udevid, para.sdid, para.status);
     if (ret != 0) {
-        dms_ex_notsupport_err(ret, "Failed to set sdid's status. (udevid=%u; sdid=0x%x; ret=%d)\n",
-            udevid, para.sdid, ret);
+        dms_ex_notsupport_err(ret, "Failed to set sdid's status. (udevid=%u; sdid=0x%x; ret=%d)\n", udevid, para.sdid,
+                              ret);
     }
     return ret;
 }
@@ -385,14 +380,13 @@ STATIC int dms_spod_device_up_notify(unsigned int udevid, unsigned int soc_type)
     int ret = 0;
 
     if (udevid >= ASCEND_DEV_MAX_NUM) {
-        dms_err("Invalid udevid. (udevid=%u)\n", udevid);
+        dms_err("Invalid udevid. (udevid=%u; valid range=0-%u)\n", udevid, ASCEND_DEV_MAX_NUM - 1);
         return -EINVAL;
     }
 
     ret = dms_spod_node_status_init(udevid, soc_type);
     if (ret != 0) {
-        dms_err("Call dms spod node status init failed. (udevid=%u; soc_type=%u; ret=%d)\n",
-            udevid, soc_type, ret);
+        dms_err("Call dms spod node status init failed. (udevid=%u; soc_type=%u; ret=%d)\n", udevid, soc_type, ret);
     }
 
     return ret;
@@ -403,7 +397,7 @@ STATIC int dms_spod_device_down_notify(unsigned int udevid, unsigned int soc_typ
     int ret = 0;
 
     if (udevid >= ASCEND_DEV_MAX_NUM) {
-        dms_err("Invalid udevid. (udevid=%u)\n", udevid);
+        dms_err("Invalid udevid. (udevid=%u; valid range=0-%u)\n", udevid, ASCEND_DEV_MAX_NUM - 1);
         return -EINVAL;
     }
 
@@ -422,10 +416,8 @@ STATIC int dms_spod_notifier_handle(ka_notifier_block_t *nb, unsigned long mode,
     unsigned int soc_type = SOC_TYPE_MAX;
     struct devdrv_info *dev_info = (struct devdrv_info *)data;
 
-    if ((data == NULL) || (mode == DMS_DEVICE_NOTIFIER_MIN) ||
-        (mode >= DMS_DEVICE_NOTIFIER_MAX)) {
-        dms_err("Invalid parameter. (mode=0x%lx; data=\"%s\")\n",
-                mode, data == NULL ? "NULL" : "OK");
+    if ((data == NULL) || (mode == DMS_DEVICE_NOTIFIER_MIN) || (mode >= DMS_DEVICE_NOTIFIER_MAX)) {
+        dms_err("Invalid parameter. (mode=0x%lx; data=\"%s\")\n", mode, data == NULL ? "NULL" : "OK");
         return -EINVAL;
     }
 
@@ -437,8 +429,8 @@ STATIC int dms_spod_notifier_handle(ka_notifier_block_t *nb, unsigned long mode,
 
     ret = dms_spod_notifier_handle_func[mode](dev_info->dev_id, soc_type);
     if (ret != 0) {
-        dms_err("Call dms spod notifier handle func failed. (dev_id=%u; mode=%ld; ret=%d)\n",
-            dev_info->dev_id, mode, ret);
+        dms_err("Call dms spod notifier handle func failed. (dev_id=%u; mode=%ld; ret=%d)\n", dev_info->dev_id, mode,
+                ret);
         return ret;
     }
 
@@ -480,10 +472,10 @@ int dms_spod_init(void)
 }
 DECLAER_FEATURE_AUTO_INIT(dms_spod_init, FEATURE_LOADER_STAGE_5);
 
-void dms_spod_exit(void)
+void dms_spod_uninit(void)
 {
     dms_info("dms spod info exit.\n");
     dms_spod_status_module_exit();
     CALL_EXIT_MODULE(DMS_MODULE_SPOD_INFO);
 }
-DECLAER_FEATURE_AUTO_UNINIT(dms_spod_exit, FEATURE_LOADER_STAGE_5);
+DECLAER_FEATURE_AUTO_UNINIT(dms_spod_uninit, FEATURE_LOADER_STAGE_5);

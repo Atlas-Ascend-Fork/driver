@@ -25,14 +25,14 @@
 #include "ka_base_pub.h"
 
 #ifndef CFG_HOST_ENV
-#  include "drv_whitelist.h"
+#include "drv_whitelist.h"
 #endif
 
-#define CHECK_PERI(user, profile, mask, ret_value)                                  \
-    do {                                                                 \
+#define CHECK_PERI(user, profile, mask, ret_value)                     \
+    do {                                                               \
         if ((((profile) & (mask)) == 0) && (((user) & (mask)) != 0)) { \
-            return ret_value;                        \
-        }                                                                \
+            return ret_value;                                          \
+        }                                                              \
     } while (0)
 
 static inline s32 vdevice_access_check(u32 user_acc, u32 profile)
@@ -81,7 +81,7 @@ static inline s32 user_group_identify(u32 user_acc, u32 profile)
 
 static inline bool dms_check_in_virtual_machine(void)
 {
-    if (ka_driver_dmi_match(DMI_SYS_VENDOR, DMI_VIRTUAL_SYSVENDOR))  {
+    if (ka_driver_dmi_match(DMI_SYS_VENDOR, DMI_VIRTUAL_SYSVENDOR)) {
         return true;
     }
     return false;
@@ -233,8 +233,7 @@ s32 dms_feature_access_identify(u32 feature_prof, u32 msg_source)
 KA_EXPORT_SYMBOL_GPL(dms_feature_access_identify);
 
 #ifndef CFG_HOST_ENV
-static int dms_parse_string(char **str, const char *delim, char **out,
-    u32 *out_len)
+static int dms_parse_string(char **str, const char *delim, char **out, u32 *out_len)
 {
     const char *sep = NULL;
     char *s = NULL;
@@ -242,8 +241,7 @@ static int dms_parse_string(char **str, const char *delim, char **out,
     char sc, c;
     u32 max_len, count;
 
-    if ((str == NULL) || (*str == NULL) || (delim == NULL) || (out == NULL) ||
-        (out_len == NULL) || (*out_len == 0)) {
+    if ((str == NULL) || (*str == NULL) || (delim == NULL) || (out == NULL) || (out_len == NULL) || (*out_len == 0)) {
         return -EINVAL;
     }
     max_len = *out_len;
@@ -275,7 +273,7 @@ static int dms_parse_string(char **str, const char *delim, char **out,
     return 0;
 }
 
-STATIC int dms_feature_alloc_and_save_proc_name(char **process_name, int process_num,  char ***proc_ctl)
+STATIC int dms_feature_alloc_and_save_proc_name(char **process_name, int process_num, char ***proc_ctl)
 {
     int i;
     char **tmp_proc = NULL;
@@ -311,7 +309,7 @@ int dms_feature_parse_proc_ctrl(const char *proc_str, char **buf, char ***proc_c
     }
     len = ka_base_strnlen(proc_str, DMS_ACCESS_PROC_STRING_MAX);
     if (len >= DMS_ACCESS_PROC_STRING_MAX) {
-        dms_err("Parse proc failed. (len=%lu)\n", len);
+        dms_err("Parse proc failed. (len=%lu; max=%u)\n", len, DMS_ACCESS_PROC_STRING_MAX);
         return -EINVAL;
     }
     *buf = (char *)ka_mm_kzalloc(len + 1, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);

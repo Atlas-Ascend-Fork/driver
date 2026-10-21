@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef __DMS_BASIC_INFO_H__
 #define __DMS_BASIC_INFO_H__
 
@@ -29,7 +28,7 @@ struct boardid_out {
 };
 #define DEVDRV_GPIO_NAME "gpio-read"
 
-#define DMS_MODULE_BASIC_INFO  "dms_basic"
+#define DMS_MODULE_BASIC_INFO "dms_basic"
 INIT_MODULE_FUNC(DMS_MODULE_BASIC_INFO);
 EXIT_MODULE_FUNC(DMS_MODULE_BASIC_INFO);
 #endif

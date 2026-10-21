@@ -34,10 +34,6 @@ static const struct devdrv_feature_meta g_devdrv_feature_meta[] = {
         .name = "SRIOV",
         .desc = "enable sriov"
     },
-    [DEVDRV_FEATURE_AGENT_SMMU] = {
-        .name = "AGENT SMMU",
-        .desc = "use agent smmu to translate host's VA to PA"
-    },
     [DEVDRV_FEATURE_BYPASS_SMMU] = {
         .name = "BYPASS SMMU",
         .desc = "bypass smmu, use PA for dma"
@@ -109,6 +105,30 @@ static const struct devdrv_feature_ops_meta g_devdrv_feature_ops_meta[] = {
         .name = "CONNECT_PROTOCOL_HCCS",
         .bit = "3"
     },
+    {
+        .name = "DEVDRV_PHY_BOOT",
+        .bit = "4"
+    },
+    {
+        .name = "DEVDRV_SRIOV_VF_BOOT",
+        .bit = "5"
+    },
+    {
+        .name = "DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT",
+        .bit = "6"
+    },
+    {
+        .name = "DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT",
+        .bit = "7"
+    },
+    {
+        .name = "DEVDRV_MDEV_VF_PM_BOOT",
+        .bit = "8"
+    },
+    {
+        .name = "DEVDRV_MDEV_VF_VM_BOOT",
+        .bit = "9"
+    },
 };
 // clang-format on
 
@@ -124,12 +144,18 @@ int devdrv_feature_mgr_init(void)
         return -EINVAL;
     }
 
+    if (KA_BASE_ARRAY_SIZE(g_devdrv_feature_ops_meta) != DEVDRV_FEATURE_OPS_BIT_NUM) {
+        devdrv_err("devdrv feature ops meta table size mismatch.\n");
+        return -EINVAL;
+    }
+
     ka_task_mutex_init(&g_devdrv_feature_mgr.lock);
     g_devdrv_feature_mgr.meta = g_devdrv_feature_meta;
     g_devdrv_feature_mgr.ops_meta = g_devdrv_feature_ops_meta;
+
     g_devdrv_feature_mgr.inited = true;
 
-    devdrv_info("devdrv Feature manager init success. (feat_num=%d;)\n", DEVDRV_FEATURE_MAX);
+    devdrv_info("devdrv Feature manager init success. (feat_num=%d)\n", DEVDRV_FEATURE_MAX);
     return 0;
 }
 
@@ -139,11 +165,17 @@ void devdrv_feature_mgr_uninit(void)
         return;
     }
 
-    ka_task_mutex_destroy(&g_devdrv_feature_mgr.lock);
     g_devdrv_feature_mgr.inited = false;
+    g_devdrv_feature_mgr.ops_meta = NULL;
     g_devdrv_feature_mgr.meta = NULL;
+    ka_task_mutex_destroy(&g_devdrv_feature_mgr.lock);
 
     devdrv_info("devdrv Feature manager uninit success.\n");
+}
+
+struct devdrv_feature_mgr *devdrv_feature_get_feature_mgr(void)
+{
+    return &g_devdrv_feature_mgr;
 }
 
 bool devdrv_feature_is_support(devdrv_feature_bitmap_t bitmap, enum devdrv_feature feat)

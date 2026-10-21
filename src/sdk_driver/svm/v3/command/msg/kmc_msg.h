@@ -14,7 +14,6 @@
 #ifndef KMC_MSG_H
 #define KMC_MSG_H
 
-#define SVM_KMC_MAX_EXTEND_NUM 250ULL    /* to modify later */
 #define SVM_KMC_P2P_MAX_EXTEND_NUM 32ULL /* pcie p2p msg_len is limit. */
 
 enum svm_kmc_msg_id {
@@ -23,11 +22,12 @@ enum svm_kmc_msg_id {
     SVM_KMC_MSG_QUERY_DBI,
     SVM_KMC_MSG_UPDATE_DBI,
     SVM_KMC_MSG_INTI_PA_HANDLE,
-    SVM_KMC_MSG_HOST_DMA_ADDR_GET,
-    SVM_KMC_MSG_HOST_DMA_ADDR_PUT,
+    SVM_KMC_MSG_DMA_ADDR_GET,
+    SVM_KMC_MSG_DMA_ADDR_PUT,
     SVM_KMC_MSG_UBMEM_MAP,
     SVM_KMC_MSG_UBMEM_UNMAP,
     SVM_KMC_MSG_MWL_OP,
+    SVM_KMC_MSG_DMA_ADDR_QUERY,
     SVM_KMC_MSG_ID_MAX,
 };
 

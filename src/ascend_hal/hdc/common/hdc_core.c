@@ -9,6 +9,7 @@
  */
 
 #include <stdint.h>
+#include <limits.h>
 #include <sys/sysinfo.h>
 #include <sys/mman.h>
 
@@ -256,12 +257,13 @@ STATIC void hdc_sys_mem_info_show(unsigned int log_level)
     huge_page_free = si.freehigh / MEM_SIZE_1M;
 
     if (log_level == HDC_MEM_LOG_LEVEL_ERR) {
-        HDC_LOG_ERR("The current system mem_information. (MemTotal=%u; MemFree=%u; Buffers=%u; HugeFree=%u)\n",
-                    (unsigned int)memTotal, (unsigned int)memFree, (unsigned int)buffers, (unsigned int)huge_page_free);
+        HDC_LOG_ERR("The current system mem_information (MB). (MemTotal=%lu; MemFree=%lu; Buffers=%lu; "
+                    "HugeFree=%lu)\n",
+                    memTotal, memFree, buffers, huge_page_free);
     } else {
-        HDC_LOG_WARN("The current system mem_information. (MemTotal=%u; MemFree=%u; Buffers=%u; HugeFree=%u)\n",
-                     (unsigned int)memTotal, (unsigned int)memFree, (unsigned int)buffers,
-                     (unsigned int)huge_page_free);
+        HDC_LOG_WARN("The current system mem_information (MB). (MemTotal=%lu; MemFree=%lu; Buffers=%lu; "
+                     "HugeFree=%lu)\n",
+                     memTotal, memFree, buffers, huge_page_free);
     }
 #endif
 }
@@ -329,26 +331,29 @@ STATIC void hdc_mem_info_show(unsigned int log_level)
     (void)mmMutexUnLock(&fd_mng->mutex);
 
     if (log_level == HDC_MEM_LOG_LEVEL_ERR) {
-        HDC_LOG_ERR("Get huge mem_information. (alloc_count=%llu; free_count=%llu; alloc_size=%llu; free_size=%llu)\n",
+        HDC_LOG_ERR("Get huge mem_information. (alloc_count=%llu; free_count=%llu; alloc_size=%llu B; "
+                    "free_size=%llu B)\n",
                     mem_stat_show.huge_alloc_count, mem_stat_show.huge_free_count, mem_stat_show.huge_alloc_size,
                     mem_stat_show.huge_free_size);
-        HDC_LOG_ERR("Get va32 mem_information. (alloc_count=%llu; free_count=%llu; alloc_size=%llu; free_size=%llu)\n",
+        HDC_LOG_ERR("Get va32 mem_information. (alloc_count=%llu; free_count=%llu; alloc_size=%llu B; "
+                    "free_size=%llu B)\n",
                     mem_stat_show.va32bit_alloc_count, mem_stat_show.va32bit_free_count,
                     mem_stat_show.va32bit_alloc_size, mem_stat_show.va32bit_free_size);
-        HDC_LOG_ERR("Get total mem_information. (alloc_count=%llu; free_count=%llu; alloc_size=%llu; free_size=%llu)\n",
+        HDC_LOG_ERR("Get total mem_information. (alloc_count=%llu; free_count=%llu; alloc_size=%llu B; "
+                    "free_size=%llu B)\n",
                     mem_stat_show.total_alloc_count, mem_stat_show.total_free_count, mem_stat_show.total_alloc_size,
                     mem_stat_show.total_free_size);
     } else {
         HDC_LOG_WARN("Get huge mem_information. (alloc_count=%llu; free_count=%llu;"
-                     "alloc_size=%llu; free_size=%llu)\n",
+                     "alloc_size=%llu B; free_size=%llu B)\n",
                      mem_stat_show.huge_alloc_count, mem_stat_show.huge_free_count, mem_stat_show.huge_alloc_size,
                      mem_stat_show.huge_free_size);
         HDC_LOG_WARN("Get va32 mem_information. (alloc_count=%llu; free_count=%llu;"
-                     "alloc_size=%llu; free_size=%llu)\n",
+                     "alloc_size=%llu B; free_size=%llu B)\n",
                      mem_stat_show.va32bit_alloc_count, mem_stat_show.va32bit_free_count,
                      mem_stat_show.va32bit_alloc_size, mem_stat_show.va32bit_free_size);
         HDC_LOG_WARN("Get total mem_information. (alloc_count=%llu; free_count=%llu;"
-                     "alloc_size=%llu; free_size=%llu)\n",
+                     "alloc_size=%llu B; free_size=%llu B)\n",
                      mem_stat_show.total_alloc_count, mem_stat_show.total_free_count, mem_stat_show.total_alloc_size,
                      mem_stat_show.total_free_size);
     }
@@ -626,7 +631,7 @@ signed int drv_hdc_socket_send(signed int sockfd, const char *buf, signed int le
         } while ((ret < 0) && (mm_get_error_code() == EINTR));
 
         if (ret < 0) {
-            HDC_LOG_ERR("Send data failed. (sockfd=%d; StrError=\"%s\"; errno=%d; sendLen=%ld; len=%d)\n", sockfd,
+            HDC_LOG_ERR("(Send data failed. (sockfd=%d; StrError=\"%s\"; errno=%d; sendLen=%ld; len=%d)\n", sockfd,
                         StrError(mm_get_error_code()), mm_get_error_code(), (long)sendLen, len);
             return DRV_ERROR_SEND_MESG;
         }
@@ -638,12 +643,12 @@ signed int drv_hdc_socket_send(signed int sockfd, const char *buf, signed int le
 }
 
 #define HDC_REPORT_ERR_MSG_STR_LEN 32
-#define HDC_OUT_OF_MEM_ERROR_MSG_ARG_NUM 2
-void hdc_report_out_of_mem_err_msg(size_t size)
+#define HDC_OUT_OF_MEM_ERROR_MSG_ARG_NUM 3
+void hdc_report_out_of_mem_err_msg(const char *func_name, size_t size)
 {
     char size_str[HDC_REPORT_ERR_MSG_STR_LEN] = {0};
-    const char *key[] = {"size", "moduleName"};
-    const char *value[] = {size_str, "hdc"};
+    const char *key[] = {"func_name", "size", "moduleName"};
+    const char *value[] = {func_name, size_str, "hdc"};
     int ret;
 
     ret = snprintf_s(size_str, sizeof(size_str), sizeof(size_str) - 1, "%zu bytes", size);
@@ -820,7 +825,7 @@ unsigned int hdc_get_alloc_len(unsigned int len, unsigned int flag)
         return alloc_len;
     }
 
-    alloc_len = (len + g_hdcPageSize - 1) & g_hdcPageMask;
+    alloc_len = (len + g_hdcPageSize - 1U) & g_hdcPageMask;
     last_len = alloc_len & LAST_MASK;
 
     if (last_len == 0) {
@@ -1502,7 +1507,7 @@ STATIC hdcError_t drv_hdc_add_msg_body(struct hdc_session *pSession, struct drvH
 
     if (*pBuf == NULL) {
         HDC_LOG_ERR("Call malloc failed. (sock=%d)\n", session_fd);
-        hdc_report_out_of_mem_err_msg((size_t)msg_len);
+        hdc_report_out_of_mem_err_msg("halHdcRecvEx", (size_t)msg_len);
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
@@ -2140,6 +2145,11 @@ STATIC signed int drv_hdc_fast_send_check(const struct hdc_session *pSession, st
         return DRV_ERROR_INVALID_VALUE;
     }
 
+    if (msg.dataLen > (unsigned int)INT_MAX || msg.ctrlLen > (unsigned int)INT_MAX) {
+        HDC_LOG_ERR("Input parameter Len is too large. (dataLen=%u; ctrlLen=%u)\n", msg.dataLen, msg.ctrlLen);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
     return DRV_ERROR_NONE;
 }
 
@@ -2454,8 +2464,8 @@ drvError_t halHdcGetSessionAttr(HDC_SESSION session, int attr, int *value)
             ret = drv_hdc_get_session_attr(session, HDCDRV_SESSION_ATTR_DFX, value);
             break;
         default:
-            HDC_LOG_ERR("Input parameter is error.\n");
-            ret = DRV_ERROR_INVALID_VALUE;
+            HDC_LOG_WARN("Input parameter is not support.\n");
+            ret = DRV_ERROR_NOT_SUPPORT;
             break;
     }
     return ret;

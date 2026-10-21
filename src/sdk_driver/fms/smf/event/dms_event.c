@@ -66,6 +66,7 @@ int dms_event_clear_fault_event(void *feature, char *in, u32 in_len, char *out, 
 int dms_event_disable_fault_event(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_event_enable_fault_event(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_event_get_current_fault_event(void *feature, char *in, u32 in_len, char *out, u32 out_len);
+int dms_event_get_current_notify_event(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_get_device_state(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 
 INIT_MODULE_FUNC(DMS_EVENT_CMD_NAME);
@@ -79,6 +80,8 @@ ADD_FEATURE_COMMAND(DMS_EVENT_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_HISTO
 #ifdef CFG_FEATURE_GET_CURRENT_EVENTINFO
 ADD_FEATURE_COMMAND(DMS_EVENT_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_FAULT_EVENT_OBJ, NULL, NULL,
                     DMS_ACC_ALL | DMS_ENV_ALL | DMS_VDEV_NOTSUPPORT, dms_event_get_current_fault_event)
+ADD_FEATURE_COMMAND(DMS_EVENT_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_NOTIFY_EVENT_OBJ, NULL, NULL,
+                    DMS_ACC_ALL | DMS_ENV_ALL | DMS_VDEV_NOTSUPPORT, dms_event_get_current_notify_event)
 #endif
 ADD_FEATURE_COMMAND(DMS_EVENT_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_EVENT_CODE, NULL, NULL,
                     DMS_ACC_NOT_LIMIT_USER | DMS_ENV_ALL | DMS_VDEV_ALL, dms_get_error_code)
@@ -168,7 +171,12 @@ static inline unsigned char dms_event_convert_assertion(const struct dms_sensor_
 {
     const struct dms_sensor_object_cfg *obj_cfg = &p_sensor_obj_cb->sensor_object_cfg;
 
-    if ((obj_cfg->assert_event_mask & (1 << event_state)) && !(obj_cfg->deassert_event_mask & (1 << event_state))) {
+    if (event_state >= (sizeof(unsigned int) * 8)) {
+        dms_err("Invalid event_state. (event_state=%u)\n", event_state);
+        return DMS_EVENT_TYPE_OCCUR;
+    }
+
+    if ((obj_cfg->assert_event_mask & (1U << event_state)) && !(obj_cfg->deassert_event_mask & (1U << event_state))) {
         return DMS_EVENT_TYPE_ONE_TIME;
     }
 
@@ -321,7 +329,8 @@ int dms_event_get_history_fault_event(void *feature, char *in, u32 in_len, char 
     }
     event_buf_size = out_len / sizeof(struct dms_event_para);
     if (event_buf_size < MIN_EVENT_COUNT_OF_GET_FAULT_EVENT || event_buf_size > MAX_EVENT_COUNT_OF_GET_FAULT_EVENT) {
-        dms_err("history_max_event_size(%d)  is invalid.\n", event_buf_size);
+        dms_err("history_max_event_size(%d) is invalid, valid range is %d-%d.\n", event_buf_size,
+                MIN_EVENT_COUNT_OF_GET_FAULT_EVENT, MAX_EVENT_COUNT_OF_GET_FAULT_EVENT);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -387,17 +396,10 @@ int dms_event_get_fault_event(void *feature, char *in, u32 in_len, char *out, u3
     return DRV_ERROR_NONE;
 }
 
-STATIC int check_and_trans_devid(char *in, u32 in_len, u32 *phy_id)
+STATIC int check_and_trans_devid(u32 dev_id, u32 *phy_id)
 {
     int ret;
-    u32 dev_id = 0;
     u32 fid = 0xFFFFFFFFU;
-
-    ret = memcpy_s(&dev_id, sizeof(int), in, in_len);
-    if (ret != 0) {
-        dms_err("Call memcpy_s failed. (ret=%d)\n", ret);
-        return DRV_ERROR_INNER_ERR;
-    }
 
     ret = smf_logical_id_to_physical_id(dev_id, phy_id, &fid);
     if (ret != 0 || (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
@@ -409,7 +411,52 @@ STATIC int check_and_trans_devid(char *in, u32 in_len, u32 *phy_id)
     return 0;
 }
 
-STATIC int add_events_to_event_para(struct dms_event_para *dms_event, u32 event_num,
+STATIC bool filter_event_to_event_para(struct dms_event_para *dms_event, struct dms_event_filter *filter)
+{
+    ka_pid_t process_pid;
+    bool sub_node_type_valid = false;
+
+    if (filter->filter_flag == 0) {
+        return false;
+    }
+
+    if (((filter->filter_flag & DMS_EVENT_FILTER_FLAG_EVENT_ID) != 0) && (dms_event->event_id != filter->event_id)) {
+        dms_debug("Event_id of event do not match subscribe event_id. (subscribe_event_id=%x; event_id=%x)\n",
+                  filter->event_id, dms_event->event_id);
+        return true;
+    }
+
+    if ((((filter->filter_flag & DMS_EVENT_FILTER_FLAG_SERVERITY) != 0) && (dms_event->severity < filter->severity))) {
+        dms_debug("Severity of event do not match subscribe severity. (subscribe_severity=%u; severity=%u)\n",
+                  filter->severity, dms_event->severity);
+        return true;
+    }
+
+    /* Check sub_node_type, if sub_node_type is 0, then it is not valid, filter don't check it */
+    sub_node_type_valid = dms_event->sub_node_type == 0 ? false : true;
+
+    if (((filter->filter_flag & DMS_EVENT_FILTER_FLAG_NODE_TYPE) != 0) &&
+        ((dms_event->node_type != filter->node_type) &&
+         (!sub_node_type_valid || (dms_event->sub_node_type != filter->node_type)))) {
+        dms_debug("Node_type of event do not match subscribe node_type. "
+                  "(subscribe_node_type=0x%x; node_type=0x%x; sub_node_type=0x%x)\n",
+                  filter->node_type, dms_event->node_type, dms_event->sub_node_type);
+        return true;
+    }
+
+    if ((filter->filter_flag & DMS_EVENT_FILTER_FLAG_HOST_PID) != 0) {
+        process_pid = ka_task_get_current_tgid();
+        if (*(int *)dms_event->event_info != process_pid) {
+            dms_debug(
+                "Process_pid of event do not match subscribe process_pid. (subscribe_process_pid=%d; process_pid=%d)\n",
+                process_pid, *(int *)dms_event->event_info);
+            return true;
+        }
+    }
+    return false;
+}
+
+STATIC int add_events_to_event_para(struct dms_event_para *dms_event, struct dms_event_filter *filter, u32 event_num,
                                     struct devdrv_event_obj_para *event_para)
 {
     int ret;
@@ -419,6 +466,9 @@ STATIC int add_events_to_event_para(struct dms_event_para *dms_event, u32 event_
     for (i = 0; i < event_num; i++) {
         if (num >= DMS_MAX_EVENT_ARRAY_LENGTH) {
             return 0;
+        }
+        if (filter_event_to_event_para(&dms_event[i], filter)) {
+            continue;
         }
         ret = memcpy_s(&event_para->dms_event[num], sizeof(struct dms_event_para), &dms_event[i],
                        sizeof(struct dms_event_para));
@@ -434,7 +484,8 @@ STATIC int add_events_to_event_para(struct dms_event_para *dms_event, u32 event_
 }
 
 #ifdef CFG_EDGE_HOST
-STATIC int dms_get_remote_fault_event(u32 phy_id, struct devdrv_event_obj_para *event_para)
+STATIC int dms_get_remote_fault_event(u32 phy_id, struct dms_event_filter *filter,
+                                      struct devdrv_event_obj_para *event_para)
 {
     struct dms_event_para *dms_event_remote = NULL;
     u32 event_num_remote = 0;
@@ -454,7 +505,7 @@ STATIC int dms_get_remote_fault_event(u32 phy_id, struct devdrv_event_obj_para *
         goto GET_EVENT_FAIL;
     }
 
-    ret = add_events_to_event_para(dms_event_remote, event_num_remote, event_para);
+    ret = add_events_to_event_para(dms_event_remote, filter, event_num_remote, event_para);
     if (ret != 0) {
         dms_err("Add remote events to event_pars failed. (phy_id=%u; ret=%d)\n", phy_id, ret);
     }
@@ -520,7 +571,8 @@ FREE_BUFF:
     return ret;
 }
 
-STATIC int dms_get_local_fault_event(u32 phy_id, struct devdrv_event_obj_para *event_para)
+STATIC int dms_get_local_fault_event(u32 phy_id, struct dms_event_filter *filter,
+                                     struct devdrv_event_obj_para *event_para)
 {
     struct dms_event_para *dms_event_local = NULL;
     u32 event_num_local = 0;
@@ -540,7 +592,7 @@ STATIC int dms_get_local_fault_event(u32 phy_id, struct devdrv_event_obj_para *e
         goto GET_EVENT_FAIL;
     }
 
-    ret = add_events_to_event_para(dms_event_local, event_num_local, event_para);
+    ret = add_events_to_event_para(dms_event_local, filter, event_num_local, event_para);
     if (ret != 0) {
         dms_err("Add local events to event_para failed. (phy_id=%u; ret=%d)\n", phy_id, ret);
     }
@@ -552,17 +604,18 @@ GET_EVENT_FAIL:
 }
 #endif
 
-STATIC int dms_get_all_fault_event(u32 phy_id, struct devdrv_event_obj_para *event_para)
+STATIC int dms_get_all_fault_event(u32 phy_id, struct dms_event_filter *filter,
+                                   struct devdrv_event_obj_para *event_para)
 {
     int ret;
 #ifdef CFG_EDGE_HOST
-    ret = dms_get_remote_fault_event(phy_id, event_para);
+    ret = dms_get_remote_fault_event(phy_id, filter, event_para);
     if (ret != 0) {
         dms_err("Get remote event failed. (phy_id=%u)\n", phy_id);
         return ret;
     }
 #else
-    ret = dms_get_local_fault_event(phy_id, event_para);
+    ret = dms_get_local_fault_event(phy_id, filter, event_para);
     if (ret != 0) {
         dms_err("Get local event failed. (phy_id=%u)\n", phy_id);
         return ret;
@@ -583,13 +636,13 @@ int dms_event_get_current_fault_event(void *feature, char *in, u32 in_len, char 
         return DRV_ERROR_PARA_ERROR;
     }
 
-    if ((in_len != sizeof(int)) || (out_len != sizeof(struct devdrv_event_obj_para))) {
-        dms_err("Invalid parameter. (expected in_len=%lu; in_len=%u; expected out_len=%lu; out_len=%u)\n", sizeof(int),
-                in_len, sizeof(struct devdrv_event_obj_para), out_len);
+    if ((in_len != sizeof(struct dms_get_event_ioctl)) || (out_len != sizeof(struct devdrv_event_obj_para))) {
+        dms_err("Invalid parameter. (expected in_len=%lu; in_len=%u; expected out_len=%lu; out_len=%u)\n",
+                sizeof(struct dms_get_event_ioctl), in_len, sizeof(struct devdrv_event_obj_para), out_len);
         return DRV_ERROR_PARA_ERROR;
     }
 
-    ret = check_and_trans_devid(in, in_len, &phy_id);
+    ret = check_and_trans_devid(((struct dms_get_event_ioctl *)in)->dev_id, &phy_id);
     if (ret != 0) {
         dms_err("check or transform device id failed. (ret=%d)\n", ret);
         return ret;
@@ -597,7 +650,94 @@ int dms_event_get_current_fault_event(void *feature, char *in, u32 in_len, char 
 
     event_para = (struct devdrv_event_obj_para *)out;
     event_para->event_count = 0;
-    ret = dms_get_all_fault_event(phy_id, event_para);
+    ret = dms_get_all_fault_event(phy_id, &((struct dms_get_event_ioctl *)in)->filter, event_para);
+    if (ret != 0) {
+        dms_err("Get events failed. (phy_id=%u; ret=%d)", phy_id, ret);
+        return ret;
+    }
+
+    return 0;
+}
+
+#ifdef CFG_EDGE_HOST
+STATIC int dms_get_remote_notify_event(u32 phy_id, struct dms_event_filter *filter,
+                                       struct devdrv_event_obj_para *event_para)
+{
+    struct dms_event_para *notify_event_para = NULL;
+    u32 event_num_remote = 0;
+    int ret;
+
+    notify_event_para = (struct dms_event_para *)dbl_vmalloc(sizeof(struct dms_event_para) * DMS_MAX_EVENT_ARRAY_LENGTH,
+                                                             KA_GFP_KERNEL | __KA_GFP_ZERO | __KA_GFP_ACCOUNT,
+                                                             KA_PAGE_KERNEL);
+    if (notify_event_para == NULL) {
+        dms_err("Call ka_vmalloc failed. (phy_id=%u)\n", phy_id);
+        return DRV_ERROR_OUT_OF_MEMORY;
+    }
+
+    ret = smf_get_remote_notify_event_para(phy_id, notify_event_para, DMS_MAX_EVENT_ARRAY_LENGTH, &event_num_remote);
+    if (ret != 0) {
+        dms_err("Get fault event para failed. (phy_id=%u; ret=%d)\n", phy_id, ret);
+        goto GET_EVENT_FAIL;
+    }
+
+    ret = add_events_to_event_para(notify_event_para, filter, event_num_remote, event_para);
+    if (ret != 0) {
+        dms_err("Add remote events to event_pars failed. (phy_id=%u; ret=%d)\n", phy_id, ret);
+    }
+
+GET_EVENT_FAIL:
+    dbl_vfree(notify_event_para);
+    notify_event_para = NULL;
+    return ret;
+}
+#endif
+
+STATIC int dms_get_all_notify_event(u32 phy_id, struct dms_event_filter *filter,
+                                    struct devdrv_event_obj_para *event_para)
+{
+    int ret;
+
+#ifdef CFG_EDGE_HOST
+    ret = dms_get_remote_notify_event(phy_id, filter, event_para);
+    if (ret != 0) {
+        dms_err("Get remote event failed. (phy_id=%u)\n", phy_id);
+        return ret;
+    }
+#else
+    ret = DRV_ERROR_NOT_SUPPORT;
+#endif
+
+    return ret;
+}
+
+int dms_event_get_current_notify_event(void *feature, char *in, u32 in_len, char *out, u32 out_len)
+{
+    struct devdrv_event_obj_para *notify_event_obj_para = NULL;
+    unsigned int phy_id = 0;
+    int ret = 0;
+
+    if ((in == NULL) || (out == NULL)) {
+        dms_err("Invalid parameter. (in_buff=%s; out_buff=%s)\n", (in == NULL) ? "NULL" : "OK",
+                (out == NULL) ? "NULL" : "OK");
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    if ((in_len != sizeof(struct dms_get_event_ioctl)) || (out_len != sizeof(struct devdrv_event_obj_para))) {
+        dms_err("Invalid parameter. (expected in_len=%lu; in_len=%u; expected out_len=%lu; out_len=%u)\n",
+                sizeof(struct dms_get_event_ioctl), in_len, sizeof(struct devdrv_event_obj_para), out_len);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ret = check_and_trans_devid(((struct dms_get_event_ioctl *)in)->dev_id, &phy_id);
+    if (ret != 0) {
+        dms_err("check or transform device id failed. (ret=%d)\n", ret);
+        return ret;
+    }
+
+    notify_event_obj_para = (struct devdrv_event_obj_para *)out;
+    notify_event_obj_para->event_count = 0;
+    ret = dms_get_all_notify_event(phy_id, &((struct dms_get_event_ioctl *)in)->filter, notify_event_obj_para);
     if (ret != 0) {
         dms_err("Get events failed. (phy_id=%u; ret=%d)", phy_id, ret);
         return ret;
@@ -641,7 +781,7 @@ int dms_event_clear_by_phyid(u32 phyid)
     dms_release_one_device_remote_event(phyid);
 #endif
     if (smf_event_distribute_to_bar(phyid) != 0) {
-        dms_err("Distribute event to bar failed. (phy_id=%u)\n", phyid);
+        dms_err("Distribute event to bar failed. (dev_id=%u)\n", phyid);
         return DRV_ERROR_INNER_ERR;
     }
 
@@ -739,7 +879,7 @@ int dms_event_mask_by_phyid(u32 phyid, u32 event_id, u8 mask)
     }
 
     if (smf_event_distribute_to_bar(phyid) != 0) {
-        dms_err("Distribute event to bar failed. (phy_id=%u)\n", phyid);
+        dms_err("Distribute event to bar failed. (dev_id=%u)\n", phyid);
         return DRV_ERROR_INNER_ERR;
     }
 
@@ -782,11 +922,13 @@ int dms_event_disable_fault_event(void *feature, char *in, u32 in_len, char *out
 int dms_event_enable_fault_event(void *feature, char *in, u32 in_len, char *out, u32 out_len)
 {
     struct dms_event_ioctrl para = {0};
-    u32 locid, phyid, fid;
+    u32 locid;
+    u32 phyid;
+    u32 fid;
     int ret;
 
     if ((in == NULL) || (in_len != sizeof(struct dms_event_ioctrl))) {
-        dms_err("Invalid parameter. (in_buff=%s; in_len=%u)\n", (in == NULL) ? "NULL" : "OK", in_len);
+        dms_err("Incorrect parameter. (in_buff=%s; in_len=%u)\n", (in == NULL) ? "NULL" : "OK", in_len);
         return DRV_ERROR_PARA_ERROR;
     }
     ret = memcpy_s((void *)&para, sizeof(struct dms_event_ioctrl), (void *)in, in_len);
@@ -835,7 +977,7 @@ static int dms_event_obj_to_health_code(struct dms_event_obj *event_buff, u32 ev
     u32 i, severity;
 
     if (event_cnt > DEVMNG_SHM_INFO_EVENT_CODE_LEN) {
-        dms_err("The number of events is invalid. (cnt=%u; max=%u)\n", event_cnt, DEVMNG_SHM_INFO_EVENT_CODE_LEN);
+        dms_err("The number of events is invalid. (cnt=%u)\n", event_cnt);
         return DRV_ERROR_INNER_ERR;
     }
 
@@ -1110,13 +1252,13 @@ int dms_get_device_health(void *feature, char *in, u32 in_len, char *out, u32 ou
     u32 health_code = 0;
 
     if ((in == NULL) || (out == NULL) || (in_len != sizeof(u32)) || (out_len != sizeof(u32))) {
-        dms_err("Invalid parameter. (in_buff=%s; in_len=%u;out_buff=%s; out_len=%u)\n", (in == NULL) ? "NULL" : "OK",
+        dms_err("Incorrect parameter. (in_buff=%s; in_len=%u; out_buff=%s; out_len=%u)\n", (in == NULL) ? "NULL" : "OK",
                 in_len, (out == NULL) ? "NULL" : "OK", out_len);
         return DRV_ERROR_PARA_ERROR;
     }
     ret = dms_event_get_logic_id_and_covert_to_phy_id(in, in_len, &devid, &phyid, &fid);
     if (ret != 0) {
-        dms_err("Get logical id or convert to physical id failed. (ret=%d)\n", ret);
+        dms_err("Dms event get logical id or convert to physical id failed. (ret=%d)\n", ret);
         return ret;
     }
 

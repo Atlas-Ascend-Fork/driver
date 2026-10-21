@@ -104,11 +104,13 @@ void devmm_svm_proc_uninit_private(struct devmm_svm_process *svm_proc);
 int devmm_get_host_phy_mach_flag(u32 devid, u32 *host_flag);
 int devmm_get_host_run_mode(u32 devid);
 bool devmm_is_hccs_vm_scene(u32 dev_id, u32 host_mode);
+int devmm_get_if_run_in_hccs_vm(u32 udevid, bool *is_in_hccs_vm);
 void devmm_notify_ts_drv_to_release(u32 devid, ka_pid_t pid);
 void devmm_free_proc_priv_data(struct devmm_svm_process *svm_proc);
 bool devmm_thread_is_run_in_docker(void);
 
 int devmm_get_real_phy_devid(u32 devid, u32 vfid, u32 *phy_devid);
 void devmm_destroy_svm_proc_host_pin_heap(struct devmm_svm_process *svm_proc);
+ka_mnt_namespace_t *devmm_get_proc_mnt_ns(struct devmm_svm_process *svm_proc);
 
 #endif /* __SVM_PROC_MNG_H__ */

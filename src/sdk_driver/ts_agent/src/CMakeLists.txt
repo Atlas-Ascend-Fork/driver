@@ -7,7 +7,8 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 # ------------------------------------------------------------------------------------------------------------
-if(NOT PRODUCT STREQUAL "ascend950" AND NOT PRODUCT STREQUAL "ascend950esl")
+set(PRODUCTS_LIST "ascend950;ascend950esl;ascend960;ascend960esl")
+if(NOT PRODUCT IN_LIST PRODUCTS_LIST)
     set(ts_agent_vm_depends asdrv_dms drv_seclib_host asdrv_vvmng asdrv_svm asdrv_vtrs asdrv_pbl ascend_kernel_open_adapt)
     add_host_ko(LOCAL_MODULE ts_agent_vm
         KO_SRC_FOLDER ${CMAKE_CURRENT_SOURCE_DIR}

@@ -16,6 +16,7 @@
 #include "pbl_range_rbtree.h"
 
 #include "svm_kern_log.h"
+#include "pma_ub.h"
 #include "pma_ub_seg.h"
 #include "pma_ub_ctx.h"
 #include "pma_ub_core.h"
@@ -96,7 +97,7 @@ int pma_ub_release_seg(u32 udevid, int tgid, u64 va, u64 size)
 
     ctx = pma_ub_ctx_get(udevid, tgid);
     if (ctx == NULL) {
-        svm_err("Get pma_ub_ctx failed, task may have exited. (udevid=%u; tgid=%d)\n", udevid, tgid);
+        svm_warn("Get pma_ub_ctx check, task may have exited. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -ESRCH;
     }
 
@@ -104,4 +105,16 @@ int pma_ub_release_seg(u32 udevid, int tgid, u64 va, u64 size)
     pma_ub_ctx_put(ctx);
 
     return ret;
+}
+
+void pma_ub_mem_recycle_notify(u32 udevid, int tgid, u64 va, u64 size)
+{
+    struct pma_ub_ctx *ctx = pma_ub_ctx_get(udevid, tgid);
+
+    if (ctx == NULL) {
+        return;
+    }
+
+    pma_ub_seg_recycle(&ctx->seg_mng, va, size);
+    pma_ub_ctx_put(ctx);
 }

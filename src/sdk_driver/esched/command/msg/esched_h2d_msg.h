@@ -14,12 +14,7 @@
 #define ESCHED_H2D_MSG_H
 
 #include "hal_pkg/esched_pkg.h"
-
-#if defined(CFG_FEATURE_HARDWARE_SCHED) && !defined(CFG_FEATURE_REMOTE_PUB_HARD_SCHED) && !defined(CFG_FEATURE_STARS_V2)
-#define SCHED_MAX_EVENT_MSG_LEN_EX 768U
-#else
-#define SCHED_MAX_EVENT_MSG_LEN_EX EVENT_MAX_MSG_LEN
-#endif
+#include "esched_event_msg.h"
 
 typedef enum esched_msg_type {
     ESCHED_MSG_TYPE_ADD_HOST_PID,

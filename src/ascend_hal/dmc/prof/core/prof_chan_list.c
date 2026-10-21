@@ -168,6 +168,11 @@ STATIC void prof_add_nonlocal_channels(struct prof_chan_list_mng *list_mng, stru
     uint32_t chan_id, remote_pid, i;
 
     for (i = 0; i < channels->channel_num; i++) {
+        if (channels->channel[i].channel_id >= PROF_CHANNEL_NUM_MAX) {
+            PROF_WARN("Invalid channel_id. (channel_id=%hu, max=%u)\n", channels->channel[i].channel_id,
+                      PROF_CHANNEL_NUM_MAX);
+            continue;
+        }
         chan_id = channels->channel[i].channel_id;
         remote_pid = channels->channel[i].remote_pid;
 

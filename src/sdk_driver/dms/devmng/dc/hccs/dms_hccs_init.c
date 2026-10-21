@@ -62,13 +62,14 @@ STATIC int dms_hccs_task_register(struct devdrv_info *dev_info)
 
     ret = dms_hccs_credit_info_task_register(dev_info->dev_id);
     if (ret != 0) {
-        dms_err("Dms hccs credit info task register failed. (dev_id=%u; ret=%d)\n", dev_info->dev_id, ret);
+        dms_err("Dms hcss credit info task register failed. (dev_id=%u; ret=%d).\n", dev_info->dev_id, ret);
         return ret;
     }
 
 #ifndef CFG_HOST_ENV
     ret = dms_hccs_statistic_task_register(dev_info->dev_id);
     if (ret != 0) {
+        (void)dms_hccs_credit_info_task_unregister(dev_info->dev_id);
         dms_err("dms hccs statistic init failed. (ret=%d)\n", ret);
         return ret;
     }
@@ -87,15 +88,13 @@ STATIC int dms_hccs_task_unregister(struct devdrv_info *dev_info)
 
     ret = dms_hccs_credit_info_task_unregister(dev_info->dev_id);
     if (ret != 0) {
-        dms_err("Dms timer task unregister failed, (dev_id=%u; ret=%d).\n", dev_info->dev_id, ret);
-        return ret;
+        dms_err("Dms hccs credit info task unregister failed, (dev_id=%u; ret=%d).\n", dev_info->dev_id, ret);
     }
 
 #ifndef CFG_HOST_ENV
     ret = dms_hccs_statistic_task_unregister(dev_info->dev_id);
     if (ret != 0) {
-        dms_err("Dms timer task unregister failed, (dev_id=%u; ret=%d).\n", dev_info->dev_id, ret);
-        return ret;
+        dms_err("Dms hccs statistic task unregister failed, (dev_id=%u; ret=%d).\n", dev_info->dev_id, ret);
     }
 #endif
 
@@ -123,7 +122,8 @@ STATIC int dms_hccs_notifier_handle(ka_notifier_block_t *nb, unsigned long mode,
 
     ret = dms_hccs_notifier_handle_func[mode](dev_info);
     if (ret != 0) {
-        dms_err("Credit num query task handle failed. (dev_id=%u; mode=%ld; ret=%d)\n", dev_info->dev_id, mode, ret);
+        dms_err("Credit num query task handle failed. (dev_id=%u; mode=%ld; valid mode=%d, %d; ret=%d)\n",
+                dev_info->dev_id, mode, DMS_DEVICE_UP3, DMS_DEVICE_DOWN3, ret);
         return KA_NOTIFY_BAD;
     }
 
@@ -157,7 +157,7 @@ STATIC int dms_hccs_init(void)
 }
 DECLAER_FEATURE_AUTO_INIT(dms_hccs_init, FEATURE_LOADER_STAGE_5);
 
-STATIC void dms_hccs_exit(void)
+STATIC void dms_hccs_uninit(void)
 {
     dms_info("dms hccs exit.\n");
     CALL_EXIT_MODULE(DMS_MODULE_HCCS);
@@ -167,4 +167,4 @@ STATIC void dms_hccs_exit(void)
     (void)dms_unregister_notifier(&g_dms_hccs_notifier);
     return;
 }
-DECLAER_FEATURE_AUTO_UNINIT(dms_hccs_exit, FEATURE_LOADER_STAGE_5);
+DECLAER_FEATURE_AUTO_UNINIT(dms_hccs_uninit, FEATURE_LOADER_STAGE_5);

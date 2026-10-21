@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Copyright (c) 2025 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -416,8 +416,7 @@ int poller_destory(POLLER_T *poller)
     return ret;
 }
 
-STATIC int poller_init_entry(POLLER_FDS_T *fds,  short events, POLLER_ENTRY_T **entry,
-    int fd, POLLER_FDS_HNDL_T handler)
+STATIC int poller_init_entry(POLLER_FDS_T *fds, short events, POLLER_ENTRY_T **entry, int fd, POLLER_FDS_HNDL_T handler)
 {
     int ret;
     *entry = (POLLER_ENTRY_T *)malloc(sizeof(POLLER_ENTRY_T));
@@ -454,8 +453,7 @@ static inline void poller_uninit_entry(POLLER_ENTRY_T *entry)
     entry = NULL;
 }
 
-int poller_fd_add(POLLER_T *poller, int fd, short events, POLLER_FDS_HNDL_T handler, void *user_data,
-                  int data_len)
+int poller_fd_add(POLLER_T *poller, int fd, short events, POLLER_FDS_HNDL_T handler, void *user_data, int data_len)
 {
     POLLER_ENTRY_T *entry = NULL;
     POLLER_FDS_T *fds = NULL;
@@ -474,8 +472,8 @@ int poller_fd_add(POLLER_T *poller, int fd, short events, POLLER_FDS_HNDL_T hand
     /* save user's data */
     if ((user_data != NULL) && (data_len > 0)) {
         entry->user_data = malloc((size_t)data_len);
-
         if (entry->user_data == NULL) {
+            DEV_MON_ERR("malloc fail, errno=%d.\n", errno);
             free(entry);
             entry = NULL;
             return ENOMEM;
@@ -489,11 +487,8 @@ int poller_fd_add(POLLER_T *poller, int fd, short events, POLLER_FDS_HNDL_T hand
         }
 
         ret = memmove_s(entry->user_data, (size_t)data_len, user_data, (size_t)data_len);
-        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(entry->user_data);
-                                    entry->user_data = NULL;
-                                    free(entry);
-                                    entry = NULL;
-                                    DEV_MON_ERR("memmove_s error\n"));
+        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(entry->user_data); entry->user_data = NULL; free(entry);
+                                    entry = NULL; DEV_MON_ERR("memmove_s error\n"));
         entry->data_len = data_len;
     }
 
@@ -506,7 +501,7 @@ int poller_fd_add(POLLER_T *poller, int fd, short events, POLLER_FDS_HNDL_T hand
     }
     __poller_send_notice(poller->self_notify_fds[1], NOTICE_POLL_WAKE);
 
-    return 0;  //lint !e429
+    return 0; // lint !e429
 }
 
 int poller_fd_remove(POLLER_T *poller, int fd, short events)
@@ -553,7 +548,6 @@ STATIC int poller_timer_init_entry(POLLER_ENTRY_T **entry, int timeout, POLLER_T
     int ret;
     POLLER_TIMER_T *timer = NULL;
 
-
     *entry = (POLLER_ENTRY_T *)malloc(sizeof(POLLER_ENTRY_T));
     if (*entry == NULL) {
         return ENOMEM;
@@ -579,6 +573,7 @@ int poller_timer_add(POLLER_T *poller, int timeout, POLLER_TIMEDOUT_T handler, v
 {
     POLLER_ENTRY_T *entry = NULL;
     int ret;
+    int errno_tmp;
     uintptr_t tmpptr = 0;
 
     if ((poller == NULL) || (data_len <= 0)) {
@@ -587,14 +582,15 @@ int poller_timer_add(POLLER_T *poller, int timeout, POLLER_TIMEDOUT_T handler, v
 
     ret = poller_timer_init_entry(&entry, timeout, handler);
     if (ret != 0) {
-        DEV_MON_ERR("init poller timer entry fail ret = %d\n", ret);
+        DEV_MON_ERR("init poller timer entry failed. (ret=%d)\n", ret);
         return ret;
     }
     /* save user's data */
     if ((user_data != NULL) && data_len) {
         entry->user_data = malloc((size_t)data_len);
-        DRV_CHECK_RETV_DO_SOMETHING((entry->user_data != NULL), ENOMEM, free(entry);
-                                    entry = NULL);
+        errno_tmp = errno;
+        DRV_CHECK_RETV_DO_SOMETHING((entry->user_data != NULL), ENOMEM, free(entry); entry = NULL;
+                                    DEV_MON_ERR("malloc fail, errno=%d.\n", errno_tmp));
 
         ret = memset_s((void *)entry->user_data, (size_t)data_len, 0, (size_t)data_len);
         if (ret != 0) {
@@ -604,11 +600,8 @@ int poller_timer_add(POLLER_T *poller, int timeout, POLLER_TIMEDOUT_T handler, v
         }
 
         ret = memmove_s(entry->user_data, (size_t)data_len, user_data, (size_t)data_len);
-        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(entry->user_data);
-                                    entry->user_data = NULL;
-                                    free(entry);
-                                    entry = NULL;
-                                    DEV_MON_ERR("memmove_s error\n"));
+        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(entry->user_data); entry->user_data = NULL; free(entry);
+                                    entry = NULL; DEV_MON_ERR("memmove_s error\n"));
         entry->data_len = data_len;
     }
 
@@ -626,7 +619,7 @@ int poller_timer_add(POLLER_T *poller, int timeout, POLLER_TIMEDOUT_T handler, v
         timer_id->id = (unsigned long)tmpptr;
     }
 
-    return 0;  //lint !e593
+    return 0; // lint !e593
 }
 
 int poller_timer_remove(POLLER_T *poller, POLLER_TIMER_ID_T *time_id)
@@ -693,7 +686,8 @@ STATIC void __poller_load_fds(LIST_T *fds_list, struct pollfd **fds, int *nfds, 
             return;
         }
 
-        ret = memset_s((void *)new_space, (unsigned long)(*size) * sizeof(struct pollfd), 0, (unsigned long)(*size) * sizeof(struct pollfd));
+        ret = memset_s((void *)new_space, (unsigned long)(*size) * sizeof(struct pollfd), 0,
+                       (unsigned long)(*size) * sizeof(struct pollfd));
         if (ret != 0) {
             DEV_MON_ERR("memset_s fail. errno=%d.", errno);
             free(new_space);
@@ -879,7 +873,7 @@ int poller_run(POLLER_T *poller)
     thread_attr.priority = 0;
 #else
     thread_attr.policy = SCHED_RR;
-    thread_attr.priority = 60;   // 60 thread priority
+    thread_attr.priority = 60; // 60 thread priority
 #endif
     thread_attr.stackFlag = TRUE;
     thread_attr.stackSize = DEV_MON_ROOT_STACK_SIZE;

@@ -141,8 +141,30 @@ typedef enum tagDrvError {
     DRV_ERROR_TRANS_LINK_ACK_TIMEOUT_ERR = 97,
     DRV_ERROR_CALL_NO_RETRY = 98, /**< Function call error，no need to retry */
     DRV_ERROR_CONNECT = 99,
+
+    /* The error codes below indicate the specific reasons for URMA API*/
+    DRV_ERROR_URMA_INIT_FAIL = 500, /**< urma api init fail*/
+    DRV_ERROR_URMA_NO_RES = 501,    /**< urma api alloc res fail*/
+    DRV_ERROR_URMA_NO_DEVICE = 502, /**< urma device is null*/
+    DRV_ERROR_URMA_OP_FAIL = 503,   /**< urma api return error*/
     DRV_ERROR_NOT_SUPPORT = 0xfffe,
     DRV_ERROR_RESERVED
 } drvError_t; // lint !e116 !e17
+
+#ifndef EUBINITFAIL
+#define EUBINITFAIL 134
+#endif
+
+#ifndef EUBNORES
+#define EUBNORES 135
+#endif
+
+#ifndef EUBNODEV
+#define EUBNODEV 136
+#endif
+
+#ifndef EUBOPFAIL
+#define EUBOPFAIL 137
+#endif
 
 #endif

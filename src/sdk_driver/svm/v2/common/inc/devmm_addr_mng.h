@@ -60,8 +60,8 @@ struct devmm_addr_info *devmm_get_addr_info(struct devmm_mem_node *mem_node, u64
 int devmm_dma_map_page(u32 dev_id, ka_page_t *page, u32 len, struct devmm_mem_node *mem_node,
                        struct devmm_addr_info *addr_info);
 #ifndef UVM_OPEN
-int devmm_dma_map_page_partial(u32 dev_id, ka_page_t *page, u32 offset, u32 len, struct devmm_mem_node *mem_node,
-                               struct devmm_addr_info *addr_info);
+int devmm_dma_map_page_partial(u32 dev_id, ka_page_t *uvm_page, u32 offset, u32 len,
+                               struct devmm_mem_node *uvm_mem_node, struct devmm_addr_info *uvm_addr_info);
 #endif
 void devmm_dma_unmap_page(struct devmm_mem_node *mem_node, struct devmm_addr_info *addr_info);
 void devmm_addr_mng_free_res(struct devmm_addr_mng *addr_mng);

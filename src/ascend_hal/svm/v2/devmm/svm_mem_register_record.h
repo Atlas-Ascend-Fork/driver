@@ -18,15 +18,13 @@ enum mem_register_src_side {
     MEM_REGISTER_MAX_SIDE
 };
 
-void svm_mem_register_record_enable(void);
-
 DVresult svm_mem_register_record_add(uint32_t devid, DVdeviceptr src_ptr, uint64_t size, uint32_t map_type,
-                                     DVdeviceptr dst_ptr);
+                                     DVdeviceptr dst_ptr, uint32_t flag);
 void svm_mem_register_record_del(uint32_t devid, DVdeviceptr src_ptr, uint32_t map_type);
 void svm_mem_register_records_del(uint32_t devid);
 
-DVresult svm_mem_register_record_query(DVdeviceptr src_ptr, uint32_t devid, uint32_t side, uint32_t *map_type,
-                                       DVdeviceptr *dst_ptr);
+DVresult svm_mem_register_record_query(DVdeviceptr src_ptr, uint32_t devid, uint32_t side, DVdeviceptr *dst_ptr,
+                                       uint32_t *flag);
 DVresult svm_mem_register_record_range_query(DVdeviceptr src_ptr, uint32_t devid, uint32_t side, uint32_t *map_type,
                                              DVdeviceptr *dst_ptr);
 DVresult svm_mem_register_record_range_query_single(DVdeviceptr src_ptr, uint32_t devid, uint32_t side,

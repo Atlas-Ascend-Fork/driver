@@ -67,8 +67,8 @@ static int dms_sensor_scan_task(void *arg)
 
     while (!ka_task_kthread_should_stop()) {
         /* Waiting for synchronization semaphore lock */
-        ret = ka_task_wait_event_interruptible_timeout(sys_cb->sensor_scan_wait,
-                                               ka_base_atomic_read(&sys_cb->sensor_scan_task_state) > 0, timeout);
+        ret = ka_task_wait_event_interruptible_timeout(
+            sys_cb->sensor_scan_wait, ka_base_atomic_read(&sys_cb->sensor_scan_task_state) > 0, timeout);
         if (ret == 0) {
             /* wait event timeout */
             ret = -ETIMEDOUT;
@@ -93,7 +93,8 @@ static int dms_sensor_scan_task(void *arg)
         dms_sensor_notify_event_proc(DMS_SERSOR_SCAN_NOTIFY);
         /* if exceeded scan time, need to go on scan all */
         if (ka_system_msecs_to_jiffies(dms_get_time_change_ms(time_notify_start, time_notify_end)) < default_timeout) {
-            timeout = default_timeout - ka_system_msecs_to_jiffies(dms_get_time_change_ms(time_notify_start, time_notify_end));
+            timeout = default_timeout -
+                      ka_system_msecs_to_jiffies(dms_get_time_change_ms(time_notify_start, time_notify_end));
             if ((ret != -ETIMEDOUT) && (ka_base_atomic_read(&sys_cb->sensor_scan_task_state) > 0)) {
                 ka_base_atomic_dec(&sys_cb->sensor_scan_task_state);
             }
@@ -106,8 +107,8 @@ static int dms_sensor_scan_task(void *arg)
             }
         }
         if ((ret != -ETIMEDOUT) && (ka_base_atomic_read(&sys_cb->sensor_scan_task_state) > 0)) {
-                ka_base_atomic_dec(&sys_cb->sensor_scan_task_state);
-            }
+            ka_base_atomic_dec(&sys_cb->sensor_scan_task_state);
+        }
         timeout = default_timeout;
         dms_sensor_notify_count_clear();
         time_notify_start = ka_system_ktime_get();
@@ -199,9 +200,12 @@ static unsigned int dms_sensor_task_exit(void)
 
 void dms_sensor_init(void)
 {
+    unsigned int ret;
+
     CALL_INIT_MODULE(DMS_SENSOR_CMD_NAME);
-    if (dms_sen_init_sensor() != (unsigned int)DRV_ERROR_NONE) {
-        dms_err("dms_sensor_init.\n");
+    ret = dms_sen_init_sensor();
+    if (ret != (unsigned int)DRV_ERROR_NONE) {
+        dms_err("dms_sensor_init failed. (ret=%u)\n", ret);
     }
     (void)dms_mgnt_clockid_init();
     dms_sensor_notify_init();
@@ -240,29 +244,30 @@ int dms_sensor_inject_fault(void *feature, char *in, u32 in_len, char *out, u32 
     if (dev_cb == NULL) {
         return -ENODEV;
     }
-    node = dms_get_devnode_cb(info.device_id, info.node_type, info.node_id);
+    ka_task_mutex_lock(&dev_cb->node_lock);
+    node = dms_get_devnode_cb_nolock(info.device_id, info.node_type, info.node_id);
     if (node == NULL) {
-        dms_err("Node not found. (device=%u; node_type=%u; node_id=%u; fault_index=%u)\n",
-            info.device_id, info.node_type, info.node_id, info.fault_index);
+        ka_task_mutex_unlock(&dev_cb->node_lock);
+        dms_err("Node not found. (device=%u; node_type=%u; node_id=%u; fault_index=%u)\n", info.device_id,
+                info.node_type, info.node_id, info.fault_index);
         return -EINVAL;
     }
-    ka_task_mutex_lock(&dev_cb->node_lock);
     if ((node->ops == NULL) || (node->ops->fault_inject == NULL)) {
-        dms_err("Invalid parameter. (option=%s; fault_inject=NULL)\n", (node->ops == NULL) ? "NULL" : "OK");
         ka_task_mutex_unlock(&dev_cb->node_lock);
+        dms_err("Invalid parameter. (option=%s; fault_inject=NULL)\n", (node->ops == NULL) ? "NULL" : "OK");
         return -EINVAL;
     }
 
     ret = node->ops->fault_inject(info);
     if (ret != 0) {
-        dms_err("Fault inject failed. (device=%u; node=%u,%u,%u,%u; fault_index=%u; ret=%d)\n",
-            info.device_id, info.node_type, info.node_id, info.sub_node_type, info.sub_node_id, info.fault_index, ret);
         ka_task_mutex_unlock(&dev_cb->node_lock);
+        dms_err("Fault inject failed. (device=%u; node=%u,%u,%u,%u; fault_index=%u; ret=%d)\n", info.device_id,
+                info.node_type, info.node_id, info.sub_node_type, info.sub_node_id, info.fault_index, ret);
         return ret;
     }
     ka_task_mutex_unlock(&dev_cb->node_lock);
-    dms_event("Fault inject ok. (device:%u; node=%u,%u,%u,%u; fault_index=%u)\n",
-        info.device_id, info.node_type, info.node_id, info.sub_node_type, info.sub_node_id, info.fault_index);
+    dms_event("Fault inject ok. (device:%u; node=%u,%u,%u,%u; fault_index=%u)\n", info.device_id, info.node_type,
+              info.node_id, info.sub_node_type, info.sub_node_id, info.fault_index);
     return 0;
 }
 
@@ -275,7 +280,7 @@ STATIC int dms_sensor_check_param_valid(char *in, u32 in_len, char *out, u32 out
     if ((in == NULL) || (in_len != sizeof(unsigned int)) || (out == NULL) || (out_num == 0) ||
         (out_num > FAULT_INJECT_INFO_NUM_MAX)) {
         dms_err("Invalid parameter. (in=%s; in_length=%u; out=%s; out_length=%u; out_num=%u)\n",
-            (in == NULL) ? "NULL" : "OK", in_len, (out == NULL) ? "NULL" : "OK", out_len, out_num);
+                (in == NULL) ? "NULL" : "OK", in_len, (out == NULL) ? "NULL" : "OK", out_len, out_num);
         return -EINVAL;
     }
     return 0;
@@ -298,7 +303,7 @@ STATIC int dms_sensor_get_info_of_node(struct dms_dev_ctrl_block *dev_cb, dms_fa
 
     /* 2 malloc a tmp buf for driver to put their info, rather than operate the out_arr directly */
     drv_buf = (dms_fault_inject_t *)dbl_kzalloc(sizeof(dms_fault_inject_t) * FAULT_INJECT_INFO_NUM_MAX,
-                                            KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+                                                KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (drv_buf == NULL) {
         dms_err("Malloc memory fail.\n");
         return -EINVAL;
@@ -324,12 +329,12 @@ STATIC int dms_sensor_get_info_of_node(struct dms_dev_ctrl_block *dev_cb, dms_fa
             }
             for (drv_index = 0; ((drv_index < drv_info_num) && (out_index < out_num)); (drv_index++, out_index++)) {
                 dms_info("Get info. (index=%u; device=%u; node=%u,%u,%u,%u; fault=%u; event=0x%08X; reserve=%u,%u)\n",
-                    out_index, drv_buf[drv_index].device_id, drv_buf[drv_index].node_type,
-                    drv_buf[drv_index].node_id, drv_buf[drv_index].sub_node_type,
-                    drv_buf[drv_index].sub_node_id, drv_buf[drv_index].fault_index,
-                    drv_buf[drv_index].event_id, drv_buf[drv_index].reserve1, drv_buf[drv_index].reserve2);
-                (void)memcpy_s(&(out_arr[out_index]), sizeof(dms_fault_inject_t),
-                    &(drv_buf[drv_index]), sizeof(dms_fault_inject_t));
+                         out_index, drv_buf[drv_index].device_id, drv_buf[drv_index].node_type,
+                         drv_buf[drv_index].node_id, drv_buf[drv_index].sub_node_type, drv_buf[drv_index].sub_node_id,
+                         drv_buf[drv_index].fault_index, drv_buf[drv_index].event_id, drv_buf[drv_index].reserve1,
+                         drv_buf[drv_index].reserve2);
+                (void)memcpy_s(&(out_arr[out_index]), sizeof(dms_fault_inject_t), &(drv_buf[drv_index]),
+                               sizeof(dms_fault_inject_t));
             }
         }
     }

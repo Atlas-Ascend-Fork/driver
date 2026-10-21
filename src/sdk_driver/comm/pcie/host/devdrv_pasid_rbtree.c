@@ -12,22 +12,22 @@
  */
 
 #include "pbl/pbl_uda.h"
+#include "devdrv_ctrl.h"
 #include "devdrv_pasid_rbtree.h"
 #include "devdrv_mem_alloc.h"
-#include "devdrv_ctrl.h"
 #include "devdrv_util.h"
 
 #define DEVDRV_NON_TRANS_MSG_SVA_DESC_SIZE 0x400
-struct devdrv_dma_pasid_rbtree_ctrl g_pasid_rbtree[MAX_DEV_CNT];
+struct devdrv_dma_pasid_rbtree_ctrl g_pasid_rbtree[MAX_DEV_CNT] = {0};
 
-STATIC int devdrv_dma_pasid_node_insert(ka_task_spinlock_t *lock, ka_rb_root_t *root,
+STATIC int devdrv_dma_pasid_node_insert(ka_rwlock_t *lock, ka_rb_root_t *root,
                                         struct devdrv_dma_pasid_rbtree_node *dma_pasid_node)
 {
-    ka_rb_node_t *parent = NULL;
     ka_rb_node_t **new_node = NULL;
+    ka_rb_node_t *parent = NULL;
     u64 new_node_hash, tree_hash;
 
-    ka_task_spin_lock_bh(lock);
+    ka_task_write_lock(lock);
     new_node = ka_base_get_rb_root_node_addr(root);
     new_node_hash = dma_pasid_node->hash_va;
 
@@ -43,7 +43,7 @@ STATIC int devdrv_dma_pasid_node_insert(ka_task_spinlock_t *lock, ka_rb_root_t *
         } else if (new_node_hash > tree_hash) {
             new_node = &((*new_node)->rb_right);
         } else {
-            ka_task_spin_unlock_bh(lock);
+            ka_task_write_unlock(lock);
             return -EEXIST; // Node already exists
         }
     }
@@ -52,12 +52,12 @@ STATIC int devdrv_dma_pasid_node_insert(ka_task_spinlock_t *lock, ka_rb_root_t *
     ka_base_rb_link_node(&dma_pasid_node->node, parent, new_node);
     ka_base_rb_insert_color(&dma_pasid_node->node, root);
 
-    ka_task_spin_unlock_bh(lock);
+    ka_task_write_unlock(lock);
 
     return 0;
 }
 
-STATIC struct devdrv_dma_pasid_rbtree_node *devdrv_dma_pasid_node_search(ka_task_spinlock_t *lock, ka_rb_root_t *root,
+STATIC struct devdrv_dma_pasid_rbtree_node *devdrv_dma_pasid_node_search(ka_rwlock_t *lock, ka_rb_root_t *root,
                                                                          u64 hash_va)
 {
     u64 tree_hash;
@@ -65,10 +65,9 @@ STATIC struct devdrv_dma_pasid_rbtree_node *devdrv_dma_pasid_node_search(ka_task
     struct devdrv_dma_pasid_rbtree_node *dma_pasid_node = NULL;
 
     if (lock != NULL) {
-        ka_task_spin_lock_bh(lock);
+        ka_task_read_lock(lock);
     }
     node = ka_base_get_rb_root_node(root);
-    ;
     while (node != NULL) {
         dma_pasid_node = ka_base_rb_entry(node, struct devdrv_dma_pasid_rbtree_node, node);
         tree_hash = dma_pasid_node->hash_va;
@@ -79,28 +78,28 @@ STATIC struct devdrv_dma_pasid_rbtree_node *devdrv_dma_pasid_node_search(ka_task
             node = node->rb_right;
         } else {
             if (lock != NULL) {
-                ka_task_spin_unlock_bh(lock);
+                ka_task_read_unlock(lock);
             }
             return dma_pasid_node;
         }
     }
 
     if (lock != NULL) {
-        ka_task_spin_unlock_bh(lock);
+        ka_task_read_unlock(lock);
     }
     return NULL;
 }
 
-STATIC void devdrv_dma_pasid_node_erase(ka_task_spinlock_t *lock, ka_rb_root_t *root,
+STATIC void devdrv_dma_pasid_node_erase(ka_rwlock_t *lock, ka_rb_root_t *root,
                                         struct devdrv_dma_pasid_rbtree_node *dma_pasid_node)
 {
     // Erase may run with other processes under a lock or alone; thus, the lock can be null for easier combination.
     if (lock != NULL) {
-        ka_task_spin_lock_bh(lock);
+        ka_task_write_lock(lock);
     }
     ka_base_rb_erase(&dma_pasid_node->node, root);
     if (lock != NULL) {
-        ka_task_spin_unlock_bh(lock);
+        ka_task_write_unlock(lock);
     }
 }
 
@@ -145,16 +144,16 @@ STATIC int devdrv_pasid_rbtree_del(u32 dev_id, u64 pasid)
 
     // Erase node from local tree
     tree = &g_pasid_rbtree[dev_id];
-    ka_task_spin_lock_bh(&tree->rb_lock);
+    ka_task_write_lock(&tree->rb_lock);
     dma_pasid_node = devdrv_dma_pasid_node_search(NULL, &tree->rbtree, pasid);
     if (dma_pasid_node == NULL) {
-        ka_task_spin_unlock_bh(&tree->rb_lock);
+        ka_task_write_unlock(&tree->rb_lock);
         devdrv_err("Pasid is not in rbtree.(dev_id=%u; pasid=%llu)\n", dev_id, pasid);
         return -ENOENT; // Can not find node
     }
 
     devdrv_dma_pasid_node_erase(NULL, &tree->rbtree, dma_pasid_node);
-    ka_task_spin_unlock_bh(&tree->rb_lock);
+    ka_task_write_unlock(&tree->rb_lock);
     devdrv_kfree(dma_pasid_node);
     return 0;
 }
@@ -176,8 +175,7 @@ STATIC int devdrv_pasid_msg_edge_check(u32 devid, void *data, u32 in_data_len, u
 
     recv_msg = (struct devdrv_pasid_msg *)data;
     if ((recv_msg->op_code >= (u32)DEVDRV_PASID_MAX) || (recv_msg->dev_id >= MAX_DEV_CNT)) {
-        devdrv_err("Pasid message channel recv message op_code or devid error.(dev_id=%u; msg_type=%u; msg_devid=%u;)"
-                   ")\n",
+        devdrv_err("Pasid message channel recv message op_code or devid error.(dev_id=%u; msg_type=%u; msg_devid=%u)\n",
                    devid, recv_msg->op_code, recv_msg->dev_id);
         return -EINVAL;
     }
@@ -200,7 +198,12 @@ STATIC int devdrv_pasid_non_trans_msg_recv(void *msg_chan, void *data, u32 in_da
     *real_out_len = sizeof(struct devdrv_pasid_msg);
     recv_msg = (struct devdrv_pasid_msg *)data;
     op_code = recv_msg->op_code;
-    (void)uda_udevid_to_add_id(recv_msg->dev_id, &index_id);
+
+    ret = uda_udevid_to_add_id(recv_msg->dev_id, &index_id);
+    if (ret != 0) {
+        devdrv_err("Devid to index_id failed.(dev_id=%u; index_id=%u)\n", recv_msg->dev_id, index_id);
+        return -EINVAL;
+    }
     if (op_code == DEVDRV_PASID_ADD) {
         ret = devdrv_pasid_rbtree_add(index_id, recv_msg->hash_va);
         if (ret != 0) {
@@ -224,17 +227,17 @@ STATIC void devdrv_pasid_rbtree_clear(u32 dev_id)
     ka_rb_node_t *node = NULL;
 
     tree = &g_pasid_rbtree[dev_id];
-    ka_task_spin_lock_bh(&tree->rb_lock);
+    ka_task_write_lock(&tree->rb_lock);
 
     while ((node = ka_base_rb_first(&tree->rbtree)) != NULL) {
         dma_pasid_node = ka_base_rb_entry(node, struct devdrv_dma_pasid_rbtree_node, node);
         devdrv_dma_pasid_node_erase(NULL, &tree->rbtree, dma_pasid_node);
-        ka_task_spin_unlock_bh(&tree->rb_lock);
+        ka_task_write_unlock(&tree->rb_lock);
         devdrv_kfree(dma_pasid_node);
-        ka_task_spin_lock_bh(&tree->rb_lock);
+        ka_task_write_lock(&tree->rb_lock);
     }
 
-    ka_task_spin_unlock_bh(&tree->rb_lock);
+    ka_task_write_unlock(&tree->rb_lock);
 
     return;
 }
@@ -248,11 +251,11 @@ STATIC struct devdrv_non_trans_msg_chan_info devdrv_pasid_non_trans_msg_chan_inf
     .rx_msg_process = devdrv_pasid_non_trans_msg_recv,
 };
 
-bool devdrv_dma_pasid_valid_check(u32 dev_id, u64 pasid, int env_boot_mode)
+bool devdrv_dma_pasid_valid_check(u32 dev_id, u64 pasid)
 {
-    struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_dma_pasid_rbtree_node *dma_pasid_node = NULL;
     struct devdrv_dma_pasid_rbtree_ctrl *tree = NULL;
+    struct devdrv_pci_ctrl *pci_ctrl = NULL;
 
     if (dev_id >= MAX_DEV_CNT) {
         devdrv_err_spinlock("Invalid dev_id.(dev_id=%u)\n", dev_id);
@@ -261,15 +264,11 @@ bool devdrv_dma_pasid_valid_check(u32 dev_id, u64 pasid, int env_boot_mode)
 
     pci_ctrl = devdrv_get_top_half_pci_ctrl_by_id(dev_id);
     if (pci_ctrl == NULL) {
-        devdrv_err("Get pci_ctrl failed. (devid=%u)\n", dev_id);
+        devdrv_err_spinlock("Get pci_ctrl failed. (devid=%u)\n", dev_id);
         return false;
     }
 
     if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_DMA_COPY_SVA)) {
-        return true;
-    }
-
-    if ((env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT) || (env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT)) {
         return true;
     }
 
@@ -289,7 +288,7 @@ void devdrv_pasid_rbtree_init(struct devdrv_pci_ctrl *pci_ctrl)
         return;
     }
     g_pasid_rbtree[pci_ctrl->dev_id].rbtree = KA_RB_ROOT;
-    ka_task_spin_lock_init(&g_pasid_rbtree[pci_ctrl->dev_id].rb_lock);
+    ka_task_rwlock_init(&g_pasid_rbtree[pci_ctrl->dev_id].rb_lock);
 }
 
 void devdrv_pasid_rbtree_uninit(struct devdrv_pci_ctrl *pci_ctrl)
@@ -337,7 +336,7 @@ void devdrv_pasid_non_trans_uninit(struct devdrv_pci_ctrl *pci_ctrl)
 
     ret = devdrv_pcimsg_free_non_trans_queue_inner((void *)g_pasid_rbtree[pci_ctrl->dev_id].msg_chan);
     if (ret != 0) {
-        devdrv_info("No need to free common msg_queue. (dev_id=%u; ret=%d)\n", pci_ctrl->dev_id, ret);
+        devdrv_info("No need to free common msg_queue. (dev_id=%u;ret=%d)\n", pci_ctrl->dev_id, ret);
     }
 
     g_pasid_rbtree[pci_ctrl->dev_id].msg_chan = NULL;

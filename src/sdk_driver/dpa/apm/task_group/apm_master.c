@@ -15,6 +15,7 @@
 #include "ka_list_pub.h"
 #include "ka_memory_pub.h"
 #include "ka_task_pub.h"
+#include "pbl/pbl_uda.h"
 
 #include "apm_master.h"
 #include "apm_slab.h"
@@ -38,6 +39,7 @@ struct slave_op_para {
     int proc_type;
     int slave_tgid;
     int val;
+    int local_flag;
     void *priv;
 };
 
@@ -145,7 +147,7 @@ static int apm_master_ctx_add_slave(struct task_ctx *ctx, void *priv)
 
     if (m_ctx->master_exit_stage != 0) {
 #ifndef EMU_ST
-        apm_err("Master in exit stage, does not support. (master_pid=%d)\n", m_ctx->master_pid);
+        apm_debug("Master in exit stage, not supported. (master_pid=%d)\n", m_ctx->master_pid);
         return -EOPNOTSUPP;
 #endif
     }
@@ -157,7 +159,7 @@ static int apm_master_ctx_add_slave(struct task_ctx *ctx, void *priv)
 
     if (para->proc_type == PROCESS_USER) {
         if (m_ctx->user_slave_num >= MAX_USER_SLAVE_NUM) {
-            apm_err("Process user slave count exceeds limit. (count=%u; max=%u; master_pid=%d; slave_pid=%d)\n",
+            apm_err("Process user slave count exceed limit. (count=%u; max=%u; master_pid=%d; slave_pid=%d)\n",
                     m_ctx->user_slave_num, MAX_USER_SLAVE_NUM, para->master_pid, para->slave_pid);
             return -EINVAL;
         }
@@ -185,6 +187,13 @@ static int apm_master_ctx_add_slave(struct task_ctx *ctx, void *priv)
         }
     } else {
         struct master_slave_info *slave_info = NULL;
+
+        if (para->devid >= uda_get_udev_max_num()) {
+            apm_err("Invalid udevid. (proc_type=%d; master_pid=%d; slave_pid=%d; devid=%u)\n", para->proc_type,
+                    para->master_pid, para->slave_pid, para->devid);
+            return -EINVAL;
+        }
+
         if (m_ctx->dev_ctx[para->devid].valid == 0) {
             apm_err("Bind invalid udevid. (proc_type=%d; master_pid=%d; slave_pid=%d; devid=%u)\n", para->proc_type,
                     para->master_pid, para->slave_pid, para->devid);
@@ -194,8 +203,8 @@ static int apm_master_ctx_add_slave(struct task_ctx *ctx, void *priv)
         if (para->proc_type == PROCESS_CP2) {
             slave_info = &m_ctx->dev_ctx[para->devid].slave_info[PROCESS_CP1];
             if (slave_info->valid == 0) {
-                apm_err("Bind custom cp, cp is not bound. (proc_type=%d; master_pid=%d; slave_pid=%d)\n",
-                        para->proc_type, para->master_pid, para->slave_pid);
+                apm_err("Bind custom cp, cp not bind. (proc_type=%d; master_pid=%d; slave_pid=%d)\n", para->proc_type,
+                        para->master_pid, para->slave_pid);
                 return -EINVAL;
             }
         }
@@ -238,14 +247,19 @@ static inline bool apm_is_find_slave_node_in_all_stage(enum apm_slave_op_type op
 }
 
 /* slave_tgid = 0, not match slave_tgid for query slave tgid */
+/* local_flag = -1, match all local_flag */
 static struct master_slave_node *apm_find_slave_node(struct master_ctx *m_ctx, u32 udevid, int proc_type,
-                                                     int slave_tgid, bool find_in_all_stage)
+                                                     int slave_tgid, bool find_in_all_stage, int local_flag)
 {
     struct master_slave_node *slave_node = NULL;
 
     ka_list_for_each_entry(slave_node, &m_ctx->head, node)
     {
         if ((!find_in_all_stage) && (slave_node->info.exit_stage != 0)) {
+            continue;
+        }
+
+        if ((local_flag != -1) && (slave_node->info.local_flag != local_flag)) {
             continue;
         }
 
@@ -273,7 +287,7 @@ static int apm_master_ctx_del_slave(struct task_ctx *ctx, void *priv)
 
     if (apm_is_surport_multi_slave(para->proc_type)) {
         struct master_slave_node *slave_node = apm_find_slave_node(m_ctx, para->devid, para->proc_type, cfg->slave_tgid,
-                                                                   true);
+                                                                   true, cfg->local_flag);
         if (slave_node == NULL) {
             apm_warn("Slave node not find. (udevid=%u; proc_type=%d; master_pid=%d; slave_tgid=%d)\n", para->devid,
                      para->proc_type, para->master_pid, cfg->slave_tgid);
@@ -286,8 +300,14 @@ static int apm_master_ctx_del_slave(struct task_ctx *ctx, void *priv)
         ka_list_del(&slave_node->node);
         apm_kfree(slave_node);
     } else {
-        struct master_slave_info *slave_info = &m_ctx->dev_ctx[para->devid].slave_info[para->proc_type];
+        struct master_slave_info *slave_info = NULL;
+        if (para->devid >= uda_get_udev_max_num()) {
+            apm_warn("Invalid udevid. (udevid=%u; proc_type=%d; master_pid=%d; slave_tgid=%d)\n", para->devid,
+                     para->proc_type, para->master_pid, cfg->slave_tgid);
+            return -EINVAL;
+        }
 
+        slave_info = &m_ctx->dev_ctx[para->devid].slave_info[para->proc_type];
         if ((m_ctx->dev_ctx[para->devid].valid == 0) || (slave_info->valid == 0)) {
             apm_warn("Slave not add. (udevid=%u; proc_type=%d; master_pid=%d; slave_tgid=%d)\n", para->devid,
                      para->proc_type, para->master_pid, cfg->slave_tgid);
@@ -306,11 +326,13 @@ static int apm_master_ctx_del_slave(struct task_ctx *ctx, void *priv)
     return 0;
 }
 
-int apm_master_del_slave(struct task_ctx_domain *domain, int master_tgid, int slave_tgid, struct apm_cmd_bind *para)
+int apm_master_del_slave(struct task_ctx_domain *domain, int master_tgid, int slave_tgid, int local_flag,
+                         struct apm_cmd_bind *para)
 {
     struct apm_task_group_cfg cfg;
 
     apm_fill_task_group_cfg(&cfg, master_tgid, slave_tgid, para);
+    cfg.local_flag = local_flag;
     return task_ctx_lock_call_func_non_block(domain, master_tgid, apm_master_ctx_del_slave, (void *)&cfg);
 }
 
@@ -322,6 +344,7 @@ static void apm_fill_slave_op_para(struct slave_op_para *para, int op_type, u32 
     para->slave_tgid = slave_tgid;
     para->val = val;
     para->priv = NULL;
+    para->local_flag = -1;
 }
 
 static void apm_master_ctx_signle_slave_show(struct master_slave_info *slave_info, struct slave_op_para *para)
@@ -426,7 +449,8 @@ static int apm_master_ctx_slave_op_by_tgid(struct task_ctx *ctx, void *priv)
 {
     struct master_ctx *m_ctx = (struct master_ctx *)ctx->priv;
     struct slave_op_para *para = (struct slave_op_para *)priv;
-    struct master_slave_node *slave_node = apm_find_slave_node(m_ctx, para->udevid, 0, para->slave_tgid, true);
+    struct master_slave_node *slave_node = apm_find_slave_node(m_ctx, para->udevid, 0, para->slave_tgid, true,
+                                                               para->local_flag);
     if (slave_node != NULL) {
         para->proc_type = slave_node->proc_type;
         (void)apm_master_ctx_signle_slave_op(&slave_node->info, para);
@@ -437,7 +461,8 @@ static int apm_master_ctx_slave_op_by_tgid(struct task_ctx *ctx, void *priv)
         for (proc_type = 0; proc_type < APM_PROC_TYPE_NUM; proc_type++) {
             struct master_slave_info *slave_info = &m_ctx->dev_ctx[para->udevid].slave_info[proc_type];
             /* one tgid may have multi proc type */
-            if (slave_info->slave_tgid == para->slave_tgid) {
+            if ((slave_info->slave_tgid == para->slave_tgid) &&
+                ((para->local_flag == -1) || (para->local_flag == slave_info->local_flag))) {
                 para->proc_type = proc_type;
                 (void)apm_master_ctx_signle_slave_op(slave_info, para);
             }
@@ -454,8 +479,8 @@ static int apm_master_ctx_slave_op_by_proc_type(struct task_ctx *ctx, void *priv
     int ret = -EINVAL;
 
     if (apm_is_surport_multi_slave(para->proc_type)) {
-        struct master_slave_node *slave_node = apm_find_slave_node(m_ctx, para->udevid, para->proc_type, 0,
-                                                                   apm_is_find_slave_node_in_all_stage(para->op_type));
+        struct master_slave_node *slave_node = apm_find_slave_node(
+            m_ctx, para->udevid, para->proc_type, 0, apm_is_find_slave_node_in_all_stage(para->op_type), -1);
         ret = (slave_node != NULL) ? apm_master_ctx_signle_slave_op(&slave_node->info, para) : -ESRCH;
     } else {
         struct master_slave_info *slave_info = &m_ctx->dev_ctx[para->udevid].slave_info[para->proc_type];
@@ -580,11 +605,12 @@ int apm_master_get_exit_stage(struct task_ctx_domain *domain, int master_tgid, i
 }
 
 int apm_master_set_slave_exit_stage(struct task_ctx_domain *domain, int master_tgid, u32 udevid, int slave_tgid,
-                                    int stage)
+                                    int stage, int local_flag)
 {
     struct slave_op_para para;
 
     apm_fill_slave_op_para(&para, SLAVE_OP_SET_EXIT_STAGE, udevid, slave_tgid, stage);
+    para.local_flag = local_flag;
     return task_ctx_lock_call_func_non_block(domain, master_tgid, apm_master_ctx_slave_op_by_tgid, (void *)&para);
 }
 
@@ -603,11 +629,12 @@ int apm_master_get_all_slave_exit_stage(struct task_ctx_domain *domain, int mast
 }
 
 int apm_master_set_slave_oom_status(struct task_ctx_domain *domain, int master_tgid, u32 udevid, int slave_tgid,
-                                    int oom_status)
+                                    int oom_status, int local_flag)
 {
     struct slave_op_para para;
 
     apm_fill_slave_op_para(&para, SLAVE_OP_SET_OOM_STATUS, udevid, slave_tgid, oom_status);
+    para.local_flag = local_flag;
     return task_ctx_lock_call_func_non_block(domain, master_tgid, apm_master_ctx_slave_op_by_tgid, (void *)&para);
 }
 
@@ -719,4 +746,35 @@ int apm_master_inc_ref(struct task_ctx_domain *domain, int master_tgid, u32 udev
 int apm_master_dec_ref(struct task_ctx_domain *domain, int master_tgid, u32 udevid)
 {
     return task_ctx_lock_call_func_non_block(domain, master_tgid, apm_master_ctx_dec_ref, (void *)(uintptr_t)udevid);
+}
+
+static int apm_master_check_is_bind_slave(struct task_ctx *ctx, void *priv)
+{
+    struct master_ctx *m_ctx = (struct master_ctx *)ctx->priv;
+    u32 udevid = (u32)(uintptr_t)priv;
+    struct master_slave_node *slave_node = NULL;
+
+    ka_task_spin_lock_bh(&ctx->lock);
+    if (m_ctx->dev_ctx[udevid].num != 0) {
+        ka_task_spin_unlock_bh(&ctx->lock);
+        return -EEXIST;
+    }
+
+    ka_list_for_each_entry(slave_node, &m_ctx->head, node)
+    {
+        if ((slave_node->udevid == udevid) || (slave_node->udevid == UDA_INVALID_UDEVID)) {
+            ka_task_spin_unlock_bh(&ctx->lock);
+            return -EEXIST;
+        }
+    }
+    ka_task_spin_unlock_bh(&ctx->lock);
+
+    return 0;
+}
+
+int apm_master_check_all_master_is_bind_slave(struct task_ctx_domain *domain, u32 udevid)
+{
+    void *para = ((void *)(uintptr_t)udevid);
+
+    return task_ctx_for_each_safe_ex(domain, para, apm_master_check_is_bind_slave, true);
 }

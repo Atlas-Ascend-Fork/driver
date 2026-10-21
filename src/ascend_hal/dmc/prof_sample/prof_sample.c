@@ -11,18 +11,16 @@
 #include "ascend_hal.h"
 #include "ascend_inpackage_hal.h"
 #include "prof_common.h"
-#include "prof_sample_ts_channel.h"
 #include "prof_sample_aicpu_channel.h"
 #include "dms/dms_devdrv_info_comm.h"
 
 typedef int (*prof_sample_register_func)(unsigned int);
 
-static prof_sample_register_func g_prof_sample_info[] = {register_soc_log_channel, register_acc_profile_channel,
-                                                         register_aicpu_channel, register_cus_aicpu_channel};
+static prof_sample_register_func g_prof_sample_info[] = {register_aicpu_channel, register_cus_aicpu_channel};
 
 static void __attribute__((constructor)) halProfInit(void)
 {
-    unsigned long long i;
+    unsigned int i;
     int ret;
     unsigned int split_mode = 0;
     unsigned int devid;
@@ -42,7 +40,7 @@ static void __attribute__((constructor)) halProfInit(void)
         for (devid = 0; devid < DEV_NUM; devid++) {
             ret = g_prof_sample_info[i](devid);
             if (ret != 0) {
-                PROF_ERR("register failed. (devid=%d, i=%u, ret=%d)\n", devid, i, ret);
+                PROF_ERR("register failed. (devid=%u, i=%u, ret=%d)\n", devid, i, ret);
             }
         }
     }

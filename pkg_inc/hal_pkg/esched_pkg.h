@@ -43,6 +43,8 @@ typedef enum esched_query_type {
     QUERY_TYPE_MAX
 } ESCHED_QUERY_TYPE;
 
+#define ESCHED_QUERY_TYPE_NAME "ESCHED_QUERY_TYPE"
+
 struct esched_input_info {
     void *inBuff;
     unsigned int inLen;

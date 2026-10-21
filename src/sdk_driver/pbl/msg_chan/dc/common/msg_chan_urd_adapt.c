@@ -130,6 +130,9 @@ int devdrv_get_device_probe_list_urd(void *feature, char *in, u32 in_len, char *
         ret = uda_get_cur_ns_udevids(probe_devinfo->devids, ASCEND_DEV_MAX_NUM);
         if (ret != 0) {
             devdrv_err("Docker get device probe list failed. (ret=%d)\n", ret);
+        } else {
+            (void)memcpy_s((void *)out, sizeof(struct urd_probe_dev_info), probe_devinfo,
+                           sizeof(struct urd_probe_dev_info));
         }
         goto ret_out;
     }

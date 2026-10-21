@@ -19,17 +19,17 @@
 #include "errno.h"
 
 #ifndef __linux
-    #pragma comment(lib, "libc_sec.lib")
-    #define PTHREAD_MUTEX_INITIALIZER NULL
-    #define fd_is_invalid(fd) (fd == (mmProcess)DEVDRV_INVALID_FD_OR_INDEX)
+#pragma comment(lib, "libc_sec.lib")
+#define PTHREAD_MUTEX_INITIALIZER NULL
+#define fd_is_invalid(fd) (fd == (mmProcess)DEVDRV_INVALID_FD_OR_INDEX)
 #else
-    #include <errno.h>
-    #include <stdio.h>
-    #include <sys/types.h>
-    #include <stdlib.h>
-    #include <sys/ioctl.h>
-    #include <fcntl.h>
-    #define fd_is_invalid(fd) ((fd) < 0)
+#include <errno.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <sys/ioctl.h>
+#include <fcntl.h>
+#define fd_is_invalid(fd) ((fd) < 0)
 #endif
 
 #ifdef STATIC_SKIP
@@ -138,7 +138,7 @@ mmProcess devdrv_open_device_manager(void)
     }
 
 #ifdef __linux
-    fd = mmOpen2(davinci_intf_get_dev_path(), M_RDWR|O_CLOEXEC, M_IRUSR);
+    fd = mmOpen2(davinci_intf_get_dev_path(), M_RDWR | O_CLOEXEC, M_IRUSR);
     err = (__errno_location() != NULL ? errno : 0);
     ret = devmng_ioctl_open(fd);
     dmanage_share_log_create();

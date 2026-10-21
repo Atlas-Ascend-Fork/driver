@@ -21,7 +21,7 @@ typedef struct hccs_info_struct {
     unsigned char reserved[DMS_HCCS_INFO_RESERVED_BYTES];
 } hccs_info_t;
 
-#define DMS_HCCS_MAX_PCS_NUM        (16)
+#define DMS_HCCS_MAX_PCS_NUM (16)
 typedef struct hccs_port_lane_details {
     unsigned int hccs_port_pcs_bitmap;
     unsigned int pcs_lane_bitmap[DMS_HCCS_MAX_PCS_NUM];
@@ -55,8 +55,10 @@ typedef struct hpcs_status_reg {
 
 int dms_get_hccs_status_by_dev_id(unsigned int dev_id, hccs_info_t *hccs_status);
 int dms_get_hccs_lane_details(unsigned int dev_id, hccs_lane_info_t *hccs_lane_info);
-int dms_get_hpcs_status_by_dev_id(unsigned int dev_id, unsigned long long pcs_bitmap, unsigned long long phy_addr_offset, hccs_info_t *hccs_status);
-int dms_get_hdlc_status_by_dev_id(unsigned int dev_id, unsigned long long pcs_bitmap, unsigned long long phy_addr_offset, hccs_info_t *hccs_status);
+int dms_get_hpcs_status_by_dev_id(unsigned int dev_id, unsigned long long pcs_bitmap,
+                                  unsigned long long phy_addr_offset, hccs_info_t *hccs_status);
+int dms_get_hdlc_status_by_dev_id(unsigned int dev_id, unsigned long long pcs_bitmap,
+                                  unsigned long long phy_addr_offset, hccs_info_t *hccs_status);
 
 #ifdef CFG_FEATURE_GET_PCS_BITMAP_BY_BOARD_TYPE
 int dms_get_hpcs_bitmap_by_board_type(unsigned int dev_id, unsigned long long *bitmap);

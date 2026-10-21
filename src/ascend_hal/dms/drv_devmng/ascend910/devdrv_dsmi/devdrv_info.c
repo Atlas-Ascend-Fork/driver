@@ -33,7 +33,6 @@
 #include "dms/dms_drv_internal.h"
 #include "dsmi_common_interface.h"
 #include "devmng_user_common.h"
-#include "user_cfg_public.h"
 #include "dms/dms_misc_interface.h"
 #ifdef DRV_HOST
 #include "devdrv_host_flush_cache.h"
@@ -56,7 +55,6 @@
 #define DEVDRV_IPC_BUF_LEN 32
 #define DEVDRV_LPM3_IPC_LEN 8
 
-STATIC pthread_mutex_t g_dmanage_gateway_mutex = PTHREAD_MUTEX_INITIALIZER;
 STATIC pthread_mutex_t g_dmanage_address_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 int dmanage_get_pcie_id_info(unsigned int dev_id, struct dmanage_pcie_id_info *pcie_id_info)
@@ -320,9 +318,8 @@ int devdrv_imu_smoke_ipc(unsigned int dev_id, const unsigned char *send, unsigne
 
     if (send == NULL || ack == NULL || dev_id >= ASCEND_DEV_MAX_NUM || send_len > DEVDRV_IMU_CMD_LEN ||
         ack_len == NULL) {
-        DEVDRV_DRV_ERR("Parameter invalid. (devid=%u; send_len=%u; send_is_null=%d; ack_is_null=%d; "
-                       "ack_len_is_null=%d; ack_min_len=%u)\n",
-                       dev_id, send_len, (send == NULL), (ack == NULL), (ack_len == NULL), DEVDRV_IMU_CMD_LEN);
+        DEVDRV_DRV_ERR("Parameter invalid. devid=%u; send_len=%u, send_is_null=%d; ack_is_null=%d; ack_len_is_null=%d",
+                       dev_id, send_len, (send == NULL), (ack == NULL), (ack_len == NULL));
         return DRV_ERROR_INVALID_VALUE;
     }
     if (*ack_len < DEVDRV_IMU_CMD_LEN) {
@@ -487,7 +484,9 @@ int dmanage_get_ip_address(unsigned int dev_id, struct dmanager_card_info card_i
         return DRV_ERROR_INVALID_VALUE;
     }
 
+    (void)pthread_mutex_lock(&g_dmanage_address_mutex);
     ret = devdrv_get_ip_address(eth_name, ack_info);
+    (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
     if (ret != 0) {
         if (ret != DRV_ERROR_INVALID_VALUE && ret != DRV_ERROR_NO_DEVICE) {
             DEVDRV_DRV_ERR("get ip address failed, ethname(%s), ret(%d).\n", eth_name, ret);
@@ -549,7 +548,7 @@ STATIC int dmanage_set_ip_info_check(unsigned int dev_id, struct dmanager_card_i
     }
 
     if (dev_id >= MAX_DAVINCI_NUM_OF_ONE_CHIP) {
-        DEVDRV_DRV_ERR("dev_id is out of range. (devid=%u; max=%u)\n", dev_id, MAX_DAVINCI_NUM_OF_ONE_CHIP);
+        DEVDRV_DRV_ERR("The dev_id is out of range. (devid=%u)\n", dev_id);
         return DRV_ERROR_INVALID_HANDLE;
     }
 
@@ -652,15 +651,15 @@ STATIC int dmanage_set_ipv6_info(unsigned int dev_id, struct dmanager_ip_info co
         DEVDRV_DRV_ERR("Failed format ipv6 cmd. (devid=%u; eth_name=\"%s\"; ret=%d)\n", dev_id, eth_name, ret_tmp);
         return DRV_ERROR_MEMORY_OPT_FAIL;
     }
-
+    (void)pthread_mutex_lock(&g_dmanage_address_mutex);
     ret_tmp = devdrv_get_ip_address(eth_name, &old_ip_info);
     if (ret_tmp != 0 && ret_tmp != DRV_ERROR_NO_DEVICE) {
+        (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
         DEVDRV_DRV_ERR("Failed to get old ip info. (devid=%u; eth_name=\"%s\"; ret_tmp=%d)\n", dev_id, eth_name,
                        ret_tmp);
         return ret_tmp;
     }
 
-    (void)pthread_mutex_lock(&g_dmanage_address_mutex);
     ret = dmanage_execute_set_ip_cmd((char **)ipv6_cmd_clean, (char **)ipv6_cmd_set_ip, (char **)ipvx_cmd_eth_up,
                                      (char **)ipvx_cmd_lldptool, ip_addr);
     if (ret != 0 && ret_tmp != DRV_ERROR_NO_DEVICE) {
@@ -741,28 +740,24 @@ int dmanage_get_gateway_address(unsigned int dev_id, struct dmanager_card_info c
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    (void)pthread_mutex_lock(&g_dmanage_gateway_mutex);
+    (void)pthread_mutex_lock(&g_dmanage_address_mutex);
     ret = devdrv_get_gateway_address(eth_name, ack_info);
     if (ret != 0) {
         if (ret != DRV_ERROR_NO_DEVICE) {
             DEVDRV_DRV_ERR("get gateway address failed, ethname(%s), ret(%d).\n", eth_name, ret);
         }
-        (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
+        (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
         return ret;
     }
-    (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
+    (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
     return DRV_ERROR_NONE;
 }
 
-int dmanage_set_gateway_address(unsigned int dev_id, struct dmanager_card_info card_info,
-                                struct dmanager_gtw_info config_info)
+#ifndef DEVDRV_UT
+STATIC int dms_set_gateway_address(unsigned int dev_id, struct dmanager_gtw_info config_info, const char *eth_name)
 {
-    struct ifreq ifr_add;
-    struct ifreq ifr_del;
-
-    char gtw_addr_add[DEVDRV_MAX_IP_LEN] = {0};
-    char gtw_addr_del[DEVDRV_MAX_IP_LEN] = {0};
-    char eth_name[DEVDRV_MAX_ETH_NAME_LEN] = {0};
+    struct ifreq ifr_add, ifr_del;
+    char gtw_addr_add[DEVDRV_MAX_IP_LEN] = {0}, gtw_addr_del[DEVDRV_MAX_IP_LEN] = {0};
     const char *argv_add[] = {
         "sudo", "/var/dmp_sudo_config.sh", "/sbin/route", "add", "default", "gw", gtw_addr_add, eth_name, NULL};
     const char *argv_del[] = {
@@ -770,8 +765,54 @@ int dmanage_set_gateway_address(unsigned int dev_id, struct dmanager_card_info c
     struct dmanager_gtw_info cur_data = {0};
     int ret;
 
+    (void)pthread_mutex_lock(&g_dmanage_address_mutex);
+    ret = devdrv_get_gateway_address(eth_name, &cur_data);
+    if (ret == 0 && cur_data.gtw_addr.addr_v4 != 0) {
+        (((struct sockaddr_in *)&(ifr_del.ifr_addr))->sin_addr).s_addr = cur_data.gtw_addr.addr_v4;
+        ret = strcpy_s((char *)gtw_addr_del, sizeof(gtw_addr_del),
+                       inet_ntoa(((struct sockaddr_in *)&(ifr_del.ifr_addr))->sin_addr));
+        if (ret != 0) {
+            (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
+            DEVDRV_DRV_ERR("transfer config_data to ip_addr failed.\n");
+            return ret;
+        }
+
+        ret = dmanage_run_proc((char **)argv_del);
+        if (ret != 0) {
+            (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
+            DEVDRV_DRV_ERR("run cmd failed, devid(%u), ret(%d).\n", dev_id, ret);
+            return DRV_ERROR_INVALID_VALUE;
+        }
+    }
+
+    (((struct sockaddr_in *)&(ifr_add.ifr_addr))->sin_addr).s_addr = config_info.gtw_addr.addr_v4;
+    ret = strcpy_s((char *)gtw_addr_add, sizeof(gtw_addr_add),
+                   inet_ntoa(((struct sockaddr_in *)&(ifr_add.ifr_addr))->sin_addr));
+    if (ret != 0) {
+        (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
+        DEVDRV_DRV_ERR("strcpy_s failed, devid(%u), ret(%d).\n", dev_id, ret);
+        return ret;
+    }
+
+    ret = dmanage_run_proc((char **)argv_add);
+    if (ret != 0) {
+        (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
+        DEVDRV_DRV_ERR("run cmd failed, devid(%u), ret(%d).\n", dev_id, ret);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+    (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
+    return DRV_ERROR_NONE;
+}
+#endif
+
+int dmanage_set_gateway_address(unsigned int dev_id, struct dmanager_card_info card_info,
+                                struct dmanager_gtw_info config_info)
+{
+    char eth_name[DEVDRV_MAX_ETH_NAME_LEN] = {0};
+    int ret;
+
     if (dev_id >= MAX_DAVINCI_NUM_OF_ONE_CHIP) {
-        DEVDRV_DRV_ERR("dev_id is out of range. (dev_id=%u; max=%u)\n", dev_id, MAX_DAVINCI_NUM_OF_ONE_CHIP);
+        DEVDRV_DRV_ERR("dev_id is out range. dev_id = %u\n", dev_id);
         return DRV_ERROR_INVALID_HANDLE;
     }
 
@@ -785,45 +826,12 @@ int dmanage_set_gateway_address(unsigned int dev_id, struct dmanager_card_info c
         DEVDRV_DRV_ERR("dmanage_get_eth_name failed, devid(%u), ret(%d).\n", dev_id, ret);
         return DRV_ERROR_INVALID_VALUE;
     }
-
-    (void)pthread_mutex_lock(&g_dmanage_gateway_mutex);
-
-    ret = devdrv_get_gateway_address(eth_name, &cur_data);
-    if (ret == 0 && cur_data.gtw_addr.addr_v4 != 0) {
-        (((struct sockaddr_in *)&(ifr_del.ifr_addr))->sin_addr).s_addr = cur_data.gtw_addr.addr_v4;
-        ret = strcpy_s((char *)gtw_addr_del, sizeof(gtw_addr_del),
-                       inet_ntoa(((struct sockaddr_in *)&(ifr_del.ifr_addr))->sin_addr));
-        if (ret != 0) {
-            (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
-            DEVDRV_DRV_ERR("transfer config_data to ip_addr failed.\n");
-            return ret;
-        }
-
-        ret = dmanage_run_proc((char **)argv_del);
-        if (ret != 0) {
-            (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
-            DEVDRV_DRV_ERR("run cmd failed, devid(%u), ret(%d).\n", dev_id, ret);
-            return DRV_ERROR_INVALID_VALUE;
-        }
-    }
-
-    (((struct sockaddr_in *)&(ifr_add.ifr_addr))->sin_addr).s_addr = config_info.gtw_addr.addr_v4;
-    ret = strcpy_s((char *)gtw_addr_add, sizeof(gtw_addr_add),
-                   inet_ntoa(((struct sockaddr_in *)&(ifr_add.ifr_addr))->sin_addr));
+#ifndef DEVDRV_UT
+    ret = dms_set_gateway_address(dev_id, config_info, eth_name);
     if (ret != 0) {
-        (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
-        DEVDRV_DRV_ERR("strcpy_s failed, devid(%u), ret(%d).\n", dev_id, ret);
         return ret;
     }
-
-    ret = dmanage_run_proc((char **)argv_add);
-    if (ret != 0) {
-        (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
-        DEVDRV_DRV_ERR("run cmd failed, devid(%u), ret(%d).\n", dev_id, ret);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
+#endif
     return DRV_ERROR_NONE;
 }
 
@@ -864,15 +872,15 @@ int dmanage_set_gateway_address6(unsigned int dev_id, struct dmanager_card_info 
     }
 
     ipv6_ip_info.ip_type = DEVDRV_IPV6;
+    (void)pthread_mutex_lock(&g_dmanage_address_mutex);
     ret = devdrv_get_ip_address(ethname, &ipv6_ip_info);
     if (ret != 0) {
         DEVDRV_DRV_ERR("Failed to invoke devdrv_get_ip_address. (ethname=\"%s\")\n", ethname);
-        return ret;
+        goto OUT;
     }
 
     /* if gateway value is all zero, it will be formatted as '::'. */
     (void)inet_ntop(AF_INET6, &ip_addr_zero, ipv6_zero_gw_addr, INET6_ADDRSTRLEN);
-    (void)pthread_mutex_lock(&g_dmanage_gateway_mutex);
 
     ipv6_old_gw_info.ip_type = DEVDRV_IPV6;
     ret = devdrv_get_gateway_address(ethname, &ipv6_old_gw_info);
@@ -913,7 +921,7 @@ int dmanage_set_gateway_address6(unsigned int dev_id, struct dmanager_card_info 
     }
 
 OUT:
-    (void)pthread_mutex_unlock(&g_dmanage_gateway_mutex);
+    (void)pthread_mutex_unlock(&g_dmanage_address_mutex);
     return ret;
 }
 
@@ -1076,43 +1084,6 @@ int dmanage_reset_i2c_controller(void)
     }
 
     return DRV_ERROR_NONE;
-}
-
-/*
- * get xloader boot information
- */
-int dmanage_get_xloader_boot_info(unsigned int op_flag, unsigned int *op_area)
-{
-    int ret;
-    struct ioctl_arg arg;
-    unsigned int err_state;
-
-    arg.dev_id = 0;
-    arg.data1 = op_flag;
-
-    ret = dmanage_common_ioctl(DEVDRV_MANAGER_GET_XLOADER_BOOT_INFO, (void *)&arg);
-    if (ret != 0) {
-        DEVDRV_DRV_ERR("ioctl failed, ret(%d).\n", ret);
-        return DRV_ERROR_IOCRL_FAIL;
-    }
-
-    err_state = arg.data3;
-
-    if (err_state == 0) {
-        if (op_flag == DEV_GET_CURR_BOOT_AREA) {
-            if (op_area == NULL) {
-                DEVDRV_DRV_ERR("op_area is NULL.\n");
-                return DRV_ERROR_INVALID_HANDLE;
-            }
-
-            *op_area = arg.data1;
-        }
-    } else {
-        DEVDRV_DRV_ERR("boot area info err.\n");
-        return DEVDRV_ERR_XLOADER_IDX;
-    }
-
-    return DEVDRV_SUCCESS;
 }
 
 /*

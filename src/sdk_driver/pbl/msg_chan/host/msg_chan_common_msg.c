@@ -45,6 +45,10 @@ int devdrv_register_common_msg_client(const struct devdrv_common_msg_client *msg
     struct devdrv_comm_dev_ops *dev_ops;
 
     ret = devdrv_set_common_msg_client(msg_client, true); // first save all client info, enable will register
+    if (ret != 0) {
+        return ret;
+    }
+
     dev_ops = devdrv_add_ops_ref();
     if (dev_ops != NULL) {
         ret = dev_ops->ops.register_common_msg_client(msg_client);
@@ -62,7 +66,7 @@ int devdrv_unregister_common_msg_client(u32 devid, const struct devdrv_common_ms
 
     (void)uda_udevid_to_add_id(devid, &index_id);
     dev_ops = devdrv_add_ops_ref();
-    if (dev_ops != NULL) {
+    if ((dev_ops != NULL) && (dev_ops->ops.unregister_common_msg_client != NULL)) {
         ret = dev_ops->ops.unregister_common_msg_client(index_id, msg_client);
         devdrv_sub_ops_ref(dev_ops);
     }

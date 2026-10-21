@@ -238,7 +238,7 @@ int xsmem_get_tgid_by_vpid(ka_pid_t vpid, ka_pid_t *tgid)
 
     task = ka_task_get_pid_task(pid, KA_PIDTYPE_PID);
     if (task == NULL) {
-        xsmem_err("Process is not exist. (pid=%d)\n", vpid);
+        xsmem_err("Process does not exist. (pid=%d)\n", vpid);
         ka_task_put_pid(pid);
         return -ESRCH;
     }

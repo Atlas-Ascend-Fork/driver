@@ -12,9 +12,11 @@
 #define CASM_CS_H
 
 #include "svm_addr_desc.h"
+#include "casm_def.h"
 
 int svm_casm_cs_query_src_info(u64 key, struct svm_global_va *src_va, int *owner_pid);
-int svm_casm_cs_set_src_info(u32 devid, u64 key, struct svm_global_va *src_va, int owner_pid);
+int svm_casm_cs_set_src_info(u32 devid, u64 key, const struct svm_global_va *src_va, int owner_pid,
+                             const struct casm_src_prop *prop);
 int svm_casm_cs_clr_src_info(u32 devid, u64 key);
 
 #endif

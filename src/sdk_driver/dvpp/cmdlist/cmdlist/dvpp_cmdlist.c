@@ -43,17 +43,17 @@ void dvpp_ext_set_cmdnode_val(struct CmdNode *node, uint32_t val)
 
 static void dvpp_init_splited_cmdbuf(struct CmdBuf *cmd_buf, uint32_t addr_offset, uint16_t batch_idx)
 {
-    cmd_buf->posAddr = (uint32_t*)((uint64_t)(uintptr_t)(cmd_buf->startAddr) + batch_idx * addr_offset);
+    cmd_buf->posAddr = (uint32_t *)((uint64_t)(uintptr_t)(cmd_buf->startAddr) + batch_idx * addr_offset);
     cmd_buf->cmdHeadNode = NULL;
     cmd_buf->cmdTailNode = NULL;
 }
 
 struct CmdNode *dvpp_alloc_one_cmdnode(struct CmdBuf *cmd_buf)
 {
-    uint32_t node_size = ALIGN_UP(sizeof(struct CmdNode), ADDR_ALIGN_SIZE);
-    uint64_t tmp_addr = ALIGN_UP((uint64_t)(uintptr_t)(cmd_buf->posAddr), ADDR_ALIGN_SIZE);
-    uint32_t *posAddr = (uint32_t*)(uintptr_t)tmp_addr;
-    struct CmdNode *node = (struct CmdNode*)posAddr;
+    uint32_t node_size = DVPP_ALIGN_UP(sizeof(struct CmdNode), ADDR_ALIGN_SIZE);
+    uint64_t tmp_addr = DVPP_ALIGN_UP((uint64_t)(uintptr_t)(cmd_buf->posAddr), ADDR_ALIGN_SIZE);
+    uint32_t *posAddr = (uint32_t *)(uintptr_t)tmp_addr;
+    struct CmdNode *node = (struct CmdNode *)posAddr;
 
     if (((uint64_t)posAddr + node_size) > (uint64_t)(cmd_buf->endAddr)) {
         DVPP_CMDLIST_LOG_ERROR("alloc one cmdnode failed, node_size %u\n", node_size);
@@ -136,10 +136,10 @@ void dvpp_init_cmdbuf(uint64_t host_addr, uint64_t dev_addr, uint32_t len, struc
     cmd_buf->bufAddr = host_addr;
     cmd_buf->ioAddr = dev_addr;
     cmd_buf->bufSize = len;
-    cmd_buf->startAddr = (uint32_t*)(ALIGN_UP(cmd_buf->bufAddr, ADDR_ALIGN_SIZE) + SQE_LIST_LEN);
-    cmd_buf->ioStartAddr = ALIGN_UP(cmd_buf->ioAddr, ADDR_ALIGN_SIZE) + SQE_LIST_LEN;
+    cmd_buf->startAddr = (uint32_t *)(DVPP_ALIGN_UP(cmd_buf->bufAddr, ADDR_ALIGN_SIZE) + SQE_LIST_LEN);
+    cmd_buf->ioStartAddr = DVPP_ALIGN_UP(cmd_buf->ioAddr, ADDR_ALIGN_SIZE) + SQE_LIST_LEN;
     cmd_buf->posAddr = cmd_buf->startAddr;
-    cmd_buf->endAddr = (uint32_t*)(host_addr + len);
+    cmd_buf->endAddr = (uint32_t *)(host_addr + len);
     cmd_buf->cmdHeadNode = NULL;
     cmd_buf->cmdTailNode = NULL;
 }
@@ -152,7 +152,7 @@ int32_t dvpp_gen_cmdlist(dvpp_decoder *decoder, struct CmdBuf *cmd_buf)
     struct CmdNode *node = NULL;
     uint32_t batch_cnt = dvpp_get_batch_cnt(decoder);
     uint32_t split_size = (cmd_buf->bufSize - SQE_LIST_LEN) / batch_cnt;
-    uint32_t addr_offset = ALIGN_DOWN(split_size, ADDR_ALIGN_SIZE);
+    uint32_t addr_offset = DVPP_ALIGN_DOWN(split_size, ADDR_ALIGN_SIZE);
     uint32_t mod = dvpp_get_module_type(decoder);
 
     for (i = 0; i < batch_cnt; i++) {

@@ -49,7 +49,7 @@ struct reserve_mem {
 struct vm_dom_info {
     ka_list_head_t node;
     ka_kvm_t *kvm;
-    int status;
+    atomic_t status;
     struct rw_semaphore sem;
     ka_kref_t ref;
     ka_list_head_t dev_dom_list_head;

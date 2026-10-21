@@ -12,11 +12,9 @@
 
 #include "dms_user_interface.h"
 
-
 void dm_rdfx_init(void);
 int dm_get_network_health(unsigned int dev_id, unsigned int *health);
-int dm_get_network_dev_info(struct dmanage_pri_auth *auth, const char *inbuf,
-    unsigned int size_in, char *outbuf, unsigned int *size_out);
-
+int dm_get_network_dev_info(struct dmanage_pri_auth *auth, const char *inbuf, unsigned int size_in, char *outbuf,
+                            unsigned int *size_out);
 
 #endif

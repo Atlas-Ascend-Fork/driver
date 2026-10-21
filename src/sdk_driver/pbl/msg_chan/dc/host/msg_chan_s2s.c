@@ -19,7 +19,7 @@ int devdrv_register_s2s_msg_proc_func(enum devdrv_s2s_msg_type msg_type, s2s_msg
     int ret;
     struct devdrv_comm_dev_ops *dev_ops = devdrv_add_ops_ref();
     if (dev_ops == NULL) {
-        devdrv_err("Register s2s msg fail.\n");
+        devdrv_warn("Can not get ops, dev may not have been probed.\n");
         return -ENODEV;
     }
 
@@ -39,7 +39,7 @@ int devdrv_unregister_s2s_msg_proc_func(enum devdrv_s2s_msg_type msg_type)
     int ret;
     struct devdrv_comm_dev_ops *dev_ops = devdrv_add_ops_ref();
     if (dev_ops == NULL) {
-        devdrv_err("Unregister s2s msg fail.\n");
+        devdrv_warn("Can not get ops, dev may have been removed.\n");
         return -ENODEV;
     }
 

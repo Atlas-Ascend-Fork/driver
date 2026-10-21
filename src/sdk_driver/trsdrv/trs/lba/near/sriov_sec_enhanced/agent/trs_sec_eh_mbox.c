@@ -45,6 +45,7 @@ static void trs_sec_eh_sq_ctx_info_pack(struct trs_normal_cqsq_mailbox *mb_data,
     sq_ctx->sqdepth = mb_data->sqdepth;
     sq_ctx->addr_offset = mb_data->sq_addr;
     sq_ctx->pid = mb_data->pid;
+    sq_ctx->sq_create_cmd_type = mb_data->header.cmd_type;
 }
 
 static void trs_sec_eh_cq_ctx_info_pack(struct trs_normal_cqsq_mailbox *mb_data, struct trs_sec_eh_cq_ctx_info *cq_ctx)
@@ -87,8 +88,8 @@ static int trs_sec_eh_create_sqcq_mb_update(struct trs_sec_eh_ts_inst *sec_eh_cf
     ret = trs_sec_eh_update_rsv_mem_info(&sec_eh_cfg->pm_inst, sq_ctx.mem_type, mb_data);
     if (ret != 0) {
 #ifndef EMU_ST
-        trs_sec_eh_sq_ctx_uninit(sec_eh_cfg, mb_data->sq_index);
         trs_sec_eh_free_sq_mem(sec_eh_cfg, mb_data->sq_index);
+        trs_sec_eh_sq_ctx_uninit(sec_eh_cfg, mb_data->sq_index);
         return ret;
 #endif
     }
@@ -139,6 +140,8 @@ static const mb_update_func sec_eh_mb_update_handle[TRS_MBOX_CMD_MAX] = {
     [TRS_MBOX_CREATE_CQSQ_CALC] = trs_sec_eh_create_sqcq_mb_update,
     [TRS_MBOX_RELEASE_CQSQ_CALC] = trs_sec_eh_free_sqcq_mb_update,
     [TRS_MBOX_RECYCLE_PID] = trs_sec_eh_free_all_sqcq_mb_update,
+    [TRS_MBOX_CREATE_TOPIC_SQCQ] = trs_sec_eh_create_sqcq_mb_update,
+    [TRS_MBOX_RELEASE_TOPIC_SQCQ] = trs_sec_eh_free_sqcq_mb_update,
 };
 
 int trs_sec_eh_mb_update(struct trs_id_inst *inst, u16 cmd, void *mb_data)

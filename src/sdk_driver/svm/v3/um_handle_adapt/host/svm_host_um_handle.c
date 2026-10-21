@@ -13,14 +13,12 @@
 #include "pbl_feature_loader.h"
 
 #include "assign_um_handle.h"
-#include "share_um_handle.h"
 #include "op_um_handle.h"
 #include "svm_host_um_handle.h"
 
 int svm_host_um_handle_init(void)
 {
     assign_um_handle_init();
-    share_um_handle_init();
     op_um_handle_init();
 
     return 0;

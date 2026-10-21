@@ -98,37 +98,12 @@ static int devmm_soma_destroy_pool_para_check(struct devmm_svm_process *svm_proc
     return 0;
 }
 
-int devmm_ioctl_soma_create_pool(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *args)
+static int devmm_soma_send_create_pool_msg(struct devmm_svm_process *svm_proc, struct devmm_soma_pool_create_para *para,
+                                           struct devmm_devid *devids)
 {
-    struct devmm_soma_pool_create_para *para = NULL;
-    struct devmm_devid *devids = NULL;
     struct devmm_chan_soma_pool_create msg = {{{0}}};
-    struct devmm_svm_heap *heap = NULL;
     int ret = 0;
 
-    devmm_drv_debug("devmm ioctl create pool.\n");
-#ifndef EMU_ST
-    if (args == NULL) {
-        devmm_drv_err("Create soma pool args is NULL.\n");
-        return -EINVAL;
-    }
-#endif
-    para = &args->data.soma_pool_create_para;
-    devids = &args->head;
-    ret = devmm_soma_create_pool_para_check(svm_proc, para, devids);
-#ifndef EMU_ST
-    if (ret != 0) {
-        return ret;
-    }
-#endif
-    heap = devmm_soma_get_heap(svm_proc, (unsigned long)para->va);
-#ifndef EMU_ST
-    if (heap == NULL) {
-        devmm_drv_err("Mem pool get heap failed. (hostpid=%d; devid=%u; pool_id=0x%llx)\n",
-                      svm_proc->process_id.hostpid, devids->devid, para->pool_id);
-        return -EINVAL;
-    }
-#endif
     msg.head.msg_id = DEVMM_CHAN_SOMA_CREATE_POOL_H2D_ID;
     msg.head.process_id.hostpid = svm_proc->process_id.hostpid;
     msg.head.dev_id = (u16)devids->devid;
@@ -140,10 +115,57 @@ int devmm_ioctl_soma_create_pool(struct devmm_svm_process *svm_proc, struct devm
     if (ret != 0) {
         devmm_drv_err("Mem pool create msg send failed. (ret=%d; hostpid=%d; devid=%u; pool_id=0x%llx)\n", ret,
                       svm_proc->process_id.hostpid, devids->devid, para->pool_id);
+    }
+    return ret;
+}
+
+int devmm_ioctl_soma_create_pool(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *args)
+{
+    struct devmm_soma_pool_create_para *para = NULL;
+    struct devmm_devid *devids = NULL;
+    struct devmm_svm_heap *heap = NULL;
+    u64 find_va = 0;
+    int ret = 0;
+
+#ifndef EMU_ST
+    if (args == NULL) {
+        devmm_drv_err("Create soma pool args is NULL.\n");
+        return -EINVAL;
+    }
+#endif
+    para = &args->data.soma_pool_create_para;
+    devids = &args->head;
+    heap = devmm_soma_get_heap(svm_proc, DEVMM_SOMA_MEM_START);
+#ifndef EMU_ST
+    if (heap == NULL) {
+        devmm_drv_err("Mem pool get heap failed. (hostpid=%d; devid=%u; pool_id=0x%llx)\n",
+                      svm_proc->process_id.hostpid, devids->devid, para->pool_id);
+        return -EINVAL;
+    }
+#endif
+    ka_task_down_read(&svm_proc->bitmap_sem);
+    ret = devmm_soma_find_best_va(heap, (u64)para->size, &find_va);
+    if (ret != 0) {
+        ka_task_up_read(&svm_proc->bitmap_sem);
+        devmm_drv_err("No suitable VA region for soma pool. (hostpid=%d; devid=%u; pool_id=0x%llx; size=%llu)\n",
+                      svm_proc->process_id.hostpid, devids->devid, para->pool_id, para->size);
+        return ret;
+    }
+    para->va = find_va;
+
+    ret = devmm_soma_create_pool_para_check(svm_proc, para, devids);
+    if (ret != 0) {
+        ka_task_up_read(&svm_proc->bitmap_sem);
         return ret;
     }
 
+    ret = devmm_soma_send_create_pool_msg(svm_proc, para, devids);
+    if (ret != 0) {
+        ka_task_up_read(&svm_proc->bitmap_sem);
+        return ret;
+    }
     devmm_soma_set_heap_bits(heap, para->va, para->size, devids->logical_devid);
+    ka_task_up_read(&svm_proc->bitmap_sem);
 
     return ret;
 }
@@ -152,6 +174,7 @@ int devmm_ioctl_soma_destroy_pool(struct devmm_svm_process *svm_proc, struct dev
 {
     struct devmm_soma_pool_destroy_para *para = NULL;
     struct devmm_devid *devids = NULL;
+    struct devmm_svm_heap *heap = NULL;
     struct devmm_chan_soma_pool_destroy msg = {{{0}}};
     int ret = 0;
 
@@ -170,6 +193,14 @@ int devmm_ioctl_soma_destroy_pool(struct devmm_svm_process *svm_proc, struct dev
         return ret;
     }
 #endif
+    heap = devmm_soma_get_heap(svm_proc, DEVMM_SOMA_MEM_START);
+#ifndef EMU_ST
+    if (heap == NULL) {
+        devmm_drv_err("Mem pool get heap failed. (hostpid=%d; devid=%u; pool_id=0x%llx)\n",
+                      svm_proc->process_id.hostpid, devids->devid, para->pool_id);
+        return -EINVAL;
+    }
+#endif
     msg.head.msg_id = DEVMM_CHAN_SOMA_DESTROY_POOL_H2D_ID;
     msg.head.process_id.hostpid = svm_proc->process_id.hostpid;
     msg.head.dev_id = (u16)devids->devid;
@@ -181,6 +212,9 @@ int devmm_ioctl_soma_destroy_pool(struct devmm_svm_process *svm_proc, struct dev
                       svm_proc->process_id.hostpid, devids->devid, para->pool_id);
         return ret;
     }
+    ka_task_down_read(&svm_proc->bitmap_sem);
+    devmm_soma_unset_heap_bits(heap, msg.pool_va, msg.pool_size);
+    ka_task_up_read(&svm_proc->bitmap_sem);
 
     return 0;
 }

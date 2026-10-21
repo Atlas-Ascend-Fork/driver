@@ -162,7 +162,7 @@ void hb_read_one_device_count(unsigned int dev_id)
     struct devdrv_manager_info *manager_info = devdrv_get_manager_info();
     static unsigned int hb_read_fail_count[ASCEND_DEV_MAX_NUM] = {0};
 
-    if (hb_read_item == NULL) {
+    if (hb_read_item == NULL || manager_info == NULL) {
         return;
     }
 
@@ -315,17 +315,25 @@ int heart_beat_read_timer_init(void)
     }
 
     if (g_heart_beat_switch != 1) {
-        soft_drv_warn("Heart beat is not enabled.\n");
+        soft_drv_warn("Heartbeat is not enabled.\n");
         return 0;
     }
-
+#if defined(CFG_HOST_ENV)
     ka_system_hrtimer_init(&g_hb_read_timer.timer, KA_CLOCK_MONOTONIC, KA_HRTIMER_MODE_REL);
+#else
+    ka_system_hrtimer_init(&g_hb_read_timer.timer, KA_CLOCK_MONOTONIC, KA_HRTIMER_MODE_REL_PINNED);
+#endif
     g_hb_read_timer.timer.function = hb_read_timer_irq_handler;
     KA_TASK_INIT_WORK(&g_hb_read_timer.hb_read_work, heart_beat_read_work);
     g_hb_read_timer.hb_read_wq = ka_task_alloc_workqueue("%s", WQ_HIGHPRI, 1, "hb_read_work");
 
+#if defined(CFG_HOST_ENV)
     ka_system_hrtimer_start(&g_hb_read_timer.timer, ka_system_ktime_set(HEART_BEAT_READ_TIMER_EXPIRE_SEC, 0),
                             KA_HRTIMER_MODE_REL);
+#else
+    ka_system_hrtimer_start(&g_hb_read_timer.timer, ka_system_ktime_set(HEART_BEAT_READ_TIMER_EXPIRE_SEC, 0),
+                            KA_HRTIMER_MODE_REL_PINNED);
+#endif
     return 0;
 #else
     return 0;
@@ -354,7 +362,7 @@ void heart_beat_read_timer_exit(void)
         hb_read_item = get_heart_beat_read_item(i);
         if (hb_read_item == NULL) {
             soft_drv_err("Heart beat item is null. (dev_id=%u)\n", i);
-            return;
+            continue;
         }
 
         ka_task_mutex_destroy(&hb_read_item->mutex);

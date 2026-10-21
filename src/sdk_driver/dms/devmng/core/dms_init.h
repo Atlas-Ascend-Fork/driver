@@ -18,7 +18,7 @@
 #define HOST_LOCAL 1000
 
 struct sub_module_ops {
-    int (*init) (void);
+    int (*init)(void);
     void (*uninit)(void);
 };
 int get_eventinfo_from_config(void);

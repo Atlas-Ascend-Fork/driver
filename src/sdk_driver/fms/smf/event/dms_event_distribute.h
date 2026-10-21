@@ -20,10 +20,9 @@
 #include "fms/fms_smf.h"
 
 #define DMS_EVENT_DISTRIBUTE_FUNC_MAX 64
-#define DISTRIBUTE_FUNC_HEAD_INDEX(priority) (DMS_EVENT_DISTRIBUTE_FUNC_MAX /               \
-                                              DMS_DISTRIBUTE_PRIORITY_MAX * (priority))
-#define DISTRIBUTE_FUNC_TAIL_INDEX(priority) (DMS_EVENT_DISTRIBUTE_FUNC_MAX /               \
-                                              DMS_DISTRIBUTE_PRIORITY_MAX * (priority + 1))
+#define DISTRIBUTE_FUNC_HEAD_INDEX(priority) (DMS_EVENT_DISTRIBUTE_FUNC_MAX / DMS_DISTRIBUTE_PRIORITY_MAX * (priority))
+#define DISTRIBUTE_FUNC_TAIL_INDEX(priority) \
+    (DMS_EVENT_DISTRIBUTE_FUNC_MAX / DMS_DISTRIBUTE_PRIORITY_MAX * (priority + 1))
 
 #define DMS_EVENT_MAX_PROC_NUM_DSMI 64
 /* means max 64 device, each device has 64 process */
@@ -43,8 +42,13 @@
 #define DMS_EVENT_PROCESS_STATUS_WORK 1
 
 #define DMS_EVENT_NO_TIMEOUT_FLAG (-1)
-#define DMS_EVENT_WAIT_TIME 1000 /* 1000ms */
+#define DMS_EVENT_WAIT_TIME 1000      /* 1000ms */
 #define DMS_EVENT_WAIT_TIME_MAX 30000 /* 30000ms(30s) */
+
+#define DMS_EVENT_FILTER_FLAG_EVENT_ID (1UL << 0)
+#define DMS_EVENT_FILTER_FLAG_SERVERITY (1UL << 1)
+#define DMS_EVENT_FILTER_FLAG_NODE_TYPE (1UL << 2)
+#define DMS_EVENT_FILTER_FLAG_HOST_PID (1UL << 3)
 
 typedef struct {
     ka_kfifo_t event_fifo;
@@ -58,7 +62,7 @@ typedef struct {
     u8 process_status;
     u32 subscribe_udevids[ASCEND_PDEV_MAX_NUM];
     u32 subscribe_udevids_num;
- 	struct dms_event_filter filter;
+    struct dms_event_filter filter;
     enum cmd_source cmd_src;
 } DMS_EVENT_PROCESS_STRU;
 

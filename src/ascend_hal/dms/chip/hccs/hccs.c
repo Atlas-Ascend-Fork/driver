@@ -17,4 +17,3 @@ int DmsGetHccsInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd,
 
     return DmsGetDeviceInfo(dev_id, DSMI_MAIN_CMD_HCCS, sub_cmd, buf, size);
 }
-

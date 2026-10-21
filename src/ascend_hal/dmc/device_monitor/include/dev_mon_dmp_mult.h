@@ -17,7 +17,6 @@
 #include "dev_mon_management.h"
 #include "dev_mon_ddmp_construction.h"
 
-
 #ifdef DEV_MON_UT
 #define STATIC
 #else
@@ -26,7 +25,7 @@
 
 #define MS_PER_SEC 1000
 #define NS_TO_MS_DIV 1000000
-#define MULT_MSG_TIMEOUT 30000  // 30s
+#define MULT_MSG_TIMEOUT 30000 // 30s
 
 int request_mult_proc(BD_MSG_ST *bd_msg);
 int rsp_mult_proc(BD_MSG_ST *bd_msg);

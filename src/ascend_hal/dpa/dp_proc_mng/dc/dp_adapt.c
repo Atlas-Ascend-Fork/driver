@@ -45,7 +45,7 @@ int dp_proc_mng_get_fd(uint32_t dev_id)
 #ifndef EMU_ST
         ret = devdrv_get_host_phy_mach_flag(dev_id, &host_mode);
         if (ret != 0) {
-            DP_PROC_MNG_INFO("Devdrv_get_host_phy_mach_flag is unsuccessful. (ret=%d)\n", ret);
+            DP_PROC_MNG_INFO("Devdrv_get_host_phy_mach_flag completed. (ret=%d)\n", ret);
             return ret;
         }
 #endif

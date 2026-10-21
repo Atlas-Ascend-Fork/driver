@@ -15,12 +15,12 @@
 #include <linux/types.h>
 
 // for rc_ep_mode
-#define DBL_RC_MODE     0
-#define DBL_EP_MODE     1
+#define DBL_RC_MODE 0
+#define DBL_EP_MODE 1
 
 // for deployment_mode
-#define DBL_HOST_DEPLOYMENT    0
-#define DBL_DEVICE_DEPLOYMENT  1
+#define DBL_HOST_DEPLOYMENT 0
+#define DBL_DEVICE_DEPLOYMENT 1
 
 /**
  * @driver base layer interface
@@ -51,115 +51,125 @@ u32 dbl_get_rc_ep_mode(void);
  */
 u32 dbl_get_deployment_mode(void);
 
-#define DBL_IN_PHYSICAL_MACH  0xaaa
-#define DBL_IN_NORMAL_DOCKER  0xbbb
-#define DBL_IN_ADMIN_DOCKER   0xccc
-#define DBL_IN_VIRTUAL_MACH   0xddd
-#define DBL_IN_UNKNOWN_MACH   0xfff
+#define DBL_IN_PHYSICAL_MACH 0xaaa
+#define DBL_IN_NORMAL_DOCKER 0xbbb
+#define DBL_IN_ADMIN_DOCKER 0xccc
+#define DBL_IN_VIRTUAL_MACH 0xddd
+#define DBL_IN_UNKNOWN_MACH 0xfff
 
 /**
-* @driver base layer interface
-* @description: Get the run_env of the current process
-* @attention  : NULL
-* @param [in] : NULL
-* @param [out]: NULL
-* @return     : DBL_IN_PHYSICAL_MACH or DBL_IN_NORMAL_DOCKER or DBL_IN_ADMIN_DOCKER or DBL_IN_VIRTUAL_MACH
-*/
+ * @driver base layer interface
+ * @description: Get the run_env of the current process
+ * @attention  : NULL
+ * @param [in] : NULL
+ * @param [out]: NULL
+ * @return     : DBL_IN_PHYSICAL_MACH or DBL_IN_NORMAL_DOCKER or DBL_IN_ADMIN_DOCKER or DBL_IN_VIRTUAL_MACH
+ */
 int dbl_get_run_env(void);
 
 /**
-* @driver base layer interface
-* @description: Get the run_env of the current process
-* @attention  : NULL
-* @param [in] : NULL
-* @param [out]: NULL
-* @return     : True(in normal docker, not include admin docker) or False(not in normal docker)
-*/
+ * @driver base layer interface
+ * @description: Get the run_env of the current process
+ * @attention  : NULL
+ * @param [in] : NULL
+ * @param [out]: NULL
+ * @return     : True(in normal docker, not include admin docker) or False(not in normal docker)
+ */
 bool run_in_normal_docker(void);
 
 /**
-* @driver base layer interface
-* @description: Get the run_env of the current process
-* @attention  : NULL
-* @param [in] : NULL
-* @param [out]: NULL
-* @return     : True(in admin docker, not include normal docker) or False(not in admin docker)
-*/
+ * @driver base layer interface
+ * @description: Get the run_env of the current process
+ * @attention  : NULL
+ * @param [in] : NULL
+ * @param [out]: NULL
+ * @return     : True(in admin docker, not include normal docker) or False(not in admin docker)
+ */
 bool run_in_admin_docker(void);
 
 /**
-* @driver base layer interface
-* @description: Get the run_env of the current process
-* @attention  : NULL
-* @param [in] : NULL
-* @param [out]: NULL
-* @return     : True(in docker, include normal docker and admin docker) or False(not in docker)
-*/
+ * @driver base layer interface
+ * @description: Get the run_env of the current process
+ * @attention  : NULL
+ * @param [in] : NULL
+ * @param [out]: NULL
+ * @return     : True(in docker, include normal docker and admin docker) or False(not in docker)
+ */
 bool run_in_docker(void);
 
 /**
-* @driver base layer interface
-* @description: Get the run_env of the current process
-* @attention  : NULL
-* @param [in] : NULL
-* @param [out]: NULL
-* @return     : return if current have admin permission(host or admin docker will return true)
-*/
+ * @driver base layer interface
+ * @description: Get the run_env of the current process
+ * @attention  : NULL
+ * @param [in] : NULL
+ * @param [out]: NULL
+ * @return     : return if current have admin permission(host or admin docker will return true)
+ */
 bool dbl_current_is_admin(void);
 
 /**
-* @driver base layer interface
-* @description: Judge whether the current process is running in virtual machine
-* @attention  : NULL
-* @param [in] : NULL
-* @param [out]: NULL
-* @return     : True (in virtual machine) or False(not in virtual machine)
-*/
+ * @driver base layer interface
+ * @description: Judge whether the current process is running in virtual machine
+ * @attention  : NULL
+ * @param [in] : NULL
+ * @param [out]: NULL
+ * @return     : True (in virtual machine) or False(not in virtual machine)
+ */
 bool run_in_virtual_mach(void);
 
 /**
-* @driver base layer interface
-* @description: Get the drv_version of the current process
-* @attention  : NULL
-* @param [in] : recv drv_version buf and len
-* @param [out]: drv_version string
-* @return     : return 0 if success, otherwise return err code
-*/
+ * @driver base layer interface
+ * @description: Check confidential VM mode
+ * @attention  : NULL
+ * @param [in] :
+ * NULL
+ * @param [out]: NULL
+ * @return     : True (confidential VM) or False (otherwise)
+ */
+bool run_in_confidential_virtual_mach(void);
+
+/**
+ * @driver base layer interface
+ * @description: Get the drv_version of the current process
+ * @attention  : NULL
+ * @param [in] : recv drv_version buf and len
+ * @param [out]: drv_version string
+ * @return     : return 0 if success, otherwise return err code
+ */
 int dbl_runenv_get_drv_version(char *buf, u32 len);
 
 #define DBL_CUST_OP_ENHANCE_DISABLE 0
-#define DBL_CUST_OP_ENHANCE_ENABLE  1
+#define DBL_CUST_OP_ENHANCE_ENABLE 1
 
 /**
-* @driver base layer interface
-* @description: Get the custom op enhance mode
-* @attention  : NULL
-* @param [in] : udevid(u32)
-* @param [out]: mode(u32), enable/disable
-* @return     : 0(success) or other (failed)
-*/
-int dbl_get_cust_op_enhance_mode(unsigned int udevid,  unsigned int *mode);
+ * @driver base layer interface
+ * @description: Get the custom op enhance mode
+ * @attention  : NULL
+ * @param [in] : udevid(u32)
+ * @param [out]: mode(u32), enable/disable
+ * @return     : 0(success) or other (failed)
+ */
+int dbl_get_cust_op_enhance_mode(unsigned int udevid, unsigned int *mode);
 
 /**
-* @driver base layer interface
-* @description: Set the custom op enhance mode
-* @attention  : NULL
-* @param [in] : udevid(u32)
-* @param [in] : mode(u32), enable/disable
-* @param [out]: NULL
-* @return     : 0(success) or other (failed)
-*/
+ * @driver base layer interface
+ * @description: Set the custom op enhance mode
+ * @attention  : NULL
+ * @param [in] : udevid(u32)
+ * @param [in] : mode(u32), enable/disable
+ * @param [out]: NULL
+ * @return     : 0(success) or other (failed)
+ */
 int dbl_set_cust_op_enhance_mode(unsigned int udevid, unsigned int mode);
 
 /**
-* @driver base layer interface
-* @description: Get the container pid from host pid
-* @attention  : If not run in docker, container_pid is host_pid
-* @param [in] : host_pid(pid_t)
-* @param [out]: container_pid(pid_t)
-* @return     : 0(success) or other (failed)
-*/
+ * @driver base layer interface
+ * @description: Get the container pid from host pid
+ * @attention  : If not run in docker, container_pid is host_pid
+ * @param [in] : host_pid(pid_t)
+ * @param [out]: container_pid(pid_t)
+ * @return     : 0(success) or other (failed)
+ */
 int dbl_host_pid_to_container_pid(pid_t host_pid, pid_t *container_pid);
 
 #endif /* PBL_RUNENV_CONFIG_H */
-

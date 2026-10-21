@@ -20,7 +20,8 @@
 
 #define apm_kmalloc(size, flags) ka_kmalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
 #define apm_kzalloc(size, flags) ka_kzalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
-#define apm_kcalloc(size, flags) ka_kcalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
+#define apm_kcalloc(n, size, flags) \
+    ka_kcalloc(n, size, flags, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
 #define apm_kfree(addr) ka_kfree(addr, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
 
 #define apm_vzalloc(size) ka_vzalloc(size, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
@@ -38,9 +39,16 @@
 #define apm_free_pages_exact(virt, size) \
     ka_free_pages_exact(virt, size, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
 
+#ifdef EMU_ST
+/* UT: ka_kvzalloc/ka_kvfree route to static inline kvzalloc(kvfree) which stubs can't hook */
+#define apm_kvzalloc(size, flags) apm_vzalloc(size)
+#define apm_kvfree(addr) apm_vfree(addr)
+#else
 #define apm_kvzalloc(size, flags) ka_kvzalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
-#define apm_kvmalloc(size, flags) ka_kvmalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
 #define apm_kvfree(addr) ka_kvfree(addr, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
+#endif
+
+#define apm_kvmalloc(size, flags) ka_kvmalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_0))
 
 #define apm_kvmalloc_node(size, flags, node) \
     ka_kvmalloc_node(size, flags, node, ka_get_module_id(HAL_MODULE_TYPE_APM, KA_SUB_MODULE_TYPE_1))

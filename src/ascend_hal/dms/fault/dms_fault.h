@@ -20,15 +20,12 @@ drvError_t DmsGetHistoryFaultEvent(int device_id, struct dsmi_event *event_buf, 
 drvError_t dms_clear_fault_event(u32 devid);
 drvError_t dms_disable_fault_event(u32 devid, u32 event_id);
 drvError_t dms_enable_fault_event(u32 devid, u32 event_id);
-drvError_t DmsGetHealthCode(u32 devid, u32 *phealth);
-drvError_t DmsGetEventCode(u32 devid, int *event_cnt, u32 *event_code, u32 code_len);
-drvError_t DmsQueryEventStr(u32 devid, u32 event_code,
-    unsigned char *str, int str_size);
+drvError_t DmsQueryEventStr(u32 devid, u32 event_code, unsigned char *str, int str_size);
 drvError_t dms_inject_fault(DSMI_FAULT_INJECT_INFO *info);
-drvError_t DmsGetFaultInjectInfo(unsigned int device_id, const unsigned int max_info_cnt,
-    void *info_buf, unsigned int *real_info_cnt);
+drvError_t DmsGetFaultInjectInfo(unsigned int device_id, const unsigned int max_info_cnt, void *info_buf,
+                                 unsigned int *real_info_cnt);
 drvError_t dms_get_device_state(u32 devid, char *state_out, unsigned int out_len);
 drvError_t halDeviceBindHost(unsigned int dev_id, struct dsmi_eid_pair_info *eid_info);
 drvError_t DmsDevReplace(struct dsmi_device_attr *src_dev_attr, struct dsmi_device_attr *dst_dev_attr,
-    unsigned int timeout, unsigned long long flag);
+                         unsigned int timeout, unsigned long long flag);
 #endif

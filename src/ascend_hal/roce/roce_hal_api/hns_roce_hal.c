@@ -24,7 +24,7 @@ static inline unsigned long long align(unsigned long long val, unsigned int alig
 }
 
 int hns_roce_hal_alloc_buf(void **buf, unsigned int *length, unsigned int size, unsigned int page_size,
-    unsigned int dev_id)
+                           unsigned int dev_id)
 {
 #define NODE_MASK_LIST_NUM 2
 #define MAX_NODE_BIT_NUM 128
@@ -53,14 +53,14 @@ int hns_roce_hal_alloc_buf(void **buf, unsigned int *length, unsigned int size, 
 
     node_cnt = (unsigned long long)info.numa_info.node_cnt;
     if (node_cnt > sizeof(info.numa_info.node_id) / sizeof(int)) {
-        roce_err("hns_roce_hal_alloc_buf: halMemGetInfom node_cnt 0x%llx", node_cnt);
+        roce_err("hns_roce_hal_alloc_buf: halMemGetInfo node_cnt 0x%llx", node_cnt);
         return -EINVAL;
     }
 
     for (i = 0; i < node_cnt; i++) {
         node_index = (unsigned long long)info.numa_info.node_id[i];
         if (node_index >= MAX_NODE_BIT_NUM) {
-            roce_err("hns_roce_hal_alloc_buf: halMemGetInfom node_index 0x%llx > %d, failed!", node_index,
+            roce_err("hns_roce_hal_alloc_buf: halMemGetInfo node_index 0x%llx > %d, failed!", node_index,
                      MAX_NODE_BIT_NUM);
             return -EINVAL;
         }
@@ -172,8 +172,41 @@ out:
     return ret;
 }
 
+static int hns_roce_init_memzone(void)
+{
+    memZoneCfg memzone_cfg[] = {
+        {0, 6 * 1024 * 1024, 4 * 1024, 4 * 1024 * 1024, BUFF_SP_HUGEPAGE_ONLY, 1, 0, 0, 0, 1, {0}},
+        {1, 6 * 1024 * 1024, 4 * 1024, 4 * 1024 * 1024, BUFF_SP_NORMAL, 1, 0, 0, 0, 1, {0}},
+    };
+    static bool is_inited = false;
+    BuffCfg buffcfg = {0};
+    size_t cfg_num = 0;
+    size_t i = 0;
+    int ret;
+
+    // only need to init memzone once, skip if inited
+    if (is_inited) {
+        return 0;
+    }
+
+    cfg_num = sizeof(memzone_cfg) / sizeof(memZoneCfg);
+    for (i = 0; i < cfg_num && i < BUFF_MAX_CFG_NUM; i++) {
+        buffcfg.cfg[i] = memzone_cfg[i];
+    }
+
+    ret = halBuffInit(&buffcfg);
+    if (ret != 0) {
+        roce_err("halBuffInit failed, ret:%d", ret);
+        return ret;
+    }
+
+    is_inited = true;
+    roce_run_info("init success");
+    return 0;
+}
+
 int hns_roce_hal_alloc_ai_buf(void **buf, unsigned int *length, unsigned int size, unsigned int page_size,
-    unsigned int dev_id, unsigned int grp_id)
+                              unsigned int dev_id, unsigned int grp_id)
 {
     unsigned long flag = 0;
     int ret;
@@ -188,14 +221,23 @@ int hns_roce_hal_alloc_ai_buf(void **buf, unsigned int *length, unsigned int siz
         return -EINVAL;
     }
 
-    *length = align(size, page_size);
-    flag = ((unsigned long)dev_id << BUFF_FLAGS_DEVID_OFFSET) | BUFF_SP_SVM;
-
-    ret = halBuffAllocAlignEx(*length, page_size, flag, grp_id, buf);
+    ret = hns_roce_init_memzone();
     if (ret != 0) {
-        roce_err("halBuffAllocAlignEx failed, length:0x%x, page_size:0x%x, dev_id:0x%x, flag:0x%lx, grp_id:%u, ret:%d",
-            *length, page_size, dev_id, flag, grp_id, ret);
+        roce_err("hns_roce_init_memzone failed, ret:%d", ret);
+        return ret;
     }
+
+    // halBuffAllocAlignEx will align up the size to the page_size boundary
+    *length = align(size, page_size);
+    flag = ((unsigned long)dev_id << BUFF_FLAGS_DEVID_OFFSET) | BUFF_SP_HUGEPAGE_PRIOR;
+    ret = halBuffAllocAlignEx(size, page_size, flag, grp_id, buf);
+    if (ret != 0 || *buf == NULL) {
+        roce_err("halBuffAllocAlignEx failed, size:0x%x(%u) length:0x%x(%u), page_size:0x%x, dev_id:0x%x, flag:0x%lx, "
+                 "grp_id:%u, ret:%d",
+                 size, size, *length, *length, page_size, dev_id, flag, grp_id, ret);
+        return ret;
+    }
+    (void)memset_s(*buf, size, 0, size);
     return ret;
 }
 
@@ -204,8 +246,8 @@ int hns_roce_hal_free_ai_buf(void *buf)
     return halBuffFree(buf);
 }
 
-int hns_roce_hal_alloc_resv_mem(int cmd_fd, unsigned int size, unsigned int page_size, unsigned int pool_id, 
-    void **buf, unsigned int *length)
+int hns_roce_hal_alloc_resv_mem(int cmd_fd, unsigned int size, unsigned int page_size, unsigned int pool_id, void **buf,
+                                unsigned int *length)
 {
     struct resv_mem_populate_cmd_data cmd_data = {0};
     unsigned long long va, mmap_va;
@@ -243,8 +285,8 @@ int hns_roce_hal_alloc_resv_mem(int cmd_fd, unsigned int size, unsigned int page
 
     ret = ioctl(cmd_fd, HNS_ROCE_AI_RESV_MEM_POPULATE, &cmd_data);
     if (ret < 0) {
-        roce_err("ioctl cmd:0x%x failed, cmd_fd:%d, ret:%d, err_code:%d", 
-            _IOC_NR(HNS_ROCE_AI_RESV_MEM_POPULATE), cmd_fd, ret, errno);
+        roce_err("ioctl cmd:0x%x failed, cmd_fd:%d, ret:%d, err_code:%d", _IOC_NR(HNS_ROCE_AI_RESV_MEM_POPULATE),
+                 cmd_fd, ret, errno);
         goto err_ioctl;
     }
 
@@ -267,8 +309,8 @@ int hns_roce_hal_free_resv_mem(int cmd_fd, void *buf, unsigned int pool_id)
 
     ret = ioctl(cmd_fd, HNS_ROCE_AI_RESV_MEM_DEPOPULATE, &cmd_data);
     if (ret != 0) {
-        roce_err("ioctl cmd:0x%x failed, cmd_fd:%d, ret:%d, err_code:%d",
-            _IOC_NR(HNS_ROCE_AI_RESV_MEM_DEPOPULATE), cmd_fd, ret, errno);
+        roce_err("ioctl cmd:0x%x failed, cmd_fd:%d, ret:%d, err_code:%d", _IOC_NR(HNS_ROCE_AI_RESV_MEM_DEPOPULATE),
+                 cmd_fd, ret, errno);
         return ret;
     }
 

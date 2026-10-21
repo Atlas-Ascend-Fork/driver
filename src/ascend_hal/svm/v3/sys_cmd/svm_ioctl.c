@@ -123,7 +123,7 @@ static int svm_char_dev_close(u32 udevid, int fd)
     return 0;
 }
 
-#define SVM_IOCTL_DEV_HANDLE_MAX_NUM 20
+#define SVM_IOCTL_DEV_HANDLE_MAX_NUM 21
 
 static int (*svm_ioctl_dev_init_post_handle[SVM_IOCTL_DEV_HANDLE_MAX_NUM])(u32 devid) = {
     NULL,

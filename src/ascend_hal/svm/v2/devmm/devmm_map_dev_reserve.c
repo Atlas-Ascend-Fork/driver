@@ -209,7 +209,7 @@ DVresult devmm_ctrl_map_addr(void *param_value, size_t param_value_size, void *o
     if (((in_para->addr_type == ADDR_MAP_TYPE_REG_AIC_CTRL) ||
          (in_para->addr_type == ADDR_MAP_TYPE_REG_AIC_PMU_CTRL)) &&
         devmm_is_split_mode()) {
-        DEVMM_RUN_INFO("Aic reg map is not supported in split mode.\n");
+        DEVMM_RUN_INFO("Aic reg map not support in split mode.\n");
         return DRV_ERROR_NOT_SUPPORT;
     }
 

@@ -51,26 +51,37 @@ typedef enum {
     URD_DEV_OPERATION,
     DMS_DEV_OPERATION,
     APM_DEV_OPERATION,
+    UDA_DEV_OPERATION,
     MAX_DEV_OPERATION,
 } DRV_DEV_OPERATION;
 
+// clang-format off
 static drvError_t (*drv_open_handlers[MAX_DEV_OPERATION])(uint32_t devid, halDevOpenIn *in, halDevOpenOut *out) = {
-    [ESCHED_DEV_OPERATION] = esched_device_open, [MEM_DEV_OPERATION] = drvMemDeviceOpenInner,
-    [TSDRV_DEV_OPERATION] = drvDeviceOpenInner,  [BUFF_DEV_OPERATION] = NULL,
+    [ESCHED_DEV_OPERATION] = esched_device_open,
+    [MEM_DEV_OPERATION] = drvMemDeviceOpenInner,
+    [TSDRV_DEV_OPERATION] = drvDeviceOpenInner,
+    [BUFF_DEV_OPERATION] = NULL,
     [QUEUE_DEV_OPERATION] = queue_device_open,
 };
 
 static drvError_t (*drv_close_handlers[MAX_DEV_OPERATION])(uint32_t devid, halDevCloseIn *in) = {
-    [ESCHED_DEV_OPERATION] = esched_device_close, [MEM_DEV_OPERATION] = drvMemDeviceCloseInner,
-    [TSDRV_DEV_OPERATION] = drvDeviceCloseInner,  [BUFF_DEV_OPERATION] = NULL,
+    [ESCHED_DEV_OPERATION] = esched_device_close,
+    [MEM_DEV_OPERATION] = drvMemDeviceCloseInner,
+    [TSDRV_DEV_OPERATION] = drvDeviceCloseInner,
+    [BUFF_DEV_OPERATION] = NULL,
     [QUEUE_DEV_OPERATION] = queue_device_close,
 };
 
 static drvError_t (*drv_close_host_user_handlers[MAX_DEV_OPERATION])(uint32_t devid, halDevCloseIn *in) = {
-    [ESCHED_DEV_OPERATION] = esched_device_close_user,     [MEM_DEV_OPERATION] = drvMemDeviceCloseUserRes,
-    [TSDRV_DEV_OPERATION] = drvTrsDeviceCloseUserResInner, [BUFF_DEV_OPERATION] = NULL,
-    [QUEUE_DEV_OPERATION] = queue_device_close_user,       [URD_DEV_OPERATION] = urdCloseRestoreHandler,
-    [DMS_DEV_OPERATION] = dmsCloseRestoreHandler,          [APM_DEV_OPERATION] = apm_device_close_user,
+    [ESCHED_DEV_OPERATION] = esched_device_close_user,
+    [MEM_DEV_OPERATION] = drvMemDeviceCloseUserRes,
+    [TSDRV_DEV_OPERATION] = drvTrsDeviceCloseUserResInner,
+    [BUFF_DEV_OPERATION] = NULL,
+    [QUEUE_DEV_OPERATION] = queue_device_close_user,
+    [URD_DEV_OPERATION] = urdCloseRestoreHandler,
+    [DMS_DEV_OPERATION] = dmsCloseRestoreHandler,
+    [APM_DEV_OPERATION] = apm_device_close_user,
+    [UDA_DEV_OPERATION] = udaCloseRestoreHandler,
 };
 
 static drvError_t (*drv_proc_res_backup_handlers[MAX_DEV_OPERATION])(halProcResBackupInfo *info) = {
@@ -90,6 +101,7 @@ static drvError_t (*drv_proc_res_restore_handlers[MAX_DEV_OPERATION])(halProcRes
     [URD_DEV_OPERATION] = NULL,
     [DMS_DEV_OPERATION] = dmsProcResRestoreHandler,
 };
+// clang-format on
 
 u32 soc_res_get_ver(u32 udevid, enum soc_ver_type type, u32 *ver);
 

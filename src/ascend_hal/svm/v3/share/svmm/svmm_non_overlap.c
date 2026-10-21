@@ -27,7 +27,6 @@ struct svmm_seg {
     u64 start;
     u64 size;
     u64 svm_flag;
-    u32 task_bitmap;
     struct svm_global_va src_info;
     void *priv;
     struct svm_svmm_seg_priv_ops *priv_ops;
@@ -93,22 +92,21 @@ static u32 svmm_non_overlap_show_seg(struct svmm_seg *seg, int id, char *buf, u3
     int tmp_id = id;
 
     if (buf == NULL) {
-        svm_info("id %d: seg info: ref %d devid %u start 0x%llx size 0x%llx, svm_flag 0x%llx, task_bitmap 0x%x\n"
+        svm_info("id %d: seg info: ref %d devid %u start 0x%llx size 0x%llx, svm_flag 0x%llx\n"
                  "    seg src: udevid %u tgid %d va 0x%llx size 0x%llx\n",
-                 tmp_id, seg->ref, seg->devid, seg->start, seg->size, seg->svm_flag, seg->task_bitmap, src->udevid,
-                 src->tgid, src->va, src->size);
+                 tmp_id, seg->ref, seg->devid, seg->start, seg->size, seg->svm_flag, src->udevid, src->tgid, src->va,
+                 src->size);
         svmm_seg_priv_show(seg);
         return 0;
     } else {
         if (buf_len == 0) {
             return 0;
         }
-        int len = snprintf_s(
-            buf, buf_len, buf_len - 1,
-            "id %d: seg info: ref %d devid %u start 0x%llx size 0x%llx, svm_flag 0x%llx, task_bitmap 0x%x\n"
-            "    seg src: udevid %u tgid %d va 0x%llx size 0x%llx\n",
-            tmp_id, seg->ref, seg->devid, seg->start, seg->size, seg->svm_flag, seg->task_bitmap, src->udevid,
-            src->tgid, src->va, src->size);
+        int len = snprintf_s(buf, buf_len, buf_len - 1,
+                             "id %d: seg info: ref %d devid %u start 0x%llx size 0x%llx, svm_flag 0x%llx\n"
+                             "    seg src: udevid %u tgid %d va 0x%llx size 0x%llx\n",
+                             tmp_id, seg->ref, seg->devid, seg->start, seg->size, seg->svm_flag, src->udevid, src->tgid,
+                             src->va, src->size);
         return (len < 0) ? 0 : (u32)len;
     }
 }
@@ -138,10 +136,6 @@ static struct svmm_seg *svmm_seg_create(u32 devid, u64 start, u64 size, u64 svm_
     if (seg == NULL) {
         svm_err("Calloc seg failed. (size=0x%lx)\n", sizeof(*seg));
         return NULL;
-    }
-
-    if (devid <= SVM_MAX_DEV_AGENT_NUM) {
-        seg->task_bitmap = 1; /* cp */
     }
 
     seg->head.overlap_type = SVMM_NON_OVERLAP;
@@ -180,13 +174,26 @@ int svmm_non_overlap_add_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, 
     pthread_rwlock_unlock(&svmm_inst->rwlock);
     if (ret != 0) {
         svmm_seg_destroy(seg);
+        (void)svmm_non_overlap_show(svmm_inst, NULL, 0);
         svm_err("Insert failed. (devid=%u; start=0x%llx; size=0x%llx)\n", devid, start, size);
     }
 
     return ret;
 }
 
-int svmm_non_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size, bool force)
+int svmm_non_overlap_can_add_seg(struct svmm_inst *svmm_inst, u64 start, u64 size)
+{
+    struct rb_range_handle range = {.start = start, .end = start + size - 1ULL};
+    bool can_insert;
+
+    pthread_rwlock_rdlock(&svmm_inst->rwlock);
+    can_insert = rbtree_can_insert_range(&svmm_inst->root, &range, svmm_seg_rb_range);
+    pthread_rwlock_unlock(&svmm_inst->rwlock);
+
+    return can_insert ? 0 : DRV_ERROR_REPEATED_USERD;
+}
+
+int svmm_non_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size, bool force, u64 *svm_flag)
 {
     struct svmm_seg *seg = NULL;
     int ret;
@@ -221,6 +228,9 @@ int svmm_non_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, 
         return ret;
     }
 
+    if (svm_flag != NULL) {
+        *svm_flag = seg->svm_flag;
+    }
     svmm_remove_seg(svmm_inst, seg);
     pthread_rwlock_unlock(&svmm_inst->rwlock);
 
@@ -361,18 +371,6 @@ u32 svmm_get_seg_devid(void *seg_handle)
 {
     struct svmm_seg *seg = (struct svmm_seg *)seg_handle;
     return seg->devid;
-}
-
-void svmm_set_seg_task_bitmap(void *seg_handle, u32 task_bitmap)
-{
-    struct svmm_seg *seg = (struct svmm_seg *)seg_handle;
-    seg->task_bitmap = task_bitmap;
-}
-
-u32 svmm_get_seg_task_bitmap(void *seg_handle)
-{
-    struct svmm_seg *seg = (struct svmm_seg *)seg_handle;
-    return seg->task_bitmap;
 }
 
 u64 svmm_get_seg_svm_flag(void *seg_handle)

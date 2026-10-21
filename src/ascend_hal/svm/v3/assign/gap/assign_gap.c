@@ -240,7 +240,7 @@ static const struct svm_criu_ops g_assign_gap_criu_ops = {
     .reset = svm_assign_gap_criu_reset,
 };
 
-void __attribute__((constructor)) assign_gap_init(void)
+void __attribute__((constructor(SVM_INIT_PRI_PRE_HIGH))) assign_gap_init(void)
 {
     int ret;
 

@@ -95,7 +95,7 @@ int hal_kernel_get_cpu_topo(uint32_t dev_id, struct cpu_topology_info *res)
         return -EINVAL;
     }
     if (!uda_is_udevid_exist(dev_id)) {
-        soc_err("Device id is not exist. (dev_id=%u;)\n", dev_id);
+        soc_err("Device id does not exist. (dev_id=%u;)\n", dev_id);
         return -ENODEV;
     }
     if (uda_is_pf_dev(dev_id)) {

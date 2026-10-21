@@ -61,7 +61,7 @@ static void dma_map_ctx_init(u32 udevid, struct dma_map_ctx *ctx)
 static void dma_map_ctx_release(void *priv)
 {
     struct dma_map_ctx *ctx = (struct dma_map_ctx *)priv;
-    svm_vfree(ctx);
+    svm_kfree(ctx);
 }
 
 int dma_map_init_task(u32 udevid, int tgid, void *start_time)
@@ -70,7 +70,7 @@ int dma_map_init_task(u32 udevid, int tgid, void *start_time)
     void *task_ctx = NULL;
     int ret;
 
-    ctx = (struct dma_map_ctx *)svm_vzalloc(sizeof(*ctx));
+    ctx = (struct dma_map_ctx *)svm_kzalloc(sizeof(*ctx), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (ctx == NULL) {
         svm_err("No mem. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -ENOMEM;
@@ -82,7 +82,7 @@ int dma_map_init_task(u32 udevid, int tgid, void *start_time)
 
     task_ctx = svm_task_ctx_get(udevid, tgid);
     if (task_ctx == NULL) {
-        svm_vfree(ctx);
+        svm_kfree(ctx);
         svm_err("Invalid dev task. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -EINVAL;
     }
@@ -90,7 +90,7 @@ int dma_map_init_task(u32 udevid, int tgid, void *start_time)
     ret = svm_task_set_feature_priv(task_ctx, dma_map_task_feature_id, "dma_map", (void *)ctx, dma_map_ctx_release);
     if (ret != 0) {
         svm_task_ctx_put(task_ctx);
-        svm_vfree(ctx);
+        svm_kfree(ctx);
         return ret;
     }
 

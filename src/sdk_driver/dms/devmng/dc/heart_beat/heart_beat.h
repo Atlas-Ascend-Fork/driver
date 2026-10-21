@@ -14,16 +14,17 @@
 #ifndef __HEART_BEAT_H
 #define __HEART_BEAT_H
 
-#define HEART_BEAT_NOT_INIT   0
-#define HEART_BEAT_READY   1
-#define HEART_BEAT_LOST   2
-#define HEART_BEAT_EXIT   3
+#define HEART_BEAT_NOT_INIT 0
+#define HEART_BEAT_READY 1
+#define HEART_BEAT_LOST 2
+#define HEART_BEAT_EXIT 3
 
 #define HEART_BEAT_DEATH_COUNT 4
 #define HEART_BEAT_HCCS_DEATH_COUNT 8
 
 int hb_set_heart_beat_count(unsigned int dev_id, unsigned long long count);
-int hb_get_heart_beat_count(unsigned int dev_id, unsigned long long* heart_beat_count, unsigned int* hb_read_fail_count);
+int hb_get_heart_beat_count(unsigned int dev_id, unsigned long long *heart_beat_count,
+                            unsigned int *hb_read_fail_count);
 
 int hb_report_heart_beat_lost_event(unsigned int dev_id);
 
@@ -49,5 +50,5 @@ int heart_beat_register_urgent_timer(unsigned int dev_id);
 void heart_beat_unregister_urgent_timer(unsigned int dev_id);
 void heart_beat_stub(void);
 
-struct hb_write_block* hb_get_write_item(unsigned int dev_id);
+struct hb_write_block *hb_get_write_item(unsigned int dev_id);
 #endif // __HEART_BEAT_H

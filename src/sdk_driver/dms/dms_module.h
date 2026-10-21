@@ -14,5 +14,4 @@
 #ifndef DMC_MODULE_H
 #define DMC_MODULE_H
 
-
 #endif

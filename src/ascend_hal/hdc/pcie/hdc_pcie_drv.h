@@ -115,5 +115,6 @@ signed int hdc_pcie_get_session_info(mmProcess handle, const struct hdc_session 
 signed int hdc_pcie_client_wakeup_conn_wait(mmProcess handle, signed int devId, signed int serviceType);
 signed int hdc_pcie_server_wakeup_conn_wait(mmProcess handle, signed int devId, signed int serviceType);
 signed int drv_hdc_get_max_session_num_by_type(signed int serviceType);
-
+signed int hdc_pcie_get_feature_info(mmProcess handle, int device_id, unsigned int feature_type,
+                                     unsigned int *is_support, unsigned int *version);
 #endif

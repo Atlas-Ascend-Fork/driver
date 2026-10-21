@@ -704,7 +704,7 @@ static int _devmm_pages_remap_owner(struct devmm_svm_process *svm_proc, u64 va, 
 
     ret = devmm_insert_pages_to_vma_owner(vma, va, page_num, inpages, vm_page_prot);
     if (ret != 0) {
-        devmm_drv_info("Insert pages vma cp completed. (va=0x%llx)\n", va);
+        devmm_drv_info("Insert pages vma cp completed. (ret=%d; va=0x%llx)\n", ret, va);
         return ret;
     }
 
@@ -833,7 +833,7 @@ int devmm_pages_remap(struct devmm_svm_process *svm_proc, u64 va, u64 page_num, 
 
     ret = devmm_pages_remap_owner(svm_proc, va, page_num, inpages, page_prot);
     if (ret != 0) {
-        devmm_drv_info("Devmm insert pages to vma completed. (page_num=%llu)\n", page_num);
+        devmm_drv_info("Devmm insert pages to vma completed. (ret=%d; page_num=%llu)\n", ret, page_num);
         return ret;
     }
 #ifndef UVM_OPEN
@@ -915,11 +915,18 @@ STATIC struct devmm_svm_heap *devmm_svm_get_heap_proc(struct devmm_svm_process *
     u32 heap_idx;
 
     if (devmm_is_in_host_pin_range(va)) {
-        return svm_proc->host_pin_heap;
+        heap_idx = (u32)((va - svm_proc->host_pin_start_addr) / DEVMM_HEAP_SIZE);
+        if (heap_idx < DEVMM_MAX_HOST_PIN_HEAP_NUM) {
+            heap = svm_proc->host_pin_heaps[heap_idx];
+            if (devmm_check_heap_is_entity(heap)) {
+                return heap; /* reserve uva: SUB_RESERVE_TYPE */
+            }
+        }
+        return svm_proc->host_pin_heap; /* halMemAlloc uva: SUB_HOST_TYPE */
     }
 
     heap_idx = (u32)((va - svm_proc->start_addr) / DEVMM_HEAP_SIZE);
-    heap = devmm_get_heap_by_idx(svm_proc, heap_idx);
+    heap = devmm_get_heap_by_idx(svm_proc, heap_idx, false);
     if (devmm_check_heap_is_entity(heap) == false) {
         return NULL;
     }
@@ -963,10 +970,9 @@ bool devmm_va_is_not_soma_process_addr(const struct devmm_svm_process *svm_proce
 
 struct devmm_svm_heap *devmm_svm_get_heap(struct devmm_svm_process *svm_proc, unsigned long va)
 {
-    if (devmm_is_in_host_pin_range(va)) {
-        return svm_proc->host_pin_heap;
-    }
     if (devmm_va_is_in_soma_range(va)) {
+        devmm_drv_info("try to visit soma heap on device, va= 0x%lx, soma_start=0x%lx, soma_end=0x%lx\n", va,
+                       svm_proc->soma_start_addr, svm_proc->soma_end_addr);
         return svm_proc->soma_heap;
     }
     if (devmm_va_is_not_svm_process_addr(svm_proc, va)) {
@@ -1007,7 +1013,7 @@ int devmm_svm_proc_and_heap_get(struct devmm_svm_process_id *process_id, u64 va,
 {
     *svm_proc = devmm_svm_proc_get_by_process_id_ex(process_id);
     if (*svm_proc == NULL) {
-        devmm_drv_err("Process has exited. (va=0x%llx; hostpid=%d; devid=%d; vfid=%d)\n", va, process_id->hostpid,
+        devmm_drv_err("Process is exit. (va=0x%llx; hostpid=%d; devid=%d; vfid=%d)\n", va, process_id->hostpid,
                       process_id->devid, process_id->vfid);
         return -ESRCH;
     }
@@ -1100,7 +1106,7 @@ STATIC int devmm_svm_get_channel_lock(struct devmm_svm_process *svm_proc, const 
     if (devmm_svm_mem_is_enable(svm_proc) == false) {
 #ifndef EMU_ST
         devmm_drv_err_if(((msg_bitmap & DEVMM_MSG_RETURN_OK_MASK) == 0),
-                         "Mmap failed, svm is disabled.(hostpid=%d; devid=%d; vfid=%d; msg_id=%u).\n",
+                         "Mmap failed, svm is disabled. (hostpid=%d; devid=%d; vfid=%d; msg_id=%u)\n",
                          svm_proc->process_id.hostpid, svm_proc->process_id.devid, svm_proc->process_id.vfid, msg_id);
         /* errcode ESRCH return to user */
         return -ESRCH;
@@ -1232,11 +1238,9 @@ STATIC int devmm_chan_get_heap(struct devmm_chan_addr_head *addr_head, const str
         *heap = NULL;
         return 0;
     }
-    if (devmm_is_static_soma_reserve_addr(svm_proc, addr_head->va)) {
-        *heap = devmm_soma_get_heap(svm_proc, addr_head->va);
-    } else {
-        *heap = devmm_svm_get_heap(svm_proc, addr_head->va);
-    }
+
+    *heap = devmm_svm_get_heap(svm_proc, addr_head->va);
+
     if (*heap == NULL) {
         devmm_drv_err_if(
             ((msg_bitmap & DEVMM_MSG_RETURN_OK_MASK) == 0),
@@ -1308,7 +1312,7 @@ int devmm_chan_msg_dispatch(void *msg, u32 in_data_len, u32 out_data_len, u32 *a
 #endif
 
     if (head_msg->process_id.vfid >= DEVMM_MAX_VF_NUM) {
-        devmm_drv_err("Message_id is invalid. (msg_id=%u; vfid=%d)\n", msg_id, head_msg->process_id.vfid);
+        devmm_drv_err("Message_id is invalid (msg_id=%u; vfid=%d)\n", msg_id, head_msg->process_id.vfid);
         ret = -EINVAL;
         goto save_msg_ret;
     }

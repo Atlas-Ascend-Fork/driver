@@ -135,4 +135,9 @@ static inline bool trs_cloud_v5_is_support_soft_mbox(void)
 {
     return true;
 }
+
+static inline bool trs_soc_is_cloud_v5_support_virt(u32 devid)
+{
+    return true;
+}
 #endif /* SOC_ADAPT_RES_CLOUD_V5_H__ */

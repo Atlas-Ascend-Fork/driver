@@ -22,7 +22,7 @@ void trs_chan_maint_db_uninit(struct trs_id_inst *inst)
 
 int trs_chan_maint_db_init(struct trs_id_inst *inst)
 {
-    u32 start, end;
+    u32 start = 0, end = 0;
     int ret;
 
     ret = trs_soc_get_db_cfg(inst, TRS_DB_MAINT_SQ, &start, &end);

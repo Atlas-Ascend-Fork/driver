@@ -21,6 +21,7 @@
 
 #define TRS_HW_SQE_SIZE 64
 struct trs_core_ts_inst;
+struct trs_sq_ctx;
 
 enum trs_sq_send_sched_type {
     SQ_SEND_NON_FAIR_MODE,

@@ -18,7 +18,7 @@
 #include "queue_context.h"
 
 #define CONTEXT_HASH_TABLE_BIT 10
-#define CONTEXT_HASH_TABLE_MASK ((0x1 << CONTEXT_HASH_TABLE_BIT) - 1)
+#define CONTEXT_HASH_TABLE_MASK ((0x1U << CONTEXT_HASH_TABLE_BIT) - 1)
 
 static KA_TASK_DEFINE_SPINLOCK(context_spinlock);
 static KA_DEFINE_HASHTABLE(context_table, CONTEXT_HASH_TABLE_BIT);

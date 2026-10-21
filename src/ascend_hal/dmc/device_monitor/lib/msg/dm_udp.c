@@ -143,7 +143,7 @@ STATIC int __dm_udp_send(DM_INTF_S *intf, DM_MSG_TYPE msg_type, DM_ADDR_ST *addr
 
     ret = __dm_send_msg(intf->wfd, req, sizeof(UDP_MSG_T), (void *)&to_addr->sock_addr, (socklen_t)send_addr_len);
     if (ret != 0) {
-        DEV_MON_ERR("__dm_send_msg: sendto fail.errno=%d\r\n", ret);
+        DEV_MON_ERR("__dm_send_msg: sendto failed. (ret=%d)\r\n", ret);
     }
 
     free(req);
@@ -198,6 +198,10 @@ STATIC int __dm_udp_recv_set_irecv_data(UDP_MSG_T *msg, DM_RECV_ST *irecv, struc
         ret = memcpy_s(irecv->msg.data, irecv->msg.data_len, msg->data, msg->data_len);
         err_buf = errno;
         DRV_CHECK_RETV_DO_SOMETHING((ret == 0), err_buf, DEV_MON_ERR("memcpy_s error\n"));
+    } else {
+        DEV_MON_ERR("Invalid buffer size. (irecv->msg.data_len=%hu; msg->data_len=%hu)\n", irecv->msg.data_len,
+                    msg->data_len);
+        return -EINVAL;
     }
 
 #endif
@@ -237,7 +241,7 @@ STATIC int __dm_recv_msg_with_cred(int sockfd, struct ucred *cred, void *buf, un
     }
 
     if (ret == -1) {
-        DEV_MON_ERR("recvmsg fail. (errno=%d; timeout=%dms)\n", err_buf, timeout * DM_TIMEOUT_TEN_TIMES);
+        DEV_MON_ERR("recvmsg fail. (errno=%d, timeout=%dms)\n", err_buf, timeout * DM_TIMEOUT_TEN_TIMES);
         return err_buf;
     }
 
@@ -299,7 +303,7 @@ STATIC int __dm_udp_recv(DM_INTF_S *intf, int fd, short revents, DM_RECV_ST *ire
 
         ret = __dm_udp_recv_set_irecv_data(msg, irecv, from, from_len, &cred);
         if (ret != 0) {
-            DEV_MON_ERR("init irecv fail ret = %d\n", ret);
+            DEV_MON_ERR("init irecv failed. (ret=%d)\n", ret);
             goto out;
         }
 
@@ -410,7 +414,7 @@ static int dm_udp_init_intf(DM_INTF_S **intf, DM_MSG_TIMEOUT_HNDL_T timeout_hndl
     int ret;
 
     if (name_len > DM_INTF_NAME_LEN) {
-        DEV_MON_ERR("name len exceeds max. (name_len=%d; max=%d)\n", name_len, DM_INTF_NAME_LEN);
+        DEV_MON_ERR("name len %d is larger than %d\n", name_len, DM_INTF_NAME_LEN);
         return EINVAL;
     }
 
@@ -473,7 +477,7 @@ int dm_udp_init(DM_INTF_S **my_intf, DM_CB_S *cb, DM_MSG_TIMEOUT_HNDL_T timeout_
 
     ret = dm_udp_init_intf(&intf, timeout_hndl, cb, my_addr, name, sizeof(name));
     if (ret != 0) {
-        DEV_MON_ERR("init intf fail ret = %d\n", ret);
+        DEV_MON_ERR("init intf failed. (ret=%d)\n", ret);
         return ret;
     }
 

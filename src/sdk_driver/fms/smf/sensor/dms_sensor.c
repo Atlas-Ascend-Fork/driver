@@ -219,13 +219,13 @@ static struct dms_node_sensor_cb *dms_get_or_create_node_sensor_cb(struct dms_de
         if (node_sensor_cb->env_type != env_type) {
             /* The currently registered environment (user mode, kernel mode) is inconsistent with the previously created
              * node */
-            dms_err("env is not match\n");
+            dms_err("env does not match\n");
             return NULL;
         }
         if (node_sensor_cb->pid != pid) {
             /* The currently registered process (user mode, kernel mode) is inconsistent with the previously created
              * process */
-            dms_err("pid is not match. (node_type=0x%x, node_id=%d, owner_pid=%d, current_pid=%d\n",
+            dms_err("pid does not match. (node_type=0x%x; node_id=%d; owner_pid=%d; current_pid=%d)\n",
                     owner_node->node_type, owner_node->node_id, node_sensor_cb->pid, pid);
             return NULL;
         }
@@ -389,12 +389,14 @@ static unsigned int dms_sensor_cfg_check(struct dms_sensor_object_cfg *psensor_o
     if ((sensor_class != DMS_STATICSTIC_SENSOR_CLASS) && (sensor_class != DMS_GENERAL_THRESHOLD_SENSOR_CLASS) &&
         (sensor_class != DMS_DISCRETE_SENSOR_CLASS) && (sensor_class != DMS_PER_SENSOR_CLASS)) {
         /* Print error message: the type of information table is illegal */
-        dms_err("Sensor Table Check Failed(sensor_class=%u)\n", sensor_class);
+        dms_err("Sensor Table Check Failed. (sensor_class=%u; valid=%u, %u, %u, %u)\n", sensor_class,
+                DMS_STATICSTIC_SENSOR_CLASS, DMS_GENERAL_THRESHOLD_SENSOR_CLASS, DMS_DISCRETE_SENSOR_CLASS,
+                DMS_PER_SENSOR_CLASS);
         return DRV_ERROR_PARA_ERROR;
     }
 
     if (dms_check_sensor_type(psensor_obj_cfg->sensor_type) != DRV_ERROR_NONE) {
-        dms_err("sensor type is not support\n");
+        dms_err("sensor type is not supported\n");
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -560,14 +562,12 @@ static unsigned int dms_sensor_register_all(struct dms_node *owner_node, struct 
     return DRV_ERROR_NONE;
 }
 
-unsigned int dms_fill_event_data(const struct dms_sensor_object_cb *psensor_obj_cb, DMS_EVENT_LIST_ITEM *event_item,
-                                 unsigned char assertion, struct dms_event_obj *p_event_obj)
+static unsigned int dms_fill_event_node_info(const struct dms_sensor_object_cb *psensor_obj_cb,
+                                             DMS_EVENT_LIST_ITEM *event_item, struct dms_event_obj *p_event_obj)
 {
     struct dms_node *owner_node = NULL;
     int ret;
     unsigned int severity = DMS_EVENT_OK;
-
-    (void)memset_s((void *)p_event_obj, sizeof(struct dms_event_obj), 0, sizeof(struct dms_event_obj));
 
     /* Get the sensor number */
     ret = dms_get_event_severity(psensor_obj_cb->owner_node_type, psensor_obj_cb->sensor_object_cfg.sensor_type,
@@ -604,6 +604,21 @@ unsigned int dms_fill_event_data(const struct dms_sensor_object_cb *psensor_obj_
     }
 
     p_event_obj->severity = severity;
+    return 0;
+}
+
+unsigned int dms_fill_event_data(const struct dms_sensor_object_cb *psensor_obj_cb, DMS_EVENT_LIST_ITEM *event_item,
+                                 unsigned char assertion, struct dms_event_obj *p_event_obj)
+{
+    int ret;
+
+    (void)memset_s((void *)p_event_obj, sizeof(struct dms_event_obj), 0, sizeof(struct dms_event_obj));
+
+    ret = dms_fill_event_node_info(psensor_obj_cb, event_item, p_event_obj);
+    if (ret != 0) {
+        return ret;
+    }
+
     /* Fill in the sensor number */
     p_event_obj->event.sensor_event.sensor_num = psensor_obj_cb->sensor_num;
     /* Fill in the sensor type */
@@ -778,7 +793,7 @@ static DMS_EVENT_LIST_ITEM *sensor_alloc_event_list_cb(void)
     }
     ka_task_mutex_unlock(&g_sensor_event_list_mutex);
 
-    dms_err("No enough sensor event space! (event_num_limit=%d)\n", DMS_MAX_EVENT_NUM);
+    dms_err("Not enough sensor event space! (event_num_limit=%d)\n", DMS_MAX_EVENT_NUM);
     return 0;
 }
 
@@ -993,7 +1008,7 @@ static void sensor_report_diff_event_list(struct dms_sensor_object_cb *p_sensor_
         ret = dms_get_event_severity(p_sensor_obj_cb->owner_node_type, p_sensor_obj_cb->sensor_object_cfg.sensor_type,
                                      p_new_list->event_data, &severity);
         if (ret != DRV_ERROR_NONE) {
-            dms_err("Get event severity fail. (sensor type=0x%x; offset=%u)\n",
+            dms_err("Get event severity failed. (sensor type=0x%x; offset=%u)\n",
                     p_sensor_obj_cb->sensor_object_cfg.sensor_type, p_new_list->event_data);
         }
 
@@ -1024,7 +1039,7 @@ int dms_add_one_sensor_event(struct dms_sensor_object_cb *psensor_obj_cb,
     /* Add event to sensor event list */
     p_event = sensor_add_event_to_list(&psensor_obj_cb->p_event_list, pevent_data, psensor_obj_cb);
     if (p_event == NULL) {
-        dms_warn("dms_add_one_sensor_event is not add event to list\n");
+        dms_warn("dms_add_one_sensor_event did not add event to list\n");
         return DRV_ERROR_NONE;
     }
     /* Add a new encapsulation function for reporting events */
@@ -1132,7 +1147,7 @@ STATIC int dms_proc_sensor_data(struct dms_dev_sensor_cb *dev_sensor_cb, struct 
             break;
         default:
             /* Print error message: sensor type is not supported */
-            dms_err("Sensor Class NOT Support. (sensor_class=%u)\n", sensor_class);
+            dms_err("Sensor Class NOT supported. (sensor_class=%u)\n", sensor_class);
             return DRV_ERROR_PARA_ERROR;
     }
     return result;
@@ -1149,7 +1164,7 @@ static int dms_check_sensor_event_offset(unsigned char sensor_type, unsigned cha
             if (dms_sensor_type[i].sensor_event_count > event_offset) {
                 return DRV_ERROR_NONE;
             } else {
-                dms_err("event offset error. (event_count=%u; sensor_type=0x%x; event_offset=%u)\n",
+                dms_err("event offset error. (event_count=%u,sensor_type=0x%x; event_offset=%u)\n",
                         dms_sensor_type[i].sensor_event_count, sensor_type, event_offset);
                 return DRV_ERROR_PARA_ERROR;
             }
@@ -1203,7 +1218,7 @@ STATIC void dms_printf_sensor_class_info(int class_val, const union dms_sensor_u
             break;
         default:
             /* Print error message: sensor type is not supported */
-            dms_err("Sensor Class NOT Support. (class_val=0x%x!)\n", (unsigned int)class_val);
+            dms_err("Sensor Class NOT supported. (class_val=0x%x!)\n", (unsigned int)class_val);
             return;
     }
     return;
@@ -1260,7 +1275,7 @@ STATIC int dms_check_sensor_type_table(void)
     dms_sensor_type = dms_get_sensor_type();
     for (i = 0; i < count; i++) {
         if (dms_sensor_type[i].sensor_type == DMS_SENSOR_RESERVED_FOR_PRODUCT) {
-            dms_err("The sensor type has been reserved for product. (sensor_type=0x%x)\n",
+            dms_err("The sensor type has been reserved for product.(sensor_type=0x%x)\n",
                     dms_sensor_type[i].sensor_type);
             return DRV_ERROR_PARA_ERROR;
         }
@@ -1360,19 +1375,19 @@ void dms_printf_sensor_time_recorder(struct dms_dev_sensor_cb *pdev_sen_cb)
     dms_info("\n record_scan_time_flag: %u", ptime_recorder->record_scan_time_flag);
     dms_info("\n sensor_out_time_count: %u", ptime_recorder->sensor_out_time_count);
     dms_info("\n sensor_record_index: %u", ptime_recorder->sensor_record_index);
-    dms_info("\n sensor_max_exec_time: %lu", ptime_recorder->max_sensor_scan_record.exec_time);
+    dms_info("\n sensor_max_exec_time: %lu us", ptime_recorder->max_sensor_scan_record.exec_time);
     dms_info("\n sensor_max_exec_sensor: %.*s", DMS_SENSOR_DESCRIPT_LENGTH,
              ptime_recorder->max_sensor_scan_record.sensor_name);
     for (i = 0; i < ptime_recorder->sensor_record_index; i++) {
         dms_info("\n sensor: name: %.*s", DMS_SENSOR_DESCRIPT_LENGTH,
                  ptime_recorder->sensor_scan_time_record[i].sensor_name);
-        dms_info("\n sensor:exec_time: %lu", ptime_recorder->sensor_scan_time_record[i].exec_time);
+        dms_info("\n sensor:exec_time: %lu us", ptime_recorder->sensor_scan_time_record[i].exec_time);
     }
     dms_info("\n dev:dev_out_time_count: %u", ptime_recorder->dev_out_time_count);
-    dms_info("\n dev:max_dev_scan_record: %lu", ptime_recorder->max_dev_scan_record);
+    dms_info("\n dev:max_dev_scan_record: %lu us", ptime_recorder->max_dev_scan_record);
     dms_info("\n dev:dev_record_index: %u", ptime_recorder->dev_record_index);
     for (i = 0; i < ptime_recorder->dev_record_index; i++) {
-        dms_info("\n dev:dev_scan_time_record: %lu", ptime_recorder->dev_scan_time_record[i]);
+        dms_info("\n dev:dev_scan_time_record: %lu us", ptime_recorder->dev_scan_time_record[i]);
     }
 }
 
@@ -1810,7 +1825,7 @@ STATIC void dms_sensor_clean_report_event_list(struct dms_sensor_object_cb *psen
 int dms_sensor_clean_health_events(struct dms_dev_sensor_cb *dev_sensor_cb)
 {
     struct dms_node_sensor_cb *node_sensor_cb = NULL;
-    struct dms_node_sensor_cb *tmp_ctl = NULL;
+    struct dms_node_sensor_cb *tmp_cb = NULL;
     struct dms_sensor_object_cb *psensor_obj_cb = NULL;
     struct dms_sensor_object_cb *tmp_sensor_ctl = NULL;
 
@@ -1822,7 +1837,7 @@ int dms_sensor_clean_health_events(struct dms_dev_sensor_cb *dev_sensor_cb)
     ka_task_mutex_lock(&dev_sensor_cb->dms_sensor_mutex);
 
     /* Traverse the list of module nodes */
-    ka_list_for_each_entry_safe(node_sensor_cb, tmp_ctl, &(dev_sensor_cb->dms_node_sensor_cb_list), list)
+    ka_list_for_each_entry_safe(node_sensor_cb, tmp_cb, &(dev_sensor_cb->dms_node_sensor_cb_list), list)
     {
         if (node_sensor_cb->sensor_object_num == 0) {
             dms_warn("dms_sensor_scan_task: not sensor type and obj! nodeid = %u", node_sensor_cb->node_id);
@@ -1954,7 +1969,7 @@ unsigned int dms_sensor_object_unregister(struct dms_node *owner_node, struct dm
 
     rec = dms_get_node_sensor_cb_by_nodeid(dev_sensor_cb, owner_node->node_type, owner_node->node_id, &pnode_sen_cb);
     if (rec != DRV_ERROR_NONE) {
-        dms_err("get node sensor cb fail. (nodeid=%d; nodetype=%d)\n", owner_node->node_id, owner_node->node_type);
+        dms_err("get node sensor cb fail. (nodeid=%d, nodetype=%d)\n", owner_node->node_type, owner_node->node_id);
         ka_task_mutex_unlock(&dev_sensor_cb->dms_sensor_mutex);
         return rec;
     }
@@ -2026,7 +2041,7 @@ Description:     sensor Processing module initialization
 unsigned int dms_init_dev_sensor_cb(int deviceid, struct dms_dev_sensor_cb *sensor_cb)
 {
     if (sensor_cb == NULL) {
-        dms_err("info input fail\n");
+        dms_err("info input failed\n");
         return DRV_ERROR_PARA_ERROR;
     }
 

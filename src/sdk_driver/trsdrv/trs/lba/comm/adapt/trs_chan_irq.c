@@ -19,6 +19,7 @@
 
 #include "pbl/pbl_soc_res.h"
 #include "trs_chan_irq.h"
+#include "trs_sqcq_timestamp.h"
 
 static KA_BASE_RADIX_TREE(irq_tree, KA_GFP_KERNEL);
 KA_TASK_DEFINE_MUTEX(irq_mutex);
@@ -82,6 +83,9 @@ static void trs_chan_irq_unmask(ka_work_struct_t *p_work)
 static void trs_chan_irq_tasklet(unsigned long data)
 {
     struct trs_chan_irq *chan_irq = (struct trs_chan_irq *)data;
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+    trs_dfx_set_cq_tasklet_tick(chan_irq->inst.tsid);
+#endif
     struct trs_chan_irq_node *irq_node = NULL;
     int proc_cnt = 0;
     u32 cq_num = 0;
@@ -134,6 +138,9 @@ static void trs_chan_irq_tasklet(unsigned long data)
 static ka_irqreturn_t trs_adapt_chan_irq_proc(int irq, void *para)
 {
     struct trs_chan_irq *chan_irq = (struct trs_chan_irq *)para;
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+    trs_dfx_set_cq_irq_tick(chan_irq->inst.tsid);
+#endif
     chan_irq->timeout = ka_jiffies + (KA_HZ / 2); /* limit the time of tasklet to 1/2 seconds */
 
     if (chan_irq->attr.intr_mask_config != NULL) {
@@ -212,7 +219,15 @@ int trs_chan_request_irq(struct trs_id_inst *inst, int irq_type, int irq_index, 
             trs_kfree(irq_node);
             return -ENOMEM;
         }
-        ka_base_radix_tree_insert(&irq_tree, irq, chan_irq);
+
+        ret = ka_base_radix_tree_insert(&irq_tree, irq, chan_irq);
+        if (ret != 0) {
+            trs_destroy_chan_irq(chan_irq);
+            ka_task_mutex_unlock(&irq_mutex);
+            trs_kfree(irq_node);
+            trs_err("Insert irq tree failed. (irq=%u; ret=%d)\n", irq, ret);
+            return ret;
+        }
 
         chan_irq->irq_type = irq_type;
         chan_irq->irq_index = irq_index;

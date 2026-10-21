@@ -17,8 +17,8 @@
 
 #define MAX_CHIP_SERDES_LAN_NUM 8
 
-#define PCIE_CONNECT_TYPE               0
-#define HCCS_CONNECT_TYPE               1
+#define PCIE_CONNECT_TYPE 0
+#define HCCS_CONNECT_TYPE 1
 
 enum dbl_serdes_type {
     SERDES_TYPE_NULL = 0,

@@ -37,7 +37,8 @@ int sqe_proc_rdma(u32 devid, u32 tsid, int pid, u32 sq_id, ts_stars_sqe_t *sqe)
         return EOK;
     }
     if (g_kp_update_sqe_ops.rdma_query_db_pa == NULL) {
-        ts_agent_err("no registered function is available.");
+        ts_agent_err("no registered function is available, devid=%u, tsid=%u, pid=%d, sqid=%u", devid, tsid, pid,
+                     sq_id);
         return -EINVAL;
     }
     uint32_t qpn = rdma_sqe->tag;

@@ -107,6 +107,8 @@
         <file value="asdrv_vascend_adapt.ko" file_type="ko"/>
         <file value="drv_vascend.ko" file_type="ko"/>
         <file value="asdrv_vpc.ko" file_type="ko"/>
+        <file value="asdrv_vvpc.ko" file_type="ko"/>
+        <file value="asdrv_vvmng.ko" file_type="ko"/>
         <file value="drv_pcie_host.ko" file_type="ko"/>
         <file value="asdrv_vnic.ko" file_type="ko"/>
         <file value="ts_agent.ko" file_type="ko"/>
@@ -132,6 +134,7 @@
         <file value="ascend_check.bin" file_type="executable" pkg_mod="500" install_mod="500" install_own="root:root"/>
         <file value="ascend_upgrade_crl.sh" src_path="lib" pkg_mod="500" install_mod="500" install_own="root:root"/>
         <file value="load_ube_mgmt_pack.sh" copy_type="source" src_path="scripts/package/driver/ascend950/scripts" install_own="root:root" install_type="run"/>
+        <file value="parse_type131" src_path="bin" file_type="executable" pkg_mod="550" install_mod="550" install_own="root:root"/>
     </file_info>
     <file_info value="script" copy_type="source" src_path="scripts/package/driver/common/scripts" dst_path="driver/tools" install_path="driver/tools">
         <file value="install_npudrv.sh" install_own="root:root" install_mod="550" install_type="run;docker"/>

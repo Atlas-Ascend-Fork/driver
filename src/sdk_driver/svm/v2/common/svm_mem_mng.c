@@ -43,6 +43,7 @@ ka_pgprot_t devmm_make_readonly_pgprot(ka_pgprot_t prot)
     prot_val &= ~_KA_PAGE_RW;
 #elif defined(CONFIG_ARM64)
     prot_val &= ~KA_PTE_WRITE;
+    prot_val |= KA_PTE_RDONLY;
 #endif
     return __ka_pgprot(prot_val);
 }

@@ -24,7 +24,6 @@
 #include "pbl/pbl_feature_loader.h"
 #include "pbl/pbl_ka_memory.h"
 #include "pbl/pbl_ka_timer_pub.h"
-#include "pbl/pbl_kernel_adapt.h"
 #include "pbl/pbl_kref_safe.h"
 #include "pbl/pbl_mem_alloc_interface.h"
 #include "pbl/pbl_range_rbtree.h"

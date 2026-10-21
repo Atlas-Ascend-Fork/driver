@@ -11,11 +11,11 @@
 set(DRIVER_DEVICE_NAME "driver-device")
 set(DRIVER_DEVICE_SERVER "https://ascend.devcloud.huaweicloud.com/artifactory/cann-run-mirror/dependency")
 if(${PRODUCT} STREQUAL ascend950)
-    set(DRIVER_DEVICE_VERSION "9.1.0")
-    set(DRIVER_DEVICE_DATE "20260624000326746")
+    set(DRIVER_DEVICE_VERSION "9.2.0")
+    set(DRIVER_DEVICE_DATE "20261008184404262")
 else()
-    set(DRIVER_DEVICE_VERSION "9.1.0")
-    set(DRIVER_DEVICE_DATE "20260624000326746")
+    set(DRIVER_DEVICE_VERSION "9.2.0")
+    set(DRIVER_DEVICE_DATE "20261008184404262")
 endif()
 
 if(POLICY CMP0135)
@@ -54,7 +54,12 @@ if(NOT DRIVER_DEVICE_ARCHIVE_FILE)
     endif()
 
     set(DRIVER_DEVICE_FILE "cann-driver-device-${DRIVER_DEVICE_PRODUCT}-${DRIVER_DEVICE_RELEASE}_${DRIVER_DEVICE_VERSION}_linux-${DRIVER_DEVICE_PLATFORM}.tar.gz")
-    set(DRIVER_DEVICE_URL "${DRIVER_DEVICE_SERVER}/${DRIVER_DEVICE_VERSION}/${DRIVER_DEVICE_DATE}/${DRIVER_DEVICE_PLATFORM}/basic/${DRIVER_DEVICE_FILE}")
+    if (EXISTS "${CANN_3RD_LIB_PATH}/${DRIVER_DEVICE_FILE}")
+        set(DRIVER_DEVICE_URL "file://${CANN_3RD_LIB_PATH}/${DRIVER_DEVICE_FILE}")
+    else()
+        set(DRIVER_DEVICE_URL "${DRIVER_DEVICE_SERVER}/${DRIVER_DEVICE_VERSION}/${DRIVER_DEVICE_DATE}/\
+${DRIVER_DEVICE_PLATFORM}/basic/${DRIVER_DEVICE_FILE}")
+    endif()
     message(STATUS "Not find driver-device package, downloading ${DRIVER_DEVICE_NAME} from ${DRIVER_DEVICE_URL}")
     include(FetchContent)
     FetchContent_Declare(
@@ -71,8 +76,7 @@ if(NOT DRIVER_DEVICE_ARCHIVE_FILE)
 
     set(DRIVER_DEVICE_ARCHIVE_FILE ${EXTERN_DEPEND_DOWNLOAD_DIR}/${DRIVER_DEVICE_FILE})
     add_custom_target(extract_driver_device_pre ALL
-        COMMAND echo "Extracting driver-device package to ${DRIVER_DEVICE_INSTALL_DIR}."
-        DEPENDS ${DRIVER_DEVICE_ARCHIVE_FILE}
+        COMMAND ${CMAKE_COMMAND} -E echo "driver-device package already extracted to ${DRIVER_DEVICE_INSTALL_DIR}."
         WORKING_DIRECTORY ${DRIVER_DEVICE_INSTALL_DIR}
     )
     set(DRV_DEV_ARCHIVE_PREFIX ${DRIVER_DEVICE_INSTALL_DIR}/driver)

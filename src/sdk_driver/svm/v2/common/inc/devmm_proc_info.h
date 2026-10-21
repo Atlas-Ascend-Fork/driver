@@ -270,8 +270,10 @@ struct devmm_dma_info {
 struct devmm_shm_node {
     ka_list_head_t list;
     u64 src_va;
-    u64 dst_va;
+    u64 dst_va; /* the start va of the mapped region, aligned va */
     u64 size;
+    u64 aligned_src_va;
+    u64 aligned_size;
     u64 page_num;
     u64 ref;
     u32 map_type;
@@ -385,6 +387,9 @@ struct devmm_svm_process {
 #ifndef UVM_OPEN
     KA_DECLARE_HASHTABLE(uvm_trans_page_hashtable, UVM_TRANS_PAGE_HLIST_TABLE_BIT);
     ka_mutex_t uvm_ht_lock;
+    bool uvm_exiting;
+    struct list_head uvm_scan_list_node;
+    unsigned long uvm_next_scan_addr;
 #endif
     int ssid;
     u32 docker_id;
@@ -400,6 +405,7 @@ struct devmm_svm_process {
     u32 release_work_timeout;
     u32 vma_num;
     u32 max_heap_use;
+    u32 max_host_pin_heap_use;
     u32 phy_devid[SVM_MAX_AGENT_NUM];
     u32 vfid[SVM_MAX_AGENT_NUM];
 
@@ -449,6 +455,7 @@ struct devmm_svm_process {
     ka_rw_semaphore_t heap_sem; /* free use write lock, fault use read lock */
     struct devmm_svm_heap *heaps[DEVMM_MAX_HEAP_NUM];
     struct devmm_svm_heap *host_pin_heap;
+    struct devmm_svm_heap *host_pin_heaps[DEVMM_MAX_HOST_PIN_HEAP_NUM]; /* reserve uva heap lookup */
 #ifndef UVM_OPEN
     struct devmm_uvm_heap *uvm_heap;
 #endif
@@ -502,6 +509,7 @@ struct devmm_dma_copy_task {
     u64 size;
     volatile u64 async_status;
     u32 submit_status;
+    struct list_head timeout_node; /* linked to svm_proc timeout_task_list */
 };
 
 /*
@@ -1020,7 +1028,9 @@ bool devmm_is_static_soma_reserve_addr(struct devmm_svm_process *svm_proc, u64 v
 bool devmm_va_is_not_soma_process_addr(const struct devmm_svm_process *svm_process, unsigned long va);
 void devmm_soma_setup_vma_ops(ka_vm_area_struct_t *vma);
 int devmm_get_soma_mem_attrs(struct devmm_svm_process *svm_proc, u64 addr, struct devmm_memory_attributes *attr);
+int devmm_soma_find_best_va(struct devmm_svm_heap *heap, u64 size, u64 *best_va);
 void devmm_soma_set_heap_bits(struct devmm_svm_heap *heap, u64 addr, u64 size, uint32_t devId);
+void devmm_soma_unset_heap_bits(struct devmm_svm_heap *heap, u64 addr, u64 size);
 /* host */
 u32 *devmm_get_fst_alloc_bitmap_by_heap(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, u64 va);
 u32 *devmm_get_alloced_va_fst_page_bitmap_with_heap(struct devmm_svm_heap *heap, u64 va);

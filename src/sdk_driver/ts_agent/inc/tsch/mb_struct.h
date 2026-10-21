@@ -634,6 +634,8 @@ typedef struct {
 typedef struct {
     uint32_t cnt;
     sq_swtich_node_t nodes[MAX_SWITCH_NODE_CNT];
+    uint8_t is_virtual[MAX_SWITCH_NODE_CNT];
+    uint8_t rsv;
 } stars_switch_sq_for_stream_info_t;
 #pragma pack()
 typedef struct tag_ts_mailbox {

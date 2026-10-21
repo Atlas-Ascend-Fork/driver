@@ -76,7 +76,7 @@ struct sqcq_usr_info {
     uint32_t stream_id;
 };
 
-static inline uint64_t align_up(uint64_t value, uint64_t align)
+static inline uint64_t trs_align_up_power2(uint64_t value, uint64_t align)
 {
     if (align == 0) {
         return value;
@@ -85,7 +85,7 @@ static inline uint64_t align_up(uint64_t value, uint64_t align)
     return (value + (align - 1)) & ~(align - 1);
 }
 
-static inline uint64_t align_down(uint64_t value, uint64_t align)
+static inline uint64_t trs_align_down_power2(uint64_t value, uint64_t align)
 {
     if (align == 0) {
         return value;
@@ -94,7 +94,15 @@ static inline uint64_t align_down(uint64_t value, uint64_t align)
     return value & ~(align - 1);
 }
 
-int trs_hw_info_init(uint32_t dev_id);
+static inline uint64_t trs_align_up(uint64_t value, uint64_t align)
+{
+    if (align == 0) {
+        return value;
+    }
+
+    return ((value + align - 1) / align) * align;
+}
+
 int trs_dev_sq_cq_init(uint32_t dev_id);
 void trs_dev_sq_cq_uninit(uint32_t dev_id, uint32_t close_type);
 bool trs_is_remote_sqcq_ops(drvSqCqType_t type, uint32_t flag);
@@ -102,17 +110,6 @@ struct sqcq_usr_info *trs_get_sq_info(uint32_t dev_id, uint32_t ts_id, drvSqCqTy
 struct sqcq_usr_info *_trs_get_sq_info(uint32_t dev_id, uint32_t ts_id, drvSqCqType_t type, uint32_t id);
 drvError_t _halSqCqAllocate(uint32_t dev_id, struct halSqCqInputInfo *in, struct halSqCqOutputInfo *out);
 drvError_t _halSqCqFree(uint32_t dev_id, struct halSqCqFreeInfo *info);
-int trs_get_connection_type(uint32_t dev_id);
-uint32_t trs_get_ts_num(uint32_t dev_id);
-int trs_get_sq_send_mode(uint32_t dev_id);
-void trs_set_dev_open_status(uint32_t dev_id, bool dev_open);
-bool trs_is_dev_open(uint32_t dev_id);
-void trs_dev_ctx_mutex_lock(uint32_t dev_id);
-void trs_dev_ctx_mutex_un_lock(uint32_t dev_id);
-void trs_dev_ctx_stream_mutex_lock(uint32_t dev_id);
-void trs_dev_ctx_stream_mutex_unlock(uint32_t dev_id);
-void *trs_get_d2d_dev_ctx(uint32_t recv_dev_id);
-void trs_set_d2d_dev_ctx(uint32_t recv_dev_id, void *ctx);
 uint32_t trs_get_sq_num(uint32_t dev_id, uint32_t ts_id, drvSqCqType_t type);
 drvError_t trs_local_sqcq_alloc(uint32_t dev_id, struct halSqCqInputInfo *in, struct halSqCqOutputInfo *out);
 drvError_t trs_local_sqcq_free(uint32_t dev_id, struct halSqCqFreeInfo *info);
@@ -169,7 +166,8 @@ static inline void trs_sq_send_ok_stat(struct sqcq_usr_info *sq_info, uint32_t n
 static inline uint32_t trs_get_sq_ctrl_flag(struct sqcq_usr_info *sq_info, struct halTaskSendInfo *info)
 {
     if (((uintptr_t)info->sqe_addr < (uintptr_t)sq_info->sq_ctrl.que_addr) ||
-        ((uintptr_t)info->sqe_addr >= ((uintptr_t)sq_info->sq_ctrl.que_addr + sq_info->depth * sq_info->e_size))) {
+        ((uintptr_t)info->sqe_addr >=
+         ((uintptr_t)sq_info->sq_ctrl.que_addr + (uint64_t)sq_info->depth * sq_info->e_size))) {
         return TRS_SQ_CTRL_BY_TRS_FLAG;
     }
 

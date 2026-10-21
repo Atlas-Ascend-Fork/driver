@@ -67,7 +67,9 @@ msnpureport config --set [--device <deviceId>] --aic_switch <switchflag> --corei
 |--|--|--|
 |-d <deviceId>或--device <deviceId>|可选|指定Device ID（逻辑ID），默认为0。<br>部分产品可能存在SMP工作模式，即多个Device共用一个OS组成一组，此时指定一个OS内的任意Device ID时，会导出该OS下的所有Device日志。|
 |--aic_switch <switchflag>|必选|是否屏蔽AI Core，取值说明如下：<br>- 0：屏蔽AI Core。设置为该值后，若重启运行环境，默认不屏蔽AI Core。<br>- 1：不屏蔽AI Core，默认该选项。|
-|--coreid <coreid>|必选|指定core id，多个core id之间以英文逗号分隔，最多可同时指定4个AI Core，只要有一个core id无效，则该命令会返回报错。<br>若想恢复初始值，可将--aic_switch设置为1，将--coreid设置为0xFFFF。|
+|--coreid \<coreid>|必选|指定core id，取值范围为[0,255]。多个core id之间以英文逗号分隔，最多可同时指定4个AI Core，只要有一个core id无效，则该命令会返回报错。|
+
+若想恢复初始值（即所有core id都不屏蔽），可将--aic_switch设置为1，将--coreid设置为0xFFFF（0xFFFF不支持多个core id组合使用）。
 
 ## 使用示例
 

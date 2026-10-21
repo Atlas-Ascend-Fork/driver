@@ -17,4 +17,6 @@
 #include "comm/comm_msg_chan.h"
 #include "comm/comm_pcie.h"
 
+int esched_drv_sqe_update(unsigned int devid, unsigned int tsid, int pid, unsigned int sqid, void *sqe);
+
 #endif /* __COMM_KERNEL_INTERFACE_H__ */

@@ -50,6 +50,7 @@ struct casm_cs_dst_node {
     int owner_tgid;
     int ref_cnt;
     struct svm_global_va src_va;
+    struct casm_src_prop src_prop;
 };
 
 static u32 casm_cs_dst_feature_id;
@@ -117,7 +118,7 @@ static void casm_cs_recycle_dst_node(struct casm_cs_dst_ctx *cs_ctx)
     ka_hash_for_each_safe(cs_ctx->key_htable, bkt, hnode, node, link)
     {
         casm_cs_dst_node_del(node);
-        svm_vfree(node);
+        svm_kfree(node);
         num++;
     }
     ka_task_mutex_unlock(&cs_ctx->mutex);
@@ -151,7 +152,8 @@ static void casm_cs_show_dst_node(struct casm_cs_dst_ctx *cs_ctx, ka_seq_file_t 
     ka_task_mutex_unlock(&cs_ctx->mutex);
 }
 
-static int _casm_cs_set_src_info(struct casm_cs_dst_ctx *cs_ctx, u64 key, struct svm_global_va *src_va, int owner_tgid)
+static int _casm_cs_set_src_info(struct casm_cs_dst_ctx *cs_ctx, u64 key, struct svm_global_va *src_va, int owner_tgid,
+                                 const struct casm_src_prop *src_prop)
 {
     struct casm_cs_dst_node *node = NULL;
 
@@ -161,7 +163,7 @@ static int _casm_cs_set_src_info(struct casm_cs_dst_ctx *cs_ctx, u64 key, struct
         return 0;
     }
 
-    node = (struct casm_cs_dst_node *)svm_vzalloc(sizeof(*node));
+    node = (struct casm_cs_dst_node *)svm_kzalloc(sizeof(*node), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (node == NULL) {
         svm_err("No mem. (udevid=%u; tgid=%d; key=0x%llx)\n", cs_ctx->udevid, cs_ctx->tgid, key);
         return -ENOMEM;
@@ -171,12 +173,14 @@ static int _casm_cs_set_src_info(struct casm_cs_dst_ctx *cs_ctx, u64 key, struct
     node->owner_tgid = owner_tgid;
     node->ref_cnt = 1;
     node->src_va = *src_va;
+    node->src_prop = *src_prop;
     casm_cs_dst_node_add(cs_ctx, node);
 
     return 0;
 }
 
-static int casm_cs_set_src_info(u32 udevid, int tgid, u64 key, struct svm_global_va *src_va, int owner_tgid)
+static int casm_cs_set_src_info(u32 udevid, int tgid, u64 key, struct svm_global_va *src_va, int owner_tgid,
+                                const struct casm_src_prop *src_prop)
 {
     struct casm_cs_dst_ctx *cs_ctx = NULL;
     int ret = 0;
@@ -189,7 +193,7 @@ static int casm_cs_set_src_info(u32 udevid, int tgid, u64 key, struct svm_global
 
     if (!casm_cs_is_local_key(key)) {
         ka_task_mutex_lock(&cs_ctx->mutex);
-        ret = _casm_cs_set_src_info(cs_ctx, key, src_va, owner_tgid);
+        ret = _casm_cs_set_src_info(cs_ctx, key, src_va, owner_tgid, src_prop);
         ka_task_mutex_unlock(&cs_ctx->mutex);
     }
 
@@ -211,7 +215,7 @@ static int _casm_cs_clr_src_info(struct casm_cs_dst_ctx *cs_ctx, u64 key)
     node->ref_cnt--;
     if (node->ref_cnt <= 0) {
         casm_cs_dst_node_del(node);
-        svm_vfree(node);
+        svm_kfree(node);
     }
 
     return 0;
@@ -238,23 +242,30 @@ static int casm_cs_clr_src_info(u32 udevid, int tgid, u64 key)
     return ret;
 }
 
-static int _casm_cs_query_src(struct casm_cs_dst_ctx *cs_ctx, u64 key, struct svm_global_va *src_va, int *owner_tgid)
+static int _casm_cs_query_src(struct casm_cs_dst_ctx *cs_ctx, u64 key, struct svm_global_va *src_va, int *owner_tgid,
+                              struct casm_src_prop *src_prop)
 {
     struct casm_cs_dst_node *node = NULL;
 
     node = casm_cs_dst_node_find(cs_ctx, key);
     if (node == NULL) {
         svm_err("No key. (udevid=%u; tgid=%d; key=0x%llx)\n", cs_ctx->udevid, cs_ctx->tgid, key);
-        return -EINVAL;
+        /* -EFAULT is mapped to DRV_ERROR_INVALID_HANDLE for the upper-layer errmsg,
+         * align with the local-key path in _casm_get_src_va(). */
+        return -EFAULT;
     }
 
     *owner_tgid = node->owner_tgid;
     *src_va = node->src_va;
+    if (src_prop != NULL) {
+        *src_prop = node->src_prop;
+    }
 
     return 0;
 }
 
-static int casm_cs_query_src(u32 udevid, int tgid, u64 key, struct svm_global_va *src_va, int *owner_tgid)
+static int casm_cs_query_src(u32 udevid, int tgid, u64 key, struct svm_global_va *src_va, int *owner_tgid,
+                             struct casm_src_prop *src_prop)
 {
     struct casm_cs_dst_ctx *cs_ctx = NULL;
     int ret;
@@ -266,22 +277,22 @@ static int casm_cs_query_src(u32 udevid, int tgid, u64 key, struct svm_global_va
     }
 
     ka_task_mutex_lock(&cs_ctx->mutex);
-    ret = _casm_cs_query_src(cs_ctx, key, src_va, owner_tgid);
+    ret = _casm_cs_query_src(cs_ctx, key, src_va, owner_tgid, src_prop);
     ka_task_mutex_unlock(&cs_ctx->mutex);
     casm_cs_dst_ctx_put(cs_ctx);
 
     return ret;
 }
 
-static int casm_cs_src_info_query(u32 udevid, u64 key, struct svm_global_va *src_va)
+static int casm_cs_src_info_query(u32 udevid, u64 key, struct svm_global_va *src_va, struct casm_src_prop *src_prop)
 {
     int owner_tgid;
-    return casm_cs_query_src(udevid, ka_task_get_current_tgid(), key, src_va, &owner_tgid);
+    return casm_cs_query_src(udevid, ka_task_get_current_tgid(), key, src_va, &owner_tgid, src_prop);
 }
 
 static int casm_cs_src_info_get(u32 udevid, u64 key, struct svm_global_va *src_va, int *owner_tgid)
 {
-    return casm_cs_query_src(udevid, ka_task_get_current_tgid(), key, src_va, owner_tgid);
+    return casm_cs_query_src(udevid, ka_task_get_current_tgid(), key, src_va, owner_tgid, NULL);
 }
 
 static void casm_cs_src_info_put(u32 udevid, u64 key, struct svm_global_va *src_va, int owner_tgid)
@@ -303,7 +314,7 @@ static void casm_cs_dst_ctx_init(struct casm_cs_dst_ctx *cs_ctx)
 static void casm_cs_dst_ctx_release(void *priv)
 {
     struct casm_cs_dst_ctx *ctx = (struct casm_cs_dst_ctx *)priv;
-    svm_vfree(ctx);
+    svm_kfree(ctx);
 }
 
 int casm_cs_dst_init_task(u32 udevid, int tgid, void *start_time)
@@ -312,7 +323,7 @@ int casm_cs_dst_init_task(u32 udevid, int tgid, void *start_time)
     void *task_ctx = NULL;
     int ret;
 
-    cs_ctx = (struct casm_cs_dst_ctx *)svm_vzalloc(sizeof(*cs_ctx));
+    cs_ctx = (struct casm_cs_dst_ctx *)svm_kzalloc(sizeof(*cs_ctx), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (cs_ctx == NULL) {
         svm_err("No mem. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -ENOMEM;
@@ -324,7 +335,7 @@ int casm_cs_dst_init_task(u32 udevid, int tgid, void *start_time)
 
     task_ctx = svm_task_ctx_get(udevid, tgid);
     if (task_ctx == NULL) {
-        svm_vfree(cs_ctx);
+        svm_kfree(cs_ctx);
         svm_err("Invalid dev task. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -EINVAL;
     }
@@ -333,7 +344,7 @@ int casm_cs_dst_init_task(u32 udevid, int tgid, void *start_time)
                                     casm_cs_dst_ctx_release);
     if (ret != 0) {
         svm_task_ctx_put(task_ctx);
-        svm_vfree(cs_ctx);
+        svm_kfree(cs_ctx);
         return ret;
     }
 
@@ -399,12 +410,17 @@ static int casm_ioctl_cs_set_src(u32 udevid, u32 cmd, unsigned long arg)
     }
 
     if (casm_cs_parse_server_id_from_key(para.key) != para.src_va.server_id) {
-        svm_err("Key and src info server id does not match. (key=%llx; server_id=%u)\n", para.key,
-                para.src_va.server_id);
+        svm_err("Key and src info server id not match. (key=%llx; server_id=%u)\n", para.key, para.src_va.server_id);
         return -EINVAL;
     }
 
-    return casm_cs_set_src_info(udevid, ka_task_get_current_tgid(), para.key, &para.src_va, para.owner_pid);
+    if ((u32)para.src_prop.casm_pg_type >= CASM_PG_TYPE_MAX) {
+        svm_err("Invalid source page type. (pg_type=%u)\n", (u32)para.src_prop.casm_pg_type);
+        return -EINVAL;
+    }
+
+    return casm_cs_set_src_info(udevid, ka_task_get_current_tgid(), para.key, &para.src_va, para.owner_pid,
+                                &para.src_prop);
 }
 
 static int casm_ioctl_cs_clr_src(u32 udevid, u32 cmd, unsigned long arg)

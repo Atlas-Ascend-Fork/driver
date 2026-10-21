@@ -107,7 +107,7 @@ STATIC int devmm_chan_query_vaflgs_d2h_process(struct devmm_svm_process *svm_pro
     struct devmm_svm_heap *heap_tmp = NULL;
     int ret;
 
-    devmm_drv_debug("Host receive query_vaflgs message. (hostpid=%d; devid=%u; vfid=%u; va=0x%llx)\n",
+    devmm_drv_debug("Host receive query_valfg message. (hostpid=%d; devid=%u; vfid=%u; va=0x%llx)\n",
                     process_id->hostpid, process_id->devid, process_id->vfid, flg_msg->va);
 
     ka_task_down_read(&svm_proc->heap_sem);
@@ -233,6 +233,22 @@ static int devmm_chan_page_fault_check_va(struct devmm_svm_process *svm_proc, st
     return 0;
 }
 
+static int devmm_chan_page_fault_vmma_occupy_inc(struct devmm_svm_heap *heap, u64 va)
+{
+    if (heap->heap_sub_type != SUB_RESERVE_TYPE) {
+        return 0;
+    }
+
+    return devmm_vmmas_occupy_inc(&heap->vmma_mng, va, 1);
+}
+
+static void devmm_chan_page_fault_vmma_occupy_dec(struct devmm_svm_heap *heap, u64 va)
+{
+    if (heap->heap_sub_type == SUB_RESERVE_TYPE) {
+        devmm_vmmas_occupy_dec(&heap->vmma_mng, va, 1);
+    }
+}
+
 STATIC int devmm_chan_page_fault_copy_data(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap,
                                            void *msg, u32 *ack_len)
 {
@@ -285,11 +301,22 @@ STATIC int devmm_chan_page_fault_d2h_process(struct devmm_svm_process *svm_proce
 
     if (devmm_page_fault_get_va_ref(svm_process, fault_msg->va) != 0) {
         ka_task_up_read(&svm_process->heap_sem);
-        devmm_drv_err("Va doesn't allow fault by device, va is in operation. (hostpid=%d; va=0x%llx; devid=%u)\n",
+        devmm_drv_err("Va don't allow fault by device, va is in operation. (hostpid=%d; va=0x%llx; devid=%u)\n",
                       svm_process->process_id.hostpid, fault_msg->va, fault_msg->head.dev_id);
         return -EINVAL;
     }
+
+    ret = devmm_chan_page_fault_vmma_occupy_inc(heap_tmp, fault_msg->va);
+    if (ret != 0) {
+        devmm_page_fault_put_va_ref(svm_process, fault_msg->va);
+        ka_task_up_read(&svm_process->heap_sem);
+        devmm_drv_err("Va has no access permission. (hostpid=%d; va=0x%llx; devid=%u; ret=%d)\n",
+                      svm_process->process_id.hostpid, fault_msg->va, fault_msg->head.dev_id, ret);
+        return ret;
+    }
+
     ret = devmm_chan_page_fault_copy_data(svm_process, heap_tmp, msg, ack_len);
+    devmm_chan_page_fault_vmma_occupy_dec(heap_tmp, fault_msg->va);
     devmm_page_fault_put_va_ref(svm_process, fault_msg->va);
     ka_task_up_read(&svm_process->heap_sem);
     if (ret != 0) {
@@ -386,8 +413,8 @@ static int devmm_chan_shm_get_pages_d2h_process(struct devmm_svm_process *svm_pr
             return ret;
         }
     }
-    devmm_drv_err("Get share memory failed. (dev_va=0x%llx; size=%llu bytes; devid=%u; vfid=%u)\n",
-                  get_pages_msg->dev_va, get_pages_msg->size, get_pages_msg->head.dev_id, get_pages_msg->head.vfid);
+    devmm_drv_err("Get share memory failed. (dev_va=0x%llx; size=%llu; devid=%u; vfid=%u)\n", get_pages_msg->dev_va,
+                  get_pages_msg->size, get_pages_msg->head.dev_id, get_pages_msg->head.vfid);
     return -EINVAL;
 }
 
@@ -527,7 +554,7 @@ struct devmm_chan_handlers_st devmm_channel_msg_processes[DEVMM_CHAN_MAX_ID] = {
                                          sizeof(struct devmm_chan_shm_getput_pages_d2h), 0,
                                          DEVMM_MSG_NOT_NEED_PROC_MASK},
     [DEVMM_CHAN_PROCESS_STATUS_REPORT_D2H_ID] = {devmm_chan_report_process_status_d2h,
-                                                 sizeof(struct devmm_chan_process_status), 0, 0},
+                                                 sizeof(struct devmm_chan_process_status), sizeof(u32), 0},
     [DEVMM_CHAN_TARGET_ADDR_P2P_ID] = {devmm_chan_target_blk_query_pa_process,
                                        sizeof(struct devmm_chan_target_blk_query), sizeof(struct devmm_target_blk),
                                        DEVMM_MSG_NOT_NEED_PROC_MASK},
@@ -541,6 +568,13 @@ struct devmm_chan_handlers_st devmm_channel_msg_processes[DEVMM_CHAN_MAX_ID] = {
     [DEVMM_CHAN_UVM_RELEASE_ID] = {devmm_uvm_chan_release_d2h_process, sizeof(struct devmm_chan_uvm_release), 0, 0},
 #endif
 };
+
+void svm_register_d2h_msg_handle(u32 msg_id, const struct devmm_chan_handlers_st *handle)
+{
+    if ((msg_id < DEVMM_CHAN_MAX_ID) && (handle != NULL)) {
+        devmm_channel_msg_processes[msg_id] = *handle;
+    }
+}
 
 int devmm_notify_device_close_process(struct devmm_svm_process *svm_pro, u32 logical_devid, u32 phy_devid, u32 vfid)
 {

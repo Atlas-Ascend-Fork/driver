@@ -16,10 +16,10 @@
 
 drvError_t drv_get_h2d_dev_info(uint32_t devId, struct devdrv_device_info *info);
 drvError_t drv_get_system_info(uint32_t devId, int32_t info_type, int64_t *value);
-drvError_t hal_get_ub_status_cmd(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size);
-drvError_t dms_get_ub_id_info(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size);
+drvError_t hal_get_ub_status_cmd(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                 unsigned int *size);
+drvError_t dms_get_ub_id_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                              unsigned int *size);
 drvError_t drv_get_qos_info(uint32_t devId, int32_t info_type, void *buf, unsigned int *size);
 
 #endif /* DEVDRV_MANAGER_RUN_INFO_H */

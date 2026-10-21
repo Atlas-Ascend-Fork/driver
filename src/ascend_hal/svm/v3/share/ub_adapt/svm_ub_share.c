@@ -47,7 +47,7 @@ static int svm_ub_share_unregister(u32 devid)
     return DRV_ERROR_NONE;
 }
 
-static void __attribute__((constructor(SVM_INIT_PRI_MEDIUM))) svm_ub_share_init(void)
+static void __attribute__((constructor(SVM_INIT_PRI_FISRT))) svm_ub_share_init(void)
 {
     int ret;
 
@@ -58,6 +58,6 @@ static void __attribute__((constructor(SVM_INIT_PRI_MEDIUM))) svm_ub_share_init(
 
     ret = svm_register_ioctl_dev_uninit_pre_handle(svm_ub_share_unregister);
     if (ret != DRV_ERROR_NONE) {
-        svm_err("Register ioctl dev init post handle failed.\n");
+        svm_err("Register ioctl dev uninit pre handle failed.\n");
     }
 }

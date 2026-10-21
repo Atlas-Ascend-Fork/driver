@@ -8,6 +8,64 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ------------------------------------------------------------------------------------------------------------
 
+function(add_kernel_conftest)
+    cmake_parse_arguments(CONFTEST "" "CONFTEST_SCRIPT;KERNEL_PATH;ARCH_TYPE;KERNEL_COMPILER_PREFIX;KERNEL_DEPENDS;TARGET_NAME" "" ${ARGN})
+
+    if(NOT EXISTS ${CONFTEST_CONFTEST_SCRIPT})
+        message(STATUS "CONFTEST_SCRIPT=${CONFTEST_CONFTEST_SCRIPT} not found, skip conftest")
+        return()
+    endif()
+
+    if(NOT DEFINED CONFTEST_TARGET_NAME)
+        set(CONFTEST_TARGET_NAME kernel_conftest)
+    endif()
+
+    get_filename_component(CONFTEST_PATH ${CONFTEST_CONFTEST_SCRIPT} DIRECTORY)
+    include(${CONFTEST_PATH}/conftest.cmake)
+    set(CONFTEST_OUTPUT_DIR ${CMAKE_BINARY_DIR}/generated/kernel_adapt)
+    set(CONFTEST_OUTPUT ${CONFTEST_OUTPUT_DIR}/conftest.h)
+
+    file(GLOB_RECURSE CONFTEST_PROBE_DEPENDS CONFIGURE_DEPENDS
+        ${CONFTEST_PATH}/probes/*.c)
+    set(CONFTEST_INPUT_DEPENDS
+        ${CONFTEST_CONFTEST_SCRIPT}
+        ${CONFTEST_PATH}/conftest.cmake
+        ${CONFTEST_PATH}/check_functions/check_tables.csv
+        ${CONFTEST_PROBE_DEPENDS})
+    foreach(KERNEL_INPUT Makefile .config include/config/auto.conf include/generated/autoconf.h)
+        if(EXISTS ${CONFTEST_KERNEL_PATH}/${KERNEL_INPUT})
+            list(APPEND CONFTEST_INPUT_DEPENDS ${CONFTEST_KERNEL_PATH}/${KERNEL_INPUT})
+        endif()
+    endforeach()
+
+    conftest_make_command(
+        OUT_CMD_VAR    CONFTEST_COMMAND
+        SCRIPT         ${CONFTEST_CONFTEST_SCRIPT}
+        KERNEL_PATH    ${CONFTEST_KERNEL_PATH}
+        ARCH           ${CONFTEST_ARCH_TYPE}
+        CROSS_COMPILE  ${CONFTEST_KERNEL_COMPILER_PREFIX}
+        OUTPUT_PATH    ${CONFTEST_OUTPUT})
+
+    if(NOT TARGET ${CONFTEST_TARGET_NAME})
+        add_custom_command(
+            OUTPUT ${CONFTEST_OUTPUT}
+            BYPRODUCTS ${CONFTEST_OUTPUT}.log
+            COMMAND ${CONFTEST_COMMAND}
+            DEPENDS ${CONFTEST_INPUT_DEPENDS}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+            VERBATIM
+        )
+        add_custom_target(${CONFTEST_TARGET_NAME} DEPENDS ${CONFTEST_OUTPUT})
+    endif()
+
+    if(CONFTEST_KERNEL_DEPENDS)
+        add_dependencies(${CONFTEST_TARGET_NAME} ${CONFTEST_KERNEL_DEPENDS})
+    endif()
+    set_target_properties(${CONFTEST_TARGET_NAME} PROPERTIES
+        CONFTEST_OUTPUT ${CONFTEST_OUTPUT}
+        CONFTEST_INCLUDE_DIR ${CONFTEST_OUTPUT_DIR})
+endfunction()
+
 function(add_host_ko)
     cmake_parse_arguments(HOST "" "LOCAL_MODULE;KO_SRC_FOLDER;RENAME;OUTPUT_NAME" "TARGETE_DPENDS;MAKE_ARGS" ${ARGN})
     set(host_os ${HOST_LINUX_DISTRIBUTOR_ID})
@@ -59,20 +117,36 @@ function(add_host_ko)
 
     # 使用环境上的kernel
     set(KERNEL_SYMVERS ${HOST_KERNEL_PATH}/Module.symvers)
+
+    add_kernel_conftest(
+        CONFTEST_SCRIPT ${PROJECT_SOURCE_DIR}/src/sdk_driver/kernel_adapt/conftest/conftest.sh
+        KERNEL_PATH ${HOST_KERNEL_PATH}
+        ARCH_TYPE ${SYS_ARCH}
+        KERNEL_COMPILER_PREFIX ${HOST_KERNEL_COMPILER_PREFIX}
+        TARGET_NAME host_kernel_conftest
+    )
+    get_target_property(HOST_CONFTEST_OUTPUT host_kernel_conftest CONFTEST_OUTPUT)
+    get_target_property(HOST_CONFTEST_INCLUDE_DIR host_kernel_conftest CONFTEST_INCLUDE_DIR)
+
     add_custom_command(
         OUTPUT ${HOST_OUT_INTERMEDIATES}/src/${LOCAL_MODULE}.ko ${HOST_OUT_INTERMEDIATES}/src/Module.symvers
         COMMAND ${CMAKE_COMMAND} -E make_directory ${HOST_OUT_INTERMEDIATES}/src ${CMAKE_INSTALL_PREFIX}/${MODULE_KO_DIR}
         COMMAND cp -lrf ${HOST_KO_SRC_FOLDER}/* ${HOST_OUT_INTERMEDIATES}/src/
         COMMAND ${MAKE_CMD} -C ${HOST_KERNEL_PATH} M=${HOST_OUT_INTERMEDIATES}/src CROSS_COMPILE=${HOST_KERNEL_COMPILER_PREFIX} ARCH=${SYS_ARCH}
+                KCFLAGS+=-I${HOST_CONFTEST_INCLUDE_DIR}
                 KBUILD_MODPOST_FAIL_ON_WARNINGS=1 KBUILD_EXTRA_SYMBOLS="${DEPENDS_SYMBOLS}" TOP_DIR=${TOP_DIR} ${HOST_MAKE_ARGS} PRODUCT=${PRODUCT}
                 ENABLE_OPEN_SRC=${ENABLE_OPEN_SRC} ASCEND910_93_EX=${ASCEND910_93_EX} ENABLE_BUILD_PRODUCT=${ENABLE_BUILD_PRODUCT}
                 ENABLE_UBE=${ENABLE_UBE} modules
         COMMAND ${HOST_KERNEL_COMPILER_PREFIX}strip -S --remove-section=.note.gnu.build-id ${HOST_OUT_INTERMEDIATES}/src/${LOCAL_MODULE}.ko
         COMMAND ${CMAKE_COMMAND} -E copy ${HOST_OUT_INTERMEDIATES}/src/Module.symvers ${CMAKE_INSTALL_PREFIX}/${MODULE_KO_DIR}
-        DEPENDS ${srclist}
+        DEPENDS ${srclist} ${HOST_CONFTEST_OUTPUT}
         COMMAND_EXPAND_LISTS
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     add_custom_target(${HOST_LOCAL_MODULE} ALL DEPENDS ${HOST_OUT_INTERMEDIATES}/src/${LOCAL_MODULE}.ko ${HOST_OUT_INTERMEDIATES}/src/Module.symvers)
+
+    if(TARGET host_kernel_conftest)
+        add_dependencies(${HOST_LOCAL_MODULE} host_kernel_conftest)
+    endif()
 
     foreach(depends ${HOST_TARGETE_DPENDS})
         add_dependencies(${HOST_LOCAL_MODULE} ${depends})
@@ -84,4 +158,3 @@ function(add_host_ko)
             DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
             RENAME ${HOST_OUTPUT_NAME}.ko OPTIONAL)
 endfunction(add_host_ko)
-

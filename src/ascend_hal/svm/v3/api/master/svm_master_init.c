@@ -30,6 +30,12 @@
 static int dev_status[SVM_MAX_DEV_NUM];
 static int g_master_init_flag = 0;
 static pthread_mutex_t master_mutex = PTHREAD_MUTEX_INITIALIZER;
+static bool g_dev_is_closing[SVM_MAX_DEV_NUM] = {0};
+
+bool svm_is_dev_closing(u32 devid)
+{
+    return g_dev_is_closing[devid];
+}
 
 static int svm_device_open_locked(u32 devid)
 {
@@ -40,12 +46,16 @@ static int svm_device_open_locked(u32 devid)
         return DRV_ERROR_REPEATED_USERD;
     }
 
+    /* Serialize device setup, including replaying host memory, with host memory allocation. */
+    svm_occupy_pipeline();
     ret = svm_ioctl_dev_init(devid);
     if (ret != 0) {
+        svm_release_pipeline();
         return ret;
     }
 
     dev_status[devid] = 1;
+    svm_release_pipeline();
 
     svm_info("Open success. (devid=%u)\n", devid);
 
@@ -72,11 +82,13 @@ static int svm_device_close_locked(u32 devid)
     }
 
     svm_occupy_pipeline();
+    g_dev_is_closing[devid] = true;
     if (devid < SVM_MAX_AGENT_NUM) {
         svm_device_res_recycle(devid);
     }
 
     ret = svm_ioctl_dev_uninit(devid); /* Dev uninit pre handle will recycle sub module res.  */
+    g_dev_is_closing[devid] = false;
     svm_release_pipeline();
     if (ret != 0) {
         return ret;
@@ -188,6 +200,11 @@ int svm_dev_close(uint32_t devid)
     return svm_device_close(devid);
 }
 
+bool svm_is_dev_open(u32 devid)
+{
+    return (dev_status[devid] != 0);
+}
+
 static bool devmm_agent_open_close_flag_is_valid(uint32_t flag)
 {
     return (flag <= SVM_AGENT_DEVICE);
@@ -209,6 +226,8 @@ int drvMemDeviceOpen(uint32_t devid, int devfd)
 int drvMemDeviceClose(uint32_t devid)
 {
     int ret;
+
+    DRV_CURRENT_API_SCOPE();
 
     ret = svm_dev_close(devid);
     return ((ret == DRV_ERROR_REPEATED_USERD) ? DRV_ERROR_NONE : ret);
@@ -245,6 +264,8 @@ drvError_t halMemAgentClose(uint32_t devid, uint32_t flag)
 {
     int ret;
 
+    DRV_CURRENT_API_SCOPE();
+
     svm_debug("MemAgentClose enter. (devid=%u; flag=0x%x)\n", devid, flag);
 
     if (devmm_agent_open_close_flag_is_valid(flag) == false) {
@@ -279,14 +300,14 @@ drvError_t drvMemDeviceCloseInner(uint32_t devid, halDevCloseIn *in)
 }
 
 static int dev_reset_status[SVM_MAX_DEV_NUM] = {0};
-static int svm_proc_res_backup(void)
+static int svm_proc_res_backup(halProcResBackupInfo *info)
 {
     u32 devid;
     int ret = 0;
 
     for (devid = 0; devid < SVM_MAX_DEV_NUM; devid++) {
         if (dev_status[devid] != 0) {
-            ret = svm_criu_backup(devid);
+            ret = svm_criu_backup(devid, info);
             if (ret != 0) {
                 return ret;
             }
@@ -337,7 +358,7 @@ static int svm_close_user_res(void)
     return svm_close_user_dev_res(host_devid);
 }
 
-static int svm_proc_res_restore(void)
+static int svm_proc_res_restore(halProcResRestoreInfo *info)
 {
     u32 host_devid = svm_get_host_devid();
     u32 i;
@@ -347,7 +368,7 @@ static int svm_proc_res_restore(void)
     for (i = 0; i < SVM_MAX_DEV_NUM; i++) {
         u32 devid = (host_devid + i) % SVM_MAX_DEV_NUM;
         if (dev_status[devid] != 0) {
-            ret = svm_criu_restore(devid);
+            ret = svm_criu_restore(devid, info);
             if (ret != 0) {
                 return ret;
             }
@@ -361,10 +382,8 @@ drvError_t drvMemProcResBackup(halProcResBackupInfo *info)
 {
     int ret;
 
-    SVM_UNUSED(info);
-
     svm_occupy_pipeline();
-    ret = svm_proc_res_backup();
+    ret = svm_proc_res_backup(info);
     svm_release_pipeline();
 
     return (drvError_t)ret;
@@ -392,10 +411,8 @@ drvError_t drvMemProcResRestore(halProcResRestoreInfo *info)
 {
     int ret;
 
-    SVM_UNUSED(info);
-
     svm_occupy_pipeline();
-    ret = svm_proc_res_restore();
+    ret = svm_proc_res_restore(info);
     svm_release_pipeline();
 
     return (drvError_t)ret;

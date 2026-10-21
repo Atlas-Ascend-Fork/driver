@@ -18,9 +18,10 @@
 
 #include "dvpp_cmdlist_log.h"
 
-void* dvpp_dma_alloc(uint32_t dev_id, size_t size, dma_addr_t *dma_addr, ka_gfp_t gfp)
+void *dvpp_dma_alloc(uint32_t dev_id, size_t size, dma_addr_t *dma_addr, ka_gfp_t gfp)
 {
-    void* dma_vir_addr = NULL;
+    void *dma_vir_addr = NULL;
+    struct device *pcie_dev = NULL;
     if (size == 0) {
         DVPP_CMDLIST_LOG_ERROR("input para is invalid, size=%lu\n", size);
         return NULL;
@@ -31,7 +32,7 @@ void* dvpp_dma_alloc(uint32_t dev_id, size_t size, dma_addr_t *dma_addr, ka_gfp_
         return NULL;
     }
 
-    struct device *pcie_dev = hal_kernel_devdrv_get_pci_dev_by_devid(dev_id);
+    pcie_dev = hal_kernel_devdrv_get_pci_dev_by_devid(dev_id);
     if (pcie_dev == NULL) {
         DVPP_CMDLIST_LOG_ERROR("try to get pcie dev fail.\n");
         return NULL;
@@ -48,17 +49,18 @@ void* dvpp_dma_alloc(uint32_t dev_id, size_t size, dma_addr_t *dma_addr, ka_gfp_
 
 void dvpp_dma_free(uint32_t dev_id, size_t size, void *addr, dma_addr_t dma_addr)
 {
+    struct device *pcie_dev = NULL;
     if ((size == 0) || (addr == NULL)) {
         DVPP_CMDLIST_LOG_ERROR("input para is invalid, size=%lu\n", size);
         return;
     }
 
-    if (dma_addr == NULL) {
+    if (dma_addr == 0ULL) {
         DVPP_CMDLIST_LOG_ERROR("dma addr is null, please check.\n");
         return;
     }
 
-    struct device *pcie_dev = hal_kernel_devdrv_get_pci_dev_by_devid(dev_id);
+    pcie_dev = hal_kernel_devdrv_get_pci_dev_by_devid(dev_id);
     if (pcie_dev == NULL) {
         DVPP_CMDLIST_LOG_ERROR("try to get pcie dev fail.\n");
         return;
@@ -92,7 +94,8 @@ int32_t dvpp_dma_sync_link_copy(uint32_t dev_id, dvpp_dma_mem *dma_mem, dvpp_svm
         dma_node.size = pa_info->size_list[i];
         dma_node.direction = DEVDRV_DMA_HOST_TO_DEVICE;
         // TD 这样会报多次中断，待优化
-        ret = hal_kernel_devdrv_dma_sync_link_copy_extend(dev_id, DEVDRV_DMA_DATA_TRAFFIC, DEVDRV_DMA_WAIT_INTR, &dma_node, 1);
+        ret = hal_kernel_devdrv_dma_sync_link_copy_extend(dev_id, DEVDRV_DMA_DATA_TRAFFIC, DEVDRV_DMA_WAIT_INTR,
+                                                          &dma_node, 1);
         if (ret != 0) {
             DVPP_CMDLIST_LOG_ERROR("copy host dma memory to device fail. ret = %d, size = %u\n", ret, dma_node.size);
             return ret;
@@ -101,4 +104,3 @@ int32_t dvpp_dma_sync_link_copy(uint32_t dev_id, dvpp_dma_mem *dma_mem, dvpp_svm
 
     return 0;
 }
-

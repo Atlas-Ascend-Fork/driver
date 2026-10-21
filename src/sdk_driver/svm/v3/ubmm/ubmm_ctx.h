@@ -34,13 +34,16 @@ struct ubmm_node {
     int ref;
     u64 va;
     u64 size;
-    u64 uba;
+    u64 raw_uba;
+    u64 raw_uba_size;
+    u64 uba; /* Add offset corresponded with src_va. */
 
     ka_page_t **pages; /* Use to pin pages. */
     u64 page_num;
     bool is_remap_addr;
 };
 
+int ubmm_init_try(u32 udevid, int tgid);
 struct ubmm_ctx *ubmm_ctx_get(u32 udevid, int tgid);
 void ubmm_ctx_put(struct ubmm_ctx *ctx);
 

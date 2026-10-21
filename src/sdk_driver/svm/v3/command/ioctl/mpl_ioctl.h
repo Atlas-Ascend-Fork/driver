@@ -22,7 +22,8 @@ struct svm_mpl_populate_para {
 struct svm_mpl_depopulate_para {
     u64 va;   /* input */
     u64 size; /* input */
-    u64 rsv;  /* reserve */
+    u32 flag; /* input */
+    u32 rsv;  /* reserve */
     struct va_array va_batch;
 };
 

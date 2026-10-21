@@ -71,5 +71,7 @@ extern int hdcdrv_epoll_init(struct hdcdrv_epoll *epolls);
 extern void hdcdrv_epoll_uninit(struct hdcdrv_epoll *epolls);
 extern int *hdcdrv_epoll_get_dev_id_ptr(union hdcdrv_cmd *cmd_data);
 extern long hdcdrv_epoll_wait(struct hdcdrv_cmd_epoll_wait *cmd, int mode);
+extern long hdcdrv_epoll_operation(struct hdcdrv_ctx *ctx, u32 drv_cmd, union hdcdrv_cmd *cmd_data,
+                                   bool *copy_to_user_flag, u32 fid);
 
 #endif // _HDCDRV_EPOLL_H_

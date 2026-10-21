@@ -77,7 +77,8 @@ static long apm_ioctl(ka_file_t *file, u32 cmd, unsigned long arg)
         return -EINVAL;
     }
     if (_KA_IOC_NR(cmd) >= APM_MAX_CMD) {
-        apm_err("The command is invalid, which is out of range. (cmd=%u)\n", _KA_IOC_NR(cmd));
+        apm_err("The command is invalid, which is out of range. (cmd=%u, valid_range=[0, %d])\n", _KA_IOC_NR(cmd),
+                APM_MAX_CMD - 1);
         return -EINVAL;
     }
 

@@ -41,6 +41,13 @@ struct queue_chip_features {
 void queue_feature_system_init(void);
 
 /*
+ * Get chip feature configuration for specified device.
+ * @param dev_id: device ID
+ * @return: pointer to chip feature configuration, NULL if dev_id is invalid or device not initialized
+ */
+const struct queue_chip_features *queue_get_dev_features(unsigned int dev_id);
+
+/*
  * Get feature configuration by chip type
  * @param chip_type: UDA chip type, e.g., HISI_CLOUD_V2, HISI_CLOUD_V5
  * @return: pointer to corresponding feature configuration, NULL if not found

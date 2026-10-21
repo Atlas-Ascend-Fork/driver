@@ -7,13 +7,14 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include <sys/ioctl.h>
 #include "ascend_hal.h"
 #include "dms_user_common.h"
 #include "ascend_dev_num.h"
 #include "dms_device_info.h"
 #include "dms_p2p_com.h"
 
-static drvError_t dms_p2p_attr_operate(struct urd_p2p_attr *p2p_attr)
+STATIC drvError_t dms_p2p_attr_operate(struct urd_p2p_attr *p2p_attr)
 {
     struct urd_cmd cmd = {0};
     struct urd_cmd_para cmd_para = {0};
@@ -28,7 +29,7 @@ static drvError_t dms_p2p_attr_operate(struct urd_p2p_attr *p2p_attr)
     urd_usr_cmd_fill(&cmd, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_DEV_P2P_ATTR, NULL, 0);
     urd_usr_cmd_para_fill(&cmd_para, (void *)p2p_attr, sizeof(struct urd_p2p_attr), (void *)p2p_attr,
                           sizeof(struct urd_p2p_attr));
-    ret = urd_usr_cmd(&cmd, &cmd_para);
+    ret = urd_usr_cmd_ex(DMS_GET_P2P_ATTR, &cmd, &cmd_para);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "P2p operate ioctl failed. (dev_id=%u; peer_dev=%u; ret=%d)\n", p2p_attr->dev_id,
                               p2p_attr->peer_dev_id, ret);

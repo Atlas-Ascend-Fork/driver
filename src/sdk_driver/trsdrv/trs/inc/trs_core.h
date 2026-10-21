@@ -115,9 +115,12 @@ struct trs_res_info_query {
             u32 stream_depth;
             u32 task_size;
             void *stream_base_uva;
-            void *stream_base_kva;
+            void *stream_base_kva;                             /* contiguous kva */
+            struct ka_vmap_pfn_handle *stream_vmap_pfn_handle; /* vmap_pfn handle (< 5.10 fallback) */
             u64 stream_base_pa;
             u32 mem_type;
+            u32 addr_num;
+            u32 addr_offset;
         } stream_info;
     };
 };
@@ -130,9 +133,11 @@ struct trs_core_adapt_ops {
     void (*proc_unbind_smmu)(void *smmu_inst, int pid);
     int (*ssid_query)(struct trs_id_inst *inst, int *user_visible_flag, int *ssid);
     int (*res_id_check)(struct trs_id_inst *inst, int type, u32 id);
+    int (*res_id_remote_get)(struct trs_id_inst *inst, int type, u32 id, u32 hpid, u32 seq);
+    int (*res_id_remote_put)(struct trs_id_inst *inst, int type, u32 id, u32 hpid, u32 seq);
     int (*get_res_support_proc_num)(struct trs_id_inst *inst, u32 *proc_num);                            /* not must */
     int (*id_alloc)(struct trs_id_inst *inst, int type, u32 flag, u32 *id, u32 para);                    /* not must */
-    int (*id_free)(struct trs_id_inst *inst, int type, u32 id);                                          /* not must */
+    int (*id_free)(struct trs_id_inst *inst, int type, u32 flag, u32 id);                                /* not must */
     int (*get_sq_id_head_from_hw_cqe)(struct trs_id_inst *inst, void *hw_cqe, u32 *sqid, u32 *sq_head);  /* not must */
     int (*get_stream_id_from_hw_cqe)(struct trs_id_inst *inst, void *hw_cqe, u32 *stream_id);            /* not must */
     int (*hw_cqe_to_logic_cqe)(struct trs_id_inst *inst, void *hw_cqe, struct trs_logic_cqe *logic_cqe); /* not must */
@@ -174,7 +179,10 @@ struct trs_core_adapt_ops {
     int (*ras_report)(struct trs_id_inst *inst);
     int (*mem_update)(struct trs_id_inst *inst, u64 in_addr, u64 *out_addr, int flag); /* not must, flag 0:d2h 1:h2d */
     int (*notice_proc_release)(struct trs_id_inst *inst, int pid);
-    int (*res_num_query)(struct trs_id_inst *inst, struct trs_res_query_para *para); /* not must */
+    int (*res_num_query)(struct trs_id_inst *inst, struct trs_res_query_para *para);                /* not must */
+    int (*get_sq_mem_handle)(struct trs_id_inst *inst, int pid, struct trs_sq_mem_handle *handle);  /* not must */
+    void (*put_sq_mem_handle)(struct trs_id_inst *inst, int pid, struct trs_sq_mem_handle *handle); /* not must */
+    int (*get_stars_die_id)(struct trs_id_inst *inst);                                              /* not must */
 };
 
 enum {
@@ -194,6 +202,8 @@ int trs_get_sq_bind_stream_info(struct trs_id_inst *inst, u32 sq_id, struct trs_
 
 int trs_res_id_get(struct trs_id_inst *inst, int res_type, u32 res_id);
 int trs_res_id_put(struct trs_id_inst *inst, int res_type, u32 res_id);
+int _trs_res_id_remote_get(struct trs_id_inst *inst, int pid, int res_type, u32 res_id, u32 hpid, u32 seq);
+int _trs_res_id_remote_put(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq);
 int trs_res_id_ctrl(struct trs_id_inst *inst, int res_type, u32 res_id, u32 cmd);
 
 bool trs_res_is_belong_to_proc(struct trs_id_inst *inst, int pid, int res_type, u32 res_id);
@@ -205,6 +215,8 @@ bool trs_check_ts_inst_has_proc(struct trs_id_inst *inst);
 
 int trs_core_get_ssid(struct trs_id_inst *inst, int pid, u32 *passid);
 int trs_res_id_check(struct trs_id_inst *inst, int res_type, u32 res_id);
+int trs_res_id_remote_get(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq);
+int trs_res_id_remote_put(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq);
 int trs_rpc_msg_ctrl(struct trs_id_inst *inst, int pid, void *msg, u32 msg_len, struct trs_rpc_call_msg *rpc_call_msg);
 
 int trs_notify_config_with_ts(struct trs_id_inst *inst, u32 notify_id, u32 notify_type, u32 config_type);

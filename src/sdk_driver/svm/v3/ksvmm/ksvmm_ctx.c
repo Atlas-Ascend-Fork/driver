@@ -55,7 +55,7 @@ void ksvmm_ctx_put(struct ksvmm_ctx *ksvmm_ctx)
 
 static void ksvmm_ctx_init(struct ksvmm_ctx *ksvmm_ctx)
 {
-    ka_task_init_rwsem(&ksvmm_ctx->rw_sem);
+    ka_task_rwlock_init(&ksvmm_ctx->lock);
     range_rbtree_init(&ksvmm_ctx->range_tree);
 }
 

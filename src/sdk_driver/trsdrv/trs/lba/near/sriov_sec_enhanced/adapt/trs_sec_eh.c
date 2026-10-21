@@ -35,6 +35,7 @@ static const ka_pci_device_id_t sec_eh_adapt_tbl[] = {{KA_PCI_VDEVICE(HUAWEI, 0x
                                                       {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
                                                       {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
                                                       {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+                                                      {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
                                                       {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
                                                       {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
                                                       {0x20E9, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
@@ -124,7 +125,8 @@ static int trs_sec_eh_ts_inst_notifier(struct trs_id_inst *inst, enum uda_notifi
 static int trs_sec_eh_notifier_func(u32 udevid, enum uda_notified_action action)
 {
     struct trs_id_inst inst;
-    u32 ts_num, tsid, i;
+    u32 ts_num = 0;
+    u32 tsid, i;
     int ret;
 
     if (udevid >= TRS_DEV_MAX_NUM) {
@@ -165,16 +167,34 @@ fail:
 int init_trs_sec_eh(void)
 {
     struct uda_dev_type type;
+    int ret;
+
+    ret = module_feature_auto_init();
+    if (ret != 0) {
+        trs_err("Sec eh auto init failed. (ret=%d)\n", ret);
+        return ret;
+    }
+
     trs_accelerator_util_init();
     uda_davinci_near_real_entity_type_pack(&type);
-    return uda_notifier_register(TRS_SEC_EH_NOTIFIER, &type, UDA_PRI2, trs_sec_eh_notifier_func);
+    ret = uda_notifier_register(TRS_SEC_EH_NOTIFIER, &type, UDA_PRI2, trs_sec_eh_notifier_func);
+    if (ret != 0) {
+        trs_err("Sec eh notifier register failed. (ret=%d)\n", ret);
+        trs_accelerator_util_uninit();
+        module_feature_auto_uninit();
+        return ret;
+    }
+
+    return ret;
 }
 
 void exit_trs_sec_eh(void)
 {
     struct uda_dev_type type;
+
     uda_davinci_near_real_entity_type_pack(&type);
     (void)uda_notifier_unregister(TRS_SEC_EH_NOTIFIER, &type);
     trs_chan_mem_node_recycle();
     trs_accelerator_util_uninit();
+    module_feature_auto_uninit();
 }

@@ -65,7 +65,7 @@ STATIC int dp_proc_mng_dispatch_ioctl(ka_file_t *file, u32 cmd, struct dp_proc_m
     int ret;
     u32 cmd_id = _KA_IOC_NR(cmd);
     if (dp_proc_mng_ioctl_handlers[cmd_id] == NULL) {
-        dp_proc_mng_drv_err("Cmd not support. (cmd=0x%x; cmd_id=0x%x)\n", cmd, cmd_id);
+        dp_proc_mng_drv_err("Cmd is not supported. (cmd=0x%x; cmd_id=0x%x)\n", cmd, cmd_id);
         return -EOPNOTSUPP;
     }
 
@@ -92,7 +92,7 @@ STATIC long dp_proc_mng_ioctl(ka_file_t *file, u32 cmd, unsigned long arg)
     }
 
     if ((_KA_IOC_TYPE(cmd) != DP_PROC_MNG_MAGIC) || (cmd_id >= DP_PROC_MNG_CMD_MAX_CMD)) {
-        dp_proc_mng_drv_err("Cmd not support. (cmd=0x%x; cmd_id=0x%x)\n", cmd, cmd_id);
+        dp_proc_mng_drv_err("Cmd is not supported. (cmd=0x%x; cmd_id=0x%x)\n", cmd, cmd_id);
         return -EINVAL;
     }
 

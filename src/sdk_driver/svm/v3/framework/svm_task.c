@@ -103,6 +103,18 @@ static void svm_get_task_tgids_func(struct task_ctx *ctx, void *priv)
     }
 }
 
+u32 svm_get_task_max_num(u32 udevid)
+{
+    struct svm_dev_ctx *d_ctx = (struct svm_dev_ctx *)svm_dev_ctx_get(udevid);
+    u32 task_max_num = 0;
+
+    if (d_ctx != NULL) {
+        task_max_num = d_ctx->domain->task_max_num;
+        svm_dev_ctx_put(d_ctx);
+    }
+    return task_max_num;
+}
+
 void svm_get_all_task_tgids(u32 udevid, int tgid[], u32 num)
 {
     struct svm_dev_ctx *d_ctx = (struct svm_dev_ctx *)svm_dev_ctx_get(udevid);
@@ -175,8 +187,7 @@ static void svm_task_release_check_feature(struct svm_task_ctx *t_ctx)
     for (i = 0; i < task_feature_num; i++) {
         struct svm_task_feature *feature = &t_ctx->feature[i];
         if (feature->valid) {
-            svm_warn("Feature does not exist. (udevid=%u; tgid=%d; name=%s)\n", t_ctx->udevid, t_ctx->tgid,
-                     feature->name);
+            svm_warn("Feature not exist. (udevid=%u; tgid=%d; name=%s)\n", t_ctx->udevid, t_ctx->tgid, feature->name);
         }
     }
 }

@@ -31,9 +31,7 @@ target_include_directories(drvaibuff_base_obj PRIVATE
 )
 
 target_compile_definitions(drvaibuff_base_obj PRIVATE
-    CFG_FEATURE_SURPORT_HUGE_PAGE
     DRV_HOST
-    $<$<STREQUAL:${PRODUCT},ascend910B>:CFG_FEATURE_NO_SURPORT_DVPP_MZ>
 )
 
 target_link_libraries(drvaibuff_base_obj PRIVATE
@@ -94,9 +92,7 @@ target_include_directories(drvaibuff_obj PRIVATE
 )
 
 target_compile_definitions(drvaibuff_obj PRIVATE
-    CFG_FEATURE_SURPORT_HUGE_PAGE
     DRV_HOST
-    $<$<STREQUAL:${PRODUCT},ascend910B>:CFG_FEATURE_NO_SURPORT_DVPP_MZ>
 )
 
 target_link_libraries(drvaibuff_obj PRIVATE

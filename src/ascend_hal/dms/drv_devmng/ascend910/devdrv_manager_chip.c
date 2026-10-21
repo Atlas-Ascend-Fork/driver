@@ -21,6 +21,7 @@
 #include "ascend_dev_num.h"
 #include "dsmi_common_interface.h"
 #include "dms_user_common.h"
+#include "dms_feature_user.h"
 
 #ifdef STATIC_SKIP
 #define STATIC
@@ -178,14 +179,9 @@ drvError_t drv_get_cc_info(uint32_t devId, int32_t info_type, void *buf, unsigne
     int ret;
 
     switch (info_type) {
-#ifndef DRV_HOST
         case INFO_TYPE_CC:
             ret = dms_get_cc_info(devId, buf, size);
             break;
-#else
-        (void)buf;
-        (void)size;
-#endif
         default:
             return DRV_ERROR_NOT_SUPPORT;
     }
@@ -194,6 +190,46 @@ drvError_t drv_get_cc_info(uint32_t devId, int32_t info_type, void *buf, unsigne
         DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Get cc info unsuccessful. (dev_id=%u; ret=%d; info_type=%d).\n", devId, ret,
                                      info_type);
         return ret;
+    }
+
+    return DRV_ERROR_NONE;
+}
+
+STATIC bool drv_get_l2_info_support(uint32_t devId)
+{
+#ifdef DRV_HOST
+    return dms_has_feature_by_dms_feature_id(devId, DMS_L2_BUFF_INFO);
+#else
+    (void)devId;
+#ifdef CFG_FEATURE_L2_INFO
+    return true;
+#else
+    return false;
+#endif
+#endif
+}
+
+drvError_t drv_get_l2_info(uint32_t devId, int32_t info_type, int64_t *value)
+{
+    int ret = 0;
+    struct devdrv_device_info dev_info = {0};
+
+    if (!drv_get_l2_info_support(devId)) {
+        DEVDRV_DRV_INFO("This version does not support get l2 buf info.\n");
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    switch (info_type) {
+        case INFO_TYPE_CORE_NUM:
+            ret = drvGetDevInfo(devId, &dev_info);
+            if (ret != 0) {
+                DEVDRV_DRV_ERR("Get device info failed. (devid=%u; ret=%d)\n", devId, ret);
+                return ret;
+            }
+            *value = dev_info.l2_num;
+            break;
+        default:
+            return DRV_ERROR_NOT_SUPPORT;
     }
 
     return DRV_ERROR_NONE;
@@ -226,6 +262,11 @@ drvError_t drv_set_l_2_buff_info(uint32_t devId, int32_t info_type, void *buf, u
         case INFO_TYPE_L2BUFF_RESUME:
             ret = DmsHalSetDeviceInfoEx(devId, MODULE_TYPE_L2BUFF, INFO_TYPE_L2BUFF_RESUME, buf, size);
             break;
+
+        case INFO_TYPE_L2BUFF_INVALID_CACHE:
+            ret = DmsHalSetDeviceInfoEx(devId, MODULE_TYPE_L2BUFF, INFO_TYPE_L2BUFF_INVALID_CACHE, buf, size);
+            break;
+
         default:
             return DRV_ERROR_NOT_SUPPORT;
     }
@@ -240,6 +281,8 @@ drvError_t drv_set_l_2_buff_info(uint32_t devId, int32_t info_type, void *buf, u
 drvError_t hal_get_uuid_cmd(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
                             unsigned int *size)
 {
+    (void)main_cmd;
+    (void)sub_cmd;
     return halGetDeviceInfoByBuff(dev_id, MODULE_TYPE_SYSTEM, INFO_TYPE_UUID, buf, (int32_t *)size);
 }
 
@@ -280,7 +323,7 @@ drvError_t halGetChipInfo(unsigned int devId, halChipInfo *chipInfo)
     query_info.dev_id = devId;
     ret = DmsGetChipInfo(&query_info);
     if (ret != DRV_ERROR_NONE) {
-        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Get chip info fail. (dev_id=%u)\n", devId);
+        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Get chip info failed. (dev_id=%u)\n", devId);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -342,7 +385,7 @@ drvError_t halGetChipCount(int *chip_count)
     }
 
     if ((count < 0) || (count > DEVDRV_MAX_CHIP_NUM)) {
-        DEVDRV_DRV_ERR("Chip count is invalid. (count=%u).\n", count);
+        DEVDRV_DRV_ERR("Chip count is invalid. (count=%u; max_count=%u)\n", count, DEVDRV_MAX_CHIP_NUM);
         return DRV_ERROR_INNER_ERR;
     }
 

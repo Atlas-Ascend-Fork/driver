@@ -19,10 +19,8 @@
 #include "kernel_version_adapt.h"
 #include "pbl/pbl_feature_loader.h"
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
 #include "esched_drv_adapt.h"
 #include "esched_drv.h"
-#endif
 
 #ifdef CFG_FEATURE_VFIO
 #include "esched_vf.h"
@@ -35,7 +33,9 @@
 #include "esched_fops.h"
 #include "esched_sysfs.h"
 #include "esched_adapt.h"
+#include "esched_adapt_platform.h"
 #include "esched.h"
+#include "esched_feature_check.h"
 #include "ka_system_pub.h"
 #include "ka_barrier_pub.h"
 #include "ka_kernel_def_pub.h"
@@ -71,7 +71,7 @@ bool esched_log_limited(u32 type)
 {
 #ifndef EMU_ST
     if (type >= SCHED_LOG_LIMIT_MAX_NUM) {
-        sched_err("Log type is invalid.\n");
+        sched_err("Log type is invalid. (type=%u; max=%d)\n", type, (SCHED_LOG_LIMIT_MAX_NUM - 1));
         return true;
     }
     return ka_system_log_limited(type);
@@ -905,11 +905,9 @@ STATIC void sched_wake_up_cpu_task(struct sched_cpu_ctx *cpu_ctx, int32_t wakeup
 {
     struct sched_thread_ctx *thread_ctx = NULL;
 
-#if defined(CFG_FEATURE_HARDWARE_MIA) && !defined(CFG_ENV_HOST)
-    if (!sched_is_cpu_belongs_to_vf(cpu_ctx->node, 0, cpu_ctx)) {
+    if (!esched_adapt_is_cpu_belongs_to_vf(cpu_ctx->node, cpu_ctx)) {
         return;
     }
-#endif
 
     if (ka_task_spin_trylock_bh(&cpu_ctx->sched_lock) == 0) {
         return;
@@ -1346,7 +1344,7 @@ void sched_thread_finish(struct sched_thread_ctx *thread_ctx, u32 finish_scene)
     event->proc_time = proc_time;
     sched_record_abnormal_event(&node->abnormal_event.proc, event, thread_ctx, proc_time,
                                 thread_ctx->grp_ctx->sched_mode);
-    if ((node->debug_flag & (0x1 << SCHED_DEBUG_EVENT_TRACE_BIT)) != 0) {
+    if ((node->debug_flag & (0x1U << SCHED_DEBUG_EVENT_TRACE_BIT)) != 0) {
         sched_record_event_trace(&node->event_trace, event, thread_ctx);
     }
 
@@ -1407,22 +1405,10 @@ STATIC_INLINE int32_t sched_wait_event_para_check(u32 chip_id, int32_t pid, u32 
                   gid, SCHED_MAX_GRP_NUM);
         return DRV_ERROR_PARA_ERROR;
     }
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-    if (devdrv_get_connect_protocol(chip_id) == CONNECT_PROTOCOL_UB) {
+    if (esched_adapt_wait_event_ub_precheck(chip_id) != 0) {
         return 0;
     }
-#endif
-#if (defined CFG_FEATURE_HARDWARE_SCHED) && (!defined CFG_FEATURE_THREAD_SWAPOUT) && \
-    (!defined CFG_FEATURE_HARD_SOFT_SCHED)
-    if (timeout == SCHED_THREAD_SWAPOUT) {
-#ifndef EMU_ST
-        sched_warn("Swapout thread_ctx from cpu not support yet.\n");
-#endif
-        return DRV_ERROR_NOT_SUPPORT;
-    }
-#endif
-
-    return 0;
+    return esched_adapt_check_swapout_support(chip_id, timeout);
 }
 
 int32_t sched_query_sched_mode(u32 chip_id, int32_t pid, u32 *sched_mode)
@@ -1433,7 +1419,7 @@ int32_t sched_query_sched_mode(u32 chip_id, int32_t pid, u32 *sched_mode)
 
     node = esched_dev_get(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_query_sched_mode. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -1458,7 +1444,7 @@ int32_t sched_get_event_trace(u32 chip_id, char *buff, u32 buff_len, u32 *data_l
 
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_get_event_trace. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -1549,13 +1535,7 @@ STATIC_INLINE int32_t sched_thread_update(u32 chip_id, struct sched_thread_ctx *
     /* swapout current thread_ctx from cpu if timeout equal to -2, not wait event */
     if (timeout != SCHED_THREAD_SWAPOUT) {
         thread_ctx->wait_flag = SCHED_VALID;
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-#ifdef CFG_FEATURE_THREAD_SWAPOUT
-        if (devdrv_get_connect_protocol(chip_id) == CONNECT_PROTOCOL_UB) {
-            thread_ctx->swapout_flag = SCHED_INVALID;
-        }
-#endif
-#endif
+        esched_adapt_set_wait_swapout_flag(chip_id, thread_ctx);
     } else {
 #ifdef CFG_FEATURE_THREAD_SWAPOUT
         thread_ctx->swapout_flag = SCHED_VALID;
@@ -1605,7 +1585,7 @@ int32_t sched_wait_event(u32 chip_id, int32_t pid, u32 gid, u32 tid, int32_t tim
 
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_wait_event. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -1624,15 +1604,12 @@ int32_t sched_wait_event(u32 chip_id, int32_t pid, u32 gid, u32 tid, int32_t tim
         return DRV_ERROR_NO_GROUP;
     }
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
-    if ((grp_ctx->sched_mode == SCHED_MODE_SCHED_CPU) && (node->hard_res.cpu_work_mode == STARS_WORK_MODE_MSGQ)) {
-        sched_err("The work mode is msgq. (chip_id=%u, pid=%d, gid=%u)\n", chip_id, pid, gid);
-        esched_proc_put(proc_ctx);
-        return DRV_ERROR_NOT_SUPPORT;
+    ret = esched_adapt_check_hw_sched_msgq(chip_id, node, grp_ctx, proc_ctx, pid, gid);
+    if (ret != 0) {
+        return ret;
     }
-#endif
     if ((timeout == SCHED_THREAD_SWAPOUT) && (grp_ctx->sched_mode == SCHED_MODE_NON_SCHED_CPU)) {
-        sched_info("Swapout thread_ctx from cpu not support for non sched mode.\n");
+        sched_info("Swapout thread_ctx from cpu is not supported for non sched mode.\n");
         esched_proc_put(proc_ctx);
         return DRV_ERROR_NOT_SUPPORT;
     }
@@ -1686,23 +1663,16 @@ out:
     return ret;
 }
 
-STATIC void sched_fill_exact_event(struct sched_cpu_ctx *cpu_ctx, struct sched_thread_ctx *thread_ctx,
+STATIC void sched_fill_exact_event(u32 chip_id, struct sched_cpu_ctx *cpu_ctx, struct sched_thread_ctx *thread_ctx,
                                    struct sched_event *event, struct sched_subscribed_event *subscribed_event)
 {
     u64 subscribe_in_kernel = sched_get_cur_timestamp();
 
-    /* Inherit the hook function of the wait event in the split operator scenario. */
-#ifndef CFG_FEATURE_HARDWARE_SCHED
-    event->priv = thread_ctx->event->priv;
-#endif
+    esched_adapt_fill_exact_event_priv(chip_id, event, thread_ctx);
     event->event_ack_func = thread_ctx->event->event_ack_func;
     event->event_finish_func = thread_ctx->event->event_finish_func;
 
-#ifdef CFG_FEATURE_HARD_SOFT_SCHED
-    if ((cpu_ctx != NULL) && (!esched_drv_cpu_is_hw_sched_mode(cpu_ctx->topic_chan))) {
-        thread_ctx->event->event_finish_func = NULL;
-    }
-#endif
+    esched_adapt_clear_event_finish_func(chip_id, cpu_ctx, thread_ctx);
     sched_thread_finish(thread_ctx, SCHED_TASK_FINISH_SCENE_NORMAL_GETEVENT);
     thread_ctx->event = event;
 
@@ -1746,7 +1716,7 @@ STATIC int32_t sched_get_exact_sched_event(struct sched_numa_node *node, struct 
         return DRV_ERROR_NO_EVENT;
     }
 
-    sched_fill_exact_event(cpu_ctx, thread_ctx, event, subscribed_event);
+    sched_fill_exact_event(node->node_id, cpu_ctx, thread_ctx, event, subscribed_event);
     cpu_ctx->stat.sched_event_num++;
 
     return 0;
@@ -1770,7 +1740,7 @@ STATIC int32_t sched_get_exact_non_sched_event(struct sched_thread_ctx *thread_c
         return DRV_ERROR_NO_EVENT;
     }
 
-    sched_fill_exact_event(NULL, thread_ctx, event, subscribed_event);
+    sched_fill_exact_event(proc_ctx->node->node_id, NULL, thread_ctx, event, subscribed_event);
     ka_base_atomic_dec(&grp_ctx->cur_event_num);
 
     return 0;
@@ -1786,8 +1756,8 @@ int32_t sched_get_exact_event(u32 chip_id, int32_t pid, u32 gid, u32 tid, u32 ev
     int ret = 0;
 
     if ((event_id >= SCHED_MAX_EVENT_TYPE_NUM) || (gid >= SCHED_MAX_GRP_NUM)) {
-        sched_err("The event_id, gid or tid is invalid. (event_id=%u; max=%d; gid=%u; max=%d)\n", event_id,
-                  SCHED_MAX_EVENT_TYPE_NUM, gid, SCHED_MAX_GRP_NUM);
+        sched_err("The event_id or gid is invalid. (event_id=%u; max_event_id=%d; gid=%u; max_gid=%d)\n", event_id,
+                  (SCHED_MAX_EVENT_TYPE_NUM - 1), gid, (SCHED_MAX_GRP_NUM - 1));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -1842,7 +1812,7 @@ STATIC int sched_ack_event_proc(struct sched_proc_ctx *proc_ctx, struct sched_th
     int ret = 0;
 
     if (ka_base_atomic_read(&thread_ctx->status) != SCHED_THREAD_STATUS_RUN) {
-        sched_err("Thread no run. (pid=%d; gid=%u; tid=%u)\n", thread_ctx->grp_ctx->gid, thread_ctx->grp_ctx->pid,
+        sched_err("Thread does not run. (gid=%u; pid=%d; tid=%u)\n", thread_ctx->grp_ctx->gid, thread_ctx->grp_ctx->pid,
                   thread_ctx->tid);
         return DRV_ERROR_THREAD_NOT_RUNNIG;
     }
@@ -1896,7 +1866,7 @@ int32_t sched_ack_event(u32 chip_id, int32_t pid, struct sched_ack_event_para *p
 
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_ack_event. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -1953,11 +1923,10 @@ STATIC_INLINE void sched_wakeup_sched_grp(struct sched_numa_node *node, struct s
         }
 
         cpu_ctx = sched_get_cpu_ctx(node, thread_ctx->bind_cpuid);
-#if defined(CFG_FEATURE_VFIO) || (defined(CFG_FEATURE_HARDWARE_MIA) && !defined(CFG_ENV_HOST))
-        if (!sched_is_cpu_belongs_to_vf(node, (u32)grp_ctx->proc_ctx->vfid, cpu_ctx)) {
+
+        if (!esched_adapt_is_cpu_belongs_to_vf_mia(node, (u32)grp_ctx->proc_ctx->vfid, cpu_ctx)) {
             continue;
         }
-#endif
 
 #ifdef CFG_FEATURE_HARD_SOFT_SCHED
         if (esched_drv_cpu_is_hw_sched_mode(cpu_ctx->topic_chan)) {
@@ -2224,7 +2193,7 @@ static void sched_event_queue_res_dump(struct sched_event_que *que, bool cpu_res
         node_event_res_log_sw = true;
     }
 
-    sched_warn("Alloc event resource abnormal. (depth=%u, head=%u, tail=%u, mask=%u, cur_time=%llu(tick))\n",
+    sched_warn("Alloc event resource was not successful. (depth=%u, head=%u, tail=%u, mask=%u, cur_time=%llu(tick))\n",
                que->depth, que->head, que->tail, que->mask, sched_get_cur_timestamp());
 
     que_head = que->head;
@@ -2403,22 +2372,18 @@ int32_t sched_publish_event(u32 chip_id, u32 event_src, struct sched_published_e
     u32 gid = event_info->gid;
     int32_t ret;
 
-#ifdef CFG_ENV_HOST
     // support submitEventEx, if the dst_devid is valid, use it
-    if (event_info->dst_devid != SCHED_INVALID_DEVID) {
-        chip_id = event_info->dst_devid;
-    }
-#endif
+    chip_id = esched_publish_event_adapt_chip_id(chip_id, event_info);
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_publish_event. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
     proc_ctx = esched_proc_get(node, pid);
     if (proc_ctx == NULL) {
 #ifndef CFG_FEATURE_LOG_OPTIMIZE
-        sched_warn("Proc_ctx not find. (chip_id=%u; pid=%d)\n", chip_id, pid);
+        sched_warn("Proc_ctx not found. (chip_id=%u; pid=%d)\n", chip_id, pid);
 #endif
         return DRV_ERROR_NO_PROCESS;
     }
@@ -2459,11 +2424,7 @@ int32_t sched_publish_event(u32 chip_id, u32 event_src, struct sched_published_e
     event->timestamp.publish_wakeup = 0; /* clear 0 */
 
     if (grp_ctx->sched_mode == SCHED_MODE_SCHED_CPU) {
-#ifdef CFG_FEATURE_SOFT_NON_SCHED_ONLY
-        ret = DRV_ERROR_NOT_SUPPORT;
-#else
-        ret = sched_publish_event_to_sched_grp(event, grp_ctx);
-#endif
+        ret = esched_adapt_publish_event_to_sched_grp(chip_id, event, grp_ctx);
     } else {
         ret = sched_publish_event_to_non_sched_grp(event, grp_ctx);
     }
@@ -2506,13 +2467,13 @@ int32_t sched_trigger_sched_trace_record(u32 chip_id, const char *reason, const 
 
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_trigger_sched_trace_record. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
     trace_record = &node->trace_record;
 
-    if ((node->debug_flag & (0x1 << SCHED_DEBUG_SCHED_TRACE_RECORD_BIT)) == 0) {
+    if ((node->debug_flag & (0x1U << SCHED_DEBUG_SCHED_TRACE_RECORD_BIT)) == 0) {
         sched_info("It is disabled. (chip_id=%u; record_reason=\"%s\"; key=\"%s\")\n", node->node_id,
                    trace_record->record_reason, trace_record->key);
         return 0;
@@ -2690,9 +2651,9 @@ int32_t sched_thread_subscribe_event(u32 chip_id, int32_t pid, u32 gid, u32 tid,
     struct sched_grp_ctx *grp_ctx = NULL;
 
     if (gid >= SCHED_MAX_GRP_NUM) {
-        sched_err("The variable chip_id is out of range. "
+        sched_err("The variable gid is out of range. "
                   "(chip_id=%u; pid=%d; gid=%u; max=%d)\n",
-                  chip_id, pid, gid, SCHED_MAX_GRP_NUM);
+                  chip_id, pid, gid, (SCHED_MAX_GRP_NUM - 1));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -2735,8 +2696,9 @@ int32_t sched_grp_set_max_event_num(u32 chip_id, int32_t pid, u32 gid, u32 event
     struct sched_grp_ctx *grp_ctx = NULL;
 
     if ((gid >= SCHED_MAX_GRP_NUM) || (event_id >= SCHED_MAX_EVENT_TYPE_NUM) || (max_num == 0)) {
-        sched_err("The variable chip_id is out of range. (chip_id=%u; pid=%d; gid=%u; event_id=%u; max_num=%u)\n",
-                  chip_id, pid, gid, event_id, max_num);
+        sched_err("The gid, event_id or max_num is invalid. "
+                  "(chip_id=%u; pid=%d; gid=%u; max_gid=%d; event_id=%u; max_event_id=%d; max_num=%u)\n",
+                  chip_id, pid, gid, (SCHED_MAX_GRP_NUM - 1), event_id, (SCHED_MAX_EVENT_TYPE_NUM - 1), max_num);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -2776,9 +2738,9 @@ int32_t sched_grp_add_thread(struct sched_grp_ctx *grp_ctx, u32 tid, u32 cpuid)
          (grp_ctx->thread_num >= grp_ctx->cfg_thread_num))) {
         ka_task_spin_unlock_bh(&grp_ctx->lock);
         sched_err("The schedule group thread exceeds specification. (bind_cpuid=%u; cur_cpuid=%u; pid=%d; gid=%u;"
-                  " tid=%u; add_tid=%u; sched_mode=%u; thread_num=%u)\n",
+                  " tid=%u; add_tid=%u; sched_mode=%u; thread_num=%u; max_thread_num=%u)\n",
                   bind_cpuid, cpuid, grp_ctx->pid, grp_ctx->gid, grp_ctx->cpuid_to_tid[bind_cpuid], tid,
-                  grp_ctx->sched_mode, grp_ctx->thread_num);
+                  grp_ctx->sched_mode, grp_ctx->thread_num, (grp_ctx->cfg_thread_num - 1));
         return DRV_ERROR_THREAD_EXCEEDS_SPEC;
     }
 
@@ -2847,7 +2809,7 @@ int sched_query_tid_in_grp(u32 chip_id, int pid, u32 gid, u32 os_tid, u32 *tid)
 
     proc_ctx = esched_chip_proc_get(chip_id, pid);
     if (proc_ctx == NULL) {
-        sched_err("Failed to get proc_ctx. (chip_id=%u; pid=%d)\n", chip_id, pid);
+        sched_err("Failed to find proc_ctx. (chip_id=%u; pid=%d)\n", chip_id, pid);
         esched_dev_put(node);
         return DRV_ERROR_NO_PROCESS;
     }
@@ -2897,7 +2859,8 @@ int sched_query_local_task_gid(unsigned int chip_id, int pid, const char *grp_na
     }
 
     if (ka_base_strnlen(grp_name, EVENT_MAX_GRP_NAME_LEN) >= EVENT_MAX_GRP_NAME_LEN) {
-        sched_err("grp_name len out of range. (length=%lu)\n", ka_base_strnlen(grp_name, EVENT_MAX_GRP_NAME_LEN));
+        sched_err("grp_name len out of range. (length=%lu; max_len=%d)\n",
+                  ka_base_strnlen(grp_name, EVENT_MAX_GRP_NAME_LEN), (EVENT_MAX_GRP_NAME_LEN - 1));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -2971,7 +2934,7 @@ int sched_query_local_trace(unsigned int chip_id, int pid, unsigned int gid, uns
 
     sched_query_thread_run_time(chip_id);
     sched_info_printk_ratelimited(
-        "trace query. (pid=%u; gid=%u; tid=%u; event_id=%u; subevent_id=%u; curr_time=%llu)\n", pid, gid, tid,
+        "trace query. (pid=%u; gid=%u; tid=%u; event_id=%u; subevent_id=%u; curr_time=%llums)\n", pid, gid, tid,
         sched_trace->event_id, sched_trace->subevent_id, tick_to_millisecond(curr_time));
 
     esched_chip_proc_put(proc_ctx);
@@ -2985,11 +2948,7 @@ int sched_query_sync_event_trace(unsigned int chip_id, struct sched_trace_input 
 {
     int32_t ret;
     int local_pid = ka_task_get_current()->tgid;
-#ifdef CFG_FEATURE_REMOTE_SUBMIT
-#ifdef CFG_ENV_HOST
-    struct sched_sync_event_trace remote_trace;
-#endif
-#endif
+
     if (trace_result == NULL) {
         sched_err("The variable is NULL. (chip_id=%u; pid=%d, trace_id=%u)\n", chip_id, local_pid, para->msg.tid);
         return DRV_ERROR_PARA_ERROR;
@@ -3004,26 +2963,8 @@ int sched_query_sync_event_trace(unsigned int chip_id, struct sched_trace_input 
         }
     }
 #ifdef CFG_FEATURE_REMOTE_SUBMIT
-#ifdef CFG_ENV_HOST
 #ifndef EMU_ST
-    ret = sched_query_remote_trace_msg_send(chip_id, para, &remote_trace);
-    if (ret != 0) {
-        sched_info_printk_ratelimited("query remote event trace. (ret=%d, chip_id=%u; pid=%d; trace_id=%u)\n", ret,
-                                      chip_id, para->dst_pid, para->msg.tid);
-        return 0;
-    }
-    if (para->msg.subevent_id == remote_trace.subevent_id) {
-        trace_result->dst_publish_timestamp = remote_trace.dst_publish_timestamp;
-        trace_result->dst_wait_start_timestamp = remote_trace.dst_wait_start_timestamp;
-        trace_result->dst_wait_end_timestamp = remote_trace.dst_wait_end_timestamp;
-        trace_result->dst_submit_user_timestamp = remote_trace.dst_submit_user_timestamp;
-        trace_result->dst_submit_kernel_timestamp = remote_trace.dst_submit_kernel_timestamp;
-    } else {
-        sched_info_printk_ratelimited(
-            "remote trace query. (chip_id=%u; pid=%d; tid=%u; local_subevent=%d;remote_subevent=%d)\n", chip_id,
-            para->dst_pid, para->msg.tid, trace_result->subevent_id, remote_trace.subevent_id);
-    }
-#endif
+    esched_adapt_query_remote_trace(chip_id, para, trace_result);
 #endif
 #endif
     return 0;
@@ -3134,6 +3075,7 @@ STATIC int32_t sched_init_grp_thread(struct sched_grp_ctx *grp_ctx, u32 thread_n
 
     for (i = 0; i < thread_num; i++) {
         ka_task_mutex_init(&grp_ctx->thread_ctx[i].thread_mutex);
+        ka_task_spin_lock_init(&grp_ctx->thread_ctx[i].thread_finish_lock);
         grp_ctx->thread_ctx[i].grp_ctx = grp_ctx;
     }
 
@@ -3367,7 +3309,7 @@ int32_t sched_add_process(u32 chip_id, int32_t pid)
 
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_add_process. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -3546,7 +3488,12 @@ STATIC void sched_clear_cur_non_sched_event(struct sched_proc_ctx *proc_ctx)
 
             /* thread status has been set to ready, but it not wait event again, so thread event is null */
             if (thread_ctx->event != NULL) {
+#ifdef CFG_FEATURE_STARS_V2
+                /* aicpu for non sched, need write 5b exception */
+                sched_thread_finish(thread_ctx, SCHED_TASK_FINISH_SCENE_PROC_EXIT);
+#else
                 sched_thread_finish(thread_ctx, SCHED_TASK_FINISH_SCENE_NORMAL_PROCESS_FREE);
+#endif
             }
             ka_base_atomic_set(&thread_ctx->status, SCHED_THREAD_STATUS_IDLE);
         }
@@ -3571,18 +3518,12 @@ void sched_free_process(struct sched_proc_ctx *proc_ctx)
     ka_list_del(&proc_ctx->list);
     ka_task_mutex_unlock(&proc_ctx->node->proc_mng_mutex);
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
-    if (node->hard_res.cpu_work_mode != STARS_WORK_MODE_MSGQ) {
-        node->ops.task_exit_check_sched_cpu(node, proc_ctx);
-    }
-#else
-    node->ops.task_exit_check_sched_cpu(node, proc_ctx);
-#endif
+    esched_adapt_exit_check_sched_cpu(node, proc_ctx);
 
     sched_clear_cur_non_sched_event(proc_ctx);
 
     sched_debug("Free proc. (chip_id=%u; pid=%d; publish_event=%d; sched_event=%d; "
-                "cur_timestamp=%llu; alive_time=%llu)\n",
+                "cur_timestamp=%llu; alive_time=%llu(tick))\n",
                 proc_ctx->node->node_id, proc_ctx->pid, ka_base_atomic_read(&proc_ctx->publish_event_num),
                 ka_base_atomic_read(&proc_ctx->sched_event_num), sched_get_cur_timestamp(),
                 millisecond_to_tick(proc_ctx->exit_timestamp - proc_ctx->start_timestamp));
@@ -3600,7 +3541,7 @@ int32_t sched_del_process(u32 chip_id, int32_t pid)
 
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_del_process. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_INVALID_DEVICE;
     }
 
@@ -3644,7 +3585,7 @@ int32_t sched_del_process(u32 chip_id, int32_t pid)
     }
 
     sched_debug("Del proc End. (chip_id=%u; pid=%d; publish_event=%d; sched_event=%d; "
-                "cur_timestamp=%llu; alive_time=%llu)\n",
+                "cur_timestamp=%llu; alive_time=%llu(tick))\n",
                 chip_id, pid, ka_base_atomic_read(&proc_ctx->publish_event_num),
                 ka_base_atomic_read(&proc_ctx->sched_event_num), sched_get_cur_timestamp(),
                 millisecond_to_tick(proc_ctx->exit_timestamp - proc_ctx->start_timestamp));
@@ -3754,7 +3695,7 @@ STATIC void sched_sample_process(struct sched_numa_node *node)
     static u32 num = 0;
 
     ka_task_mutex_lock(&node->node_guard_work_mutex);
-    if ((node->debug_flag & (0x1 << SCHED_DEBUG_SAMPLE_BIT)) == 0) {
+    if ((node->debug_flag & (0x1U << SCHED_DEBUG_SAMPLE_BIT)) == 0) {
         ka_task_mutex_unlock(&node->node_guard_work_mutex);
         return;
     }
@@ -3785,7 +3726,7 @@ STATIC void sched_trace_record_process(struct sched_numa_node *node)
     static u32 trace_cnt = 0;
     static u32 recore_cnt = 0;
 
-    if ((node->debug_flag & (0x1 << SCHED_DEBUG_SCHED_TRACE_RECORD_BIT)) == 0) {
+    if ((node->debug_flag & (0x1U << SCHED_DEBUG_SCHED_TRACE_RECORD_BIT)) == 0) {
         return;
     }
 
@@ -3796,7 +3737,7 @@ STATIC void sched_trace_record_process(struct sched_numa_node *node)
         sched_trace_record(node, trace_record);
         trace_record->valid = SCHED_INVALID;
         recore_cnt = 0;
-    } else if ((node->debug_flag & (0x1 << SCHED_DEBUG_TRIGGER_SCHED_TRACE_RECORD_FILE_BIT)) != 0) {
+    } else if ((node->debug_flag & (0x1U << SCHED_DEBUG_TRIGGER_SCHED_TRACE_RECORD_FILE_BIT)) != 0) {
         recore_cnt++;
         if (recore_cnt == SCHED_RECORD_TRACE_CNT) {
             recore_cnt = 0;
@@ -3829,11 +3770,9 @@ void sched_check_sched_task(struct sched_numa_node *node)
 
     for (i = 0; i < node->sched_cpu_num; i++) {
         cpu_ctx = sched_get_cpu_ctx(node, node->sched_cpuid[i]);
-#if defined(CFG_FEATURE_HARDWARE_MIA) && !defined(CFG_ENV_HOST)
-        if (!sched_is_cpu_belongs_to_vf(node, 0, cpu_ctx)) {
+        if (esched_adapt_guard_cpu_skip(node, cpu_ctx)) {
             continue;
         }
-#endif
         if (esched_is_cpu_idle(cpu_ctx)) {
             if (cpu_ctx->last_sched_event == cpu_ctx->stat.sched_event_num) {
                 cpu_ctx->stat.check_sched_num++;
@@ -3992,7 +3931,7 @@ STATIC void sched_save_sched_timestamp(struct sched_trace_input *para, struct sc
     sched_dfx->dst_publish_timestamp = tick_to_millisecond(event->timestamp.publish_in_kernel);
     sched_dfx->dst_wait_start_timestamp = tick_to_millisecond(event->timestamp.subscribe_in_kernel);
     sched_dfx->dst_wait_end_timestamp = tick_to_millisecond(event->timestamp.subscribe_out_kernel);
-    sched_warn("Show exception non-sched event. (pid=%d; gid=%u; event_id=%u; subevent_id=%u; diff=%llu;"
+    sched_warn("Show exception non-sched event. (pid=%d; gid=%u; event_id=%u; subevent_id=%u; diff=%llums;"
                "publish=%llums; wait_start=%llums; wait_end=%llums)\n",
                para->dst_pid, para->dst_gid, para->event_id, para->subevent_id, diff, sched_dfx->dst_publish_timestamp,
                sched_dfx->dst_wait_start_timestamp, sched_dfx->dst_wait_end_timestamp);
@@ -4024,7 +3963,7 @@ int sched_query_curr_non_sched_event(u32 devid, struct sched_trace_input *para,
     }
     grp_ctx = sched_get_grp_ctx(proc_ctx, para->dst_gid);
     if ((grp_ctx->sched_mode != SCHED_MODE_NON_SCHED_CPU) || (grp_ctx->thread_num == 0)) {
-        sched_warn("query cmd not support. (devid=%u; pid=%u; mode=%u)", devid, para->dst_pid, grp_ctx->sched_mode);
+        sched_warn("query cmd not supported. (devid=%u; pid=%u; mode=%u)", devid, para->dst_pid, grp_ctx->sched_mode);
         goto proc_put;
     }
     for (j = 0; j < grp_ctx->thread_num; j++) {
@@ -4081,7 +4020,7 @@ STATIC void sched_check_thread_timeout(struct sched_numa_node *node)
             if (diff > SCHED_THREAD_TIMEOUT) {
                 sched_warn(
                     "Show warning details. "
-                    "(chip_id=%u; cpuid=%u; pid=%d; gid=%u; tid=%u; diff=%llu; timeout=%dms; start_time=%llums; "
+                    "(chip_id=%u; cpuid=%u; pid=%d; gid=%u; tid=%u; diff=%llums; timeout=%dms; start_time=%llums; "
                     "cur_time=%llums; max_proc_time=%llums; thread_status=%d; cur_event_num=%d)\n",
                     node->node_id, cpu_ctx->cpuid, thread_ctx->grp_ctx->pid, thread_ctx->grp_ctx->gid, thread_ctx->tid,
                     diff, SCHED_THREAD_TIMEOUT, tick_to_millisecond(thread_ctx->start_time),
@@ -4237,7 +4176,7 @@ STATIC int32_t sched_cpu_ctx_init(struct sched_cpu_ctx *cpu_ctx, u32 cpuid)
         return ret;
     }
 
-    /* alloc event resouce enque to event_res que */
+    /* alloc event resource enque to event_res que */
     event = (struct sched_event *)sched_vzalloc(sizeof(struct sched_event) * SCHED_CPU_EVENT_RES_NUM);
     if (event == NULL) {
         sched_err("Failed to vzalloc memory for variable event. "
@@ -4314,9 +4253,6 @@ STATIC void sched_destroy_one_cpu_ctx(struct sched_cpu_ctx *cpu_ctx)
 
 STATIC int32_t sched_init_sched_cpu(struct sched_numa_node *node, struct sched_sched_cpu_mask *mask, u32 sched_cpu_num)
 {
-#ifndef CFG_FEATURE_HARDWARE_SCHED
-    struct sched_cpu_ctx *cpu_ctx = NULL;
-#endif
     int32_t ret;
     u32 i, j;
 
@@ -4331,23 +4267,7 @@ STATIC int32_t sched_init_sched_cpu(struct sched_numa_node *node, struct sched_s
             return ret;
         }
 
-#ifndef CFG_FEATURE_HARDWARE_SCHED
-        cpu_ctx = sched_get_cpu_ctx(node, cpuid);
-
-        cpu_ctx->sample = (struct sched_cpu_sample *)sched_vzalloc(sizeof(struct sched_cpu_sample));
-        if (cpu_ctx->sample == NULL) {
-#ifndef EMU_ST
-            sched_warn("Malloc sample warn. (size=0x%lx)\n", sizeof(struct sched_cpu_sample));
-#endif
-        }
-
-        cpu_ctx->sched_trace = (struct sched_cpu_sched_trace *)sched_vzalloc(sizeof(struct sched_cpu_sched_trace));
-        if (cpu_ctx->sched_trace == NULL) {
-#ifndef EMU_ST
-            sched_warn("Malloc sched_trace warn . (size=0x%lx)\n", sizeof(struct sched_cpu_sched_trace));
-#endif
-        }
-#endif
+        esched_adapt_init_sched_cpu_ctx(node, cpuid);
     }
 
     return 0;
@@ -4448,7 +4368,7 @@ int32_t sched_set_sched_cpu(u32 chip_id, struct sched_sched_cpu_mask *cpu_mask)
 
     node = sched_get_numa_node(chip_id);
     if (node == NULL) {
-        sched_err("The chip_id is invalid. (chip_id=%u)\n", chip_id);
+        sched_err("The chip_id is invalid in sched_set_sched_cpu. (chip_id=%u)\n", chip_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -4528,7 +4448,7 @@ STATIC int32_t sched_node_event_res_init(struct sched_numa_node *node)
         return ret;
     }
 
-    /* alloc event resouce enque to event_res que */
+    /* alloc event resource enque to event_res que */
     event = (struct sched_event *)sched_vzalloc(sizeof(struct sched_event) * SCHED_NODE_EVENT_RES_NUM);
     if (event == NULL) {
         sched_err("Failed to vzalloc memory for variable event. "
@@ -4592,6 +4512,8 @@ STATIC int32_t esched_init_numa_node(struct sched_numa_node *node)
     ka_task_spin_lock_init(&node->trace_record.lock);
     ka_task_mutex_init(&node->node_mutex);
     ka_task_mutex_init(&node->node_guard_work_mutex);
+    ka_task_mutex_init(&node->hard_res.mutex);
+    ka_task_mutex_init(&node->hard_res.msgq_map_mutex);
     node->debug_flag = 0;
     node->sample_period = SCHED_SAMPLE_DEFAULT_PERIOD;
     node->sample_interval = node->sample_period / SCHED_GUARD_WORK_PERIOD;
@@ -4626,6 +4548,8 @@ STATIC void esched_uninit_numa_node(struct sched_numa_node *node)
     sched_node_proc_mng_uninit(node);
 
     ka_task_mutex_destroy(&node->node_guard_work_mutex);
+    ka_task_mutex_destroy(&node->hard_res.mutex);
+    ka_task_mutex_destroy(&node->hard_res.msgq_map_mutex);
     sched_node_cpu_uninit(node);
 }
 
@@ -4646,7 +4570,7 @@ STATIC int32_t esched_create_dev_lock(u32 devid, struct sched_dev_ops *ops)
 
     node = (struct sched_numa_node *)sched_vzalloc(sizeof(struct sched_numa_node));
     if (node == NULL) {
-        sched_err("Failed to vzalloc memory. (size=0x%lx)\n", sizeof(struct sched_numa_node));
+        sched_err("Valloc Mem failed. (size=0x%lx)\n", sizeof(struct sched_numa_node));
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
@@ -4797,13 +4721,6 @@ void esched_dev_put(struct sched_numa_node *node)
     sched_free_dev(node);
 }
 
-#ifndef CFG_ENV_HOST
-u32 esched_get_numa_node_num(void)
-{
-    return ((u32)ka_system_cpu_to_node(ka_system_num_online_cpus() - 1) + 1);
-}
-#endif
-
 void esched_setup_dev_soft_ops(struct sched_dev_ops *ops)
 {
     ops->sumbit_event = esched_submit_event_distribute;
@@ -4818,204 +4735,6 @@ void esched_setup_dev_soft_ops(struct sched_dev_ops *ops)
     ops->node_res_init = NULL;
     ops->node_res_uninit = NULL;
 }
-
-STATIC int32_t esched_create_default_dev(void)
-{
-#ifdef CFG_ENV_HOST
-    struct sched_dev_ops ops;
-    int ret;
-    /* host visual numa */
-    esched_setup_dev_soft_ops(&ops);
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-    ret = esched_create_dev(uda_get_host_id(), &ops);
-    if (ret != 0) {
-        sched_err("Create dev failed. (devid=%u)\n", uda_get_host_id());
-        return ret;
-    }
-#endif
-#ifdef CFG_FEATURE_EXTERNAL_CDEV
-    /*  dc host, create dev on mng call init instance */
-    (void)ret;
-#else // CFG_FEATURE_EXTERNAL_CDEV else
-
-    /*  helper host (Independent working mode) */
-    ret = esched_create_dev(0, &ops);
-    if (ret != 0) {
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-        esched_destroy_dev(uda_get_host_id());
-#endif
-        sched_err("Create dev failed.\n");
-        return ret;
-    }
-#endif // CFG_FEATURE_EXTERNAL_CDEV end
-
-#else  // CFG_ENV_HOST else
-    u32 dev_num = esched_get_numa_node_num();
-    struct sched_dev_ops ops;
-    u32 devid = 0;
-    int ret;
-
-    if (!esched_is_support_uda_online()) {
-        esched_setup_dev_soft_ops(&ops);
-
-        for (devid = 0; devid < dev_num; devid++) {
-            ret = esched_create_dev(devid, &ops);
-            if (ret != 0) {
-                u32 i;
-                for (i = 0; i < devid; i++) {
-                    esched_destroy_dev(i);
-                }
-                sched_err("Create dev failed. (devid=%u)\n", devid);
-                return ret;
-            }
-        }
-    }
-#endif // CFG_ENV_HOST end
-
-    return 0;
-}
-
-STATIC void esched_destroy_default_dev(void)
-{
-#ifdef CFG_ENV_HOST
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-    esched_destroy_dev(uda_get_host_id());
-#endif
-
-#ifdef CFG_FEATURE_EXTERNAL_CDEV
-    /*  dc host, destroy dev on mng call uninit instance */
-#else
-    /*  helper host (Independent working mode) */
-    esched_destroy_dev(0);
-#endif
-
-#else // CFG_ENV_HOST else
-    u32 dev_num = esched_get_numa_node_num();
-    u32 devid = 0;
-
-    if (!esched_is_support_uda_online()) {
-        for (devid = 0; devid < dev_num; devid++) {
-            esched_destroy_dev(devid);
-        }
-    }
-
-#endif // CFG_ENV_HOST end
-}
-
-#ifndef CFG_ENV_HOST
-#include "pbl/pbl_uda.h"
-
-#define ESCHED_NOTIFIER "esched"
-
-static void esched_remove_one_dev(u32 dev_id)
-{
-    module_feature_auto_uninit_dev(dev_id);
-    esched_destroy_dev(dev_id);
-}
-
-static int esched_add_one_dev(u32 dev_id)
-{
-    struct sched_dev_ops ops;
-    int ret;
-
-#ifdef CFG_FEATURE_HARDWARE_SCHED
-    esched_setup_dev_hw_ops(&ops);
-#else
-    esched_setup_dev_soft_ops(&ops);
-#endif
-
-    ret = esched_create_dev(dev_id, &ops);
-    if (ret != 0) {
-        sched_err("Create dev failed. (dev_id=%u)\n", dev_id);
-        return ret;
-    }
-
-    ret = sched_node_sched_cpu_uda_init(dev_id);
-    if (ret != 0) {
-        esched_remove_one_dev(dev_id);
-        sched_err("Node sched cpu init failed. (dev_id=%u)\n", dev_id);
-        return ret;
-    }
-
-#ifdef CFG_FEATURE_VFIO
-    sched_node_vf_init(dev_id);
-#endif
-
-    ret = module_feature_auto_init_dev(dev_id);
-    if (ret != 0) {
-#ifndef EMU_ST
-        esched_destroy_dev(dev_id);
-        sched_err("module feature init failed. (dev_id=%u)\n", dev_id);
-        return ret;
-#endif
-    }
-
-    return 0;
-}
-
-static int esched_notifier_func(u32 udevid, enum uda_notified_action action)
-{
-    int ret = 0;
-
-    switch (action) {
-        case UDA_INIT:
-            ret = esched_add_one_dev(udevid);
-            break;
-        case UDA_UNINIT:
-            esched_remove_one_dev(udevid);
-            break;
-#if defined(CFG_FEATURE_HARDWARE_MIA) && !defined(EMU_ST)
-        case UDA_TO_MIA:
-            ret = esched_drv_reset_phy_dev(udevid);
-            break;
-        case UDA_TO_SIA:
-            esched_drv_restore_phy_dev(udevid);
-            break;
-#endif
-#ifdef CFG_FEATURE_PM
-        case UDA_SUSPEND:
-            ret = esched_pm_suspend(udevid);
-            break;
-        case UDA_RESUME:
-            ret = esched_pm_resume(udevid);
-            break;
-        case UDA_SHUTDOWN:
-            ret = esched_pm_shutdown(udevid);
-            break;
-#endif
-        default:
-            /* Ignore other actions. */
-            return 0;
-    }
-
-    sched_info("notifier action. (udevid=%u; action=%d; ret=%d)\n", udevid, action, ret);
-
-    return ret;
-}
-
-static int esched_notifier_register(void)
-{
-    struct uda_dev_type type;
-    int ret;
-
-    uda_davinci_local_real_entity_type_pack(&type);
-    ret = uda_notifier_register(ESCHED_NOTIFIER, &type, UDA_PRI2, esched_notifier_func);
-    if (ret != 0) {
-        sched_err("Register notifier failed. (ret=%d)\n", ret);
-        return ret;
-    }
-
-    return 0;
-}
-
-static void esched_notifier_unregister(void)
-{
-    struct uda_dev_type type;
-
-    uda_davinci_local_real_entity_type_pack(&type);
-    (void)uda_notifier_unregister(ESCHED_NOTIFIER, &type);
-}
-#endif
 
 int32_t esched_init(void)
 {
@@ -5033,35 +4752,21 @@ int32_t esched_init(void)
     if (ret != 0) {
         return ret;
     }
-#ifndef CFG_ENV_HOST
-#if defined(CFG_FEATURE_VFIO) || defined(CFG_FEATURE_HARDWARE_MIA)
-    sched_vf_init();
-#endif
-#endif
+    esched_vfio_mia_init();
 
 #ifdef CFG_FEATURE_HARDWARE_SCHED
     (void)trs_chan_register_abnormal_handle(ABNORMAL_TASK_TYPE_AICPU, esched_drv_abnormal_task_handle);
 #endif
 
-#ifndef CFG_ENV_HOST
-
-    if (esched_is_support_uda_online()) {
-        ret = esched_notifier_register();
-        if (ret != 0) {
+    ret = esched_uda_online_register();
+    if (ret != 0) {
 #ifdef CFG_FEATURE_HARDWARE_SCHED
-            (void)trs_chan_unregister_abnormal_handle(ABNORMAL_TASK_TYPE_AICPU);
+        (void)trs_chan_unregister_abnormal_handle(ABNORMAL_TASK_TYPE_AICPU);
 #endif
-
-#if defined(CFG_FEATURE_VFIO) || defined(CFG_FEATURE_HARDWARE_MIA)
-            sched_vf_uninit();
-#endif
-            esched_destroy_default_dev();
-            return ret;
-        }
+        esched_vfio_mia_uninit();
+        esched_destroy_default_dev();
+        return ret;
     }
-
-#endif
-
 #ifdef CFG_FEATURE_REMOTE_SUBMIT
     (void)esched_client_init();
 #endif
@@ -5075,22 +4780,13 @@ void esched_uninit(void)
     esched_client_uninit();
 #endif
 
-#ifndef CFG_ENV_HOST
-    if (esched_is_support_uda_online()) {
-        esched_notifier_unregister();
-    }
-#endif
+    esched_uda_online_unregister();
 
 #ifdef CFG_FEATURE_HARDWARE_SCHED
     (void)trs_chan_unregister_abnormal_handle(ABNORMAL_TASK_TYPE_AICPU);
 #endif
 
-#ifndef CFG_ENV_HOST
-#if defined(CFG_FEATURE_VFIO) || defined(CFG_FEATURE_HARDWARE_MIA)
-    sched_vf_uninit();
-#endif
-#endif
-
+    esched_vfio_mia_uninit();
     esched_destroy_default_dev();
     /*lint +e144 +e666 +e102 +e1112 +e145 +e151 +e437 +e679 +e30 +e514 +e65 +e446*/
 }

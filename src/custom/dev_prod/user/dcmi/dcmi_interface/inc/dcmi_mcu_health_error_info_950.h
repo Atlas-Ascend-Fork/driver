@@ -319,6 +319,5 @@ struct dcmi_health_info g_950_health_error_info[] = {
     {0x8F180A01, "Heart Check Failure Major Alarm"},
     {0x8F19800C, "TaiShan Core Hang Critical Alarm"},
     {0x8f18121B, "ey34pg_clk Alarm"},
-    {0x8F181801, "Unrecoverable Flash Error Major Alarm"}
-};
+    {0x8F181801, "Unrecoverable Flash Error Major Alarm"}};
 #endif /* _DCMI_MCU_HEALTH_ERROR_INFO_950_H_ */

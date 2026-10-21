@@ -97,6 +97,24 @@ static bool featureSupportApmResMapRemote(uint32_t devId)
     return true;
 }
 
+static bool featureSupportDmsGetBoardLocation(uint32_t devId)
+{
+    (void)devId;
+    return true;
+}
+
+static bool featureSupportSvmProcessDeviceMemSnapshot(uint32_t devId)
+{
+    (void)devId;
+    return true;
+}
+
+static bool featureSupportSvmGetAddrSeg(uint32_t devId)
+{
+    (void)devId;
+    return true;
+}
+
 static const feature_support_handle g_feature_support[FEATURE_MAX] = {
     [FEATURE_TRSDRV_SQ_DEVICE_MEM_PRIORITY] = featureSupportTsDrvSqDevmemPrio,
     [FEATURE_PROF_AICPU_CHAN] = featureSupportProfAicpuChan,
@@ -109,6 +127,10 @@ static const feature_support_handle g_feature_support[FEATURE_MAX] = {
     [FEATURE_DMS_QUERY_CHIP_DIE_ID] = featureSupportDmsQueryChipDieIdByPhyId,
     [FEATURE_SVM_MEM_REGISTER_QUERY_AND_GET_ATTR] = svm_support_mem_register_query_and_get_attr,
     [FEATURE_APM_RES_MAP_REMOTE] = featureSupportApmResMapRemote,
+    [FEATURE_SVM_MEM_REGISTER_HOST_PINNED] = svm_support_mem_register_host_pinned,
+    [FEATURE_DMS_GET_BOARD_LOCATION] = featureSupportDmsGetBoardLocation,
+    [FEATURE_SVM_PROCESS_DEVICE_MEM_SNAPSHOT] = featureSupportSvmProcessDeviceMemSnapshot,
+    [FEATURE_SVM_GET_ADDR_SEG] = featureSupportSvmGetAddrSeg,
 };
 
 bool halSupportFeature(uint32_t devId, drvFeature_t type)

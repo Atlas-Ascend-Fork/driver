@@ -40,5 +40,7 @@ int rmo_res_info_check(struct res_map_info *res_info);
 
 drvError_t dpa_res_map(unsigned int dev_id, struct res_map_info *res_info, unsigned long *va, unsigned int *len);
 drvError_t dpa_res_unmap(unsigned int dev_id, struct res_map_info *res_info);
+drvError_t dpa_res_read(unsigned int dev_id, struct res_map_info *res_info, void *data, unsigned int len);
+drvError_t dpa_res_write(unsigned int dev_id, struct res_map_info *res_info, void *data, unsigned int len);
 
 #endif

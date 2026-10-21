@@ -16,7 +16,7 @@
 #include "ossl_user_linux.h"
 #include "tool_lib.h"
 
-#define MAX_CDR_LOG_NAME_LEN  128
+#define MAX_CDR_LOG_NAME_LEN 128
 #define TIME_BEGIN_YEAR 1900
 #define MS_TO_US_CNT 1000
 

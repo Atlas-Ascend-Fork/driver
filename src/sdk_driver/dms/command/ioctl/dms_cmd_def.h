@@ -9,40 +9,64 @@
 #define MAKE_UP_COMMAND(fun, cmd) (((fun) << 16) | (cmd))
 #define MAKE_UP_INDEPENDENCE_COMMAND(main, sub) (((main) << 12) | (sub))
 
-#define DMS_MAKE_UP_FILTER_HAL_DEV_INFO_EX(f, module, info) do { \
-    (f)->filter_len = (unsigned int)sprintf_s((f)->filter, sizeof((f)->filter), "module=0x%x,info=0x%x",\
-        (unsigned int)(module), (unsigned int)(info)); \
-} while (0)
+#define DMS_MAKE_UP_FILTER_HAL_DEV_INFO_EX(f, module, info)                                                  \
+    do {                                                                                                     \
+        (f)->filter_len = (unsigned int)sprintf_s((f)->filter, sizeof((f)->filter), "module=0x%x,info=0x%x", \
+                                                  (unsigned int)(module), (unsigned int)(info));             \
+    } while (0)
 
 #define DAVINCI_INTF_MODULE_DMS "DMS"
 
 #define DMS_MAGIC 'V'
 #define DMS_IOCTL_CMD _IO(DMS_MAGIC, 1)
 
-#define DMS_GET_FAULT_EVENT    _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_FAULT_EVENT)
-#define DMS_GET_EVENT_CODE     _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_EVENT_CODE)
-#define DMS_GET_TRS_CAPABILITY_GROUP_INFO   _IO(DMS_MAIN_CMD_TRS, DMS_SUBCMD_GET_CAPABILITY_GROUP)
+#define DMS_GET_BOARD_ID _IO(DMS_MAIN_CMD_SOC, DMS_SUBCMD_GET_BOARD_ID)
+#define DMS_GET_MASTER_DEV _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_MASTER_DEV)
+#define DMS_GET_H2D_DEV_INFO _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_H2D_DEV_INFO)
+#define DMS_GET_CPU_WORK_MODE _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CPU_WORK_MODE)
+#define DMS_GET_HCOM_CPU_NUM _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_HCOM_CPU_NUM)
+#define DMS_GET_CHIP_TYPE _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CHIP_TYPE)
+#define DMS_GET_DEV_PROBE_NUM _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_DEV_PROBE_NUM)
+#define DMS_GET_DEV_PROBE_LIST _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_DEV_PROBE_LIST)
+#define DMS_GET_P2P_ATTR _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_DEV_P2P_ATTR)
+#define DMS_GET_LPM_FREQUENCY _IO(DMS_MAIN_CMD_LPM, DMS_SUBCMD_GET_FREQUENCY)
+#define DMS_GET_QOS_CONFIG_INFO _IO(DMS_MAIN_CMD_QOS, DMS_SUBCMD_GET_CONFIG_INFO)
+#define DMS_GET_BBOX_LOG_DUMP_INFO _IO(DMS_MAIN_CMD_BBOX, DMS_SUBCMD_GET_LOG_DUMP_INFO)
 
-#define DMS_GET_AI_INFO_FROM_TS    _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_AI_INFO_FROM_TS)
-#define DMS_GET_HISTORY_FAULT_EVENT     _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_HISTORY_FAULT_EVENT)
+#define DMS_GET_SLOT_ID _IO(DMS_MAIN_CMD_SOC, DMS_SUBCMD_GET_SLOT_ID)
+#define DMS_GET_PHY_DEVICE_INFO _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_PHY_DEVICE_INFO)
 
-#define DMS_GET_OSC_FREQ_INFO_HOST      _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_HOST_OSC_FREQ)
-#define DMS_GET_OSC_FREQ_INFO_DEVICE    _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_DEV_OSC_FREQ)
+#define DMS_GET_FAULT_EVENT _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_FAULT_EVENT)
+#define DMS_GET_EVENT_CODE _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_EVENT_CODE)
+#define DMS_GET_TRS_CAPABILITY_GROUP_INFO _IO(DMS_MAIN_CMD_TRS, DMS_SUBCMD_GET_CAPABILITY_GROUP)
+#define DMS_GET_H2D_DEVINFO _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_H2D_DEV_INFO)
 
-#define DMS_GET_FAULT_INJECT_INFO     _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_FAULT_INJECT_INFO)
+#define DMS_ENABLE_EVENT _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_ENABLE_EVENT)
+#define DMS_DISABLE_EVENT _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_DISABLE_EVENT)
+#define DMS_CLEAR_EVENT _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_CLEAR_EVENT)
 
-#define DMS_GET_CHIP_INFO     _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CHIP_INFO)
+#define DMS_GET_AI_INFO_FROM_TS _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_AI_INFO_FROM_TS)
+#define DMS_GET_HISTORY_FAULT_EVENT _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_HISTORY_FAULT_EVENT)
 
-#define DMS_GET_AICORE_DIE_NUM    _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_AICORE_DIE_NUM)
+#define DMS_GET_OSC_FREQ_INFO_HOST _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_HOST_OSC_FREQ)
+#define DMS_GET_OSC_FREQ_INFO_DEVICE _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_DEV_OSC_FREQ)
 
-#define DMS_GET_DEV_SPLIT_MODE   _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_DEV_SPLIT_MODE)
+#define DMS_GET_FAULT_INJECT_INFO _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_FAULT_INJECT_INFO)
 
-#define DMS_GET_CPU_INFO    _IO(DMS_MAIN_CMD_SOC, DMS_SUBCMD_GET_CPU_INFO)
-#define DMS_GET_CPU_UTILIZATION    _IO(DMS_MAIN_CMD_SOC, DMS_SUBCMD_GET_CPU_UTILIZATION)
+#define DMS_GET_CHIP_INFO _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CHIP_INFO)
+
+#define DMS_GET_AICORE_DIE_NUM _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_AICORE_DIE_NUM)
+
+#define DMS_GET_DEV_SPLIT_MODE _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_DEV_SPLIT_MODE)
+
+#define DMS_GET_CPU_INFO _IO(DMS_MAIN_CMD_SOC, DMS_SUBCMD_GET_CPU_INFO)
+#define DMS_GET_CPU_UTILIZATION _IO(DMS_MAIN_CMD_SOC, DMS_SUBCMD_GET_CPU_UTILIZATION)
 
 #define DMS_SENSOR_NODE_REGISTER _IO(DMS_MAIN_CMD_SOFT_FAULT, DMS_SUBCMD_SENSOR_NODE_REGISTER)
 #define DMS_SENSOR_NODE_UNREGISTER _IO(DMS_MAIN_CMD_SOFT_FAULT, DMS_SUBCMD_SENSOR_NODE_UNREGISTER)
 #define DMS_SENSOR_NODE_UPDATE_VAL _IO(DMS_MAIN_CMD_SOFT_FAULT, DMS_SUBCMD_SENSOR_NODE_UPDATE_VAL)
+
+#define DMS_GET_ALL_DEVICE_LIST _IO(DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_ALL_DEV_LIST)
 
 #define FILTER_MAX_LEN 128
 struct dms_ioctl_arg {
@@ -107,7 +131,12 @@ struct dms_read_event_ioctl {
     enum cmd_source cmd_src;
     int timeout;
     int dev_id;
- 	struct dms_event_filter filter;
+    struct dms_event_filter filter;
+};
+
+struct dms_get_event_ioctl {
+    unsigned int dev_id;
+    struct dms_event_filter filter;
 };
 
 struct dms_event_ioctrl {
@@ -148,13 +177,13 @@ struct dms_get_device_info_in {
     unsigned int buff_size;
 };
 struct dms_hal_device_info_stru {
-    unsigned int dev_id; /* in */
-    int module_type;     /* in */
-    int info_type;       /* in */
+    unsigned int dev_id;        /* in */
+    int module_type;            /* in */
+    int info_type;              /* in */
     unsigned int buff_size;     /* in&out, must be <= sizeof(payload) */
     unsigned char payload[300]; /* in&out, valid length is min(buff_size, sizeof(payload)) */
 };
-#define DMS_HAL_DEV_INFO_HEAD_LEN (uint32_t)((size_t)&((struct dms_hal_device_info_stru *)0)->payload)
+#define DMS_HAL_DEV_INFO_HEAD_LEN (uint32_t)((size_t) & ((struct dms_hal_device_info_stru *)0)->payload)
 
 struct dms_get_device_info_out {
     unsigned int out_size;
@@ -165,7 +194,6 @@ struct dms_filter_st {
     char filter[DMS_FILTER_LENGTH];
     unsigned int filter_len;
 };
-
 
 struct dms_get_vdevice_info_in {
     unsigned int dev_id;
@@ -295,7 +323,7 @@ struct dms_pass_through_mcu_in {
     unsigned char *buf;
 };
 
-#define MCU_RESP_LEN  28
+#define MCU_RESP_LEN 28
 struct dms_pass_through_mcu_out {
     unsigned int dev_id;
     unsigned int response_len;
@@ -309,10 +337,10 @@ struct dms_ts_fault_mask {
 };
 
 #define DSMI_SIO_SLLC_INDEX_BIT (0xFF000000U)
-#define DSMI_SIO_SUB_CMD_BIT    (0x00FFFFFFU)
+#define DSMI_SIO_SUB_CMD_BIT (0x00FFFFFFU)
 
 struct dms_sio_crc_err_info {
-    unsigned char sllc_index;       /* input parameter */
+    unsigned char sllc_index; /* input parameter */
     unsigned short tx_error_count;
     unsigned short rx_error_count;
     unsigned long long rx_ecc_count;
@@ -326,14 +354,14 @@ struct dms_device_state_out {
 
 struct dms_update_ts_patch {
     unsigned int devid;
-    unsigned int update_type;   /* 0:install; 1: uninstall */
+    unsigned int update_type; /* 0:install; 1: uninstall */
 };
 
 typedef struct dms_sils_info_out {
     unsigned int size;
 } dms_sils_info_out_t;
 
-#define SILS_RESERVE_LEN  8
+#define SILS_RESERVE_LEN 8
 typedef struct dms_sils_info_in {
     unsigned int dev_id;
     unsigned int size;
@@ -393,7 +421,27 @@ struct dms_eid_info {
 struct dms_eid_query_info {
     union dms_urma_addr_info local_eid[DMS_MAX_EID_PAIR_NUM];
     unsigned int num;
-    unsigned int min_idx;    // Currently, only choose the smallest eid, record the idx
+    unsigned int min_idx; // Currently, only choose the smallest eid, record the idx
+};
+
+enum devdrv_d2d_eid_query_type {
+    D2D_EID_QUERY_BY_DEVID = 0,
+    D2D_EID_QUERY_BY_TYPE,
+    D2D_EID_QUERY_TYPE_MAX
+};
+
+struct dms_d2d_eid_input {
+    unsigned int local_devid;
+    unsigned int query_type; // query d2d_eid by dev_id or eid_type
+    unsigned int remote_udevid;
+    unsigned int d2d_eid_type;
+    unsigned int reserved[4];
+};
+
+struct dms_d2d_eid_output {
+    union dms_urma_addr_info d2d_eid;
+    unsigned int eid_index;
+    unsigned int reserved[4];
 };
 
 struct dms_get_phy_dev_info_out {

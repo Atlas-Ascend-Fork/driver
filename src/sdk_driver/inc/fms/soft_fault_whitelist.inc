@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-/* only used for chips 950 and later. */
 /* SOFT_FAULT_ACC_ROOT:          allow running as root */
 /* SOFT_FAULT_ACC_OPERATE:       allow running as HwHiAiUser's or HwBaseUser's group */
 /* SOFT_FAULT_ACC_DM_USER:       allow running as HwDmUser */

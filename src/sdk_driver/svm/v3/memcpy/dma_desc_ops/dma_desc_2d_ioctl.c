@@ -50,7 +50,7 @@ static inline int dma_desc_convert_2d_para_check(struct svm_dma_desc_convert_2d_
     }
 
     if (para->height > SVM_CONVERT2D_HEIGHT_MAX) {
-        svm_err("Height is larger than max. (height=%llu)\n", para->height);
+        svm_err("Height is larger than max. (height=%llu; max=%llu)\n", para->height, SVM_CONVERT2D_HEIGHT_MAX);
         return -EINVAL;
     }
 

@@ -12,17 +12,26 @@
  */
 #include "ka_task_pub.h"
 #include "ka_memory_pub.h"
+#include "securec.h"
 
 #include "pbl/pbl_soc_res.h"
-#include "stars_cnt_notify_tbl_c_union_define.h"
 #include "trs_pub_def.h"
 #include "trs_stars_comm.h"
 #include "stars_cnt_notify_tbl.h"
 
 static KA_TASK_DEFINE_RWLOCK(cnt_notify_table_all_reg_lock);
-static volatile stars_cnt_notify_tbl_regs_type *stars_cnt_notify_table_ns_all_reg[TRS_DEV_MAX_NUM][TRS_TS_MAX_NUM] = {
-    NULL,
-};
+static volatile void *stars_cnt_notify_table_ns_all_reg[TRS_DEV_MAX_NUM][TRS_TS_MAX_NUM] = {NULL};
+static struct stars_cnt_notify_tbl_ops *cnt_notify_tbl_ops[TRS_DEV_MAX_NUM] = {NULL};
+
+void trs_cnt_notify_tbl_set_ops(u32 devid, struct stars_cnt_notify_tbl_ops *ops)
+{
+    cnt_notify_tbl_ops[devid] = ops;
+}
+
+void trs_cnt_notify_tbl_clear_ops(u32 devid)
+{
+    cnt_notify_tbl_ops[devid] = NULL;
+}
 
 int trs_init_cnt_notify_tbl_ns_base_addr(struct trs_id_inst *inst)
 {
@@ -64,29 +73,15 @@ void trs_uninit_cnt_notify_tbl_ns_base_addr(struct trs_id_inst *inst)
     }
 }
 
-static stars_cnt_notify_table_slice *trs_get_cnt_notify_table(struct trs_id_inst *inst, u32 id)
-{
-    stars_cnt_notify_tbl_regs_type *tbl_info = (stars_cnt_notify_tbl_regs_type *)
-        stars_cnt_notify_table_ns_all_reg[inst->devid][inst->tsid];
-
-    if (tbl_info != NULL) {
-        return trs_get_stars_cnt_notify_tab_slice(tbl_info, id);
-    }
-
-    return NULL;
-}
-
 void trs_stars_set_cnt_notify_tbl_flag(struct trs_id_inst *inst, u32 id, u32 status)
 {
-    stars_cnt_notify_table_slice *slice = NULL;
-    u32 read_status = 0;
+    struct stars_cnt_notify_tbl_ops *ops = cnt_notify_tbl_ops[inst->devid];
+    void *tbl_info = NULL;
 
     ka_task_read_lock(&cnt_notify_table_all_reg_lock);
-    slice = trs_get_cnt_notify_table(inst, id);
-    if (slice != NULL) {
-        slice->regs.notify_cnt_status_slice = status;
-        read_status = slice->regs.notify_cnt_status_slice;
+    tbl_info = (void *)stars_cnt_notify_table_ns_all_reg[inst->devid][inst->tsid];
+    if ((ops != NULL) && (ops->set_flag != NULL) && (tbl_info != NULL)) {
+        ops->set_flag(tbl_info, id, status);
     }
     ka_task_read_unlock(&cnt_notify_table_all_reg_lock);
-    trs_debug("Read cnt notify reg after clear. (id=%u; read_status=%u; status=%u)\n", id, read_status, status);
 }

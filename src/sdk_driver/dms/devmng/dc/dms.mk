@@ -19,5 +19,6 @@ include $(DRIVER_MODULE_DEVMNG_DIR)/dc/status/dms_status.mk
 include $(DRIVER_MODULE_DEVMNG_DIR)/dc/time/dms_time.mk
 include $(DRIVER_MODULE_DEVMNG_DIR)/dc/urd_forward/dms_urd_forward.mk
 include $(DRIVER_MODULE_DEVMNG_DIR)/dc/custom/dms_custom.mk
+include $(DRIVER_MODULE_DEVMNG_DIR)/dc/lpm/dms_lpm.mk
 include $(DRIVER_MODULE_DEVMNG_DIR)/dc/ub/dms_ub.mk
 include $(DRIVER_MODULE_DEVMNG_DIR)/dc/bbox_dump/dms_bbox_dump.mk

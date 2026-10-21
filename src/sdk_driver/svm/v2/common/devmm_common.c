@@ -22,8 +22,9 @@
 #include "svm_kernel_msg.h"
 #include "devmm_mem_alloc_interface.h"
 #include "devmm_dev.h"
-#include "devmm_common.h"
 #include "svm_dynamic_addr.h"
+#include "svm_mem_mng.h"
+#include "devmm_common.h"
 
 bool g_devmm_true = 1;
 bool g_devmm_false = 0;
@@ -169,7 +170,7 @@ u64 devmm_get_pagecount_by_size(u64 vptr, u64 sizes, u32 page_size)
     u64 tem_byte;
 
     if ((page_size == 0) || ((vptr < (DEVMM_SVM_MEM_START + DEVMM_SVM_MEM_SIZE)) && (sizes > DEVMM_MAX_MAPPED_RANGE))) {
-        devmm_drv_err("Chunk_page_size or byte_count is invalid. "
+        devmm_drv_err("Chunk_page_size or byte_count is error. "
                       "(chunk_page_size=%u; byte_count=%llu)",
                       page_size, sizes);
         return chunk_cnt;
@@ -269,35 +270,37 @@ int devmm_check_va_add_size_by_heap(struct devmm_svm_heap *heap, u64 va, u64 siz
     return 0;
 }
 
-static int devmm_check_common_input_heap_id_and_size(struct devmm_svm_process *svm_proc, u32 heap_idx, u64 heap_size)
+static int devmm_check_common_input_heap_id_and_size(struct devmm_svm_process *svm_proc, u32 heap_idx, u64 heap_size,
+                                                     bool is_host_pin)
 {
     u32 heap_num = (u32)(heap_size / DEVMM_HEAP_SIZE);
+    u32 max_num = is_host_pin ? DEVMM_MAX_HOST_PIN_HEAP_NUM : DEVMM_TOTAL_MAX_HEAP_NUM;
 
     if ((heap_size == 0) || ((heap_size % DEVMM_HEAP_SIZE) != 0)) {
         devmm_drv_err("Input para. (heap_idx=%u; heap_size=0x%llx)\n", heap_idx, heap_size);
         return -EINVAL;
     }
 
-    if ((heap_idx >= DEVMM_TOTAL_MAX_HEAP_NUM) || ((heap_idx + heap_num) > DEVMM_TOTAL_MAX_HEAP_NUM)) {
-        devmm_drv_err("Input para. (heap_idx=%u; heap_size=0x%llx; heap_num=%u; DEVMM_TOTAL_MAX_HEAP_NUM=%llu)\n",
-                      heap_idx, heap_size, heap_num, DEVMM_TOTAL_MAX_HEAP_NUM);
+    if ((heap_idx >= max_num) || ((heap_idx + heap_num) > max_num)) { /* check upper limit */
+        devmm_drv_err("Input para. (heap_idx=%u; heap_size=0x%llx; heap_num=%u; max_num=%u)\n", heap_idx, heap_size,
+                      heap_num, max_num);
         return -EINVAL;
     }
 
-    if ((heap_idx < DEVMM_MAX_HEAP_NUM) && ((heap_idx + heap_num) > DEVMM_MAX_HEAP_NUM)) {
-        devmm_drv_err("Input para. (heap_idx=%u; heap_size=0x%llx; heap_num=%u; DEVMM_MAX_HEAP_NUM=%llu)\n", heap_idx,
-                      heap_size, heap_num, DEVMM_MAX_HEAP_NUM);
-        return -EINVAL;
-    }
-
-    if (heap_idx < DEVMM_MAX_HEAP_NUM) {
-        if (heap_size > (DEVMM_MAX_ALLOC_PAGE_NUM * KA_MM_PAGE_SIZE)) {
-            devmm_drv_err("Input para. (heap_idx=%u; heap_size=0x%llx; max_heap_size=0x%llx)\n", heap_idx, heap_size,
-                          DEVMM_MAX_ALLOC_PAGE_NUM * KA_MM_PAGE_SIZE);
+    if (!is_host_pin) { /* for none-host-pin heaps check */
+        if ((heap_idx < DEVMM_MAX_HEAP_NUM) && ((heap_idx + heap_num) > DEVMM_MAX_HEAP_NUM)) {
+            devmm_drv_err("Input para. (heap_idx=%u; heap_size=0x%llx; heap_num=%u; DEVMM_MAX_HEAP_NUM=%llu)\n",
+                          heap_idx, heap_size, heap_num, DEVMM_MAX_HEAP_NUM);
             return -EINVAL;
         }
-    } else {
-        /* rsv not with host, check svm_is_da_addr will failed */
+
+        if (heap_idx < DEVMM_MAX_HEAP_NUM) {
+            if (heap_size > (DEVMM_MAX_ALLOC_PAGE_NUM * KA_MM_PAGE_SIZE)) {
+                devmm_drv_err("Input para. (heap_idx=%u; heap_size=0x%llx; max_heap_size=0x%llx)\n", heap_idx,
+                              heap_size, DEVMM_MAX_ALLOC_PAGE_NUM * KA_MM_PAGE_SIZE);
+                return -EINVAL;
+            }
+        }
     }
 
     return 0;
@@ -308,19 +311,22 @@ static bool devmm_check_common_input_heap_info(struct devmm_svm_process *svm_pro
 {
     if ((cmd->op == DEVMM_HEAP_ENABLE) && (devmm_svm_mem_is_enable(svm_pro) == false) &&
         cmd->heap_sub_type == SUB_HOST_TYPE) {
-        devmm_drv_err("Host svm mem is disabled.\n");
+        devmm_drv_err("Host svm mem is disabled. (devid=%u; op=%u; heap_sub_type=%u; heap_type=%u; heap_idx=%u; "
+                      "heap_size=0x%llx; svm_mem_en=%u)\n",
+                      devid, cmd->op, cmd->heap_sub_type, cmd->heap_type, cmd->heap_idx, cmd->heap_size,
+                      (u32)svm_pro->is_enable_svm_mem);
         return false;
     }
 
     if ((cmd->op == DEVMM_HEAP_ENABLE) && devmm_is_host_agent(devid) &&
         ((cmd->heap_sub_type != SUB_DEVICE_TYPE) || (cmd->heap_type != DEVMM_HEAP_CHUNK_PAGE))) {
-        devmm_drv_err("Host agent only supports heap SUB_DEVICE_TYPE DEVMM_HEAP_CHUNK_PAGE."
+        devmm_drv_err("Host agent only support heap SUB_DEVICE_TYPE DEVMM_HEAP_CHUNK_PAGE."
                       " (heap_sub_type=%u; heap_type=%u).\n",
                       cmd->heap_sub_type, cmd->heap_type);
         return false;
     }
 
-    if (devmm_check_common_input_heap_id_and_size(svm_pro, cmd->heap_idx, cmd->heap_size) != 0) {
+    if (devmm_check_common_input_heap_id_and_size(svm_pro, cmd->heap_idx, cmd->heap_size, cmd->is_host_pin) != 0) {
         return false;
     }
 
@@ -334,7 +340,7 @@ static bool devmm_check_common_input_heap_info(struct devmm_svm_process *svm_pro
         }
         return DEVMM_TRUE;
     } else if (cmd->op == DEVMM_HEAP_DISABLE) {
-        struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_pro, cmd->heap_idx);
+        struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_pro, cmd->heap_idx, cmd->is_host_pin);
         if ((devmm_check_heap_is_entity(heap) == false) || (heap->heap_idx != cmd->heap_idx) ||
             (heap->heap_size != cmd->heap_size)) {
             devmm_drv_err("Disable input error. (hostpid=%d; devid=%d; vfid=%d; size=0x%llx)\n",
@@ -361,7 +367,7 @@ bool devmm_check_input_heap_info(struct devmm_svm_process *svm_pro, struct devmm
 
     heap_num = (u32)(cmd->heap_size / DEVMM_HEAP_SIZE);
     for (i = 0; i < heap_num; i++) {
-        heap_check = devmm_get_heap_by_idx(svm_pro, i + cmd->heap_idx);
+        heap_check = devmm_get_heap_by_idx(svm_pro, i + cmd->heap_idx, cmd->is_host_pin);
         if (cmd->op == DEVMM_HEAP_ENABLE) {
             if (devmm_check_heap_is_entity(heap_check) == true) {
                 devmm_drv_info("The heap already exists. (hostpid=%d; devid=%d; vfid=%d; size=0x%llx)\n",
@@ -448,23 +454,75 @@ ka_vm_area_struct_t *devmm_find_vma(struct devmm_svm_process *svm_proc, u64 vadd
     return svm_da_query_vma(svm_proc, vaddr);
 }
 
-struct devmm_svm_heap *devmm_get_heap_by_idx(struct devmm_svm_process *svm_proc, u32 heap_idx)
+#ifndef EMU_ST
+static int devmm_check_va_no_map_pte_entry(ka_pte_t *pte, u64 addr, u64 next, enum ka_pte_level level,
+                                           struct ka_pgwalk *walk)
 {
-    if (heap_idx < DEVMM_MAX_HEAP_NUM) {
-        return svm_proc->heaps[heap_idx];
-    } else if (heap_idx < DEVMM_TOTAL_MAX_HEAP_NUM) {
-        return svm_get_da_heap_by_idx(svm_proc, heap_idx);
-    } else {
-        return NULL;
+    (void)pte;
+    (void)walk;
+    devmm_drv_err("Va is already mapped. (va=0x%llx; next=0x%llx; level=%u)\n", addr, next, level);
+    return -EEXIST;
+}
+#endif
+
+int devmm_check_va_no_map(struct devmm_svm_process *svm_proc, u64 va, u64 size)
+{
+#ifndef EMU_ST
+    struct ka_pgwalk_ops ops = {NULL};
+    ka_vm_area_struct_t *vma = NULL;
+
+    if ((size == 0) || (va + size < va)) {
+        devmm_drv_err("Invalid check range. (va=0x%llx; size=%llu)\n", va, size);
+        return -EINVAL;
     }
+
+    vma = devmm_find_vma(svm_proc, va);
+    if ((vma == NULL) || !devmm_is_svm_vma_magic(ka_mm_get_vm_private_data(vma)) || (ka_mm_get_vm_start(vma) > va) ||
+        (ka_mm_get_vm_end(vma) < va + size)) {
+        devmm_drv_err("Invalid vma range. (va=0x%llx; size=%llu)\n", va, size);
+        return -EINVAL;
+    }
+
+    ops.pte_entry = devmm_check_va_no_map_pte_entry;
+    return ka_walk_page_range(vma, va, va + size, &ops, NULL);
+#else
+    return 0;
+#endif
+}
+
+struct devmm_svm_heap *devmm_get_heap_by_idx(struct devmm_svm_process *svm_proc, u32 heap_idx, bool is_host_pin)
+{
+    if (is_host_pin) {
+        if (heap_idx < DEVMM_MAX_HOST_PIN_HEAP_NUM) {
+            return svm_proc->host_pin_heaps[heap_idx];
+        }
+    } else {
+        if (heap_idx < DEVMM_MAX_HEAP_NUM) {
+            return svm_proc->heaps[heap_idx];
+        } else if (heap_idx < DEVMM_TOTAL_MAX_HEAP_NUM) {
+            return svm_get_da_heap_by_idx(svm_proc, heap_idx);
+        }
+    }
+
+    return NULL;
 }
 
 struct devmm_svm_heap *devmm_get_heap_by_va(struct devmm_svm_process *svm_proc, u64 vaddr)
 {
+    struct devmm_svm_heap *heap = NULL;
     u64 heap_idx;
 
+    if (devmm_is_in_host_pin_range(vaddr)) {
+        heap_idx = (vaddr - DEVMM_HOST_PIN_START) / DEVMM_HEAP_SIZE;
+        heap = devmm_get_heap_by_idx(svm_proc, heap_idx, true);
+        if (devmm_check_heap_is_entity(heap)) {
+            return heap;
+        }
+        return svm_proc->host_pin_heap;
+    }
+
     heap_idx = (vaddr - DEVMM_SVM_MEM_START) / DEVMM_HEAP_SIZE;
-    return devmm_get_heap_by_idx(svm_proc, heap_idx);
+    return devmm_get_heap_by_idx(svm_proc, heap_idx, false);
 }
 
 bool devmm_check_heap_is_entity(struct devmm_svm_heap *heap)
@@ -497,36 +555,35 @@ static void devmm_set_heap_info(struct devmm_svm_heap *heap, struct devmm_update
     heap->heap_idx = cmd->heap_idx;
     heap->heap_sub_type = cmd->heap_sub_type;
     heap->chunk_page_size = devmm_get_chunk_page_size_by_heap_type(cmd->heap_type, cmd->heap_sub_type);
-    heap->start = DEVMM_SVM_MEM_START + cmd->heap_idx * DEVMM_HEAP_SIZE;
+    heap->start = (cmd->is_host_pin ? DEVMM_HOST_PIN_START : DEVMM_SVM_MEM_START) + cmd->heap_idx * DEVMM_HEAP_SIZE;
     heap->heap_size = cmd->heap_size;
     ka_base_atomic64_set(&heap->occupy_cnt, 0);
     heap->is_invalid = false;
 }
 
 static void devmm_set_svm_heap_struct(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, u32 heap_idx,
-                                      u32 heap_num)
+                                      u32 heap_num, bool is_host_pin)
 {
-    if (heap_idx < DEVMM_MAX_HEAP_NUM) {
-        u32 i;
+    u32 i;
+
+    if (is_host_pin) {
         for (i = 0; i < heap_num; i++) {
-            svm_process->heaps[heap_idx + i] = heap;
+            svm_process->host_pin_heaps[heap_idx + i] = heap;
         }
     } else {
-        svm_set_da_heap(svm_process, heap_idx, heap);
+        if (heap_idx < DEVMM_MAX_HEAP_NUM) {
+            for (i = 0; i < heap_num; i++) {
+                svm_process->heaps[heap_idx + i] = heap;
+            }
+        } else {
+            svm_set_da_heap(svm_process, heap_idx, heap);
+        }
     }
 }
 
-void devmm_clear_svm_heap_struct(struct devmm_svm_process *svm_process, u32 heap_idx, u32 heap_num)
+void devmm_clear_svm_heap_struct(struct devmm_svm_process *svm_process, u32 heap_idx, u32 heap_num, bool is_host_pin)
 {
-    if (heap_idx < DEVMM_MAX_HEAP_NUM) {
-        u32 i;
-
-        for (i = 0; i < heap_num; i++) {
-            svm_process->heaps[heap_idx + i] = NULL;
-        }
-    } else {
-        svm_set_da_heap(svm_process, heap_idx, NULL);
-    }
+    devmm_set_svm_heap_struct(svm_process, NULL, heap_idx, heap_num, is_host_pin);
 }
 
 #define SVM_WAIT_HEAP_IDEA_CNT 5000 /* 0.5s~1s */
@@ -547,13 +604,29 @@ bool devmm_wait_svm_heap_unoccupied(struct devmm_svm_process *svm_process, struc
     return false;
 }
 
-void devmm_free_heap_struct(struct devmm_svm_process *svm_process, u32 heap_idx, u32 heap_num)
+void devmm_free_heap_struct(struct devmm_svm_process *svm_process, u32 heap_idx, u32 heap_num, bool is_host_pin)
 {
-    struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_process, heap_idx);
+    struct devmm_svm_heap *heap = devmm_get_heap_by_idx(svm_process, heap_idx, is_host_pin);
 
-    devmm_clear_svm_heap_struct(svm_process, heap_idx, heap_num);
+    devmm_clear_svm_heap_struct(svm_process, heap_idx, heap_num, is_host_pin);
     if (heap != NULL) {
         devmm_kvfree(heap);
+    }
+}
+
+static inline bool devmm_check_heap_idx_invalid(u32 heap_idx, u32 heap_num, u32 max_num)
+{
+    return ((heap_idx < max_num) && ((heap_idx + heap_num) > max_num));
+}
+
+static inline void devmm_update_proc_max_heap_use(struct devmm_svm_process *svm_process,
+                                                  struct devmm_update_heap_para *cmd, u32 heap_num)
+{
+    if (cmd->is_host_pin) {
+        svm_process->max_host_pin_heap_use = ka_base_max_t(u32, svm_process->max_host_pin_heap_use,
+                                                           cmd->heap_idx + heap_num);
+    } else {
+        svm_process->max_heap_use = ka_base_max_t(u32, svm_process->max_heap_use, cmd->heap_idx + heap_num);
     }
 }
 
@@ -562,19 +635,21 @@ int devmm_update_heap_info(struct devmm_svm_process *svm_process, struct devmm_u
 {
     struct devmm_svm_heap *heap = NULL;
     u32 heap_num;
+    u32 max_num = cmd->is_host_pin ? DEVMM_MAX_HOST_PIN_HEAP_NUM : DEVMM_MAX_HEAP_NUM;
     int ret;
 
     heap_num = (u32)(cmd->heap_size / DEVMM_HEAP_SIZE);
 
-    if ((cmd->heap_idx < DEVMM_MAX_HEAP_NUM) && ((cmd->heap_idx + heap_num) > DEVMM_MAX_HEAP_NUM)) {
-        devmm_drv_err("Invalid heap. (heap_idx=%u; heap_size=0x%llx)\n", cmd->heap_idx, cmd->heap_size);
+    if (devmm_check_heap_idx_invalid(cmd->heap_idx, heap_num, max_num)) {
+        devmm_drv_err("Invalid heap. (heap_idx=%u; heap_size=0x%llx; is_host_pin=%u)\n", cmd->heap_idx, cmd->heap_size,
+                      cmd->is_host_pin);
         return -EINVAL;
     }
 
     if (cmd->op == DEVMM_HEAP_ENABLE) {
         u64 used_mask_size;
 
-        heap = devmm_get_heap_by_idx(svm_process, cmd->heap_idx);
+        heap = devmm_get_heap_by_idx(svm_process, cmd->heap_idx, cmd->is_host_pin);
         if (heap != NULL) {
             /* smp device already updated or setup device more than once */
             return 0;
@@ -604,10 +679,8 @@ int devmm_update_heap_info(struct devmm_svm_process *svm_process, struct devmm_u
         }
 
         svm_process->alloced_heap_size += (cmd->heap_sub_type == SUB_SVM_TYPE) ? cmd->heap_size : 0;
-        svm_process->max_heap_use = (svm_process->max_heap_use > (cmd->heap_idx + heap_num)) ?
-                                        svm_process->max_heap_use :
-                                        (cmd->heap_idx + heap_num);
-        devmm_set_svm_heap_struct(svm_process, heap, cmd->heap_idx, heap_num);
+        devmm_update_proc_max_heap_use(svm_process, cmd, heap_num);
+        devmm_set_svm_heap_struct(svm_process, heap, cmd->heap_idx, heap_num, cmd->is_host_pin);
     } else {
         if (free_heap == NULL) {
             return -EINVAL;

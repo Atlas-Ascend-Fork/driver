@@ -20,9 +20,9 @@
 #include "async_copy_ioctl.h"
 
 #ifndef EMU_ST /* Simulation ST is required and cannot be deleted. */
-#define SVM_ASYNC_TASK_MAX_ID KA_UINT_MAX
+#define SVM_ASYNC_TASK_MAX_ID KA_INT_MAX
 #else
-#define SVM_ASYNC_TASK_MAX_ID 8ULL
+#define SVM_ASYNC_TASK_MAX_ID 8
 #endif
 
 #define ASYNC_COPY_FLAG_IS_SYNC(flag) (((flag) & SVM_COPY_FLAG_SYNC) != 0)

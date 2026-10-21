@@ -24,3 +24,10 @@ int __attribute__((weak)) udis_set_device_info(unsigned int dev_id, const struct
     (void)info;
     return DRV_ERROR_NOT_SUPPORT;
 }
+
+int __attribute__((weak)) halUdisGetDeviceInfo(unsigned int dev_id, void *info)
+{
+    (void)dev_id;
+    (void)info;
+    return DRV_ERROR_NOT_SUPPORT;
+}

@@ -82,13 +82,8 @@ STATIC void hdcdrv_get_mem_pool_stat(struct hdcdrv_dev *hdc_dev, struct hdcdrv_c
         }
 
         mem_pool = &hdc_dev->huge_mem_pool[i];
-#ifdef CFG_FEATURE_MIRROR
-        mem_info->huge_pool_size = HDCDRV_HUGE_PAGE_NUM * HDCDRV_PAGE_BLOCK_NUM;
-        mem_info->huge_pool_remain_size = (unsigned int)(mem_info->huge_pool_size - mem_pool->used_block_all);
-#else
         mem_info->huge_pool_size = mem_pool->size;
         mem_info->huge_pool_remain_size = (unsigned int)(mem_pool->tail - mem_pool->head);
-#endif
 
         mem_pool = &hdc_dev->small_mem_pool[i];
         mem_info->small_pool_size = mem_pool->size;
@@ -279,9 +274,9 @@ STATIC long hdcdrv_get_service_stat(const struct hdcdrv_cmd_get_stat *cmd)
 
 STATIC long hdcdrv_get_chan_stat(struct hdcdrv_cmd_get_stat *cmd)
 {
-    struct hdcdrv_cmd_stat_chan stat;
-    struct hdcdrv_dev *hdc_dev = NULL;
     struct hdcdrv_msg_chan *msg_chan = NULL;
+    struct hdcdrv_dev *hdc_dev = NULL;
+    struct hdcdrv_cmd_stat_chan stat;
     int chan_id = cmd->chan_id;
     int dev_id = cmd->dev_id;
 
@@ -329,9 +324,9 @@ STATIC long hdcdrv_get_chan_stat(struct hdcdrv_cmd_get_stat *cmd)
 }
 STATIC long hdcdrv_get_session_stat(const struct hdcdrv_cmd_get_stat *cmd)
 {
-    struct hdcdrv_cmd_stat_session stat;
-    struct hdcdrv_session *session = NULL;
     struct hdcdrv_session_fast_rx *fast_rx = NULL;
+    struct hdcdrv_session *session = NULL;
+    struct hdcdrv_cmd_stat_session stat;
     int session_fd = cmd->session;
 
     if ((session_fd >= HDCDRV_REAL_MAX_SESSION) || (session_fd < 0) || (cmd->outbuf == NULL)) {
@@ -781,7 +776,7 @@ STATIC ssize_t hdcdrv_sysfs_set_chan_id(ka_device_t *dev, ka_device_attribute_t 
     }
 
     if (val >= HDCDRV_SUPPORT_MAX_DEV_MSG_CHAN) {
-        hdcdrv_err("Parameter is invalid. (msg_chan=%u)\n", val);
+        hdcdrv_err("Parameter is invalid. (msg_chan=%u; max_msg_chan=%d)\n", val, HDCDRV_SUPPORT_MAX_DEV_MSG_CHAN);
         return -EINVAL;
     }
 
@@ -800,7 +795,7 @@ STATIC ssize_t hdcdrv_sysfs_set_session_fd(ka_device_t *dev, ka_device_attribute
     }
 
     if (val >= (u32)HDCDRV_REAL_MAX_SESSION) {
-        hdcdrv_err("Parameter is invalid. (session=%u)\n", val);
+        hdcdrv_err("Parameter is invalid. (session=%u; max_session=%d)\n", val, HDCDRV_REAL_MAX_SESSION);
         return -EINVAL;
     }
 
@@ -820,7 +815,7 @@ STATIC ssize_t hdcdrv_sysfs_set_server_type(ka_device_t *dev, ka_device_attribut
     }
 
     if (val >= HDCDRV_SUPPORT_MAX_SERVICE) {
-        hdcdrv_err("Parameter is invalid. (server_type=%u)\n", val);
+        hdcdrv_err("Parameter is invalid. (server_type=%u; max_server_type=%d)\n", val, HDCDRV_SUPPORT_MAX_SERVICE);
         return -EINVAL;
     }
 
@@ -839,7 +834,7 @@ STATIC ssize_t hdcdrv_sysfs_set_dev_id(ka_device_t *dev, ka_device_attribute_t *
     }
 
     if (val >= (u32)hdcdrv_get_max_support_dev()) {
-        hdcdrv_err("Parameter is invalid. (dev_id=%u)\n", val);
+        hdcdrv_err("Parameter is invalid. (dev_id=%u; max_dev_id=%d)\n", val, hdcdrv_get_max_support_dev());
         return -EINVAL;
     }
 
@@ -885,11 +880,11 @@ STATIC int hdcdrv_sysfs_get_chan_inner(char *buf, u32 buf_len, u32 dev_id, u32 c
 
 STATIC ssize_t hdcdrv_sysfs_get_remote_chan_stat(char *buf, u32 buf_len, u32 dev_id, u32 chan_id)
 {
+    struct hdcdrv_sysfs_ctrl_msg *msg = NULL;
     ssize_t offset = 0;
     int ret;
     u32 msg_len;
     u32 out_len;
-    struct hdcdrv_sysfs_ctrl_msg *msg = NULL;
 
     msg_len = (u32)sizeof(struct hdcdrv_sysfs_ctrl_msg) + HDCDRV_SYSFS_DATA_MAX_LEN;
     msg = (struct hdcdrv_sysfs_ctrl_msg *)hdcdrv_kvmalloc(msg_len, KA_SUB_MODULE_TYPE_4);
@@ -975,12 +970,12 @@ int hdcdrv_sysfs_get_session_inner(char *buf, u32 buf_len, u32 session_fd, ssize
 
 STATIC ssize_t hdcdrv_sysfs_get_session_stat(ka_device_t *dev, ka_device_attribute_t *attr, char *buf)
 {
+    struct hdcdrv_sysfs_ctrl_msg *msg = NULL;
+    struct hdcdrv_session *session = NULL;
     ssize_t offset = 0;
     int ret;
     u32 msg_len;
     u32 out_len;
-    struct hdcdrv_sysfs_ctrl_msg *msg = NULL;
-    struct hdcdrv_session *session = NULL;
 
     (void)attr;
 
@@ -988,7 +983,16 @@ STATIC ssize_t hdcdrv_sysfs_get_session_stat(ka_device_t *dev, ka_device_attribu
     if (ret != HDCDRV_OK) {
         return offset;
     }
+
     session = &hdc_ctrl->sessions[g_session_fd];
+    if (session->remote_session_fd < 0) {
+        ret = snprintf_s(buf + offset, KA_MM_PAGE_SIZE - offset, KA_MM_PAGE_SIZE - offset - 1,
+                         "\nRemote session not connected\n");
+        if (ret >= 0) {
+            offset += ret;
+        }
+        return offset;
+    }
 
     msg_len = (u32)sizeof(struct hdcdrv_sysfs_ctrl_msg) + HDCDRV_SYSFS_DATA_MAX_LEN;
     msg = (struct hdcdrv_sysfs_ctrl_msg *)hdcdrv_kvmalloc(msg_len, KA_SUB_MODULE_TYPE_4);
@@ -1024,10 +1028,10 @@ STATIC ssize_t hdcdrv_sysfs_get_session_stat(ka_device_t *dev, ka_device_attribu
 
 STATIC ssize_t hdcdrv_sysfs_get_server_stat(ka_device_t *dev, ka_device_attribute_t *attr, char *buf)
 {
+    struct hdcdrv_cmd_stat_dev_service *server_stat = NULL;
+    struct hdcdrv_cmd_get_stat cmd;
     ssize_t offset = 0;
     long ret;
-    struct hdcdrv_cmd_get_stat cmd;
-    struct hdcdrv_cmd_stat_dev_service *server_stat = NULL;
 
     (void)attr;
 
@@ -1068,9 +1072,9 @@ STATIC ssize_t hdcdrv_sysfs_get_server_stat(ka_device_t *dev, ka_device_attribut
 
 STATIC ssize_t hdcdrv_sysfs_print_dev_stat(struct hdcdrv_cmd_get_stat cmd, char *buf)
 {
+    struct hdcdrv_cmd_stat_dev_service *dev_stat = NULL;
     ssize_t offset = 0;
     long ret;
-    struct hdcdrv_cmd_stat_dev_service *dev_stat = NULL;
 
     cmd.outbuf = hdcdrv_alloc_stat_list();
     if (cmd.outbuf == NULL) {
@@ -1319,7 +1323,7 @@ STATIC ssize_t hdcdrv_sysfs_set_fid(ka_device_t *dev, ka_device_attribute_t *att
     }
 
     if (val >= VMNG_VDEV_MAX_PER_PDEV) {
-        hdcdrv_err("Parameter is invalid. (fid=%u)\n", val);
+        hdcdrv_err("Parameter is invalid. (fid=%u; max_fid=%d)\n", val, VMNG_VDEV_MAX_PER_PDEV);
         return -EINVAL;
     }
 
@@ -1469,6 +1473,16 @@ STATIC ssize_t hdcdrv_sysfs_get_session_timetaken(ka_device_t *dev, ka_device_at
     ret = hdcdrv_sysfs_get_timetaken_inner(buf + offset, KA_MM_PAGE_SIZE - offset, g_session_fd, &offset_buf);
     offset += offset_buf;
 
+    session = &hdc_ctrl->sessions[g_session_fd];
+    if (session->remote_session_fd < 0) {
+        ret = snprintf_s(buf + offset, KA_MM_PAGE_SIZE - offset, KA_MM_PAGE_SIZE - offset - 1,
+                         "\nRemote session not connected\n");
+        if (ret >= 0) {
+            offset += ret;
+        }
+        return offset;
+    }
+
     msg_len = (u32)sizeof(struct hdcdrv_sysfs_ctrl_msg) + HDCDRV_SYSFS_DATA_MAX_LEN;
     msg = (struct hdcdrv_sysfs_ctrl_msg *)hdcdrv_kvmalloc(msg_len, KA_SUB_MODULE_TYPE_4);
     if (msg == NULL) {
@@ -1481,7 +1495,6 @@ STATIC ssize_t hdcdrv_sysfs_get_session_timetaken(ka_device_t *dev, ka_device_at
         offset += ret;
     }
 
-    session = &hdc_ctrl->sessions[g_session_fd];
     msg->head.type = HDCDRV_CTRL_MSG_TYPE_GET_DEV_DBG_TIME_TAKEN;
     msg->head.error_code = HDCDRV_OK;
     msg->head.para = (u32)session->remote_session_fd;
@@ -1504,6 +1517,14 @@ STATIC ssize_t hdcdrv_sysfs_get_session_timetaken(ka_device_t *dev, ka_device_at
     return offset;
 }
 
+STATIC ssize_t hdcdrv_sysfs_get_chip_info(ka_device_t *dev, ka_device_attribute_t *attr, char *buf)
+{
+    (void)dev;
+    (void)attr;
+
+    return (ssize_t)hdcdrv_feature_printf_chip_info(buf, KA_MM_PAGE_SIZE);
+}
+
 static KA_DRIVER_DEVICE_ATTR(chan, HDCDRV_ATTR_RW, hdcdrv_sysfs_get_chan_id, hdcdrv_sysfs_set_chan_id);
 static KA_DRIVER_DEVICE_ATTR(session, HDCDRV_ATTR_RW, hdcdrv_sysfs_get_session_fd, hdcdrv_sysfs_set_session_fd);
 static KA_DRIVER_DEVICE_ATTR(server, HDCDRV_ATTR_RW, hdcdrv_sysfs_get_server_type, hdcdrv_sysfs_set_server_type);
@@ -1516,6 +1537,7 @@ static KA_DRIVER_DEVICE_ATTR(dev_stat, HDCDRV_ATTR_RD, hdcdrv_sysfs_get_dev_stat
 static KA_DRIVER_DEVICE_ATTR(link_stat, HDCDRV_ATTR_RD, hdcdrv_sysfs_get_link_stat, NULL);
 static KA_DRIVER_DEVICE_ATTR(vdev_stat, HDCDRV_ATTR_RD, hdcdrv_sysfs_get_vdev_stat, NULL);
 static KA_DRIVER_DEVICE_ATTR(session_timetaken, HDCDRV_ATTR_RD, hdcdrv_sysfs_get_session_timetaken, NULL);
+static KA_DRIVER_DEVICE_ATTR(chip_info, HDCDRV_ATTR_RD, hdcdrv_sysfs_get_chip_info, NULL);
 
 // clang-format off
 static ka_attribute_t *g_hdcdrv_sysfs_attrs[] = {
@@ -1531,6 +1553,7 @@ static ka_attribute_t *g_hdcdrv_sysfs_attrs[] = {
     ka_fs_get_dev_attr(dev_attr_link_stat)
     ka_fs_get_dev_attr(dev_attr_vdev_stat)
     ka_fs_get_dev_attr(dev_attr_session_timetaken)
+    ka_fs_get_dev_attr(dev_attr_chip_info)
     NULL,
 };
 

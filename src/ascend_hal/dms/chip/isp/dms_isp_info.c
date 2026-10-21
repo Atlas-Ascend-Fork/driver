@@ -26,9 +26,11 @@
 #define STATIC static
 #endif
 
-STATIC int dms_get_isp_status(unsigned int dev_id, unsigned int vfid, unsigned int isp_subcmd,
-                           void *buf, unsigned int *size)
+STATIC int dms_get_isp_status(unsigned int dev_id, unsigned int vfid, unsigned int isp_subcmd, void *buf,
+                              unsigned int *size)
 {
+    (void)vfid;
+    (void)isp_subcmd;
     int ret;
     unsigned int device_id = dev_id;
     isp_status_stru isp_status = {0};
@@ -58,8 +60,8 @@ STATIC int dms_get_isp_status(unsigned int dev_id, unsigned int vfid, unsigned i
     return DRV_ERROR_NONE;
 }
 
-STATIC int dms_extract_camera_config(camera_config_stru *camera_config, unsigned int isp_subcmd,
-                                  void *buf, unsigned int *size)
+STATIC int dms_extract_camera_config(camera_config_stru *camera_config, unsigned int isp_subcmd, void *buf,
+                                     unsigned int *size)
 {
     int ret;
 
@@ -111,9 +113,10 @@ STATIC int dms_extract_camera_config(camera_config_stru *camera_config, unsigned
     return DRV_ERROR_NONE;
 }
 
-STATIC int dms_get_isp_config(unsigned int dev_id, unsigned int vfid, unsigned int subcmd,
-                           void *buf, unsigned int *size)
+STATIC int dms_get_isp_config(unsigned int dev_id, unsigned int vfid, unsigned int subcmd, void *buf,
+                              unsigned int *size)
 {
+    (void)vfid;
     int ret;
     unsigned int camera_index;
     unsigned int isp_subcmd;
@@ -152,8 +155,7 @@ STATIC int dms_get_isp_config(unsigned int dev_id, unsigned int vfid, unsigned i
     return DRV_ERROR_NONE;
 }
 
-int DmsGetIspInfo(unsigned int dev_id, unsigned int vfid, unsigned int subcmd,
-                  void *buf, unsigned int *size)
+int DmsGetIspInfo(unsigned int dev_id, unsigned int vfid, unsigned int subcmd, void *buf, unsigned int *size)
 {
     int ret;
     unsigned int isp_subcmd;
@@ -179,11 +181,10 @@ int DmsGetIspInfo(unsigned int dev_id, unsigned int vfid, unsigned int subcmd,
 
     return ret;
 }
-#endif  // CFG_FEATURE_ISP_INFO
+#endif // CFG_FEATURE_ISP_INFO
 #else
 void dms_isp_info_ut_stub(void)
 {
     return;
 }
 #endif
-

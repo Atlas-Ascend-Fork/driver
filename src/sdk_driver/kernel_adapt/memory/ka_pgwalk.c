@@ -16,11 +16,17 @@
 #include "kernel_adapt_init.h"
 #include "ka_system_pub.h"
 #include "ka_memory_pub.h"
-#include "ka_task_pub.h"
 #include "ka_compiler_pub.h"
 #include "ka_sched_pub.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+#if defined(FUNC___PTE_MAP_PRESENT) && defined(FUNC___PTE_OFFSET_MAP_PRESENT) &&                                  \
+    defined(FUNC_PMDP_GET_LOCKLESS_PRESENT) && defined(FUNC_IS_PMD_MIGRATION_ENTRY_PRESENT) &&                    \
+    defined(FUNC_PMD_NONE_PRESENT) && defined(FUNC_PMD_TRANS_HUGE_PRESENT) && defined(FUNC_PMD_DEVMAP_PRESENT) && \
+    defined(FUNC_PMD_BAD_PRESENT) && defined(FUNC_PMD_ERROR_PRESENT) && defined(FUNC_PMD_CLEAR_PRESENT)
+#define KA_PGWALK_PTE_OFFSET_MAP_CAPABLE
+#endif
+
+#ifdef KA_PGWALK_PTE_OFFSET_MAP_CAPABLE
 static unsigned long pmdp_get_lockless_start(void)
 {
     return 0;
@@ -29,102 +35,48 @@ static unsigned long pmdp_get_lockless_start(void)
 static void pmdp_get_lockless_end(unsigned long irqflags)
 {}
 
-static ka_pte_t *_ka_pte_offset_map(ka_pmd_t *pmd, u64 addr, ka_pmd_t *pmdvalp)
+static ka_pte_t *_ka_pte_offset_map(ka_pmd_t *pmd, u64 addr)
 {
     unsigned long irqflags;
     ka_pmd_t pmdval;
 
-    rcu_read_lock();
     irqflags = pmdp_get_lockless_start();
     pmdval = ka_mm_pmdp_get_lockless(pmd);
     pmdp_get_lockless_end(irqflags);
 
-    if (pmdvalp) {
-        *pmdvalp = pmdval;
-    }
-
     if (ka_unlikely(ka_mm_pmd_none(pmdval) || ka_mm_is_pmd_migration_entry(pmdval))) {
-        goto nomap;
+        return NULL;
     }
     if (ka_unlikely(ka_mm_pmd_trans_huge(pmdval) || ka_mm_pmd_devmap(pmdval))) {
-        goto nomap;
+        return NULL;
     }
     if (ka_unlikely(ka_mm_pmd_bad(pmdval))) {
         ka_mm_pmd_ERROR(*pmd);
         ka_mm_pmd_clear(pmd);
-        goto nomap;
+        return NULL;
     }
     return __ka_mm_pte_map(&pmdval, addr);
-
-nomap:
-    rcu_read_unlock();
-    return NULL;
-}
-
-static ka_pte_t *_ka_pte_offset_map_lock(ka_mm_struct_t *mm, ka_pmd_t *pmd, u64 addr, ka_spinlock_t **ptlp)
-{
-    ka_spinlock_t *ptl;
-    ka_pmd_t pmdval;
-    ka_pte_t *pte;
-again:
-    pte = _ka_pte_offset_map(pmd, addr, &pmdval);
-    if (unlikely(!pte)) {
-        return pte;
-    }
-
-    ptl = ka_mm_pte_lockptr(mm, &pmdval);
-    ka_task_spin_lock(ptl);
-    if (likely(ka_mm_pmd_same(pmdval, ka_mm_pmdp_get_lockless(pmd)))) {
-        *ptlp = ptl;
-        return pte;
-    }
-    ka_mm_pte_unmap_unlock(pte, ptl);
-    goto again;
 }
 #endif
 
 static ka_pte_t *ka_pte_offset_map(ka_pmd_t *pmd, u64 addr)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
-    return _ka_pte_offset_map(pmd, addr, NULL);
+#ifdef KA_PGWALK_PTE_OFFSET_MAP_CAPABLE
+    return _ka_pte_offset_map(pmd, addr);
 #else
     return ka_mm_pte_offset_map(pmd, addr);
 #endif
-}
-
-static void ka_pte_unmap(ka_pte_t *pte)
-{
-    ka_mm_pte_unmap(pte);
-}
-
-static ka_pte_t *ka_pte_offset_map_lock(ka_mm_struct_t *mm, ka_pmd_t *pmd, u64 addr, ka_spinlock_t **ptlp)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
-    return _ka_pte_offset_map_lock(mm, pmd, addr, ptlp);
-#else
-    return ka_mm_pte_offset_map_lock(mm, pmd, addr, ptlp);
-#endif
-}
-
-static void ka_pte_unmap_unlock(ka_pte_t *pte, ka_spinlock_t *ptl)
-{
-    ka_mm_pte_unmap_unlock(pte, ptl);
 }
 
 static int ka_walk_pte_range(ka_pmd_t *pmd, u64 start, u64 end, struct ka_pgwalk *walk)
 {
     unsigned long stamp = ka_jiffies;
     struct ka_pgwalk_ops *ops = walk->ops;
-    ka_spinlock_t *ptl = NULL;
     ka_pte_t *pte = NULL;
     u64 next = start;
     int ret = 0;
 
-    if (walk->pte_lock_flag == 0) {
-        pte = ka_pte_offset_map(pmd, start);
-    } else {
-        pte = ka_pte_offset_map_lock(walk->vma->vm_mm, pmd, start, &ptl);
-    }
+    pte = ka_pte_offset_map(pmd, start);
     if (pte == NULL) {
         ka_err("Get pte failed.\n");
         return -EFAULT;
@@ -150,12 +102,6 @@ static int ka_walk_pte_range(ka_pmd_t *pmd, u64 start, u64 end, struct ka_pgwalk
         }
         // cppcheck-suppress *
     } while (pte++, start = next, start != end);
-
-    if (walk->pte_lock_flag == 0) {
-        ka_pte_unmap(pte);
-    } else {
-        ka_pte_unmap_unlock(pte, ptl);
-    }
 
     return ret;
 }
@@ -340,7 +286,7 @@ static int ka_walk_pgd_range(u64 start, u64 end, struct ka_pgwalk *walk)
 
 int ka_walk_page_range(ka_vm_area_struct_t *vma, u64 start, u64 end, struct ka_pgwalk_ops *ops, void *priv)
 {
-    struct ka_pgwalk walk = {.vma = vma, .ops = ops, .pte_lock_flag = 0, .priv = priv};
+    struct ka_pgwalk walk = {.vma = vma, .ops = ops, .priv = priv};
 
     if (start >= end) {
         return -EFAULT;
@@ -349,15 +295,3 @@ int ka_walk_page_range(ka_vm_area_struct_t *vma, u64 start, u64 end, struct ka_p
     return ka_walk_pgd_range(start, end, &walk);
 }
 EXPORT_SYMBOL_GPL(ka_walk_page_range);
-
-int ka_walk_page_range_pte_lock(ka_vm_area_struct_t *vma, u64 start, u64 end, struct ka_pgwalk_ops *ops, void *priv)
-{
-    struct ka_pgwalk walk = {.vma = vma, .ops = ops, .pte_lock_flag = 1, .priv = priv};
-
-    if (start >= end) {
-        return -EFAULT;
-    }
-
-    return ka_walk_pgd_range(start, end, &walk);
-}
-EXPORT_SYMBOL_GPL(ka_walk_page_range_pte_lock);

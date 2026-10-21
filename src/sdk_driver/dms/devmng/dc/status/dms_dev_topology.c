@@ -31,8 +31,8 @@
     When the mainboard ID is 0x11, the address is unified addressing(same as hccs switch type),
     but connected via PCIe.
  */
-#define HCCS_SWITCH_RANGE_START         0x10 /* bitmap: 0001_0000 */
-#define HCCS_SWITCH_RANGE_END           0x1F /* bitmap: 0001_1111 */
+#define HCCS_SWITCH_RANGE_START 0x10 /* bitmap: 0001_0000 */
+#define HCCS_SWITCH_RANGE_END 0x1F   /* bitmap: 0001_1111 */
 
 #ifdef CFG_HOST_ENV
 STATIC int dms_topology_check_in_the_same_os(unsigned int dev_id1, unsigned int dev_id2, bool *result)
@@ -114,8 +114,8 @@ STATIC int dms_topology_check_sio(unsigned int dev_id1, unsigned int dev_id2, bo
 
     ret = dms_topology_check_in_the_same_os(dev_id1, dev_id2, result);
     if (ret != 0) {
-        dms_err("Failed to check whether they are in the same OS. (dev_id1=%u; dev_id2=%u; ret=%d)\n",
-            dev_id1, dev_id2, ret);
+        dms_err("Failed to check whether they are in the same OS. (dev_id1=%u; dev_id2=%u; ret=%d)\n", dev_id1, dev_id2,
+                ret);
         return ret;
     }
 
@@ -153,8 +153,8 @@ STATIC int dms_topology_check_hccs_by_smp(unsigned int dev_id1, unsigned int dev
 
     ret = dms_topology_check_in_the_same_os(dev_id1, dev_id2, result);
     if (ret != 0) {
-        dms_err("Failed to check whether they are in the same OS. (dev_id1=%u; dev_id2=%u; ret=%d)\n",
-            dev_id1, dev_id2, ret);
+        dms_err("Failed to check whether they are in the same OS. (dev_id1=%u; dev_id2=%u; ret=%d)\n", dev_id1, dev_id2,
+                ret);
         return ret;
     }
 
@@ -180,8 +180,8 @@ STATIC int dms_topology_check_hccs_by_hccs_link_status(unsigned int dev_id1, uns
     unsigned int mainboard_id;
 
     if (dev_id1 >= HCCS_GROUP_SUPPORT_MAX_CHIPNUM || dev_id2 >= HCCS_GROUP_SUPPORT_MAX_CHIPNUM) {
-        dms_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; max_dev_id=%u)\n",
-            dev_id1, dev_id2, HCCS_GROUP_SUPPORT_MAX_CHIPNUM - 1);
+        dms_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; max_dev_id=%u)\n", dev_id1, dev_id2,
+                HCCS_GROUP_SUPPORT_MAX_CHIPNUM - 1);
         return -EINVAL;
     }
 
@@ -209,8 +209,8 @@ STATIC int dms_topology_check_hccs_by_hccs_link_status(unsigned int dev_id1, uns
 
     /* hccs_group_id: Check whether they are in the same group. */
     /* hccs_link_status: The bit corresponding to chipid is 1, which is HCCS. */
-    ret = adap_get_hccs_link_status_and_group_id(dev_id1, &hccs_link_status,
-        hccs_group_id, HCCS_GROUP_SUPPORT_MAX_CHIPNUM);
+    ret = adap_get_hccs_link_status_and_group_id(dev_id1, &hccs_link_status, hccs_group_id,
+                                                 HCCS_GROUP_SUPPORT_MAX_CHIPNUM);
     if (ret != 0) {
         dms_err("Get hccs link status and group id failed. (dev_id=%u; ret=%d)\n", dev_id1, ret);
         return ret;
@@ -231,8 +231,7 @@ STATIC int dms_topology_check_hccs_by_hccs_link_status(unsigned int dev_id1, uns
             evb_device_num = 4; /* EVB 4P */
         }
         for (i = 0; i < evb_device_num; i++) {
-            if ((i == chip_id1) || ((hccs_group_id[chip_id1] == hccs_group_id[i]) &&
-                (hccs_link_status & (0x1 << i)))) {
+            if ((i == chip_id1) || ((hccs_group_id[chip_id1] == hccs_group_id[i]) && (hccs_link_status & (0x1 << i)))) {
                 continue;
             } else {
                 *result = false;
@@ -298,8 +297,8 @@ int dms_get_dev_topology(unsigned int dev_id1, unsigned int dev_id2, int *topolo
     bool result = false;
 
     if ((dev_id1 >= ASCEND_PDEV_MAX_NUM) || (dev_id2 >= ASCEND_HOST_PDEV_MAX_NUM) || (topology_type == NULL)) {
-        dms_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; topology_type=%d)\n",
-            dev_id1, dev_id2, (topology_type != NULL));
+        dms_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; topology_type=%d)\n", dev_id1, dev_id2,
+                (topology_type != NULL));
         return -EINVAL;
     }
 
@@ -325,8 +324,8 @@ int dms_get_dev_topology(unsigned int dev_id1, unsigned int dev_id2, int *topolo
         return ret;
     }
 #endif
-    dms_debug("Get topology type success. (dev_id1=%u; dev_id2=%u; topology_type=%d)\n",
-        dev_id1, dev_id2, *topology_type);
+    dms_debug("Get topology type success. (dev_id1=%u; dev_id2=%u; topology_type=%d)\n", dev_id1, dev_id2,
+              *topology_type);
     return 0;
 }
 KA_EXPORT_SYMBOL(dms_get_dev_topology);
@@ -356,15 +355,15 @@ int dms_feature_get_dev_topology(void *feature, char *in, u32 in_len, char *out,
 
     ret = devdrv_manager_container_logical_id_to_physical_id(input->dev_id1, &phy_id_1, &vfid_1);
     if ((ret != 0) || (vfid_1 != 0)) {
-        dms_err("Logical id to physical id failed or container env. (ret=%d; dev_id1=%u; vfid1=%u)\n",
-            ret, input->dev_id1, vfid_1);
+        dms_err("Logical id to physical id failed or container env. (ret=%d; dev_id1=%u; vfid1=%u)\n", ret,
+                input->dev_id1, vfid_1);
         return -EINVAL;
     }
 
     ret = devdrv_manager_container_logical_id_to_physical_id(input->dev_id2, &phy_id_2, &vfid_2);
     if ((ret != 0) || (vfid_2 != 0)) {
-        dms_err("Logical id to physical id failed or container env. (ret=%d; dev_id2=%u; vfid2=%u)\n",
-            ret, input->dev_id2, vfid_2);
+        dms_err("Logical id to physical id failed or in container env. (ret=%d; dev_id2=%u; vfid2=%u)\n", ret,
+                input->dev_id2, vfid_2);
         return -EINVAL;
     }
 
@@ -383,7 +382,7 @@ int dms_feature_get_dev_topology(void *feature, char *in, u32 in_len, char *out,
     }
 
     if (topology_type == TOPOLOGY_PIX || topology_type == TOPOLOGY_PIB || topology_type == TOPOLOGY_PHB ||
-       topology_type == TOPOLOGY_SYS) {
+        topology_type == TOPOLOGY_SYS) {
         /* Above are all PCIe types, without further distinction, all return as PIX types. */
         topology_type = TOPOLOGY_PIX;
     }
@@ -452,11 +451,9 @@ int dms_feature_get_phy_devices_topology(void *feature, char *in, u32 in_len, ch
 
 int hal_kernel_get_d2d_topology_type(u32 dev_id1, u32 dev_id2, HAL_KERNEL_TOPOLOGY_TYPE *topology_type)
 {
-    if ((topology_type == NULL) ||
-        !uda_is_udevid_exist(dev_id1) ||
-        !uda_is_udevid_exist(dev_id2)) {
-        dms_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; topology_type=%s)\n",
-            dev_id1, dev_id2, (topology_type == NULL ? "NULL" : "OK"));
+    if ((topology_type == NULL) || !uda_is_udevid_exist(dev_id1) || !uda_is_udevid_exist(dev_id2)) {
+        dms_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; topology_type=%s)\n", dev_id1, dev_id2,
+                (topology_type == NULL ? "NULL" : "OK"));
         return -EINVAL;
     }
 

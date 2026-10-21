@@ -17,3 +17,6 @@ EXTRA_CFLAGS += -DCFG_HOST_ENV
 EXTRA_CFLAGS += -DCFG_EDGE_HOST
 EXTRA_CFLAGS += -DCFG_FEATURE_MEMALLOC_MODULE_TYPE=3
 EXTRA_CFLAGS += -DCFG_FEATURE_MEMALLOC_SUBMODULE_TYPE=0
+
+asdrv_dms-y += feature/host/dms_feature.o
+asdrv_dms-y += feature/host/dmc_feature.o

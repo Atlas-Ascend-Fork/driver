@@ -18,7 +18,7 @@
 #include "devmm_dynamic_addr.h"
 
 struct svm_da_node {
-    struct devmm_virt_list_head node;
+    struct rbtree_node rb_node;
     uint64_t va;
     uint64_t size;
     uint32_t flag;
@@ -28,14 +28,21 @@ struct svm_da_mng {
     pthread_rwlock_t lock;
     int dev_valid_flag[SVM_MAX_AGENT_NUM];
     uint64_t try_negotiate_va;
-    struct devmm_virt_list_head head;
+    struct rbtree_root da_range_root;
 };
 
 static struct svm_da_mng g_da_mng;
 
+static void (*da_pre_free)(uint64_t va, uint64_t size) = NULL;
+
 static struct svm_da_mng *svm_get_da_mng(void)
 {
     return &g_da_mng;
+}
+
+void svm_da_free_set_ops(void (*pre_free)(uint64_t va, uint64_t size))
+{
+    da_pre_free = pre_free;
 }
 
 static uint32_t svm_da_get_first_dev(struct svm_da_mng *da_mng)
@@ -61,9 +68,28 @@ static bool svm_da_has_master(uint32_t flag)
     return ((flag & SVM_DA_FLAG_WITH_MASTER) != 0);
 }
 
+static bool svm_da_range_is_valid(uint64_t va, uint64_t size)
+{
+    return ((size != 0) && (va <= va + size - 1));
+}
+
+static void svm_da_range_handle(struct rbtree_node *rb_node, struct rb_range_handle *range_handle)
+{
+    struct svm_da_node *node = rb_entry(rb_node, struct svm_da_node, rb_node);
+
+    range_handle->start = node->va;
+    range_handle->end = node->va + node->size - 1;
+}
+
 static int svm_da_add_node(struct svm_da_mng *da_mng, uint64_t va, uint64_t size, uint32_t flag)
 {
     struct svm_da_node *node = NULL;
+    int ret;
+
+    if (svm_da_range_is_valid(va, size) == false) {
+        DEVMM_DRV_ERR("Invalid dynamic addr range. (va=0x%llx; size=0x%llx)\n", va, size);
+        return DRV_ERROR_INVALID_VALUE;
+    }
 
     node = malloc(sizeof(*node));
     if (node == NULL) {
@@ -71,32 +97,53 @@ static int svm_da_add_node(struct svm_da_mng *da_mng, uint64_t va, uint64_t size
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
+    RB_CLEAR_NODE(&node->rb_node);
     node->va = va;
     node->size = size;
     node->flag = flag;
 
-    devmm_virt_list_add(&node->node, &da_mng->head);
+    ret = rbtree_insert_by_range(&da_mng->da_range_root, &node->rb_node, svm_da_range_handle);
+    if (ret != 0) {
+        free(node);
+        DEVMM_DRV_ERR("Insert dynamic addr node failed. (va=0x%llx; size=0x%llx; ret=%d)\n", va, size, ret);
+        return DRV_ERROR_REPEATED_USERD;
+    }
 
     return DRV_ERROR_NONE;
 }
 
-static void svm_da_del_node(struct svm_da_node *node)
+static void svm_da_del_node(struct svm_da_mng *da_mng, struct svm_da_node *node)
 {
-    devmm_virt_list_del_init(&node->node);
+    _rbtree_erase(&da_mng->da_range_root, &node->rb_node);
     free(node);
+}
+
+static struct svm_da_node *svm_da_find_node_in_range(struct svm_da_mng *da_mng, uint64_t va, uint64_t size)
+{
+    struct rb_range_handle range;
+    struct rbtree_node *rb_node = NULL;
+
+    if (svm_da_range_is_valid(va, size) == false) {
+        return NULL;
+    }
+
+    range.start = va;
+    range.end = va + size - 1;
+    rb_node = rbtree_search_by_range(&da_mng->da_range_root, &range, svm_da_range_handle);
+    if (rb_node == NULL) {
+        return NULL;
+    }
+
+    return rb_entry(rb_node, struct svm_da_node, rb_node);
 }
 
 static struct svm_da_node *svm_da_find_node(struct svm_da_mng *da_mng, uint64_t va)
 {
-    struct devmm_virt_list_head *pos = NULL;
     struct svm_da_node *node = NULL;
 
-    devmm_virt_list_for_each(pos, &da_mng->head)
-    {
-        node = devmm_virt_list_entry(pos, struct svm_da_node, node);
-        if (node->va == va) {
-            return node;
-        }
+    node = svm_da_find_node_in_range(da_mng, va, 1);
+    if ((node != NULL) && (node->va == va)) {
+        return node;
     }
 
     return NULL;
@@ -334,7 +381,7 @@ int svm_da_alloc(uint64_t *va, uint64_t size, uint32_t flag)
     int ret;
 
     if (!IS_ALIGNED(size, DEVMM_HEAP_SIZE)) {
-        devmm_report_size_not_aligned("halMemAddressReserve", "size", (uint64_t)size, (size_t)DEVMM_HEAP_SIZE);
+        devmm_report_size_not_aligned("size", (uint64_t)size, (size_t)DEVMM_HEAP_SIZE);
         DEVMM_DRV_ERR("Size is not heap align. (size=0x%llx)\n", size);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -360,8 +407,11 @@ static int _svm_da_free(struct svm_da_mng *da_mng, uint64_t va)
         return DRV_ERROR_INVALID_VALUE;
     }
 
+    if (da_pre_free != NULL) {
+        da_pre_free(node->va, node->size);
+    }
     svm_da_munmap(da_mng, node->va, node->size, node->flag);
-    svm_da_del_node(node);
+    svm_da_del_node(da_mng, node);
 
     return DRV_ERROR_NONE;
 }
@@ -411,18 +461,7 @@ int svm_da_query_size(uint64_t va, uint64_t *size)
 
 static bool _svm_is_dyn_addr(struct svm_da_mng *da_mng, uint64_t va)
 {
-    struct devmm_virt_list_head *pos = NULL;
-    struct svm_da_node *node = NULL;
-
-    devmm_virt_list_for_each(pos, &da_mng->head)
-    {
-        node = devmm_virt_list_entry(pos, struct svm_da_node, node);
-        if ((va >= node->va) && (va < node->va + node->size)) {
-            return true;
-        }
-    }
-
-    return false;
+    return (svm_da_find_node_in_range(da_mng, va, 1) != NULL);
 }
 
 bool svm_is_dyn_addr(uint64_t va)
@@ -440,7 +479,7 @@ bool svm_is_dyn_addr(uint64_t va)
 int svm_da_add_dev(uint32_t devid)
 {
     struct svm_da_mng *da_mng = svm_get_da_mng();
-    struct devmm_virt_list_head *pos = NULL;
+    struct rbtree_node *rb_node = NULL;
     uint64_t va = 0;
     int ret = DRV_ERROR_NONE;
 
@@ -450,9 +489,9 @@ int svm_da_add_dev(uint32_t devid)
         return DRV_ERROR_NONE;
     }
 
-    devmm_virt_list_for_each(pos, &da_mng->head)
+    rbtree_node_for_each(rb_node, &da_mng->da_range_root)
     {
-        struct svm_da_node *node = devmm_virt_list_entry(pos, struct svm_da_node, node);
+        struct svm_da_node *node = rb_entry(rb_node, struct svm_da_node, rb_node);
 
         va = node->va;
         ret = svm_da_mmap_agent(devid, &va, node->size, 1);
@@ -463,9 +502,9 @@ int svm_da_add_dev(uint32_t devid)
     }
 
     if (ret != DRV_ERROR_NONE) {
-        devmm_virt_list_for_each(pos, &da_mng->head)
+        rbtree_node_for_each(rb_node, &da_mng->da_range_root)
         {
-            struct svm_da_node *node = devmm_virt_list_entry(pos, struct svm_da_node, node);
+            struct svm_da_node *node = rb_entry(rb_node, struct svm_da_node, rb_node);
             if (va == node->va) {
                 break;
             }
@@ -494,7 +533,7 @@ void svm_da_del_dev(uint32_t devid)
 static void __attribute__((constructor)) svm_da_mng_init(void)
 {
     struct svm_da_mng *da_mng = svm_get_da_mng();
-    SVM_INIT_LIST_HEAD(&da_mng->head);
+    rbtree_init(&da_mng->da_range_root);
     (void)pthread_rwlock_init(&da_mng->lock, NULL);
     da_mng->try_negotiate_va = DEVMM_MAX_DYN_ALLOC_BASE;
 }

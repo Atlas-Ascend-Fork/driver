@@ -16,9 +16,9 @@
 #include "pbl_urd_main_cmd_def.h"
 #include "pbl_urd_sub_cmd_common.h"
 
-#define UBMEM_FAULT_EVENT_ID        0x81AFAA06
-#define UBMEM_FAULT_WAIT_MAX_TIMES  30000
-#define UBMEM_FAULT_WAIT_TIME       1000 // 1 ms
+#define UBMEM_FAULT_EVENT_ID 0x81AFAA06
+#define UBMEM_FAULT_WAIT_MAX_TIMES 30000
+#define UBMEM_FAULT_WAIT_TIME 1000 // 1 ms
 
 drvError_t ubMemWaitFaultRepair(uint32_t devid)
 {
@@ -60,11 +60,7 @@ drvError_t ubmemRepairFault(uint32_t devid, halRepairFaultInfo *info)
 
     in.udevid = devid;
 
-    urd_usr_cmd_fill(&cmd,
-        URD_UBMEM_REPAIR_FAULT_CMD,
-        ZERO_CMD,
-        NULL,
-        0);
+    urd_usr_cmd_fill(&cmd, URD_UBMEM_REPAIR_FAULT_CMD, ZERO_CMD, NULL, 0);
     urd_usr_cmd_para_fill(&cmd_para, (void *)&in, (uint32_t)sizeof(in), (void *)&out, (uint32_t)sizeof(out));
 
     ret = urd_usr_cmd(&cmd, &cmd_para);
@@ -80,7 +76,7 @@ drvError_t ubmemRepairFault(uint32_t devid, halRepairFaultInfo *info)
     return ubMemWaitFaultRepair(devid);
 }
 
-drvError_t ubmemMapRouteCheck(uint32_t dst_devid, uint32_t src_sdid, uint32_t src_mem_id, uint32_t map_route)
+drvError_t ubmemMapRouteCheck(uint32_t dst_devid, uint32_t src_server_id, uint32_t src_mem_id, uint32_t map_route)
 {
     struct ubmem_map_route_check_msg_in in = {0};
     struct ubmem_map_route_check_msg_out out = {0};
@@ -89,7 +85,7 @@ drvError_t ubmemMapRouteCheck(uint32_t dst_devid, uint32_t src_sdid, uint32_t sr
     int ret;
 
     in.dst_devid = dst_devid;
-    in.src_sdid = src_sdid;
+    in.src_server_id = src_server_id;
     in.src_mem_id = src_mem_id;
     in.map_route = map_route;
 
@@ -98,8 +94,8 @@ drvError_t ubmemMapRouteCheck(uint32_t dst_devid, uint32_t src_sdid, uint32_t sr
 
     ret = urd_usr_cmd(&cmd, &cmd_para);
     if (ret != 0) {
-        ubmem_err("ubmem map route check failed. (dst_devid=%u; src_sdid=%u; src_mem_id=%u; route=%u; ret=%d)\n",
-            dst_devid, src_sdid, src_mem_id, map_route, ret);
+        ubmem_err("ubmem map route check failed. (dst_devid=%u; src_server_id=%u; src_mem_id=%u; route=%u; ret=%d)\n",
+                  dst_devid, src_server_id, src_mem_id, map_route, ret);
         return ret;
     }
 

@@ -20,9 +20,9 @@
 #endif
 
 #ifndef __linux
-    #define fd_is_invalid(fd) (fd == (mmProcess)DEVDRV_INVALID_FD_OR_INDEX)
+#define fd_is_invalid(fd) (fd == (mmProcess)DEVDRV_INVALID_FD_OR_INDEX)
 #else
-    #define fd_is_invalid(fd) ((fd) < 0)
+#define fd_is_invalid(fd) ((fd) < 0)
 #endif
 
 #ifdef STATIC_SKIP
@@ -34,12 +34,11 @@
 #ifndef CFG_FEATURE_APM_SUPP_PID
 drvError_t drvBindHostPid(struct drvBindHostpidInfo info)
 {
-    struct devdrv_ioctl_para_bind_host_pid ioctl_para = { 0 };
-    mmIoctlBuf para_buf = { 0 };
+    struct devdrv_ioctl_para_bind_host_pid ioctl_para = {0};
+    mmIoctlBuf para_buf = {0};
     int ret;
 
-    if ((info.len != PROCESS_SIGN_LENGTH) ||
-        (info.cp_type >= DEVDRV_PROCESS_CPTYPE_MAX)) {
+    if ((info.len != PROCESS_SIGN_LENGTH) || (info.cp_type >= DEVDRV_PROCESS_CPTYPE_MAX)) {
         DEVDRV_DRV_ERR("sign value or len/cp_type invalid: len:%u cp_type:%d\n", info.len, info.cp_type);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -52,8 +51,8 @@ drvError_t drvBindHostPid(struct drvBindHostpidInfo info)
     ioctl_para.vfid = info.vfid;
     ret = memcpy_s(ioctl_para.sign, PROCESS_SIGN_LENGTH, info.sign, info.len);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("memcpy_s error: %d, pid:%d, chip id:%u, cp_type:%d, mode:%d, vfid:%u.\n",
-                        ret, info.host_pid, info.chip_id, info.cp_type, info.mode, info.vfid);
+        DEVDRV_DRV_ERR("memcpy_s error: %d, pid:%d, chip id:%u, cp_type:%d, mode:%d, vfid:%u.\n", ret, info.host_pid,
+                       info.chip_id, info.cp_type, info.mode, info.vfid);
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
@@ -68,8 +67,8 @@ drvError_t drvBindHostPid(struct drvBindHostpidInfo info)
         if (ret == DRV_ERROR_NOT_SUPPORT) {
             return ret;
         }
-        DEVDRV_DRV_ERR("Ioctl error. (ret=%d, pid=%d, chip id=%u, cp_type=%d, mode=%d)\n",
-                        ret, info.host_pid, info.chip_id, info.cp_type, info.mode);
+        DEVDRV_DRV_ERR("Ioctl error. (ret=%d, pid=%d, chip id=%u, cp_type=%d, mode=%d)\n", ret, info.host_pid,
+                       info.chip_id, info.cp_type, info.mode);
         return DRV_ERROR_IOCRL_FAIL;
     }
 
@@ -82,12 +81,11 @@ drvError_t drvUnbindHostPid(struct drvBindHostpidInfo info)
     (void)info;
     return DRV_ERROR_NOT_SUPPORT;
 #else
-    struct devdrv_ioctl_para_bind_host_pid ioctl_para = { 0 };
-    mmIoctlBuf para_buf = { 0 };
+    struct devdrv_ioctl_para_bind_host_pid ioctl_para = {0};
+    mmIoctlBuf para_buf = {0};
     int ret;
 
-    if ((info.len != PROCESS_SIGN_LENGTH) ||
-        (info.cp_type != DEVDRV_PROCESS_QS)) {
+    if ((info.len != PROCESS_SIGN_LENGTH) || (info.cp_type != DEVDRV_PROCESS_QS)) {
         DEVDRV_DRV_ERR("sign value or len/cp_type invalid: len:%u cp_type:%d\n", info.len, info.cp_type);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -100,8 +98,8 @@ drvError_t drvUnbindHostPid(struct drvBindHostpidInfo info)
     ioctl_para.vfid = info.vfid;
     ret = memcpy_s(ioctl_para.sign, PROCESS_SIGN_LENGTH, info.sign, info.len);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("memcpy_s ret: %d, pid:%d, chip_id:%u, cp_type:%d, mode:%d, vfid:%u.\n",
-                       ret, info.host_pid, info.chip_id, info.cp_type, info.mode, info.vfid);
+        DEVDRV_DRV_ERR("memcpy_s ret: %d, pid:%d, chip_id:%u, cp_type:%d, mode:%d, vfid:%u.\n", ret, info.host_pid,
+                       info.chip_id, info.cp_type, info.mode, info.vfid);
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
@@ -113,8 +111,8 @@ drvError_t drvUnbindHostPid(struct drvBindHostpidInfo info)
 
     ret = drv_common_ioctl(&para_buf, DEVDRV_MANAGER_UNBIND_PID_ID);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("ioctl failed, ret(%d), pid:%d, chip_id:%u, cp_type:%d, mode:%d.\n",
-                       ret, info.host_pid, info.chip_id, info.cp_type, info.mode);
+        DEVDRV_DRV_ERR("ioctl failed, ret(%d), pid:%d, chip_id:%u, cp_type:%d, mode:%d.\n", ret, info.host_pid,
+                       info.chip_id, info.cp_type, info.mode);
         return DRV_ERROR_IOCRL_FAIL;
     }
 
@@ -125,8 +123,8 @@ drvError_t drvUnbindHostPid(struct drvBindHostpidInfo info)
 drvError_t halQueryDevpid(struct halQueryDevpidInfo info, pid_t *dev_pid)
 {
     int ret;
-    struct devdrv_ioctl_para_query_pid ioctl_para = { 0 };
-    mmIoctlBuf para_buf = { 0 };
+    struct devdrv_ioctl_para_query_pid ioctl_para = {0};
+    mmIoctlBuf para_buf = {0};
     mmProcess fd = -1;
 
     if (info.proc_type == DEVDRV_PROCESS_USER) {
@@ -139,8 +137,8 @@ drvError_t halQueryDevpid(struct halQueryDevpidInfo info, pid_t *dev_pid)
     }
     fd = devdrv_open_device_manager();
     if (fd_is_invalid(fd)) {
-        DEVDRV_DRV_ERR("open device error, hostpid:%d, devid:%u, proc_type:%d\n", info.hostpid,
-            info.devid, info.proc_type);
+        DEVDRV_DRV_ERR("open device error, hostpid:%d, devid:%u, proc_type:%d\n", info.hostpid, info.devid,
+                       info.proc_type);
         return DRV_ERROR_INVALID_DEVICE;
     }
 
@@ -162,8 +160,8 @@ drvError_t halQueryDevpid(struct halQueryDevpidInfo info, pid_t *dev_pid)
             DEVDRV_DRV_WARN("This host pid didn't bind this type device pid. (host_pid=%d)\n", info.hostpid);
             return ret;
         }
-        DEVDRV_DRV_WARN("ioctl or query warn, errno(%d), hostpid:%d, devid:%u, proc_type:%d\n", errno,
-            info.hostpid, info.devid, info.proc_type);
+        DEVDRV_DRV_WARN("ioctl or query warn, errno(%d), hostpid:%d, devid:%u, proc_type:%d\n", errno, info.hostpid,
+                        info.devid, info.proc_type);
         return DRV_ERROR_IOCRL_FAIL;
     }
 
@@ -172,12 +170,12 @@ drvError_t halQueryDevpid(struct halQueryDevpidInfo info, pid_t *dev_pid)
     return DRV_ERROR_NONE;
 }
 
-drvError_t drvQueryProcessHostPid(int pid, unsigned int *chip_id, unsigned int *vfid,
-    unsigned int *host_pid, unsigned int *cp_type)
+drvError_t drvQueryProcessHostPid(int pid, unsigned int *chip_id, unsigned int *vfid, unsigned int *host_pid,
+                                  unsigned int *cp_type)
 {
     int ret, err_buf;
-    struct devdrv_ioctl_para_query_pid ioctl_para = { 0 };
-    mmIoctlBuf para_buf = { 0 };
+    struct devdrv_ioctl_para_query_pid ioctl_para = {0};
+    mmIoctlBuf para_buf = {0};
     mmProcess fd = -1;
 
     if (pid <= 0) {
@@ -212,8 +210,7 @@ drvError_t drvQueryProcessHostPid(int pid, unsigned int *chip_id, unsigned int *
         } else if (err_buf == EPERM) {
             return DRV_ERROR_IOCRL_FAIL;
         } else if (err_buf == EOPNOTSUPP) {
-            hal_report_not_support("drvQueryProcessHostPid",
-                "This API cannot be called in the split scenario");
+            hal_report_not_support("drvQueryProcessHostPid", "This API cannot be called in the split scenario");
             return DRV_ERROR_NOT_SUPPORT;
         }
         DEVDRV_DRV_ERR("Ioctl failed. (errno=%d; pid=%d)\n", errno, pid);

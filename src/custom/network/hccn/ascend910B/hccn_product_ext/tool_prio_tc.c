@@ -33,10 +33,8 @@ STATIC int tool_get_prio_tc_info(int argc, char **argv, struct tool_param *param
 
     TOOL_PRINT_INFO("Priority mapping:");
     TOOL_PRINT_INFO("priority   0 1 2 3 4 5 6 7");
-    TOOL_PRINT_INFO("TC         %d %d %d %d %d %d %d %d",
-                    prio_tc[0x0], prio_tc[0x1], prio_tc[0x2],
-                    prio_tc[0x3], prio_tc[0x4], prio_tc[0x5],
-                    prio_tc[0x6], prio_tc[0x7]);
+    TOOL_PRINT_INFO("TC         %d %d %d %d %d %d %d %d", prio_tc[0x0], prio_tc[0x1], prio_tc[0x2], prio_tc[0x3],
+                    prio_tc[0x4], prio_tc[0x5], prio_tc[0x6], prio_tc[0x7]);
     return 0;
 }
 
@@ -45,7 +43,7 @@ STATIC int tool_prio_tc_str2char(const char prio_tc_str[], int str_len, char pri
     int str_i;
     int priority_i = 0;
 
-#define PRIO_TC_CONF_INDEX  2
+#define PRIO_TC_CONF_INDEX 2
     for (str_i = 0; str_i < str_len && priority_i < PRIORITY_NUM; str_i++) {
         if (str_i % PRIO_TC_CONF_INDEX == 1) {
             if (prio_tc_str[str_i] != ',') {
@@ -119,8 +117,8 @@ int tool_prio_tc_cmd_execute(int argc, char **argv, struct tool_param *param)
     } else if (!strncmp(argv[0], "-s", strlen("-s") + 1)) {
         ret = tool_set_prio_tc_info(argc - 1, argv + 1, param);
         if (ret) {
-            roce_err("Set the mapping between each priority and TC failed. (ret=%d; logic_id=%d)", \
-                ret, param->logic_id);
+            roce_err("Set the mapping between each priority and TC failed. (ret=%d; logic_id=%d)", ret,
+                     param->logic_id);
             return ret;
         }
         ret = cfg_write_conf(param->phy_id, "prio_tc", argv[ARGC_ID_2]);

@@ -54,16 +54,15 @@ STATIC int tool_vnic_exec(struct command_context *ctx)
     }
 
     ret = dsmi_get_device_ip_address(ctx->npu_info.logic_id, DSMI_VNIC_PORT, 0, &ip_address, &mask_address);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi_get_device_ip_address failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("dsmi_get_device_ip_address failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     pstr = inet_ntop(AF_INET, (void *)&ip_address, ip_addr, MAX_IPV4_LEN);
-    CHK_PRT_RETURN(pstr == NULL, hccn_err("ip[0x%x] transfer error",
-        ((struct in_addr *)&ip_address)->s_addr), -EINVAL);
+    CHK_PRT_RETURN(pstr == NULL, hccn_err("ip[0x%x] transfer error", ((struct in_addr *)&ip_address)->s_addr), -EINVAL);
 
     pstr = inet_ntop(AF_INET, (void *)&mask_address, netmask_addr, MAX_IPV4_LEN);
-    CHK_PRT_RETURN(pstr == NULL, hccn_err("netmask[0x%x] transfer error",
-        ((struct in_addr *)&mask_address)->s_addr), -EINVAL);
+    CHK_PRT_RETURN(pstr == NULL, hccn_err("netmask[0x%x] transfer error", ((struct in_addr *)&mask_address)->s_addr),
+                   -EINVAL);
 
     TOOL_PRINT_INFO("vnic ipaddr: %s", ip_addr);
     TOOL_PRINT_INFO("vnic netmask: %s", netmask_addr);
@@ -150,11 +149,11 @@ STATIC int tool_ping_exec(struct command_context *ctx)
 
     ctx->result = (char *)ping_outbuff;
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args,
-        sizeof(struct ping_cmd_args), ctx->result, &size);
+                   sizeof(struct ping_cmd_args), ctx->result, &size);
 
     if (!is_valid_ping_args(ping_args)) {
         TOOL_PRINT_ERR("IP type matching failed: expected IPv4, got IPv6, src_address: %s dst_address: %s.",
-            ping_args->src_addr.str_ip, ping_args->dst_addr.str_ip);
+                       ping_args->src_addr.str_ip, ping_args->dst_addr.str_ip);
         return TOOL_PRIVATE_ARGS_VALUE_ERR;
     }
 
@@ -163,15 +162,15 @@ STATIC int tool_ping_exec(struct command_context *ctx)
 
     if (ping_args->is_ipv6_cmd) {
         TOOL_PRINT_INFO("device %d dev %s PING6 %s to %s\n%s", ctx->npu_info.logic_id, ctx->dev_name,
-            ping_args->src_addr.str_ip, ping_args->dst_addr.str_ip, ctx->result);
+                        ping_args->src_addr.str_ip, ping_args->dst_addr.str_ip, ctx->result);
     } else {
         TOOL_PRINT_INFO("device %d dev %s PING %s to %s\n%s", ctx->npu_info.logic_id, ctx->dev_name,
-            ping_args->src_addr.str_ip, ping_args->dst_addr.str_ip, ctx->result);
+                        ping_args->src_addr.str_ip, ping_args->dst_addr.str_ip, ctx->result);
     }
 
-    if (strstr(ctx->result, MSG_TOO_LONG) != NULL || strstr(ctx->result, MSG_RECV_TIMEOUT) != NULL||
+    if (strstr(ctx->result, MSG_TOO_LONG) != NULL || strstr(ctx->result, MSG_RECV_TIMEOUT) != NULL ||
         strstr(ctx->result, MSG_DEST_UNREACHABLE) != NULL) {
-        hccn_err("ping inner error.");
+        hccn_err("ping internal error.");
         return -EINVAL;
     }
 
@@ -197,17 +196,8 @@ STATIC void tool_ping_print_help(struct command_context *ctx, unsigned int mode)
 }
 
 struct net_health_status_map g_net_health_status[] = {
-    { 0x0, "Success" },
-    { 0x1, "Socket fail" },
-    { 0x2, "Receive timeout" },
-    { 0x3, "Unreachable" },
-    { 0x4, "Time exceeded" },
-    { 0x5, "Fault" },
-    { 0x6, "Init" },
-    { 0x7, "Thread error" },
-    { 0x8, "Detect ip set" },
-    { 0x9, "Unknown" }
-};
+    {0x0, "Success"}, {0x1, "Socket fail"}, {0x2, "Receive timeout"}, {0x3, "Unreachable"},   {0x4, "Time exceeded"},
+    {0x5, "Fault"},   {0x6, "Init"},        {0x7, "Thread error"},    {0x8, "Detect ip set"}, {0x9, "Unknown"}};
 
 STATIC int tool_net_health_exec(struct command_context *ctx)
 {
@@ -217,11 +207,12 @@ STATIC int tool_net_health_exec(struct command_context *ctx)
 
     ret = tool_udis_get_net_health_exec(ctx, &presult);
     ret = (ret != 0) ? dsmi_get_network_health(ctx->npu_info.logic_id, &presult) : 0;
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi get net health status failed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("dsmi get net health status failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
     CHK_PRT_RETURN((int)presult >= status_num || (int)presult < 0,
-        hccn_err("dsmi get net health status invalid, ret:%d logic_id:%d presult:%d",
-            ret, ctx->npu_info.logic_id, presult), -EINVAL);
+                   hccn_err("dsmi get net health status invalid, ret:%d logic_id:%d presult:%d", ret,
+                            ctx->npu_info.logic_id, presult),
+                   -EINVAL);
 
     TOOL_PRINT_INFO("net health status: %s", g_net_health_status[(int)presult].status_str);
 
@@ -298,8 +289,9 @@ STATIC int tool_netdetect_write_conf(struct command_context *ctx)
     int ret;
 
     ret = tool_write_conf(ctx->slot_id, "netdetect", netdetect_args->address.str_ip);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     return 0;
 }
@@ -311,22 +303,25 @@ int tool_set_netdetect(struct command_context *ctx)
     unsigned int size = 0;
     int ret;
 
-    LOG_PROMPT(ctx, "start to set net detect ip:%s, logic_id:%d",
-        netdetect_args->address.str_ip, ctx->npu_info.logic_id);
+    LOG_PROMPT(ctx, "start to set net detect ip:%s, logic_id:%d", netdetect_args->address.str_ip,
+               ctx->npu_info.logic_id);
 
-    CHK_PRT_RETURN(!is_valid_ip(netdetect_args->address.str_ip, AF_INET),
-        TOOL_PRINT_ERR("IP type matching failed: expected IPv4, got IPv6, addr: %s",
-            netdetect_args->address.str_ip), -EINVAL);
+    CHK_PRT_RETURN(
+        !is_valid_ip(netdetect_args->address.str_ip, AF_INET),
+        TOOL_PRINT_ERR("IP type matching failed: expected IPv4, got IPv6, addr: %s", netdetect_args->address.str_ip),
+        -EINVAL);
 
     CHK_PRT_RETURN(netdetect_args->address.ip_addr == IP_BROADCAST,
-        TOOL_PRINT_ERR("The IP address is invalid! addr: %s", netdetect_args->address.str_ip), -EINVAL);
+                   TOOL_PRINT_ERR("The IP address is invalid! addr: %s", netdetect_args->address.str_ip), -EINVAL);
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args,
-        sizeof(struct netdetect_cmd_args), NULL, &size);
+                   sizeof(struct netdetect_cmd_args), NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_NET_DETECT, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set netdetect ip address failed, ret:%d ip_address:%s",
-        ret, netdetect_args->address.str_ip), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("dsmi set netdetect ip address failed, ret:%d ip_address:%s", ret, netdetect_args->address.str_ip),
+        ret);
 
     return 0;
 }
@@ -339,16 +334,19 @@ STATIC int tool_netdetect_exec(struct command_context *ctx)
         return tool_get_netdetect(ctx);
     } else {
         ret = hccn_check_usr_identify();
-        CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-            ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+            TOOL_PUBLIC_ROOT_UNSUPPORT);
 
         ret = tool_set_netdetect(ctx);
-        CHK_PRT_RETURN(ret != 0, hccn_err("tool set netdetect failed, ret:%d logic_id:%d",
-            ret, ctx->npu_info.logic_id), ret);
+        CHK_PRT_RETURN(ret != 0, hccn_err("tool set netdetect failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                       ret);
 
         ret = tool_netdetect_write_conf(ctx);
-        CHK_PRT_RETURN(ret != 0, hccn_err("tool netdetect write_conf failed, ret:%d logic_id:%d",
-            ret, ctx->npu_info.logic_id), ret);
+        CHK_PRT_RETURN(ret != 0,
+                       hccn_err("tool netdetect write_conf failed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+                       ret);
 
         return 0;
     }
@@ -442,8 +440,8 @@ STATIC int traceroute_assign(void *args, struct sub_option_entry *opt, value_uni
     }
 
 check_reset_flag:
-    CHK_PRT_RETURN(traceroute_args->reset_flag,
-        TOOL_PRINT_ERR("Option %s conflict with option -reset.", opt->name), TOOL_PRIVATE_ARGS_CONFLICT_ERR);
+    CHK_PRT_RETURN(traceroute_args->reset_flag, TOOL_PRINT_ERR("Option %s conflicts with option -reset.", opt->name),
+                   TOOL_PRIVATE_ARGS_CONFLICT_ERR);
     return 0;
 }
 
@@ -454,7 +452,7 @@ STATIC int tool_check_traceroute_args(struct command_context *ctx, struct tracer
         return TOOL_PRIVATE_ARGS_VALUE_ERR;
     }
     if (traceroute_args->reset_flag && (ctx->sub_opt_mask & (~SUB_OPT_TRACEROUTE_RESET_MASK)) != 0) {
-        TOOL_PRINT_ERR("Option -reset conflict with previous options.");
+        TOOL_PRINT_ERR("Option -reset conflicts with previous options.");
         return TOOL_PRIVATE_ARGS_CONFLICT_ERR;
     }
     return 0;
@@ -469,8 +467,8 @@ STATIC int tool_traceroute_get_status(struct command_context *ctx, enum tracerou
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, (char *)troute_status, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_TRACEROUTE_STATUS, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi get traceroute status failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("dsmi get traceroute status failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     return 0;
 }
@@ -484,8 +482,9 @@ STATIC int tool_traceroute_reset(struct command_context *ctx)
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_RESET_TRACEROUTE, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("tool traceroute reset status failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("tool traceroute reset status failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     return 0;
 }
@@ -498,11 +497,11 @@ STATIC int tool_traceroute_start(struct command_context *ctx, struct traceroute_
     int ret = 0;
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)traceroute_args,
-        sizeof(struct traceroute_info), (char *)&troute_status, &size);
+                   sizeof(struct traceroute_info), (char *)&troute_status, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_START_TRACEROUTE, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi start traceroute failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi start traceroute failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     if (troute_status == TRACEROUTE_STATUS_RUNNING) {
         return TOOL_TROUTE_PROCESS_EXIST_ERR;
@@ -510,8 +509,10 @@ STATIC int tool_traceroute_start(struct command_context *ctx, struct traceroute_
 
     if (troute_status == TRACEROUTE_STATUS_ERROR) {
         ret = tool_traceroute_reset(ctx);
-        CHK_PRT_RETURN(ret != 0, hccn_err("get status_error, try to reset traceroute failed, ret:%d, logic_id:%d",
-            ret, ctx->npu_info.logic_id), ret);
+        CHK_PRT_RETURN(ret != 0,
+                       hccn_err("get status_error, try to reset traceroute failed, ret:%d, logic_id:%d", ret,
+                                ctx->npu_info.logic_id),
+                       ret);
     }
 
     return 0;
@@ -525,8 +526,9 @@ STATIC int tool_traceroute_waiting_finish(struct command_context *ctx)
 
     while (wait_num > 0) {
         ret = tool_traceroute_get_status(ctx, &status);
-        CHK_PRT_RETURN(ret != 0, hccn_err("tool traceroute get status failed, ret:%d, logic_id:%d",
-            ret, ctx->npu_info.logic_id), ret);
+        CHK_PRT_RETURN(ret != 0,
+                       hccn_err("tool traceroute get status failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+                       ret);
         if (status == TRACEROUTE_STATUS_HALT) {
             break;
         } else if (status == TRACEROUTE_STATUS_ERROR) {
@@ -534,8 +536,9 @@ STATIC int tool_traceroute_waiting_finish(struct command_context *ctx)
         }
 
         wait_num--;
-        CHK_PRT_RETURN(wait_num <= 0, hccn_err("tool wait traceroute finish timeout, logic_id:%d",
-            ctx->npu_info.logic_id), DEV_EXE_TRACEROUTE_TIMEOUT);
+        CHK_PRT_RETURN(wait_num <= 0,
+                       hccn_err("tool wait traceroute finish timeout, logic_id:%d", ctx->npu_info.logic_id),
+                       DEV_EXE_TRACEROUTE_TIMEOUT);
         sleep(1);
     }
 
@@ -551,8 +554,8 @@ STATIC int tool_traceroute_get_output(struct command_context *ctx, char *tracero
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, traceroute_output, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_TRACEROUTE_INFO, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi get traceroute info failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("dsmi get traceroute info failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     size = (unsigned int)strlen(traceroute_output);
     while (size != 0 && (traceroute_output[size - 1] == '\n')) {
@@ -573,12 +576,14 @@ STATIC int tool_traceroute_exec(struct command_context *ctx)
 
     CHK_PRT_RETURN(traceroute_args == NULL, hccn_err("traceroute_args is NULL"), TOOL_PRIVATE_ARGS_NUM_ERR);
     ret = tool_check_traceroute_args(ctx, traceroute_args);
-    CHK_PRT_RETURN(ret != 0, hccn_err("traceroute_args is invalid, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("traceroute_args is invalid, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     if (traceroute_args->reset_flag) {
         return tool_traceroute_reset(ctx);
@@ -588,16 +593,16 @@ STATIC int tool_traceroute_exec(struct command_context *ctx)
     CHK_PRT_RETURN(traceroute_output == NULL, hccn_err("calloc traceroute_output failed"), -ENOMEM);
 
     ret = tool_traceroute_start(ctx, traceroute_args);
-    CHK_PRT_GOTO(ret != 0, hccn_err("tool traceroute start failed, ret:%d, logic_id:%d",
-            ret, ctx->npu_info.logic_id), out);
+    CHK_PRT_GOTO(ret != 0, hccn_err("tool traceroute start failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+                 out);
 
     ret = tool_traceroute_waiting_finish(ctx);
-    CHK_PRT_GOTO(ret != 0, hccn_err("waiting traceroute finish failed, ret:%d, logic_id:%d",
-            ret, ctx->npu_info.logic_id), out);
+    CHK_PRT_GOTO(ret != 0,
+                 hccn_err("waiting traceroute finish failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), out);
 
     ret = tool_traceroute_get_output(ctx, traceroute_output, OUTBUF_LEN_32K);
-    CHK_PRT_GOTO(ret != 0, hccn_err("tool traceroute get output failed, ret:%d, logic_id:%d",
-            ret, ctx->npu_info.logic_id), out);
+    CHK_PRT_GOTO(ret != 0,
+                 hccn_err("tool traceroute get output failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), out);
 
     TOOL_PRINT_INFO("%s", traceroute_output);
 
@@ -617,12 +622,12 @@ STATIC void tool_traceroute_print_help(struct command_context *ctx, unsigned int
             tool_print_npu_info(DEV_DEV_ATTR);
             tool_print_dev_info(DEV_BOND_DEV);
             TOOL_PRINT_OPT("[-m <max_ttl>]",
-                "max number of hops(max TTL to be reached), default is 30, range [1, 255]");
+                           "max number of hops(max TTL to be reached), default is 30, range [1, 255]");
             TOOL_PRINT_OPT("[-tos <tos>]", "TOS value for outgoing packets, default is 0, range [0, 63]");
             TOOL_PRINT_OPT("[-sport <source_port>]", "source port range [0, 65535]");
             TOOL_PRINT_OPT("[-sip <source_ip>]", "source IP address, only support IPv4, such as x.x.x.x");
             TOOL_PRINT_OPT("[-w <wait_time>]",
-                "the number of seconds to wait for response to a probe, default is 3, range [1, 60]");
+                           "the number of seconds to wait for response to a probe, default is 3, range [1, 60]");
             TOOL_PRINT_OPT("[-dport <dest_port>]", "destination port range [0, 65535]");
             TOOL_PRINT_OPT("-dip <dest_ip>", "destination IP address, only support IPv4, such as x.x.x.x");
 
@@ -638,40 +643,76 @@ STATIC void tool_traceroute_print_help(struct command_context *ctx, unsigned int
 
 STATIC struct cmd_entry g_tcpip_cmds[] = {
     {
-        "-vnic", NULL, MODE_GET,
-        NULL, NULL, tool_vnic_exec,
-        {DEV_NPU_ATTR}, tool_vnic_print_help,
-        NULL, 0,
+        "-vnic",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_vnic_exec,
+        {DEV_NPU_ATTR},
+        tool_vnic_print_help,
+        NULL,
+        0,
     },
     {
-        "-ping", get_ping_sub_opts, MODE_TEST,
-        alloc_ping_args_init, ping_assign, tool_ping_exec,
-        {DEV_NPU_ATTR}, tool_ping_print_help,
-        NULL, 0,
+        "-ping",
+        get_ping_sub_opts,
+        MODE_TEST,
+        alloc_ping_args_init,
+        ping_assign,
+        tool_ping_exec,
+        {DEV_NPU_ATTR},
+        tool_ping_print_help,
+        NULL,
+        0,
     },
     {
-        "-dev_info", NULL, MODE_GET,
-        NULL, NULL, tool_info_exec,
-        {DEV_NPU_ATTR}, tool_info_print_help,
-        NULL, 0,
+        "-dev_info",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_info_exec,
+        {DEV_NPU_ATTR},
+        tool_info_print_help,
+        NULL,
+        0,
     },
     {
-        "-net_health", NULL, MODE_GET,
-        NULL, NULL, tool_net_health_exec,
-        {DEV_NPU_ATTR}, tool_net_health_print_help,
-        NULL, 0,
+        "-net_health",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_net_health_exec,
+        {DEV_NPU_ATTR},
+        tool_net_health_print_help,
+        NULL,
+        0,
     },
     {
-        "-netdetect", get_netdetect_sub_opts, MODE_BOTH,
-        alloc_netdetect_args_init, netdetect_assign, tool_netdetect_exec,
-        {DEV_NPU_ATTR}, tool_netdetect_print_help,
-        NULL, 0,
+        "-netdetect",
+        get_netdetect_sub_opts,
+        MODE_BOTH,
+        alloc_netdetect_args_init,
+        netdetect_assign,
+        tool_netdetect_exec,
+        {DEV_NPU_ATTR},
+        tool_netdetect_print_help,
+        NULL,
+        0,
     },
     {
-        "-traceroute", get_traceroute_sub_opts, MODE_TEST,
-        alloc_traceroute_args_init, traceroute_assign, tool_traceroute_exec,
-        {DEV_DEV_ATTR}, tool_traceroute_print_help,
-        NULL, 0,
+        "-traceroute",
+        get_traceroute_sub_opts,
+        MODE_TEST,
+        alloc_traceroute_args_init,
+        traceroute_assign,
+        tool_traceroute_exec,
+        {DEV_DEV_ATTR},
+        tool_traceroute_print_help,
+        NULL,
+        0,
     },
 };
 

@@ -22,8 +22,13 @@
 #define JANUARY 1U
 #define KILO 1000U
 #define LOG_RINGBUF_SIZE 0x1400000 // 20M
+#define LOG_INIT_BUF_SIZE 0x18000U // 96K
 #define LOG_PRINT_LEN 0x400        // 1024 Bytes
 #define MODULE_HOST_LOG "ascend_logdrv"
+
+#define HOSTLOG_PROC_DIR "asdrv_hostlog"
+#define HOSTLOG_PROC_INIT_LOG "init_log"
+#define HOSTLOG_PROC_LOG "log"
 
 #define slog_err_printk(level, module, fmt, ...) \
     (void)printk(level "[ascend] [ERROR] [%s] [%s %d] " fmt, module, __func__, __LINE__, ##__VA_ARGS__)
@@ -58,6 +63,22 @@ typedef struct {
     ka_task_spinlock_t logbuf_lock;
     char printk_buf[LOG_PRINT_LEN]; /* temporary log_buf */
 } log_ring_buf_t;
+
+typedef enum {
+    LOG_PHASE_INIT = 0,
+    LOG_PHASE_NORMAL = 1,
+} log_phase_t;
+
+typedef struct {
+    char *buf;
+    u32 point;
+    u32 size;
+} log_init_buf_t;
+
+typedef struct {
+    char *buf;
+    u32 len;
+} log_proc_data_t;
 
 int log_get_ringbuffer(char *buff, u32 buf_len, u32 *out_len);
 int log_drv_module_init(void);

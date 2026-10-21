@@ -12,11 +12,11 @@
 #include "dsmi_common_interface.h"
 #include "dsmi_common.h"
 
-#define CLOCK_ID_STRLEN 6  // the length of the "dpclk=" string
+#define CLOCK_ID_STRLEN 6 // the length of the "dpclk=" string
 #define CMDLINE_BUFFER_SIZE 4096
 #define CLOCK_VIRTUAL 100
 #define CLOCK_REAL 0
-#define CMDLINE_FILE_PATH   "/proc/cmdline"
+#define CMDLINE_FILE_PATH "/proc/cmdline"
 
 #define DEVICE_SERIAL_NUMBER_MAX 32
 #define DEVICE_MAC_INFO_MAX 6
@@ -64,7 +64,7 @@
 
 #define INVALID_VALUE 0xff
 
-#define UDIS_IP_NAME_LEN  8
+#define UDIS_IP_NAME_LEN 8
 
 #pragma pack(1)
 typedef struct dsmi_fan_info {
@@ -239,7 +239,6 @@ void dev_mon_api_set_gateway_info(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *
 void dev_mon_api_get_net_dev_info(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 void dev_mon_api_get_enable(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 
-
 void dev_mon_api_passthru_mcu(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 void dev_mon_api_get_elabel_data(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 void dev_mon_api_get_chip_info(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
@@ -271,6 +270,11 @@ void dev_mon_api_get_device_info(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *m
 void dev_mon_api_create_capability_group(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 void dev_mon_api_delete_capability_group(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 void dev_mon_api_get_capability_group_info(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
+#ifdef CFG_FEATURE_CAPABILITY_GROUP
+void dev_mon_api_create_capability_multi_group(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
+void dev_mon_api_delete_capability_multi_group(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
+void dev_mon_api_get_capability_multi_group(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
+#endif
 void dev_mon_api_set_device_info(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 void dev_mon_api_set_device_info_ex(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);
 void dev_mon_api_set_detect_info(SYSTEM_CB_T *cb, DM_INTF_S *intf, DM_RECV_ST *msg);

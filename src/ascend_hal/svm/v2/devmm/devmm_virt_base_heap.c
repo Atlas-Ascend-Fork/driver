@@ -89,13 +89,16 @@ STATIC struct devmm_virt_com_heap *devmm_virt_alloc_heap(struct devmm_virt_heap_
 {
     struct devmm_virt_com_heap *heap_set = NULL;
     uint32_t heap_idx;
+    bool is_host_pin = devmm_is_in_host_pin_range(alloc_ptr);
 
-    if (devmm_is_in_host_pin_range(alloc_ptr)) {
+    if ((is_host_pin) && (heap_type->heap_sub_type != SUB_RESERVE_TYPE)) {
+        /* halMemAlloc uva: return host_base_heap directly */
         return &mgmt->heap_queue.host_base_heap;
     }
 
-    heap_idx = devmm_va_to_heap_idx(mgmt, alloc_ptr);
-    heap_set = devmm_virt_get_heap_from_queue(mgmt, heap_idx, alloc_size);
+    /* reserve va in host_pin range goes through the same path as non-uva */
+    heap_idx = devmm_va_to_heap_idx(mgmt, alloc_ptr, is_host_pin);
+    heap_set = devmm_virt_get_heap_from_queue(mgmt, heap_idx, alloc_size, is_host_pin);
     if (heap_set == NULL) {
         DEVMM_DRV_ERR("Base alloc heap failed. (idx=%u; ptr=0x%llx; size=%lu)\n", heap_idx, alloc_ptr, alloc_size);
         return NULL;
@@ -108,15 +111,19 @@ STATIC struct devmm_virt_com_heap *devmm_virt_alloc_heap(struct devmm_virt_heap_
 
 static void devmm_virt_free_heap(struct devmm_virt_heap_mgmt *mgmt, struct devmm_virt_com_heap *heap)
 {
+    struct devmm_virt_com_heap **heap_array = NULL;
     uint32_t i, heap_num;
+
     if (heap == &mgmt->heap_queue.host_base_heap) {
         return;
     }
 
     heap_num = (uint32_t)(heap->heap_size / DEVMM_HEAP_SIZE);
+    heap_array = heap->is_host_pin ? mgmt->heap_queue.host_pin_heaps : mgmt->heap_queue.heaps;
     for (i = 0; i < heap_num; i++) {
-        mgmt->heap_queue.heaps[(uint64_t)heap->heap_idx + i] = NULL;
+        heap_array[(uint64_t)heap->heap_idx + i] = NULL;
     }
+
     (void)pthread_mutex_destroy(&heap->tree_lock);
     (void)pthread_rwlock_destroy(&heap->heap_rw_lock);
     free(heap);
@@ -166,6 +173,8 @@ STATIC virt_addr_t devmm_virt_set_alloced_mem_struct(struct devmm_virt_heap_mgmt
     struct devmm_virt_com_heap *heap = NULL;
     size_t real_alloc_size;
     virt_addr_t ret_ptr;
+    bool is_reserve_va = (heap_type->heap_sub_type == SUB_RESERVE_TYPE);
+    bool need_enable_and_list = ((advise & DV_ADVISE_HOST_UVA) == 0) || (is_reserve_va);
     DVresult ret;
 
     if (devmm_get_heap_list_by_type(mgmt, heap_type, &heap_list) != DRV_ERROR_NONE) {
@@ -180,9 +189,9 @@ STATIC virt_addr_t devmm_virt_set_alloced_mem_struct(struct devmm_virt_heap_mgmt
         return DEVMM_INVALID_STOP;
     }
 
-    if ((advise & DV_ADVISE_HOST_UVA) == 0) {
+    if (need_enable_and_list) {
         ret = devmm_ioctl_enable_heap(heap->heap_idx, heap_type->heap_type, heap_type->heap_sub_type, heap->heap_size,
-                                      heap_type->heap_list_type);
+                                      heap_type->heap_list_type, heap->is_host_pin);
         if (ret != DRV_ERROR_NONE) {
             DEVMM_DRV_ERR("Devmm update heap failed. (alloc_ptr=0x%llx; alloc_size=%lu)\n", alloc_ptr, real_alloc_size);
             devmm_virt_free_heap(mgmt, heap);
@@ -197,18 +206,19 @@ STATIC virt_addr_t devmm_virt_set_alloced_mem_struct(struct devmm_virt_heap_mgmt
 
     heap->advise = advise;
     ret_ptr = devmm_virt_heap_alloc_ops(heap, alloc_ptr, real_alloc_size, advise);
-    if (ret_ptr < DEVMM_SVM_MEM_START && !devmm_is_in_host_pin_range(ret_ptr)) {
-        DEVMM_RUN_INFO("Can not alloc ptr. (ret_ptr=0x%lx; alloc_ptr=0x%llx; alloc_size=%lu; advise=%u)\n", ret_ptr,
+    if ((ret_ptr < DEVMM_SVM_MEM_START) && (!devmm_is_in_host_pin_range(ret_ptr))) {
+        DEVMM_RUN_INFO("Alloc ptr completed. (ret_ptr=0x%lx; alloc_ptr=0x%llx; alloc_size=%lu; advise=%u)\n", ret_ptr,
                        alloc_ptr, real_alloc_size, advise);
-        if ((advise & DV_ADVISE_HOST_UVA) == 0) {
-            (void)devmm_ioctl_disable_heap(heap->heap_idx, heap->heap_type, heap->heap_sub_type, heap->heap_size);
+        if (need_enable_and_list) {
+            (void)devmm_ioctl_disable_heap(heap->heap_idx, heap->heap_type, heap->heap_sub_type, heap->heap_size,
+                                           heap->is_host_pin);
             devmm_virt_free_heap(mgmt, heap);
         }
         return ret_ptr;
     }
 
     devmm_primary_heap_module_mem_stats_inc(heap, module_id, real_alloc_size);
-    if ((advise & DV_ADVISE_HOST_UVA) == 0) {
+    if (need_enable_and_list) {
         (void)pthread_rwlock_wrlock(&heap_list->list_lock);
         devmm_virt_list_add(&heap->list, &heap_list->heap_list);
         heap_list->heap_cnt++;
@@ -232,14 +242,15 @@ virt_addr_t devmm_alloc_from_base_heap(struct devmm_virt_heap_mgmt *mgmt, size_t
     }
     if (alloc_ptr < DEVMM_HOST_PIN_START) {
         if (devmm_is_specified_va_alloc(va) == false) {
-            DEVMM_DRV_ERR("Alloc memory from base heap error. (alloc_ptr=0x%lx; alloc_size=%lu; va=0x%llx)\n",
-                          alloc_ptr, alloc_size, va);
+            DEVMM_RUN_INFO("Alloc memory from base heap not success. (alloc_ptr=0x%lx; alloc_size=%lu; va=0x%llx)\n",
+                           alloc_ptr, alloc_size, va);
         }
         return alloc_ptr;
     }
     ret_ptr = devmm_virt_set_alloced_mem_struct(mgmt, alloc_ptr, alloc_size, heap_type, advise);
     if (ret_ptr < DEVMM_SVM_MEM_START && !devmm_is_in_host_pin_range(ret_ptr)) {
-        DEVMM_RUN_INFO("Can not alloc physical memory from base heap. (ret_ptr=0x%lx; va=0x%lx; alloc_size=%lu; "
+        DEVMM_RUN_INFO("Can not alloc physical memory from base heap. "
+                       "(ret_ptr=0x%lx; va=0x%lx; alloc_size=%lu; "
                        "va=0x%llx)\n",
                        ret_ptr, alloc_ptr, alloc_size, va);
         (void)devmm_virt_free_mem_to_base(mgmt, alloc_ptr);
@@ -363,6 +374,7 @@ DVresult devmm_virt_init_base_heap(struct devmm_virt_heap_mgmt *mgmt)
         heap_info.need_cache_thres[i] = 0; /* not used in base heap */
     }
     heap_info.is_limited = true; /* means base heap can not be expanded */
+    heap_info.is_host_pin = false;
     heap_info.is_base_heap = true;
 #ifndef UVM_OPEN
     heap_info.is_uvm_heap = false;
@@ -378,6 +390,7 @@ DVresult devmm_virt_init_base_heap(struct devmm_virt_heap_mgmt *mgmt)
     heap_info.start = DEVMM_HOST_PIN_START;
     heap_info.heap_size = DEVMM_HOST_PIN_SIZE;
     heap_info.page_size = DEVMM_2M_PAGE_SIZE;
+    heap_info.is_host_pin = true;
     devmm_virt_status_init(heap);
 
     heap_type.heap_type = DEVMM_HEAP_PINNED_HOST;

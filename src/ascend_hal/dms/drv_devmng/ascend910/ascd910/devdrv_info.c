@@ -39,7 +39,7 @@ int dmanage_get_optical_module_temp_adapt(unsigned int dev_id, int *value)
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    ret = xsfp_get_present(dev_id,  0, &present);
+    ret = xsfp_get_present(dev_id, 0, &present);
     if (ret != DRV_ERROR_NONE) {
         DEVDRV_DRV_ERR("xsfg_get_present failed. devid(%u), ret = %d\n", dev_id, ret);
         goto out;
@@ -51,7 +51,7 @@ int dmanage_get_optical_module_temp_adapt(unsigned int dev_id, int *value)
         goto out;
     }
 
-    ret = xsfp_get_info(dev_id,  0, &xsfp_info);
+    ret = xsfp_get_info(dev_id, 0, &xsfp_info);
     if (ret != DRV_ERROR_NONE) {
         DEVDRV_DRV_ERR("xsfp_get_info failed. devid(%u), ret = %d\n", dev_id, ret);
         goto out;
@@ -64,7 +64,7 @@ out:
 #else
     (void)dev_id;
     (void)value;
-    DEVDRV_DRV_ERR("dmanage_get_optical_module_temp_adapt not support on host side !\n");
+    DEVDRV_DRV_ERR("dmanage_get_optical_module_temp_adapt does not support on host side !\n");
     return DRV_ERROR_INVALID_HANDLE;
 #endif
 }
@@ -97,7 +97,6 @@ int devdrv_get_slot_id(unsigned int dev_id, unsigned int *slot_id)
     return DRV_ERROR_NONE;
 }
 
-
 void devdrv_p2p_mem_sync_to_flash(void)
 {
     return;
@@ -111,7 +110,7 @@ int dmanage_get_lp_status(int device_id, struct dsmi_lp_status_stru *lp_status_d
 }
 
 int dmanage_get_ts_group_num(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *ret_size)
+                             unsigned int *ret_size)
 {
     (void)dev_id;
     (void)vfid;
@@ -122,7 +121,7 @@ int dmanage_get_ts_group_num(unsigned int dev_id, unsigned int vfid, unsigned in
 }
 
 int dmanage_get_temperature(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *size)
+                            unsigned int *size)
 {
     (void)dev_id;
     (void)vfid;
@@ -141,8 +140,8 @@ int dmanage_set_temperature(unsigned int dev_id, unsigned int sub_cmd, void *out
     return DRV_ERROR_NOT_SUPPORT;
 }
 
-int dmanage_get_capability_group_info(int dev_id, int ts_id, int group_id,
-                                      struct capability_group_info *group_info, int group_count)
+int dmanage_get_capability_group_info(int dev_id, int ts_id, int group_id, struct capability_group_info *group_info,
+                                      int group_count)
 {
     (void)dev_id;
     (void)ts_id;
@@ -180,8 +179,8 @@ int dmanage_get_soc_info(uint32_t dev_id, uint32_t vfid, uint32_t sub_cmd, void 
     int ret;
 
     if (out_buf == NULL || ret_size == NULL) {
-        DEVDRV_DRV_ERR("Invalid parameter. (dev_id=%u; vfid=%u; buf_is_null=%d; size_is_null=%d)\n",
-            dev_id, vfid, (out_buf == NULL), (ret_size == NULL));
+        DEVDRV_DRV_ERR("Invalid parameter. (dev_id=%u; vfid=%u; buf_is_null=%d; size_is_null=%d)\n", dev_id, vfid,
+                       (out_buf == NULL), (ret_size == NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 

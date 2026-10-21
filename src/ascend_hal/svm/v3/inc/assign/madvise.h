@@ -19,6 +19,8 @@
 */
 
 int svm_madvise(u32 devid, u64 va, u64 size, u32 flag);
+/* Returns saved access for a HOST_RW_DEV_RO allocation, using its aligned size. */
+u32 svm_madvise_get_access(u32 devid, u64 va, u64 size);
 void svm_madvise_recycle(u32 devid);
 
 #endif

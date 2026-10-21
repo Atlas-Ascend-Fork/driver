@@ -130,7 +130,7 @@ STATIC ssize_t sched_sysfs_node_list(ka_device_t *dev, ka_device_attribute_t *at
     for (i = 0; i < SCHED_MAX_CHIP_NUM; i++) {
         node = esched_dev_get(i);
         if (node != NULL) {
-            ret = snprintf_s(buf + offset, KA_MM_PAGE_SIZE - offset, KA_MM_PAGE_SIZE - offset - 1, "%u,%u,%u,%u,%u\n",
+            ret = snprintf_s(buf + offset, KA_MM_PAGE_SIZE - offset, KA_MM_PAGE_SIZE - offset - 1, "%u,%d,%u,%u,%u\n",
                              i, node->curr_msg.msg_type, node->curr_msg.dst_pid, node->curr_msg.dst_event_id,
                              node->curr_msg.dst_subevent_id);
             if (ret >= 0) {
@@ -161,7 +161,7 @@ STATIC ssize_t sched_sysfs_node_id_write(ka_device_t *dev, ka_device_attribute_t
     struct sched_numa_node *node = NULL;
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for node_id.\n");
         return count;
     }
 
@@ -250,7 +250,7 @@ STATIC ssize_t sched_sysfs_node_debug_write(ka_device_t *dev, ka_device_attribut
     }
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for node_debug.\n");
         esched_dev_put(node);
         return count;
     }
@@ -274,17 +274,17 @@ STATIC ssize_t sched_sysfs_node_debug_write(ka_device_t *dev, ka_device_attribut
         }
     }
 
-    if ((val & (0x1 << SCHED_DEBUG_EVENT_TRACE_BIT)) != 0) {
+    if ((val & (0x1U << SCHED_DEBUG_EVENT_TRACE_BIT)) != 0) {
         (void)sched_sysfs_clear_node_stat(node);
     }
 
-    if ((val & (0x1 << SCHED_DEBUG_SAMPLE_BIT)) != 0) {
+    if ((val & (0x1U << SCHED_DEBUG_SAMPLE_BIT)) != 0) {
         sched_sysfs_clear_sample_data(node);
-    } else if ((val & (0x1 << SCHED_DEBUG_TRIGGER_SAMPLE_FILE_BIT)) != 0) {
+    } else if ((val & (0x1U << SCHED_DEBUG_TRIGGER_SAMPLE_FILE_BIT)) != 0) {
         sched_sysfs_record_sample_data(node);
     }
 
-    if ((val & (0x1 << SCHED_DEBUG_SCHED_TRACE_RECORD_BIT)) != 0) {
+    if ((val & (0x1U << SCHED_DEBUG_SCHED_TRACE_RECORD_BIT)) != 0) {
         node->trace_record.num = 0;
     }
 
@@ -547,12 +547,13 @@ STATIC ssize_t sched_sysfs_sample_period_write(ka_device_t *dev, ka_device_attri
     struct sched_numa_node *node = NULL;
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for sample_period.\n");
         return count;
     }
 
     if ((val < SCHED_SAMPLE_MIN_PERIOD) || (val > SCHED_SAMPLE_MAX_PERIOD)) {
-        sched_err("The value of variable val is out of range. (val=%u)\n", val);
+        sched_err("The value of variable val is out of range. (val=%u; min=%u; max=%u)\n", val, SCHED_SAMPLE_MIN_PERIOD,
+                  SCHED_SAMPLE_MAX_PERIOD);
         return count;
     }
 
@@ -978,7 +979,7 @@ void sched_sysfs_clear_sample_data(struct sched_numa_node *node)
     }
 
     sched_info("End of calling sched_sysfs_clear_sample_data. "
-               "(cur_timestamp=%llu; frequence=%llu)\n",
+               "(cur_timestamp=%llu; frequency=%llu)\n",
                sched_get_cur_timestamp(), sched_get_sys_freq());
 }
 
@@ -1000,7 +1001,7 @@ STATIC ssize_t sched_sysfs_node_sched_abnormal_time_write(const char *buf, size_
     u32 val = 0;
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for abnormal_time.\n");
         return count;
     }
 
@@ -1147,7 +1148,7 @@ STATIC ssize_t sched_sysfs_node_sched_thread_run_abnormal_time_write(ka_device_t
     u32 val = 0;
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for thread_run_abnormal_time.\n");
         return count;
     }
 
@@ -1262,7 +1263,7 @@ STATIC ssize_t sched_sysfs_node_sched_abnormal_event_clear(ka_device_t *dev, ka_
     }
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for abnormal_event_clear.\n");
         esched_dev_put(node);
         return count;
     }
@@ -1661,7 +1662,7 @@ STATIC ssize_t sched_sysfs_node_cpuid_write(ka_device_t *dev, ka_device_attribut
     }
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for node_cpuid.\n");
         esched_dev_put(node);
         return count;
     }
@@ -1794,7 +1795,7 @@ STATIC ssize_t sched_sysfs_node_cpu_event_resource(ka_device_t *dev, ka_device_a
     }
 
     ret = snprintf_s(buf + offset, KA_MM_PAGE_SIZE - offset, KA_MM_PAGE_SIZE - offset - 1,
-                     "cpuid,resouce total:use:que head:que tail,max use, enque_full cnt, deque empty cnt\n");
+                     "cpuid,resource total:use:que head:que tail,max use, enque_full cnt, deque empty cnt\n");
     if (ret >= 0) {
         offset += ret;
     }
@@ -2126,7 +2127,7 @@ STATIC ssize_t sched_sysfs_pid_write(ka_device_t *dev, ka_device_attribute_t *at
     }
 
     if (ka_base_kstrtou32(buf, 0, (u32 *)&val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for pid.\n");
         esched_dev_put(node);
         return count;
     }
@@ -2381,7 +2382,7 @@ STATIC ssize_t sched_sysfs_proc_group_id_write(ka_device_t *dev, ka_device_attri
     u32 val = 0;
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for proc_group_id.\n");
         return count;
     }
 
@@ -2786,12 +2787,12 @@ ssize_t sched_sysfs_vfid_write(ka_device_t *dev, ka_device_attribute_t *attr, co
     u32 val = 0;
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for vfid.\n");
         return count;
     }
 
     if (val >= VMNG_VDEV_MAX_PER_PDEV) {
-        sched_err("The vfid is out of range. (vfid=%u)\n", val);
+        sched_err("The vfid is out of range. (vfid=%u; max=%d)\n", val, (VMNG_VDEV_MAX_PER_PDEV - 1));
         return count;
     }
 
@@ -2929,7 +2930,7 @@ STATIC ssize_t sched_sysfs_record_num_write(ka_device_t *dev, ka_device_attribut
     u32 val = 0;
 
     if (ka_base_kstrtou32(buf, 0, &val) < 0) {
-        sched_err("Failed to invoke the kstrtou32.\n");
+        sched_err("Failed to invoke the kstrtou32 for record_num.\n");
         return count;
     }
 

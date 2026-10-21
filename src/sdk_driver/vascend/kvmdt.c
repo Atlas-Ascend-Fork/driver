@@ -13,7 +13,6 @@
 
 #include "ka_compiler_pub.h"
 #include "ka_task_pub.h"
-#include "ka_fs_pub.h"
 #include "ka_kvm_pub.h"
 #include "ka_errno_pub.h"
 #include "ka_driver_pub.h"
@@ -26,6 +25,7 @@
 #include "dvt_sysfs.h"
 #include "dvt.h"
 #include "vdavinci.h"
+#include "schedule.h"
 #include "kvmdt.h"
 
 #define HW_VDAVINCI_READ_SUPPORT_TYPES 3
@@ -41,15 +41,8 @@ enum {
 
 static unsigned int g_vdavinci_rw_support_size[] = {1, 2, 4, 8};
 
-STATIC void kvmdt_guest_exit(struct kvmdt_guest_info *info);
 STATIC void hw_vdavinci_release_work(ka_work_struct_t *work);
-STATIC int kvmdt_guest_init(ka_mdev_device_t *mdev);
 STATIC int hw_vdavinci_get_irq_count(struct hw_vdavinci *vdavinci, unsigned int type);
-
-bool handle_valid(uintptr_t handle)
-{
-    return !!(((unsigned long)handle) & ~0xff);
-}
 
 struct vdavinci_priv *kdev_to_davinci(ka_device_t *kdev)
 {
@@ -215,17 +208,22 @@ int hw_vdavinci_remove(ka_mdev_device_t *mdev)
     if (vdavinci == NULL || vdavinci->dvt == NULL || vdavinci->type == NULL || vdavinci->dvt->vdavinci_priv == NULL) {
         return -EINVAL;
     }
-    if (handle_valid(vdavinci->handle)) {
-        return -EBUSY;
-    }
     vid = vdavinci->id;
     dvt = vdavinci->dvt;
     type = vdavinci->type;
     pf_info = &dvt->pf[vdavinci->dev.dev_index];
     dev = vdavinci->dvt->vdavinci_priv->dev;
-    vascend_info(vdavinci_to_dev(vdavinci), "enter remove vdavinci, vid: %u\n", vid);
 
     ka_task_mutex_lock(&dvt->lock);
+    /* The active/opened check and vdavinci_destroy must share one critical
+     * section: hw_vdavinci_open claims the device under the same lock, so a
+     * concurrent open cannot slip in between the check and the destroy (UAF). */
+    if (hw_dvt_is_vdavinci_active(vdavinci) || ka_base_atomic_read(&vdavinci->opened) != 0) {
+        ka_task_mutex_unlock(&dvt->lock);
+        return -EBUSY;
+    }
+    vascend_info(vdavinci_to_dev(vdavinci), "enter remove vdavinci, vid: %u\n", vid);
+
     g_hw_vdavinci_ops.vdavinci_destroy(vdavinci);
 
     type->vf_num--;
@@ -242,23 +240,58 @@ int hw_vdavinci_remove(ka_mdev_device_t *mdev)
     return 0;
 }
 
-int hw_vdavinci_open(ka_mdev_device_t *mdev)
+STATIC int hw_vdavinci_open_check(struct hw_vdavinci *vdavinci)
 {
-    int ret = 0;
-    struct hw_vdavinci *vdavinci = get_vdavinci_from_mdev(mdev);
-
     if (vdavinci == NULL || vdavinci->dvt == NULL) {
         return -EINVAL;
     }
-    vascend_info(vdavinci_to_dev(vdavinci), "enter open vdavinci, vid: %u\n", vdavinci->id);
     if (!hw_vdavinci_priv_callback_check(vdavinci->dvt->vdavinci_priv)) {
         vascend_err(vdavinci_to_dev(vdavinci), "vdavinci's priv callback is null\n");
         return -EINVAL;
     }
+    if (hw_dvt_is_vdavinci_active(vdavinci)) {
+        vascend_err(vdavinci_to_dev(vdavinci), "vdavinci is already active, vid: %u\n", vdavinci->id);
+        return -EEXIST;
+    }
 
-    vdavinci->qemu_task = ka_task_get_current()->group_leader;
-    vdavinci->mm = ka_task_get_current()->mm;
-    ka_base_cpumask_clear(&vdavinci->vm_cpus_mask);
+    return 0;
+}
+
+/* Claim the device for open, atomic with a concurrent hw_vdavinci_remove.
+ * The critical section only wraps the cmpxchg so opens of other vdavincis are
+ * not serialized. Caller must ensure vdavinci and vdavinci->dvt are valid. */
+STATIC int hw_vdavinci_open_claim(struct hw_vdavinci *vdavinci)
+{
+    int ret = 0;
+
+    ka_task_mutex_lock(&vdavinci->dvt->lock);
+    if (ka_base_atomic_cmpxchg(&vdavinci->opened, 0, 1) != 0) {
+        ret = -EBUSY;
+    }
+    ka_task_mutex_unlock(&vdavinci->dvt->lock);
+    if (ret != 0) {
+        vascend_err(vdavinci_to_dev(vdavinci), "vdavinci is already opened, vid: %u\n", vdavinci->id);
+    }
+
+    return ret;
+}
+
+/* Symmetric uninit of hw_vdavinci_open_claim. No dvt->lock needed: the caller
+ * is the exclusive owner of the latch (the successful claimer on the open
+ * failure path, or the single release guarded by vdev.released) and clears it
+ * as its last vdavinci access, so a reader observing 0 can safely proceed.
+ * The release store orders all teardown writes before the clear and pairs
+ * with the full barrier of the next claim's cmpxchg. */
+STATIC void hw_vdavinci_close_claim(struct hw_vdavinci *vdavinci)
+{
+    ka_base_atomic_set_release(&vdavinci->opened, 0);
+}
+
+/* Take the vfio device reference and register the vfio group notifiers.
+ * On failure the vfio device reference taken here is released. */
+STATIC int hw_vdavinci_open_vfio(struct hw_vdavinci *vdavinci)
+{
+    int ret = 0;
 
     ret = vdavinci_get_vfio_device(vdavinci);
     if (ret != 0) {
@@ -266,27 +299,98 @@ int hw_vdavinci_open(ka_mdev_device_t *mdev)
     }
     ret = vdavinci_register_vfio_group(vdavinci);
     if (ret != 0) {
-        goto undo_device;
-    }
-    ret = kvmdt_guest_init(mdev);
-    if (ret != 0) {
-        vascend_err(vdavinci_to_dev(vdavinci),
-                    "kvmdt_guest_init failed, "
-                    "vid: %u, ret: %d\n",
-                    vdavinci->id, ret);
-        goto undo_group;
+        /* register_vfio_group rolls the notifiers back itself on failure. */
+        vdavinci_put_vfio_device(vdavinci);
     }
 
-    g_hw_vdavinci_ops.vdavinci_activate(vdavinci);
-    ka_mm_mmgrab(vdavinci->mm);
-    ka_base_atomic_set(&vdavinci->vdev.released, 0);
-    vascend_info(vdavinci_to_dev(vdavinci), "leave open vdavinci, vid: %u\n", vdavinci->id);
     return ret;
+}
 
-undo_group:
+/* Symmetric uninit of hw_vdavinci_open_vfio. */
+STATIC void hw_vdavinci_close_vfio(struct hw_vdavinci *vdavinci)
+{
     vdavinci_unregister_vfio_group(vdavinci);
-undo_device:
     vdavinci_put_vfio_device(vdavinci);
+}
+
+/* Check the KVM handle of the opener and hold a reference to it.
+ * The ref is released in __hw_vdavinci_release via hw_vdavinci_close_kvm. */
+STATIC int hw_vdavinci_open_kvm(struct hw_vdavinci *vdavinci)
+{
+    ka_kvm_t *kvm = vdavinci->vdev.kvm;
+
+    if (kvm == NULL || kvm->mm != ka_task_get_current_mm()) {
+        vascend_err(vdavinci_to_dev(vdavinci), "KVM is required to use huawei vdavinci, vid: %u\n", vdavinci->id);
+        return -ESRCH;
+    }
+    kvm_get_kvm(kvm);
+
+    return 0;
+}
+
+/* Symmetric uninit of hw_vdavinci_open_kvm. */
+STATIC void hw_vdavinci_close_kvm(struct hw_vdavinci *vdavinci)
+{
+    kvm_put_kvm(vdavinci->vdev.kvm);
+}
+
+/* Hold a reference to the opener's mm. The ref is released in
+ * __hw_vdavinci_release via hw_vdavinci_close_mm. */
+STATIC void hw_vdavinci_open_mm(struct hw_vdavinci *vdavinci)
+{
+    ka_mm_mmgrab(vdavinci->mm);
+}
+
+/* Symmetric uninit of hw_vdavinci_open_mm. */
+STATIC void hw_vdavinci_close_mm(struct hw_vdavinci *vdavinci)
+{
+    ka_mm_mmdrop(vdavinci->mm);
+    vdavinci->mm = NULL;
+}
+
+int hw_vdavinci_open(ka_mdev_device_t *mdev)
+{
+    struct hw_vdavinci *vdavinci = get_vdavinci_from_mdev(mdev);
+    int ret = 0;
+
+    if (vdavinci == NULL || vdavinci->dvt == NULL) {
+        return -EINVAL;
+    }
+
+    ret = hw_vdavinci_open_claim(vdavinci);
+    if (ret != 0) {
+        return ret;
+    }
+
+    ret = hw_vdavinci_open_check(vdavinci);
+    if (ret != 0) {
+        goto undo_open;
+    }
+    vascend_info(vdavinci_to_dev(vdavinci), "enter open vdavinci, vid: %u\n", vdavinci->id);
+    vdavinci->qemu_task = ka_task_get_current()->group_leader;
+    vdavinci->mm = ka_task_get_current()->mm;
+    ka_base_cpumask_clear(&vdavinci->vm_cpus_mask);
+
+    ret = hw_vdavinci_open_vfio(vdavinci);
+    if (ret != 0) {
+        goto undo_open;
+    }
+
+    ret = hw_vdavinci_open_kvm(vdavinci);
+    if (ret != 0) {
+        goto undo_vfio;
+    }
+    hw_vdavinci_open_mm(vdavinci);
+
+    ka_base_atomic_set(&vdavinci->vdev.released, 0);
+    g_hw_vdavinci_ops.vdavinci_activate(vdavinci);
+    vascend_info(vdavinci_to_dev(vdavinci), "leave open vdavinci, vid: %u\n", vdavinci->id);
+    return 0;
+
+undo_vfio:
+    hw_vdavinci_close_vfio(vdavinci);
+undo_open:
+    hw_vdavinci_close_claim(vdavinci);
     return ret;
 }
 
@@ -300,9 +404,7 @@ STATIC void hw_vdavinci_release_trigger(ka_vdev_pci_irq_ctx *ctx)
     if (ctx == NULL) {
         return;
     }
-    if (ctx->work.func != NULL) {
-        (void)ka_task_cancel_work_sync(&ctx->work);
-    }
+    hw_vdavinci_cancel_work_sync(&ctx->work);
     if (ctx->trigger == NULL) {
         return;
     }
@@ -310,11 +412,11 @@ STATIC void hw_vdavinci_release_trigger(ka_vdev_pci_irq_ctx *ctx)
     trigger = ctx->trigger;
     ctx->trigger = NULL;
     ka_task_spin_unlock_irqrestore(&ctx->msix_lock, flags);
-    if (!KA_IS_ERR(ctx->producer.token) && ctx->data != NULL) {
+    if (!ka_irq_bypass_producer_token_is_err(&ctx->producer) && ctx->data != NULL) {
         vdavinci = ctx->data;
         ctx->data = NULL;
         ka_irq_bypass_unregister_producer(&ctx->producer);
-        ctx->producer.token = NULL;
+        ka_irq_bypass_producer_set_token(&ctx->producer, NULL);
         ctx->producer.irq = -1;
         vascend_info(vdavinci_to_dev(vdavinci), "vdavinci unregister irq success, irq: %d\n", ctx->irq);
     }
@@ -323,10 +425,9 @@ STATIC void hw_vdavinci_release_trigger(ka_vdev_pci_irq_ctx *ctx)
 #endif
 }
 
-STATIC void hw_vdavinci_release_msix_eventfd_ctx(struct hw_vdavinci *vdavinci, bool release)
+STATIC void hw_vdavinci_release_msix_triggers(struct hw_vdavinci *vdavinci)
 {
     int i, nvec;
-    ka_vdev_pci_irq_ctx *ctx;
 
     if (vdavinci->vdev.ctx == NULL) {
         return;
@@ -337,16 +438,30 @@ STATIC void hw_vdavinci_release_msix_eventfd_ctx(struct hw_vdavinci *vdavinci, b
     for (i = 0; i < nvec; i++) {
         hw_vdavinci_release_trigger(&(vdavinci->vdev.ctx[i]));
     }
-    if (release && vdavinci->vdev.ctx != NULL) {
-        ctx = vdavinci->vdev.ctx;
-        vdavinci->vdev.ctx = NULL;
-        ka_mm_kfree(ctx);
+}
+
+STATIC void hw_vdavinci_free_msix_ctx(struct hw_vdavinci *vdavinci)
+{
+    ka_vdev_pci_irq_ctx *ctx = NULL;
+    int nvec = 0, i = 0;
+
+    ctx = vdavinci->vdev.ctx;
+    KA_WRITE_ONCE(vdavinci->vdev.ctx, NULL);
+    ka_system_synchronize_rcu();
+
+    if (ctx == NULL) {
+        return;
     }
+
+    nvec = vdavinci->msix_nvec;
+    for (i = 0; i < nvec; i++) {
+        hw_vdavinci_cancel_work_sync(&ctx[i].work);
+    }
+    ka_mm_kfree(ctx);
 }
 
 STATIC void __hw_vdavinci_release(struct hw_vdavinci *vdavinci)
 {
-    struct kvmdt_guest_info *info = NULL;
     struct vdavinci_ioeventfd *ioeventfd = NULL;
     struct vdavinci_ioeventfd *ioeventfd_tmp = NULL;
 
@@ -354,26 +469,29 @@ STATIC void __hw_vdavinci_release(struct hw_vdavinci *vdavinci)
         return;
     }
     vascend_info(vdavinci_to_dev(vdavinci), "enter release vdavinci, vid: %u\n", vdavinci->id);
-    if (!handle_valid(vdavinci->handle)) {
+    /* active is set only at the end of a successful open: a release reaching
+     * a vdavinci whose open never completed must not run the cleanup chain. */
+    if (!hw_dvt_is_vdavinci_active(vdavinci)) {
         return;
     }
-
     if (ka_base_atomic_cmpxchg(&vdavinci->vdev.released, 0, 1)) {
         return;
     }
-    if (vdavinci->vdev.release_work.func != NULL) {
-        (void)ka_task_cancel_work_sync(&vdavinci->vdev.release_work);
-    }
     g_hw_vdavinci_ops.vdavinci_release(vdavinci);
-    info = (struct kvmdt_guest_info *)vdavinci->handle;
-    vdavinci->handle = 0;
-    kvmdt_guest_exit(info);
-    vdavinci_unregister_vfio_group(vdavinci);
-    vdavinci_put_vfio_device(vdavinci);
-    hw_vdavinci_release_msix_eventfd_ctx(vdavinci, true);
+    g_hw_vdavinci_ops.vdavinci_deactivate(vdavinci);
+    hw_vdavinci_release_msix_triggers(vdavinci);
+    /* kvmdt_gfn_to_hva and kvmdt_is_valid_gfn access vdev.kvm in RCU read-side
+     * critical sections without taking a kvm reference. Their safety relies on
+     * the unconditional synchronize_rcu() inside hw_vdavinci_free_msix_ctx,
+     * which drains all RCU readers that saw active != 0. Keep kvm_put_kvm and
+     * the teardown below strictly after hw_vdavinci_free_msix_ctx. */
+    hw_vdavinci_free_msix_ctx(vdavinci);
+    hw_vdavinci_unregister_iodev(vdavinci);
+    hw_vdavinci_close_kvm(vdavinci);
+    hw_vdavinci_dma_pool_uninit(vdavinci);
+    hw_vdavinci_close_vfio(vdavinci);
 
-    ka_mm_mmdrop(vdavinci->mm);
-    vdavinci->mm = NULL;
+    hw_vdavinci_close_mm(vdavinci);
     vdavinci->vdev.kvm = NULL;
 
     ka_list_for_each_entry_safe(ioeventfd, ioeventfd_tmp, &vdavinci->ioeventfds_list, next)
@@ -383,12 +501,21 @@ STATIC void __hw_vdavinci_release(struct hw_vdavinci *vdavinci)
 #endif
     }
 
+    /* Allow the next open only after the whole teardown chain completed. */
+    hw_vdavinci_close_claim(vdavinci);
     vascend_info(vdavinci_to_dev(vdavinci), "leave release vdavinci, vid: %u\n", vdavinci->id);
 }
 
 void hw_vdavinci_release(ka_mdev_device_t *mdev)
 {
     struct hw_vdavinci *vdavinci = get_vdavinci_from_mdev(mdev);
+
+    if (vdavinci == NULL) {
+        return;
+    }
+    /* Cancel only from this process-context path: cancel_work_sync from the
+     * work handler itself would deadlock waiting for its own completion. */
+    hw_vdavinci_cancel_work_sync(&vdavinci->vdev.release_work);
 
     __hw_vdavinci_release(vdavinci);
 }
@@ -403,7 +530,7 @@ STATIC void hw_vdavinci_release_work(ka_work_struct_t *work)
 ssize_t hw_vdavinci_read(ka_mdev_device_t *mdev, char __ka_user *buf, size_t count, loff_t *ppos)
 {
     int i = 0;
-    unsigned int done = 0;
+    size_t done = 0;
     unsigned int size = 0;
     size_t filled;
     u64 val;
@@ -445,8 +572,12 @@ ssize_t hw_vdavinci_read(ka_mdev_device_t *mdev, char __ka_user *buf, size_t cou
 
 size_t hw_vdavinci_write(ka_mdev_device_t *mdev, const char __ka_user *buf, size_t count, loff_t *ppos)
 {
+    /* The return type stays size_t to match ka_vdev.hw_vdev_write. Error
+     * paths return (size_t)-EFAULT: the bit pattern survives the size_t ->
+     * ssize_t conversion in ka_hw_vdev_write_ops, so the negative errno is
+     * correctly propagated to the caller. */
     int i = 0;
-    unsigned int done = 0;
+    size_t done = 0;
     unsigned int size = 0;
     size_t filled;
     u64 val;
@@ -645,47 +776,6 @@ static void hw_vdavinci_put_msix_trigger(struct hw_vdavinci *vdavinci, unsigned 
     }
 }
 
-STATIC int hw_vdavinci_check_msix(struct hw_vdavinci *vdavinci, unsigned int start, unsigned int count)
-{
-    unsigned int nnvec;
-    int nvec, i;
-    bool ctx_alloced = false;
-
-    nvec = hw_vdavinci_get_irq_count(vdavinci, VFIO_PCI_MSIX_IRQ_INDEX);
-    nnvec = (unsigned int)nvec;
-
-    if (start >= nnvec || start + count > nnvec || start > nnvec - count) {
-        return -EINVAL;
-    }
-    if (vdavinci->debugfs.nvec != 0 && vdavinci->debugfs.nvec != nvec) {
-        return -EINVAL;
-    }
-    if (vdavinci->vdev.ctx == NULL) {
-        vdavinci->vdev.ctx = ka_mm_kcalloc(nvec, sizeof(ka_vdev_pci_irq_ctx), KA_GFP_KERNEL);
-        if (vdavinci->vdev.ctx == NULL) {
-            return -ENOMEM;
-        }
-        ctx_alloced = true;
-        for (i = 0; i < nvec; i++) {
-            ka_task_spin_lock_init(&vdavinci->vdev.ctx[i].msix_lock);
-        }
-    }
-
-    if (!vdavinci->debugfs.msix_count) {
-        vdavinci->debugfs.msix_count = ka_mm_kcalloc(nvec, sizeof(unsigned long long), KA_GFP_KERNEL);
-        if (!vdavinci->debugfs.msix_count) {
-            if (ctx_alloced) {
-                ka_mm_kfree(vdavinci->vdev.ctx);
-                vdavinci->vdev.ctx = NULL;
-            }
-            return -ENOMEM;
-        }
-    }
-    vdavinci->debugfs.nvec = nvec;
-
-    return 0;
-}
-
 STATIC void vdavinci_irq_work_handler(ka_work_struct_t *work)
 {
 #if (IS_VDAVINCI_KERNEL_VERSION_SUPPORT || (defined(DRV_UT)))
@@ -693,26 +783,64 @@ STATIC void vdavinci_irq_work_handler(ka_work_struct_t *work)
     struct hw_vdavinci *vdavinci = NULL;
     ka_vdev_pci_irq_ctx *ctx = ka_container_of(work, ka_vdev_pci_irq_ctx, work);
 
-    if (ctx == NULL || ctx->data == NULL) {
+    if (ctx == NULL || ctx->data == NULL || ctx->trigger == NULL) {
         return;
     }
     vdavinci = ctx->data;
     if (ctx->irq <= 0 || ctx->irq >= nr_irqs) {
-        ctx->producer.token = KA_ERR_PTR(-EINVAL);
+        ka_irq_bypass_producer_set_token(&ctx->producer, KA_ERR_PTR(-EINVAL));
         vascend_warn(vdavinci_to_dev(vdavinci), "illegal irq: %d\n", ctx->irq);
         return;
     }
-    ctx->producer.token = ctx->trigger;
+    ka_irq_bypass_producer_set_token(&ctx->producer, ctx->trigger);
     ctx->producer.irq = ctx->irq;
     ret = ka_irq_bypass_register_producer(&ctx->producer);
     if (ret != 0) {
-        ctx->producer.token = KA_ERR_PTR(ret);
+        ka_irq_bypass_producer_set_token(&ctx->producer, KA_ERR_PTR(ret));
         vascend_warn(vdavinci_to_dev(vdavinci), "vdavinci register irq error: %d, irq: %d\n", ret, ctx->irq);
         return;
     }
 
     vascend_info(vdavinci_to_dev(vdavinci), "vdavinci register irq success, irq: %d\n", ctx->irq);
 #endif
+}
+
+STATIC int hw_vdavinci_check_msix(struct hw_vdavinci *vdavinci, unsigned int start, unsigned int count)
+{
+    unsigned int nnvec = 0;
+    int nvec = 0, i = 0;
+
+    nvec = hw_vdavinci_get_irq_count(vdavinci, VFIO_PCI_MSIX_IRQ_INDEX);
+    nnvec = (unsigned int)nvec;
+
+    if (start >= nnvec || start + count > nnvec || start > nnvec - count) {
+        return -EINVAL;
+    }
+    if (vdavinci->msix_nvec != 0 && vdavinci->msix_nvec != nvec) {
+        return -EINVAL;
+    }
+    if (vdavinci->vdev.ctx == NULL) {
+        vdavinci->vdev.ctx = ka_mm_kcalloc(nvec, sizeof(ka_vdev_pci_irq_ctx), KA_GFP_KERNEL);
+        if (vdavinci->vdev.ctx == NULL) {
+            return -ENOMEM;
+        }
+        for (i = 0; i < nvec; i++) {
+            ka_task_spin_lock_init(&vdavinci->vdev.ctx[i].msix_lock);
+            KA_TASK_INIT_WORK(&vdavinci->vdev.ctx[i].work, vdavinci_irq_work_handler);
+        }
+    }
+    vdavinci->msix_nvec = nvec;
+
+    /* msix_count is for debugfs statistics only: an allocation failure must
+     * not block the msix eventfd setup, so degrade to a warning here. */
+    if (!vdavinci->debugfs.msix_count) {
+        vdavinci->debugfs.msix_count = ka_mm_kcalloc(nvec, sizeof(unsigned long long), KA_GFP_KERNEL);
+        if (!vdavinci->debugfs.msix_count) {
+            vascend_warn(vdavinci_to_dev(vdavinci), "msix_count is unavailable for debugfs. (nvec=%d)\n", nvec);
+        }
+    }
+
+    return 0;
 }
 
 STATIC int hw_vdavinci_set_msix_trigger(struct hw_vdavinci *vdavinci, const ka_vfio_irq_set_t *hdr, void *data)
@@ -752,10 +880,9 @@ STATIC int hw_vdavinci_set_msix_trigger(struct hw_vdavinci *vdavinci, const ka_v
             vdavinci->vdev.ctx[i].trigger = trigger;
             ka_task_spin_unlock_irqrestore(&vdavinci->vdev.ctx[i].msix_lock, msix_flags);
             vdavinci->vdev.ctx[i].flags = KA_BASE_BIT(HW_VDAVINCI_IRQ_BYPASS_REGISTERED);
-            KA_TASK_INIT_WORK(&vdavinci->vdev.ctx[i].work, vdavinci_irq_work_handler);
         }
     } else if ((flags & KA_VFIO_IRQ_SET_DATA_NONE) != 0 && count == 0) {
-        hw_vdavinci_release_msix_eventfd_ctx(vdavinci, false);
+        hw_vdavinci_release_msix_triggers(vdavinci);
     }
 
     return 0;
@@ -1106,7 +1233,10 @@ STATIC long _hw_vdavinci_device_set_irqs(uintptr_t arg, struct hw_vdavinci *vdav
         }
     }
 
+    ka_task_mutex_lock(&vdavinci->vdavinci_lock);
     ret = hw_vdavinci_set_irqs(vdavinci, &hdr, data);
+    ka_task_mutex_unlock(&vdavinci->vdavinci_lock);
+
     ka_mm_kfree(data);
 
     return ret;
@@ -1121,7 +1251,6 @@ long hw_vdavinci_ioctl(ka_mdev_device_t *mdev, unsigned int cmd, unsigned long a
 {
     struct hw_vdavinci *vdavinci = get_vdavinci_from_mdev(mdev);
     uintptr_t arg_uptr = arg;
-    long ret = 0;
 
     if (!vdavinci) {
         return -EINVAL;
@@ -1135,10 +1264,7 @@ long hw_vdavinci_ioctl(ka_mdev_device_t *mdev, unsigned int cmd, unsigned long a
         case KA_VFIO_DEVICE_GET_IRQ_INFO:
             return _hw_vdavinci_device_get_irq_info(arg_uptr, vdavinci);
         case KA_VFIO_DEVICE_SET_IRQS:
-            ka_task_mutex_lock(&vdavinci->vdavinci_lock);
-            ret = _hw_vdavinci_device_set_irqs(arg_uptr, vdavinci);
-            ka_task_mutex_unlock(&vdavinci->vdavinci_lock);
-            return ret;
+            return _hw_vdavinci_device_set_irqs(arg_uptr, vdavinci);
         case KA_VFIO_DEVICE_RESET:
             return _hw_vdavinci_device_reset(vdavinci);
 #if ((IS_VDAVINCI_KERNEL_VERSION_SUPPORT) || (defined(DRV_UT)))
@@ -1162,21 +1288,14 @@ STATIC void kvmdt_unregister_mdev(ka_device_t *dev, struct hw_dvt *dvt)
     dvt->dvt_dev.drv = NULL;
 }
 
-STATIC int kvmdt_inject_msix(uintptr_t handle, u32 vector, int irq)
+STATIC int kvmdt_inject_msix(struct hw_vdavinci *vdavinci, u32 vector, int irq)
 {
-    struct kvmdt_guest_info *info = NULL;
-    struct hw_vdavinci *vdavinci = NULL;
     unsigned long flags = 0;
 
-    if (ka_unlikely(!handle_valid(handle))) {
+    if (ka_unlikely(vdavinci == NULL || !hw_dvt_is_vdavinci_active(vdavinci))) {
         return -ESRCH;
     }
-    info = (struct kvmdt_guest_info *)handle;
-    vdavinci = info->vdavinci;
-    if (ka_unlikely(vdavinci == NULL)) {
-        return -EINVAL;
-    }
-    if (ka_unlikely(vector >= vdavinci->debugfs.nvec)) {
+    if (ka_unlikely(vector >= (u32)vdavinci->msix_nvec)) {
         vascend_err(vdavinci_to_dev(vdavinci),
                     "inject msix failed, "
                     "wrong msix data: %d, vid: %u\n",
@@ -1193,7 +1312,8 @@ STATIC int kvmdt_inject_msix(uintptr_t handle, u32 vector, int irq)
     }
     ka_task_spin_lock_irqsave(&vdavinci->vdev.ctx[vector].msix_lock, flags);
     if (ka_likely(vdavinci->vdev.ctx[vector].trigger != NULL)) {
-        if (ka_likely(ka_eventfd_signal(vdavinci->vdev.ctx[vector].trigger, 1)) != 0) {
+        if (ka_likely(ka_eventfd_signal(vdavinci->vdev.ctx[vector].trigger, 1)) != 0 &&
+            vdavinci->debugfs.msix_count != NULL) {
             vdavinci->debugfs.msix_count[vector]++;
         }
     }
@@ -1202,25 +1322,32 @@ STATIC int kvmdt_inject_msix(uintptr_t handle, u32 vector, int irq)
     return 0;
 }
 
-STATIC int kvmdt_rw_gpa_common(uintptr_t handle, unsigned long gpa, void *buf, unsigned long len, bool write)
+STATIC int kvmdt_rw_gpa_common(struct hw_vdavinci *vdavinci, unsigned long gpa, void *buf, unsigned long len,
+                               bool write)
 {
-    struct kvmdt_guest_info *info = NULL;
+    int ret = 0;
 
-    if (!handle_valid(handle)) {
+    if (vdavinci == NULL) {
         return -ESRCH;
     }
-    info = (struct kvmdt_guest_info *)handle;
-    return vdavinci_rw_gpa(info, gpa, buf, len, write);
+    ka_task_mutex_lock(&vdavinci->vdavinci_lock);
+    if (!hw_dvt_is_vdavinci_active(vdavinci)) {
+        ka_task_mutex_unlock(&vdavinci->vdavinci_lock);
+        return -ESRCH;
+    }
+    ret = vdavinci_rw_gpa(vdavinci, gpa, buf, len, write);
+    ka_task_mutex_unlock(&vdavinci->vdavinci_lock);
+    return ret;
 }
 
-STATIC int kvmdt_read_gpa(uintptr_t handle, unsigned long gpa, void *buf, unsigned long len)
+STATIC int kvmdt_read_gpa(struct hw_vdavinci *vdavinci, unsigned long gpa, void *buf, unsigned long len)
 {
-    return kvmdt_rw_gpa_common(handle, gpa, buf, len, false);
+    return kvmdt_rw_gpa_common(vdavinci, gpa, buf, len, false);
 }
 
-STATIC int kvmdt_write_gpa(uintptr_t handle, unsigned long gpa, void *buf, unsigned long len)
+STATIC int kvmdt_write_gpa(struct hw_vdavinci *vdavinci, unsigned long gpa, void *buf, unsigned long len)
 {
-    return kvmdt_rw_gpa_common(handle, gpa, buf, len, true);
+    return kvmdt_rw_gpa_common(vdavinci, gpa, buf, len, true);
 }
 
 #if (IS_VDAVINCI_KERNEL_VERSION_SUPPORT || (defined(DRV_UT)))
@@ -1281,36 +1408,58 @@ STATIC unsigned long kvmdt_gfn_to_mfn_range(struct hw_vdavinci *vdavinci, unsign
 }
 #endif
 
-STATIC unsigned long kvmdt_gfn_to_mfn(uintptr_t handle, unsigned long gfn)
+/* Acquire RCU read lock and return kvm pointer if vdavinci is active.
+ * Caller must call ka_task_rcu_read_unlock() after use. */
+STATIC ka_kvm_t *kvmdt_kvm_rcu_lock(struct hw_vdavinci *vdavinci)
+{
+    if (vdavinci == NULL) {
+        return NULL;
+    }
+
+    ka_task_rcu_read_lock();
+    if (!hw_dvt_is_vdavinci_active(vdavinci) || vdavinci->vdev.kvm == NULL) {
+        ka_task_rcu_read_unlock();
+        return NULL;
+    }
+    return vdavinci->vdev.kvm;
+}
+
+STATIC unsigned long kvmdt_gfn_to_mfn(struct hw_vdavinci *vdavinci, unsigned long gfn)
 {
     unsigned long pfn = KVMDT_ERROR_PFN;
 #if (IS_VDAVINCI_KERNEL_VERSION_SUPPORT || (defined(DRV_UT)))
-    struct kvmdt_guest_info *info = (struct kvmdt_guest_info *)handle;
-    ka_kvm_t *kvm = NULL;
     bool kthread = (ka_task_get_current_mm() == NULL);
+    ka_kvm_t *kvm = kvmdt_kvm_rcu_lock(vdavinci);
 
-    if (!handle_valid(handle) || info == NULL || info->kvm == NULL) {
+    if (kvm == NULL) {
         return KVMDT_ERROR_PFN;
     }
-    pfn = kvmdt_gfn_to_mfn_range(info->vdavinci, gfn);
+    kvm_get_kvm(kvm);
+    pfn = kvmdt_gfn_to_mfn_range(vdavinci, gfn);
+    ka_task_rcu_read_unlock();
+
     if (ka_likely(pfn != KVMDT_ERROR_PFN)) {
+        kvm_put_kvm(kvm);
         return pfn;
     }
+
     ka_task_might_sleep();
-    kvm = info->kvm;
     if (kthread) {
         if (!ka_mm_mmget_not_zero(kvm->mm)) {
+            kvm_put_kvm(kvm);
             return KVMDT_ERROR_PFN;
         }
         ka_use_mm(kvm->mm);
     }
 
-    pfn = ka_gfn_to_pfn(info->kvm, gfn);
+    pfn = ka_gfn_to_pfn(kvm, gfn);
 
     if (kthread) {
         ka_unuse_mm(kvm->mm);
         ka_mm_mmput(kvm->mm);
     }
+
+    kvm_put_kvm(kvm);
 
     if (ka_is_error_noslot_pfn(pfn)) {
         return KVMDT_ERROR_PFN;
@@ -1320,29 +1469,32 @@ STATIC unsigned long kvmdt_gfn_to_mfn(uintptr_t handle, unsigned long gfn)
     return pfn;
 }
 
-unsigned long kvmdt_gfn_to_hva(uintptr_t handle, unsigned long gfn)
+unsigned long kvmdt_gfn_to_hva(struct hw_vdavinci *vdavinci, unsigned long gfn)
 {
     unsigned long hva = KVMDT_ERROR_PFN;
 #if (IS_VDAVINCI_KERNEL_VERSION_SUPPORT || (defined(DRV_UT)))
-    struct kvmdt_guest_info *info = (struct kvmdt_guest_info *)handle;
-    ka_kvm_t *kvm = NULL;
     bool kthread = (ka_task_get_current_mm() == NULL);
+    ka_kvm_t *kvm = kvmdt_kvm_rcu_lock(vdavinci);
 
-    if (!handle_valid(handle) || info->kvm == NULL) {
+    if (kvm == NULL) {
         return KVMDT_ERROR_PFN;
     }
-    kvm = info->kvm;
     if (kthread) {
         if (!ka_mm_mmget_not_zero(kvm->mm)) {
+            ka_task_rcu_read_unlock();
             return KVMDT_ERROR_PFN;
         }
         ka_use_mm(kvm->mm);
     }
-    hva = ka_gfn_to_hva(info->kvm, gfn);
+    hva = ka_gfn_to_hva(kvm, gfn);
     if (kthread) {
         ka_unuse_mm(kvm->mm);
+        /* Safe in RCU read-side: kvm is alive (protected by synchronize_rcu in release),
+         * so kvm holds an mm refcount and mmput will not reach zero here. */
         ka_mm_mmput(kvm->mm);
     }
+    ka_task_rcu_read_unlock();
+
     if (ka_kvm_is_error_hva(hva)) {
         return KVMDT_ERROR_PFN;
     }
@@ -1350,68 +1502,22 @@ unsigned long kvmdt_gfn_to_hva(uintptr_t handle, unsigned long gfn)
     return hva;
 }
 
-STATIC int kvmdt_guest_init(ka_mdev_device_t *mdev)
+void hw_vdavinci_release_vm(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom)
 {
-    struct kvmdt_guest_info *info = NULL;
-    struct hw_vdavinci *vdavinci = get_vdavinci_from_mdev(mdev);
-    ka_kvm_t *kvm = NULL;
-
-    if (vdavinci == NULL) {
-        return -EINVAL;
-    }
-    if (handle_valid(vdavinci->handle)) {
-        return -EEXIST;
-    }
-
-    kvm = vdavinci->vdev.kvm;
-    if (kvm == NULL || kvm->mm != ka_task_get_current_mm()) {
-        vascend_err(vdavinci_to_dev(vdavinci),
-                    "KVM is required to use huawei vdavinci, "
-                    "vid: %u\n",
-                    vdavinci->id);
-        return -ESRCH;
-    }
-
-    info = ka_mm_vzalloc(sizeof(struct kvmdt_guest_info));
-    if (info == NULL) {
-        return -ENOMEM;
-    }
-    vdavinci->handle = (uintptr_t)info;
-    info->vdavinci = vdavinci;
-    info->kvm = kvm;
-    kvm_get_kvm(info->kvm);
-
-    return 0;
-}
-
-void hw_vdavinci_release_vm(struct hw_vdavinci *vdavinci)
-{
-    hw_vdavinci_unpin_pages(vdavinci);
+    hw_vdavinci_unpin_pages(vdavinci, vm_dom);
     vdavinci_check(vdavinci);
 }
 
-STATIC void kvmdt_guest_exit(struct kvmdt_guest_info *info)
-{
-    hw_vdavinci_unregister_iodev(info->vdavinci);
-    ka_fs_debugfs_remove(info->debugfs_cache_entries);
-    kvm_put_kvm(info->kvm);
-    hw_vdavinci_dma_pool_uninit(info->vdavinci);
-    ka_mm_vfree(info);
-}
-
-STATIC bool kvmdt_is_valid_gfn(uintptr_t handle, unsigned long gfn)
+STATIC bool kvmdt_is_valid_gfn(struct hw_vdavinci *vdavinci, unsigned long gfn)
 {
     bool ret = false;
     int idx;
     ka_kvm_t *kvm = NULL;
-    struct kvmdt_guest_info *info = NULL;
 
-    if (!handle_valid(handle)) {
+    if (vdavinci == NULL || !hw_dvt_is_vdavinci_active(vdavinci) || vdavinci->vdev.kvm == NULL) {
         return false;
     }
-
-    info = (struct kvmdt_guest_info *)handle;
-    kvm = info->kvm;
+    kvm = vdavinci->vdev.kvm;
 
     idx = ka_task_srcu_read_lock(&kvm->srcu);
     ret = ka_kvm_is_visible_gfn(kvm, gfn);

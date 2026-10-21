@@ -24,16 +24,16 @@
 #include "dpa_kernel_interface.h"
 
 #define DMS_PROCESS_INFO_CMD_NAME "DMS_PROCESS_INFO"
-#define DMS_VDEV_MAX_NUM_PER_PHY_DEV     16U
-#define DMS_DEV_MAX_NUM_PER_PHY_DEV      (DMS_VDEV_MAX_NUM_PER_PHY_DEV + 1U)
-#define DMS_PROCESS_MAX_NUM              64
-#define DMS_MASTER_PROC_MAX_NUM          2048U
-#define DMS_DEV_PROCESS_CONTAINER_PID    10
+#define DMS_VDEV_MAX_NUM_PER_PHY_DEV 16U
+#define DMS_DEV_MAX_NUM_PER_PHY_DEV (DMS_VDEV_MAX_NUM_PER_PHY_DEV + 1U)
+#define DMS_PROCESS_MAX_NUM 64
+#define DMS_MASTER_PROC_MAX_NUM 2048U
+#define DMS_DEV_PROCESS_CONTAINER_PID 10
 
 int hal_kernel_apm_query_slave_tgid_by_master(int master_tgid, u32 udevid, processType_t proc_type, int *slave_tgid);
 
-STATIC void dms_get_valid_dev_list(struct urd_cmd_kernel_para *kernel_para,
-    unsigned int *dev_list, unsigned int *dev_num)
+STATIC void dms_get_valid_dev_list(struct urd_cmd_kernel_para *kernel_para, unsigned int *dev_list,
+                                   unsigned int *dev_num)
 {
     unsigned int vdev_udevid;
     unsigned int num = 0;
@@ -76,10 +76,11 @@ STATIC int dms_get_normal_docker_process_list(unsigned int udevid, unsigned int 
     int ret;
 
     ka_task_rcu_read_lock();
-    ka_for_each_process(tsk) {
+    ka_for_each_process(tsk)
+    {
         if ((tsk != NULL) && (tsk->pid == *master_tgid)) {
-            if (process_is_in_current_container(tsk) || ((resource_type == DMS_DEV_PROCESS_CONTAINER_PID) &&
-                (run_in_admin_docker()))) {
+            if (process_is_in_current_container(tsk) ||
+                ((resource_type == DMS_DEV_PROCESS_CONTAINER_PID) && (run_in_admin_docker()))) {
                 break;
             }
             ka_task_rcu_read_unlock();
@@ -97,8 +98,8 @@ STATIC int dms_get_normal_docker_process_list(unsigned int udevid, unsigned int 
     return 0;
 }
 
-STATIC int _dms_get_process_list(struct urd_cmd_kernel_para *kernel_para, struct urd_cmd_para *para,
-    int *master_tgids, unsigned int master_num, unsigned int resource_type)
+STATIC int _dms_get_process_list(struct urd_cmd_kernel_para *kernel_para, struct urd_cmd_para *para, int *master_tgids,
+                                 unsigned int master_num, unsigned int resource_type)
 {
     unsigned int dev_list[DMS_DEV_MAX_NUM_PER_PHY_DEV];
     unsigned int dev_num = 0;
@@ -118,7 +119,8 @@ STATIC int _dms_get_process_list(struct urd_cmd_kernel_para *kernel_para, struct
 
     for (i = 0; i < master_num; i++) {
         for (j = 0; j < dev_num; j++) {
-            if (hal_kernel_apm_query_slave_tgid_by_master(master_tgids[i], dev_list[j], PROCESS_CP1, &slave_tgid) != 0) {
+            if (hal_kernel_apm_query_slave_tgid_by_master(master_tgids[i], dev_list[j], PROCESS_CP1, &slave_tgid) !=
+                0) {
                 continue;
             }
             if (run_in_normal_docker() &&
@@ -145,8 +147,7 @@ STATIC int _dms_get_process_list(struct urd_cmd_kernel_para *kernel_para, struct
     return ret;
 }
 
-int dms_get_process_list(const struct urd_cmd *cmd,
-    struct urd_cmd_kernel_para *kernel_para, struct urd_cmd_para *para)
+int dms_get_process_list(const struct urd_cmd *cmd, struct urd_cmd_kernel_para *kernel_para, struct urd_cmd_para *para)
 {
     unsigned int master_num = 0;
     unsigned int resource_type;
@@ -154,8 +155,8 @@ int dms_get_process_list(const struct urd_cmd *cmd,
     int ret = 0;
 
     if ((cmd == NULL) || (kernel_para == NULL) || (para == NULL)) {
-        dms_err("Input urd argument is null. (cmd_is_NULL=%d; kernel_para_is_NULL=%d; para_is_NULL=%d)\n",
-            cmd == NULL, kernel_para == NULL, para == NULL);
+        dms_err("Input urd argument is null. (cmd_is_NULL=%d; kernel_para_is_NULL=%d; para_is_NULL=%d)\n", cmd == NULL,
+                kernel_para == NULL, para == NULL);
         return -EINVAL;
     }
 
@@ -195,8 +196,8 @@ int dms_get_process_list(const struct urd_cmd *cmd,
     return ret;
 }
 
-int dms_get_process_memory(const struct urd_cmd *cmd,
-    struct urd_cmd_kernel_para *kernel_para, struct urd_cmd_para *para)
+int dms_get_process_memory(const struct urd_cmd *cmd, struct urd_cmd_kernel_para *kernel_para,
+                           struct urd_cmd_para *para)
 {
     unsigned long long mem_size;
     int pid;
@@ -204,8 +205,8 @@ int dms_get_process_memory(const struct urd_cmd *cmd,
     int ret = 0;
 
     if ((cmd == NULL) || (kernel_para == NULL) || (para == NULL)) {
-        dms_err("Input urd argument is null. (cmd_is_NULL=%d; kernel_para_is_NULL=%d; para_is_NULL=%d)\n",
-            cmd == NULL, kernel_para == NULL, para == NULL);
+        dms_err("Input urd argument is null. (cmd_is_NULL=%d; kernel_para_is_NULL=%d; para_is_NULL=%d)\n", cmd == NULL,
+                kernel_para == NULL, para == NULL);
         return -EINVAL;
     }
 
@@ -245,10 +246,10 @@ int dms_get_process_memory(const struct urd_cmd *cmd,
 
 BEGIN_DMS_MODULE_DECLARATION(DMS_PROCESS_INFO_CMD_NAME)
 BEGIN_FEATURE_COMMAND()
-ADD_DEV_FEATURE_COMMAND(DMS_PROCESS_INFO_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_PROCESS_LIST,
-    NULL, NULL, DMS_SUPPORT_ALL, dms_get_process_list)
-ADD_DEV_FEATURE_COMMAND(DMS_PROCESS_INFO_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_PROCESS_MEMORY,
-    NULL, NULL, DMS_SUPPORT_ALL, dms_get_process_memory)
+ADD_DEV_FEATURE_COMMAND(DMS_PROCESS_INFO_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_PROCESS_LIST, NULL, NULL,
+                        DMS_SUPPORT_ALL, dms_get_process_list)
+ADD_DEV_FEATURE_COMMAND(DMS_PROCESS_INFO_CMD_NAME, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_PROCESS_MEMORY, NULL, NULL,
+                        DMS_SUPPORT_ALL, dms_get_process_memory)
 END_FEATURE_COMMAND()
 END_MODULE_DECLARATION()
 

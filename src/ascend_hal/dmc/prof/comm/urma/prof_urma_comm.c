@@ -201,8 +201,8 @@ drvError_t prof_urma_post_recv(struct prof_urma_chan_info *urma_chan_info, uint3
 {
     uint64_t user_ctx = 0;
 
-    user_ctx = (uint64_t)urma_chan_info->dev_id << 32, /* 32: dev_id in hign 32 bits */
-        user_ctx |= urma_chan_info->chan_id;
+    user_ctx = (uint64_t)urma_chan_info->dev_id << 32; /* 32: dev_id in hign 32 bits */
+    user_ctx |= urma_chan_info->chan_id;
 
     return prof_urma_post_jetty_recv_wr(urma_chan_info->jetty, urma_chan_info->user_buff_tseg, user_ctx, depth);
 }
@@ -223,6 +223,7 @@ STATIC drvError_t prof_urma_write_with_imm_post_proc(uint64_t user_ctx, uint32_t
         return ret;
     }
 
+    /* debug log need to be del before merge*/
     PROF_INFO("Receive data success. (dev_id=%u, chan_id=%u, w_ptr=%u)\n", dev_id, chan_id, w_ptr);
 
     return DRV_ERROR_NONE;
@@ -388,7 +389,7 @@ drvError_t prof_urma_remote_info_import(struct prof_urma_info *urma_info, struct
     rjetty.jetty_id.id = sync_msg->jetty_id;
     ret = memcpy_s(&rjetty.jetty_id.eid, PROF_EID_SIZE, sync_msg->eid_raw, PROF_EID_SIZE);
     if (ret != 0) {
-        PROF_ERR("Memcpy is failed. (dev_id=%u, chan_id=%u)\n", dev_id, urma_chan_info->chan_id);
+        PROF_ERR("Memcpy failed. (dev_id=%u, chan_id=%u)\n", dev_id, urma_chan_info->chan_id);
         return DRV_ERROR_INNER_ERR;
     }
     rjetty.trans_mode = URMA_TM_RM;
@@ -397,11 +398,11 @@ drvError_t prof_urma_remote_info_import(struct prof_urma_info *urma_info, struct
 #ifdef SSAPI_USE_MAMI
     ret = memcpy_s(tpid_cfg.peer_eid.raw, PROF_EID_SIZE, sync_msg->eid_raw, PROF_EID_SIZE);
     if (ret != 0) {
-        PROF_ERR("Memcpy is failed. (dev_id=%u, chan_id=%u)\n", dev_id, urma_chan_info->chan_id);
+        PROF_ERR("Memcpy failed. (dev_id=%u, chan_id=%u)\n", dev_id, urma_chan_info->chan_id);
         return DRV_ERROR_INNER_ERR;
     }
 
-    status = urma_get_tp_list(urma_info->urma_ctx, &tpid_cfg, &tp_cnt, &tpid_info);
+    status = ascend_urma_get_tp_list(urma_info->urma_ctx, &tpid_cfg, &tp_cnt, &tpid_info);
     if ((status != 0) || (tp_cnt == 0)) {
         PROF_ERR("urma get tp list failed (status=%d; tp_cnt=%u)\n", status, tp_cnt);
         return DRV_ERROR_INNER_ERR;
@@ -410,7 +411,7 @@ drvError_t prof_urma_remote_info_import(struct prof_urma_info *urma_info, struct
     active_tp_cfg.tp_handle = tpid_info.tp_handle;
     rjetty.tp_type = URMA_CTP;
     remote_token.token = sync_msg->token_val;
-    urma_chan_info->tjetty = urma_import_jetty_ex(urma_info->urma_ctx, &rjetty, &remote_token, &active_tp_cfg);
+    urma_chan_info->tjetty = ascend_urma_import_jetty_ex(urma_info->urma_ctx, &rjetty, &remote_token, &active_tp_cfg);
 #else
     urma_chan_info->tjetty = urma_import_jetty(urma_info->urma_ctx, &rjetty, &remote_token);
 #endif
@@ -426,16 +427,16 @@ drvError_t prof_urma_remote_info_import(struct prof_urma_info *urma_info, struct
     r_ptr_seg.ubva.va = (uint64_t)(uintptr_t)sync_msg->r_ptr;
     ret = memcpy_s(&r_ptr_seg.ubva.eid, PROF_EID_SIZE, sync_msg->eid_raw, PROF_EID_SIZE);
     if (ret != 0) {
-        (void)urma_unimport_jetty(urma_chan_info->tjetty);
+        (void)ascend_urma_unimport_jetty_ex(urma_chan_info->tjetty);
         urma_chan_info->tjetty = NULL;
-        PROF_ERR("Memcpy is failed. (dev_id=%u, chan_id=%u)\n", dev_id, urma_chan_info->chan_id);
+        PROF_ERR("Memcpy failed. (dev_id=%u, chan_id=%u)\n", dev_id, urma_chan_info->chan_id);
         return DRV_ERROR_INNER_ERR;
     }
     r_ptr_seg.token_id = sync_msg->token_id;
     urma_chan_info->r_ptr_tseg = urma_import_seg(urma_info->urma_ctx, &r_ptr_seg, &remote_token, 0, flag);
     if (urma_chan_info->r_ptr_tseg == NULL) {
 #ifndef PROF_UNIT_TEST
-        (void)urma_unimport_jetty(urma_chan_info->tjetty);
+        (void)ascend_urma_unimport_jetty_ex(urma_chan_info->tjetty);
         urma_chan_info->tjetty = NULL;
         PROF_ERR("Failed to import remote segment. (dev_id=%u, chan_id=%u, remote_eid=%u, "
                  "remote_token_id=%u)\n",
@@ -444,7 +445,7 @@ drvError_t prof_urma_remote_info_import(struct prof_urma_info *urma_info, struct
 #endif
     }
 
-    PROF_INFO("Import remote jetty and segment success. (dev_id=%u, chan_id=%u, remote_jetty_id=%u, "
+    PROF_INFO("Import remote jetty and segment successfully. (dev_id=%u, chan_id=%u, remote_jetty_id=%u, "
               "remote_eid=%u, remote_token_id=%u)\n",
               dev_id, urma_chan_info->chan_id, sync_msg->jetty_id, sync_msg->eid, sync_msg->token_id);
 
@@ -456,7 +457,7 @@ void prof_urma_remote_info_unimport(struct prof_urma_info *urma_info, struct pro
     (void)urma_info;
 
     urma_unimport_seg(urma_chan_info->r_ptr_tseg);
-    urma_unimport_jetty(urma_chan_info->tjetty);
+    ascend_urma_unimport_jetty_ex(urma_chan_info->tjetty);
 }
 
 drvError_t prof_urma_write_remote_rptr(uint32_t dev_id, uint32_t chan_id, struct prof_urma_chan_info *urma_chan_info)
@@ -542,7 +543,7 @@ STATIC drvError_t prof_urma_creat(uint32_t dev_id, struct prof_urma_info *info)
         return ret;
     }
 
-    info->urma_ctx = urma_create_context(info->urma_dev, info->eid_index);
+    info->urma_ctx = ascend_urma_create_context(info->urma_dev, info->eid_index);
     if (info->urma_ctx == NULL) {
         PROF_ERR("Failed to create urma proc ctx. (eid_index=%u)\n", info->eid_index);
         return DRV_ERROR_INNER_ERR;
@@ -551,7 +552,7 @@ STATIC drvError_t prof_urma_creat(uint32_t dev_id, struct prof_urma_info *info)
     info->token.token = token_val;
     info->token_id = urma_alloc_token_id(info->urma_ctx);
     if (info->token_id == NULL) {
-        (void)urma_delete_context(info->urma_ctx);
+        (void)ascend_urma_delete_context(info->urma_ctx);
         PROF_ERR("Failed to alloc urma token id.\n");
         return DRV_ERROR_INNER_ERR;
     }
@@ -559,7 +560,7 @@ STATIC drvError_t prof_urma_creat(uint32_t dev_id, struct prof_urma_info *info)
     info->jfce = urma_create_jfce(info->urma_ctx);
     if (info->jfce == NULL) {
         (void)urma_free_token_id(info->token_id);
-        (void)urma_delete_context(info->urma_ctx);
+        (void)ascend_urma_delete_context(info->urma_ctx);
         PROF_ERR("Failed to create jfce.\n");
         return DRV_ERROR_INNER_ERR;
     }
@@ -578,7 +579,7 @@ void prof_urma_destroy(struct prof_urma_info *info)
     prof_urma_recv_thread_destroy(info);
     (void)urma_delete_jfce(info->jfce);
     (void)urma_free_token_id(info->token_id);
-    (void)urma_delete_context(info->urma_ctx);
+    (void)ascend_urma_delete_context(info->urma_ctx);
 }
 
 STATIC drvError_t prof_urma_info_id_alloc(uint32_t dev_id, uint32_t *urma_info_id)

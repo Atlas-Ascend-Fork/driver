@@ -13,6 +13,7 @@
 #include "res_drv.h"
 #include "comm_kernel_interface.h"
 #include "devdrv_adapt.h"
+#include "devdrv_mem_alloc.h"
 
 int devdrv_res_init(struct devdrv_pci_ctrl *pci_ctrl)
 {
@@ -47,5 +48,10 @@ void devdrv_res_uninit(struct devdrv_pci_ctrl *pci_ctrl)
     if (pci_ctrl->local_reserve_mem_base != NULL) {
         ka_mm_iounmap(pci_ctrl->local_reserve_mem_base);
         pci_ctrl->local_reserve_mem_base = NULL;
+    }
+
+    if (pci_ctrl->ops.peh != NULL) {
+        devdrv_kfree(pci_ctrl->ops.peh);
+        pci_ctrl->ops.peh = NULL;
     }
 }

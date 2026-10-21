@@ -22,7 +22,12 @@ set(MAKESELF_SEARCH_PATHS
 
 find_path(MAKESELF_SH_PATH NAMES makeself.sh PATHS ${MAKESELF_SEARCH_PATHS})
 if(NOT MAKESELF_SH_PATH)
-    set(MAKESELF_URL "https://gitcode.com/cann-src-third-party/makeself/releases/download/release-2.5.0-patch1.0/makeself-release-2.5.0-patch1.tar.gz")
+    if (EXISTS "${CANN_3RD_LIB_PATH}/makeself-release-2.5.0-patch1.tar.gz")
+        set(MAKESELF_URL "file://${CANN_3RD_LIB_PATH}/makeself-release-2.5.0-patch1.tar.gz")
+    else()
+        set(MAKESELF_URL "https://gitcode.com/cann-src-third-party/makeself/releases/download/\
+release-2.5.0-patch1.0/makeself-release-2.5.0-patch1.tar.gz")
+    endif()
     message(STATUS "Downloading ${MAKESELF_NAME} from ${MAKESELF_URL}")
 
     include(FetchContent)
@@ -30,8 +35,8 @@ if(NOT MAKESELF_SH_PATH)
         ${MAKESELF_NAME}
         URL ${MAKESELF_URL}
         URL_HASH SHA256=bfa730a5763cdb267904a130e02b2e48e464986909c0733ff1c96495f620369a
-        DOWNLOAD_DIR ${EXTERN_DEPEND_DOWNLOAD_DIR}/${MAKESELF_NAME}
-        SOURCE_DIR "${MAKESELF_PATH}"  # 直接解压到此目录
+        DOWNLOAD_DIR ${EXTERN_DEPEND_DOWNLOAD_DIR}
+        SOURCE_DIR "${MAKESELF_PATH}"
     )
     FetchContent_MakeAvailable(${MAKESELF_NAME})
     execute_process(

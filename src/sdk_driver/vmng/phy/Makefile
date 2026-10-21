@@ -10,7 +10,7 @@
 MODULE_NAME := asdrv_vmng
 obj-m += ${MODULE_NAME}.o
 ${MODULE_NAME}-objs := common/module_host_init.o
-${MODULE_NAME}-objs += host/virtmnghost_pci.o host/virtmnghost_ctrl.o host/virtmnghost_unit.o
+${MODULE_NAME}-objs += host/virtmnghost_pci.o host/virtmnghost_ctrl.o host/virtmnghost_unit.o host/virtmnghost_feature.o
 ${MODULE_NAME}-objs += host/virtmnghost_external.o host/virtmnghost_sysfs.o host/virtmnghost_proc_fs.o
 ${MODULE_NAME}-objs += host/soc_adapt/virtmng_res_drv.o host/soc_adapt/virtmng_res_cloud_v1.o host/soc_adapt/virtmng_res_cloud_v2.o
 ${MODULE_NAME}-objs += host/soc_adapt/virtmng_res_mini_v2.o host/soc_adapt/virtmng_res_cloud_v4.o host/soc_adapt/virtmng_res_comm.o
@@ -39,14 +39,6 @@ EXTRA_CFLAGS += -DCFG_ENV_HOST
 
 include $(FEATURE_MK_PATH)
 EXTRA_CFLAGS += $(CONFIG_DEFINES)
-
-ifneq ($(filter $(PRODUCT), ascend910B),)
-	EXTRA_CFLAGS += -DCFG_SOC_PLATFORM_CLOUD_V2
-endif
-
-ifneq ($(filter $(PRODUCT), ascend950),)
-	EXTRA_CFLAGS += -DCFG_SOC_PLATFORM_CLOUD_V4
-endif
 
 ccflags-y += -fno-common -fstack-protector-all -funsigned-char -pipe -s -Wall -Wcast-align -Werror -Wfloat-equal
 ccflags-y += -Wformat=2 -Wstack-usage=2048 -Wstrict-prototypes -Wtrampolines -Wundef -Wunused -Wvla -Wno-format-nonliteral

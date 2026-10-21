@@ -53,7 +53,7 @@ static drvError_t prof_get_event_grpid(uint32_t dev_id, uint32_t remote_pid, uin
     }
 
     *grp_id = 0; // grp not exist, use default grpid 0.
-    PROF_WARN("Query grpid abnormal. (ret=%d, dev_id=%u, devpid=%d, group_name=%s).\n", ret, dev_id, gid_in.pid,
+    PROF_WARN("Query grpid unsuccessfully. (ret=%d, dev_id=%u, devpid=%d, group_name=%s).\n", ret, dev_id, gid_in.pid,
               group_name);
     return ret;
 }
@@ -208,7 +208,8 @@ drvError_t prof_event_submit_event_sync(struct prof_event_para *para)
                  para->remote_pid, event_info.subevent_id);
         goto out;
     }
-
+    PROF_RUN_INFO("Prof submit event successfully.(dev_id=%u,remote_pid=%u,subevent_id=%u)\n", para->dev_id,
+                  para->remote_pid, event_info.subevent_id);
     ret = prof_event_get_submit_sync_result(para, &reply);
 out:
     prof_event_submit_sync_para_uninit(&event_info, &reply);

@@ -26,22 +26,22 @@
 #include "drv_kernel_soft.h"
 
 #define SOFT_PARSE_HANDLE(node_type, sensor_idx, sensor_type, handle) \
-do { \
-    node_type = (handle) >> SF_OFFSET_32BIT; \
-    sensor_idx = ((handle) & SF_MASK_32BIT) >> SF_OFFSET_16BIT; \
-    sensor_type = (handle) & SF_MASK_16BIT; \
-} while (0) \
+    do {                                                              \
+        node_type = (handle) >> SF_OFFSET_32BIT;                      \
+        sensor_idx = ((handle) & SF_MASK_32BIT) >> SF_OFFSET_16BIT;   \
+        sensor_type = (handle) & SF_MASK_16BIT;                       \
+    } while (0)
 
-#define SOFT_PRINT_REGISTER_LOG(client, user_node, cfg, handle, user_num, flag) \
+#define SOFT_PRINT_REGISTER_LOG(client, user_node, cfg, handle, user_num, flag)                                       \
     soft_drv_event("soft node register success. (dev_id=%u; name=%s; pid=%d; user_id=%u; node_id=%u; node_type=0x%x;" \
-        " sensor_type=0x%x; assert_event_mask=0x%x; deassert_event_mask=0x%x; user_num=%u; node_num=%u;" \
-        " handle=0x%llx; sensor_obj_num=%u; first_register=%d)\n", \
-        (user_node)->dev_id, (cfg)->name, (client)->pid, (client)->user_id, (user_node)->node_id, (cfg)->node_type, \
-        (cfg)->sensor_type, (cfg)->assert_event_mask, (cfg)->deassert_event_mask, (user_num), (client)->node_num,  \
-        *(handle), (user_node)->sensor_obj_num, (flag))
+                   " sensor_type=0x%x; assert_event_mask=0x%x; deassert_event_mask=0x%x; user_num=%u; node_num=%u;"   \
+                   " handle=0x%llx; sensor_obj_num=%u; first_register=%d)\n",                                         \
+                   (user_node)->dev_id, (cfg)->name, (client)->pid, (client)->user_id, (user_node)->node_id,          \
+                   (cfg)->node_type, (cfg)->sensor_type, (cfg)->assert_event_mask, (cfg)->deassert_event_mask,        \
+                   (user_num), (client)->node_num, *(handle), (user_node)->sensor_obj_num, (flag))
 
-STATIC DMS_SENSOR_TYPE_T g_sensor_type_list[] = {
-    DMS_SEN_TYPE_HEARTBEAT, DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT, DMS_SEN_TYPE_SAFETY_SENSOR};
+STATIC DMS_SENSOR_TYPE_T g_sensor_type_list[] = {DMS_SEN_TYPE_HEARTBEAT, DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT,
+                                                 DMS_SEN_TYPE_SAFETY_SENSOR};
 
 const struct soft_fault_acc g_soft_fault_whitelist[] = {
 #include "fms/soft_fault_whitelist.inc"
@@ -79,7 +79,8 @@ STATIC int soft_fault_get_fault_index(uint64_t handle, int val, const struct sof
         }
     }
 
-    soft_drv_err("Get fault index fail. (node_type=0x%x; sensor_type=0x%x; val=0x%x)\n", node_type, sensor_type, val);
+    soft_drv_debug("Not support node_type sensor_type err_type. (node_type=0x%x; sensor_type=0x%x; err_type=0x%x)\n",
+                   node_type, sensor_type, val);
     return -EINVAL;
 }
 
@@ -182,7 +183,7 @@ STATIC bool soft_fault_whitelist_check(u32 devid, uint64_t handle, int val)
 
     soft_fault_get_whitelist(devid, &whitelist, &white_num);
     if (soft_fault_get_fault_index(handle, val, whitelist, white_num, &fault_index) != 0) {
-        soft_drv_err("Get fault index fail. (handle=0x%llx; val=%d)\n", handle, val);
+        soft_drv_debug("Not support handle val. (handle=0x%llx; val=%d)\n", handle, val);
         return false;
     }
 
@@ -226,6 +227,7 @@ STATIC bool soft_sensor_whitelist_check(u32 devid, unsigned short node_type, uns
     char *proc_name_cur = NULL;
     const struct soft_fault_acc *whitelist = NULL;
     u32 white_num = 0;
+    bool find_flag = false;
 
     soft_fault_get_whitelist(devid, &whitelist, &white_num);
     user_role_cur = soft_fault_get_cur_user_role();
@@ -242,6 +244,7 @@ STATIC bool soft_sensor_whitelist_check(u32 devid, unsigned short node_type, uns
 
     for (i = 0; i < white_num; i++) {
         if ((whitelist[i].node_type == node_type) && (whitelist[i].sensor_type == sensor_type)) {
+            find_flag = true;
             if ((soft_fault_check_user_role(user_role_cur, whitelist[i].user_acc)) &&
                 (soft_fault_check_run_env(run_env_cur, whitelist[i].run_env)) &&
                 (soft_fault_check_proc_name(proc_name_cur, whitelist[i].proc_name))) {
@@ -252,9 +255,15 @@ STATIC bool soft_sensor_whitelist_check(u32 devid, unsigned short node_type, uns
         }
     }
 
-    soft_drv_err("Check sensor whitelist fail. (node_type=0x%x; sensor_type=0x%x; user_role_cur=0x%x; "
-                 "run_env_cur=0x%x; proc_name_cur=%s)\n",
-                 node_type, sensor_type, user_role_cur, run_env_cur, proc_name_cur);
+    if (find_flag == false) {
+        soft_drv_debug("Not support node_type sensor_type. (node_type=0x%x; sensor_type=0x%x)\n", node_type,
+                       sensor_type);
+    } else {
+        soft_drv_err("Check sensor whitelist fail. (node_type=0x%x; sensor_type=0x%x; user_role_cur=0x%x; "
+                     "run_env_cur=0x%x; proc_name_cur=%s)\n",
+                     node_type, sensor_type, user_role_cur, run_env_cur, proc_name_cur);
+    }
+
     return false;
 }
 
@@ -298,11 +307,11 @@ STATIC int soft_trans_and_check_id(u32 logic_id, u32 *phy_id, u32 *vfid)
     return 0;
 }
 
-STATIC void soft_get_default_event_mask(
-    unsigned int sensor_type, unsigned int *assert_event_mask, unsigned int *deassert_event_mask)
+STATIC void soft_get_default_event_mask(unsigned int sensor_type, unsigned int *assert_event_mask,
+                                        unsigned int *deassert_event_mask)
 {
     if (sensor_type == DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT) {
-        *assert_event_mask = 0x3FF; /* 0x3FF: 0-9 */
+        *assert_event_mask = 0x3FF;   /* 0x3FF: 0-9 */
         *deassert_event_mask = 0x3FF; /* 0x3FF: 0-9 */
     } else if (sensor_type == DMS_SEN_TYPE_SAFETY_SENSOR) {
         *assert_event_mask = 0x3FF;
@@ -314,8 +323,8 @@ STATIC void soft_get_default_event_mask(
     return;
 }
 
-STATIC int user_sensor_register(struct soft_dev *user_node, struct dms_sensor_node_cfg *cfg,
-    unsigned int user_id, unsigned int sub_id)
+STATIC int user_sensor_register(struct soft_dev *user_node, struct dms_sensor_node_cfg *cfg, unsigned int user_id,
+                                unsigned int sub_id)
 {
     int ret;
     int pid = ka_task_get_current_tgid();
@@ -323,9 +332,10 @@ STATIC int user_sensor_register(struct soft_dev *user_node, struct dms_sensor_no
     unsigned int deassert_event_mask = cfg->deassert_event_mask;
     struct dms_sensor_object_cfg *obj = &user_node->sensor_obj_table[sub_id];
     struct dms_sensor_object_cfg s_cfg = SOFT_SENSOR_DEF(cfg->sensor_type, "hb", 0UL, user_id, SF_SUB_ID0,
-        assert_event_mask, deassert_event_mask, SF_SENSOR_SCAN_TIME, soft_fault_event_scan, pid);
+                                                         assert_event_mask, deassert_event_mask, SF_SENSOR_SCAN_TIME,
+                                                         soft_fault_event_scan, pid);
 
-    /* This is compatibility processing, when the caller not uses the extension field, 
+    /* This is compatibility processing, when the caller not uses the extension field,
      * set default event mask */
     if ((assert_event_mask == 0) && (deassert_event_mask == 0)) {
         soft_get_default_event_mask(cfg->sensor_type, &assert_event_mask, &deassert_event_mask);
@@ -334,8 +344,8 @@ STATIC int user_sensor_register(struct soft_dev *user_node, struct dms_sensor_no
     }
 
     *obj = s_cfg;
-    obj->private_data =
-        soft_combine_private_data(user_node->dev_id, user_id, cfg->node_type, user_node->node_id, sub_id);
+    obj->private_data = soft_combine_private_data(user_node->dev_id, user_id, cfg->node_type, user_node->node_id,
+                                                  sub_id);
     ret = snprintf_s(obj->sensor_name, DMS_SENSOR_DESCRIPT_LENGTH, DMS_SENSOR_DESCRIPT_LENGTH, "%s", cfg->name);
     if (ret <= 0) {
         soft_drv_err("snprintf_s sensor_name failed. (name=%s; ret=%d)\n", cfg->name, ret);
@@ -345,7 +355,7 @@ STATIC int user_sensor_register(struct soft_dev *user_node, struct dms_sensor_no
     ret = dms_sensor_register_for_userspace(&user_node->dev_node, obj);
     if (ret != 0) {
         soft_drv_err("Register sensor failed. (dev_id=%u; user_name=%s; node_type=0x%x; sensor_type=0x%x; ret=%d)\n",
-            user_node->dev_id, ka_task_get_current_comm(), cfg->node_type, cfg->sensor_type, ret);
+                     user_node->dev_id, ka_task_get_current_comm(), cfg->node_type, cfg->sensor_type, ret);
         return ret;
     }
 
@@ -353,7 +363,7 @@ STATIC int user_sensor_register(struct soft_dev *user_node, struct dms_sensor_no
 }
 
 STATIC int user_dev_node_register(unsigned int dev_id, unsigned int user_id, struct soft_dev *user_node,
-    struct dms_sensor_node_cfg *cfg, uint64_t *handle)
+                                  struct dms_sensor_node_cfg *cfg, uint64_t *handle)
 {
     int ret;
     unsigned int sensor_idx;
@@ -368,7 +378,7 @@ STATIC int user_dev_node_register(unsigned int dev_id, unsigned int user_id, str
     if (user_node->registered == 0) { /* dev_node register once only */
         user_node->dev_node = s_node;
         ret = snprintf_s(user_node->dev_node.node_name, DMS_MAX_DEV_NAME_LEN, DMS_MAX_DEV_NAME_LEN,
-            "%02u_%02d_%03x_%.5s", dev_id, user_node->node_id, cfg->node_type, cfg->name);
+                         "%02u_%02d_%03x_%.5s", dev_id, user_node->node_id, cfg->node_type, cfg->name);
         if (ret <= 0) {
             soft_drv_err("snprintf_s failed. (dev_id=%u; node_id=%u; ret=%d)\n", dev_id, user_node->node_id, ret);
             return ret;
@@ -376,8 +386,8 @@ STATIC int user_dev_node_register(unsigned int dev_id, unsigned int user_id, str
 
         ret = dms_register_dev_node(&user_node->dev_node);
         if (ret != 0) {
-            soft_drv_err("register dev_node failed. (dev_id=%u; user_name=%s; node_type=%u; ret=%d)\n",
-                dev_id, ka_task_get_current_comm(), cfg->node_type, ret);
+            soft_drv_err("register dev_node failed. (dev_id=%u; user_name=%s; node_type=%u; ret=%d)\n", dev_id,
+                         ka_task_get_current_comm(), cfg->node_type, ret);
             return ret;
         }
     }
@@ -386,8 +396,8 @@ STATIC int user_dev_node_register(unsigned int dev_id, unsigned int user_id, str
         if ((user_node->sensor_obj_registered[sensor_idx]) &&
             (user_node->sensor_obj_table[sensor_idx].sensor_type == cfg->sensor_type) &&
             (ka_base_strcmp(user_node->sensor_obj_table[sensor_idx].sensor_name, cfg->name) == 0)) {
-            soft_drv_warn("sensor already register. (dev_id=%u; sensor_type=0x%x; name=%s)\n",
-                dev_id, cfg->sensor_type, cfg->name);
+            soft_drv_warn("sensor already registered. (dev_id=%u; sensor_type=0x%x; name=%s)\n", dev_id,
+                          cfg->sensor_type, cfg->name);
             goto OUT;
         }
     }
@@ -407,8 +417,8 @@ STATIC int user_dev_node_register(unsigned int dev_id, unsigned int user_id, str
     ret = user_sensor_register(user_node, cfg, user_id, sensor_idx); /* register a new sensor obj , index i */
     if (ret != 0) {
         soft_drv_err("user sensor register failed. "
-            "(dev_id=%u, node_type=0x%x, sensor_type=0x%x, sensor_id=%u; ret=%d)\n",
-            dev_id, cfg->node_type, cfg->sensor_type, sensor_idx, ret);
+                     "(dev_id=%u, node_type=0x%x, sensor_type=0x%x, sensor_id=%u; ret=%d)\n",
+                     dev_id, cfg->node_type, cfg->sensor_type, sensor_idx, ret);
         goto ERROR;
     }
 
@@ -416,8 +426,7 @@ STATIC int user_dev_node_register(unsigned int dev_id, unsigned int user_id, str
     user_node->sensor_obj_num++;
     user_node->registered = 1;
 OUT:
-    *handle = ((uint64_t)cfg->node_type << SF_OFFSET_32BIT) |
-        (sensor_idx << SF_OFFSET_16BIT) | cfg->sensor_type;
+    *handle = ((uint64_t)cfg->node_type << SF_OFFSET_32BIT) | (sensor_idx << SF_OFFSET_16BIT) | cfg->sensor_type;
     return 0;
 ERROR:
     if (user_node->registered == 0) {
@@ -427,14 +436,15 @@ ERROR:
 }
 
 STATIC struct soft_dev *soft_dev_node_get(unsigned int dev_id, struct soft_dev_client *client,
-    struct dms_sensor_node_cfg *cfg, unsigned int user_id, int *first_register)
+                                          struct dms_sensor_node_cfg *cfg, unsigned int user_id, int *first_register)
 {
     struct soft_dev *pos = NULL;
     struct soft_dev *n = NULL;
     struct soft_dev *s_dev = NULL;
 
     *first_register = 1;
-    ka_list_for_each_entry_safe(pos, n, &client->head, list) {
+    ka_list_for_each_entry_safe(pos, n, &client->head, list)
+    {
         if ((pos->registered == 1) && (pos->dev_node.node_type == cfg->node_type)) {
             *first_register = 0;
             break;
@@ -442,7 +452,7 @@ STATIC struct soft_dev *soft_dev_node_get(unsigned int dev_id, struct soft_dev_c
     }
 
     if (*first_register) {
-        s_dev =  dbl_kzalloc(sizeof(struct soft_dev), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+        s_dev = dbl_kzalloc(sizeof(struct soft_dev), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
         if (s_dev == NULL) {
             soft_drv_err("ka_mm_kzalloc soft_dev failed. (user_name=%s)\n", ka_task_get_current_comm());
             return NULL;
@@ -458,7 +468,7 @@ STATIC struct soft_dev *soft_dev_node_get(unsigned int dev_id, struct soft_dev_c
 }
 
 STATIC void soft_dev_client_add(struct soft_dev_client *client, struct soft_dev *user_node, uint32_t user_id,
-    uint32_t *user_num, int first_register)
+                                uint32_t *user_num, int first_register)
 {
     if (client->registered == 0) {
         client->pid = ka_task_get_current_tgid();
@@ -475,8 +485,7 @@ STATIC void soft_dev_client_add(struct soft_dev_client *client, struct soft_dev 
     return;
 }
 
-STATIC struct soft_dev_client* dms_soft_get_client(u32 dev_id, struct drv_soft_ctrl *soft_ctrl,
-    u32 *user_id)
+STATIC struct soft_dev_client *dms_soft_get_client(u32 dev_id, struct drv_soft_ctrl *soft_ctrl, u32 *user_id)
 {
     int i;
 
@@ -530,8 +539,8 @@ STATIC int dms_soft_node_register(unsigned int dev_id, struct dms_sensor_node_cf
 
     ret = user_dev_node_register(dev_id, user_id, user_node, cfg, handle);
     if (ret != 0) {
-        soft_drv_err("register user dev_node failed. (dev_id=%u; user_name=%s; node_id=%u; ret=%d)\n",
-            dev_id, ka_task_get_current_comm(), user_node->node_id, ret);
+        soft_drv_err("register user dev_node failed. (dev_id=%u; user_name=%s; node_id=%u; ret=%d)\n", dev_id,
+                     ka_task_get_current_comm(), user_node->node_id, ret);
         if (first_register != 0) {
             dbl_kfree(user_node);
             user_node = NULL;
@@ -565,13 +574,14 @@ STATIC int user_sensor_object_unregister(struct soft_dev *pos, unsigned int sens
     return DRV_ERROR_NONE;
 }
 
-STATIC struct soft_dev* dms_soft_dev_node_get(struct soft_dev_client *client, unsigned int node_type)
+STATIC struct soft_dev *dms_soft_dev_node_get(struct soft_dev_client *client, unsigned int node_type)
 {
     struct soft_dev *pos = NULL;
     struct soft_dev *pos_temp = NULL;
     struct soft_dev *n = NULL;
 
-    ka_list_for_each_entry_safe(pos_temp, n, &client->head, list) {
+    ka_list_for_each_entry_safe(pos_temp, n, &client->head, list)
+    {
         if ((pos_temp->registered == 1) && (pos_temp->dev_node.node_type == node_type)) {
             pos = pos_temp;
             break;
@@ -591,7 +601,8 @@ STATIC int dms_soft_node_unregister(unsigned int dev_id, uint64_t handle)
 
     ka_task_mutex_lock(&soft_ctrl->mutex[dev_id]);
     for (i = SF_SENSOR_USER; i < SF_USER_MAX; i++) {
-        if ((soft_ctrl->s_dev_t[dev_id][i]->pid == ka_task_get_current_tgid()) && (soft_ctrl->s_dev_t[dev_id][i]->registered == 1)) {
+        if ((soft_ctrl->s_dev_t[dev_id][i]->pid == ka_task_get_current_tgid()) &&
+            (soft_ctrl->s_dev_t[dev_id][i]->registered == 1)) {
             client = soft_ctrl->s_dev_t[dev_id][i];
             break;
         }
@@ -614,8 +625,8 @@ STATIC int dms_soft_node_unregister(unsigned int dev_id, uint64_t handle)
     ret = user_sensor_object_unregister(pos, sensor_idx);
     if (ret != 0) {
         soft_drv_err("user sensor object unregister failed."
-            " (dev_id=%u; pid=%d; user_id=%u; node_type=%u; sensor_idx=%u; sensor_type=%u)\n",
-            dev_id, client->pid, client->user_id, node_type, sensor_idx, sensor_type);
+                     " (dev_id=%u; pid=%d; user_id=%u; node_type=%u; sensor_idx=%u; sensor_type=%u)\n",
+                     dev_id, client->pid, client->user_id, node_type, sensor_idx, sensor_type);
         ka_task_mutex_unlock(&soft_ctrl->mutex[dev_id]);
         return ret;
     }
@@ -625,8 +636,9 @@ STATIC int dms_soft_node_unregister(unsigned int dev_id, uint64_t handle)
     }
     soft_ctrl->user_num[dev_id] -= (client->node_num == 0) ? (1) : (0);
     soft_drv_event("soft node unregister success. (dev_id=%u; pid=%d; user_id=%u; node_type=0x%llx;"
-        " sensor_type=0x%x; user_num=%u; handle=0x%llx)\n", dev_id, client->pid, client->user_id,
-        handle >> SF_OFFSET_32BIT, sensor_type, soft_ctrl->user_num[dev_id], handle);
+                   " sensor_type=0x%x; user_num=%u; handle=0x%llx)\n",
+                   dev_id, client->pid, client->user_id, handle >> SF_OFFSET_32BIT, sensor_type,
+                   soft_ctrl->user_num[dev_id], handle);
 
     ka_task_mutex_unlock(&soft_ctrl->mutex[dev_id]);
     return DRV_ERROR_NONE;
@@ -634,7 +646,11 @@ STATIC int dms_soft_node_unregister(unsigned int dev_id, uint64_t handle)
 
 static inline int sensor_event_state_convert_assertion(struct dms_sensor_object_cfg *obj_cfg, int event_data)
 {
-    if ((obj_cfg->assert_event_mask & (1 << event_data)) && !(obj_cfg->deassert_event_mask & (1 << event_data))) {
+    if (event_data < 0 || event_data >= SF_OFFSET_32BIT) {
+        return GENERAL_EVENT_TYPE_OCCUR;
+    }
+
+    if ((obj_cfg->assert_event_mask & (1U << event_data)) && !(obj_cfg->deassert_event_mask & (1U << event_data))) {
         return GENERAL_EVENT_TYPE_ONE_TIME;
     }
 
@@ -655,7 +671,8 @@ STATIC int dms_update_sensor_state(unsigned int dev_id, uint64_t handle, int val
 
     ka_task_mutex_lock(&soft_ctrl->mutex[dev_id]);
     for (i = SF_SENSOR_USER; i < SF_USER_MAX; i++) {
-        if ((soft_ctrl->s_dev_t[dev_id][i]->pid == ka_task_get_current_tgid()) && (soft_ctrl->s_dev_t[dev_id][i]->registered == 1)) {
+        if ((soft_ctrl->s_dev_t[dev_id][i]->pid == ka_task_get_current_tgid()) &&
+            (soft_ctrl->s_dev_t[dev_id][i]->registered == 1)) {
             client = soft_ctrl->s_dev_t[dev_id][i];
             break;
         }
@@ -668,7 +685,8 @@ STATIC int dms_update_sensor_state(unsigned int dev_id, uint64_t handle, int val
         return -EINVAL;
     }
 
-    ka_list_for_each_entry_safe(pos, n, &client->head, list) {
+    ka_list_for_each_entry_safe(pos, n, &client->head, list)
+    {
         if ((pos->dev_node.node_type == node_type) && (pos->registered == 1)) {
             user_node = pos;
             break;
@@ -678,7 +696,7 @@ STATIC int dms_update_sensor_state(unsigned int dev_id, uint64_t handle, int val
     if (user_node == NULL) {
         ka_task_mutex_unlock(&soft_ctrl->mutex[dev_id]);
         soft_drv_err("Can not find a matching node. (handle=%llu; node_type=0x%x; sensor_type=0x%x; sensor_idx=%u)\n",
-            handle, node_type, sensor_type, sensor_idx);
+                     handle, node_type, sensor_type, sensor_idx);
         return -EINVAL;
     }
 
@@ -696,7 +714,8 @@ STATIC int dms_update_sensor_state(unsigned int dev_id, uint64_t handle, int val
         /* if not resume and event_type mismatched, it will return fail here. */
         if ((assertion != GENERAL_EVENT_TYPE_RESUME) && (event_type != assertion)) {
             ka_task_mutex_unlock(&soft_ctrl->mutex[dev_id]);
-            soft_drv_err("The assertion type is mismatched. "
+            soft_drv_err(
+                "The assertion type is mismatched. "
                 "(devid=%u; handle=%llu; node_type=0x%x; sensor_type=0x%x; sensor_idx=%u; type0=0x%x; type1=0x%x)\n",
                 dev_id, handle, node_type, sensor_type, sensor_idx, event_type, assertion);
             return -EINVAL;
@@ -713,9 +732,9 @@ STATIC int dms_update_sensor_state(unsigned int dev_id, uint64_t handle, int val
         ret = soft_fault_event_handler(&event);
         if (ret == 0) {
             soft_drv_event("soft node update state success. (dev_id=%u; pid=%d; sensor_name=%s; user_id=%u;"
-                " node_id=%u; node_type=0x%x; sensor_type=0x%x; val=%d; assertion=%d; handle=0x%llx)\n",
-                dev_id, client->pid, p_cfg->sensor_name, client->user_id, user_node->node_id, node_type,
-                sensor_type, val, assertion, handle);
+                           " node_id=%u; node_type=0x%x; sensor_type=0x%x; val=%d; assertion=%d; handle=0x%llx)\n",
+                           dev_id, client->pid, p_cfg->sensor_name, client->user_id, user_node->node_id, node_type,
+                           sensor_type, val, assertion, handle);
         }
         break;
     }
@@ -750,8 +769,8 @@ int soft_node_register(void *feature, char *in, u32 in_len, char *out, u32 out_l
 
     ret = soft_sensor_para_check(cfg);
     if (ret != 0) {
-        soft_drv_err("Sensor cfg check failed. (dev_id=%u; node_type=%d; sensor_type=%d; ret=%d;)\n",
-            dev_id, cfg.node_type, cfg.sensor_type, ret);
+        soft_drv_debug("Not support Sensor cfg. (dev_id=%u; node_type=%d; sensor_type=%d; ret=%d;)\n", dev_id,
+                       cfg.node_type, cfg.sensor_type, ret);
         return ret;
     }
 
@@ -762,8 +781,6 @@ int soft_node_register(void *feature, char *in, u32 in_len, char *out, u32 out_l
     }
 
     if (!soft_sensor_whitelist_check(phy_id, cfg.node_type, cfg.sensor_type)) {
-        soft_drv_err("whitelist check fail. (dev_id=%u; phy_id=%u; node_type=0x%x; sensor_type=0x%x)\n", dev_id, phy_id,
-                     cfg.node_type, cfg.sensor_type);
         return -EINVAL;
     }
 
@@ -801,7 +818,7 @@ int soft_node_unregister(void *feature, char *in, u32 in_len, char *out, u32 out
     }
 
     SOFT_PARSE_HANDLE(node_type, sensor_idx, sensor_type, handle);
-    if (!soft_sensor_whitelist_check(phy_id, (unsigned short)node_type, (unsigned char)sensor_type)) {
+    if (!soft_sensor_whitelist_check(phy_id, node_type, sensor_type)) {
         soft_drv_err("whitelist check fail. (dev_id=%u; phy_id=%u; node_type=0x%x; sensor_type=0x%x)\n", arg->dev_id,
                      phy_id, node_type, sensor_type);
         return -EINVAL;
@@ -818,8 +835,8 @@ int soft_node_update_state(void *feature, char *in, u32 in_len, char *out, u32 o
     struct dms_sensor_user *arg = NULL;
 
     if ((in == NULL) || (in_len != sizeof(struct dms_sensor_user))) {
-        soft_drv_err("Invalid para. (in_is_null=%d; in_len=%u; valid_in_len=%zd)\n",
-            (in == NULL), in_len, sizeof(struct dms_sensor_user));
+        soft_drv_err("Invalid para. (in_is_null=%d; in_len=%u; valid_in_len=%zd)\n", (in == NULL), in_len,
+                     sizeof(struct dms_sensor_user));
         return -EINVAL;
     }
 
@@ -829,8 +846,8 @@ int soft_node_update_state(void *feature, char *in, u32 in_len, char *out, u32 o
     handle = arg->handle;
 
     if (assertion >= GENERAL_EVENT_TYPE_MAX) {
-        soft_drv_err("Invalid para. (dev_id=%u; assertion=%d; max=%d)\n",
-            arg->dev_id, assertion, GENERAL_EVENT_TYPE_MAX - 1);
+        soft_drv_debug("Not support assertion. (dev_id=%u; assertion=%d; max=%d)\n", arg->dev_id, assertion,
+                       GENERAL_EVENT_TYPE_MAX - 1);
         return -EINVAL;
     }
 
@@ -851,10 +868,11 @@ int soft_node_update_state(void *feature, char *in, u32 in_len, char *out, u32 o
 
 STATIC void soft_dev_free_registered_dev(struct soft_dev_client *client)
 {
-    int  i;
+    int i;
     struct soft_dev *pos = NULL;
     struct soft_dev *n = NULL;
-    ka_list_for_each_entry_safe(pos, n, &client->head, list) {
+    ka_list_for_each_entry_safe(pos, n, &client->head, list)
+    {
         if (pos->registered == 0) {
             continue;
         }
@@ -929,26 +947,11 @@ void soft_client_release(int owner_pid)
 
 BEGIN_DMS_MODULE_DECLARATION(soft_fault)
 BEGIN_FEATURE_COMMAND()
-ADD_FEATURE_COMMAND(DMS_MODULE_SOFT_FAULT,
-    DMS_MAIN_CMD_SOFT_FAULT,
-    DMS_SUBCMD_SENSOR_NODE_REGISTER,
-    NULL,
-    NULL,
-    DMS_SUPPORT_ALL,
-    soft_node_register)
-ADD_FEATURE_COMMAND(DMS_MODULE_SOFT_FAULT,
-    DMS_MAIN_CMD_SOFT_FAULT,
-    DMS_SUBCMD_SENSOR_NODE_UNREGISTER,
-    NULL,
-    NULL,
-    DMS_SUPPORT_ALL,
-    soft_node_unregister)
-ADD_FEATURE_COMMAND(DMS_MODULE_SOFT_FAULT,
-    DMS_MAIN_CMD_SOFT_FAULT,
-    DMS_SUBCMD_SENSOR_NODE_UPDATE_VAL,
-    NULL,
-    NULL,
-    DMS_SUPPORT_ALL,
-    soft_node_update_state)
+ADD_FEATURE_COMMAND(DMS_MODULE_SOFT_FAULT, DMS_MAIN_CMD_SOFT_FAULT, DMS_SUBCMD_SENSOR_NODE_REGISTER, NULL, NULL,
+                    DMS_SUPPORT_ALL, soft_node_register)
+ADD_FEATURE_COMMAND(DMS_MODULE_SOFT_FAULT, DMS_MAIN_CMD_SOFT_FAULT, DMS_SUBCMD_SENSOR_NODE_UNREGISTER, NULL, NULL,
+                    DMS_SUPPORT_ALL, soft_node_unregister)
+ADD_FEATURE_COMMAND(DMS_MODULE_SOFT_FAULT, DMS_MAIN_CMD_SOFT_FAULT, DMS_SUBCMD_SENSOR_NODE_UPDATE_VAL, NULL, NULL,
+                    DMS_SUPPORT_ALL, soft_node_update_state)
 END_FEATURE_COMMAND()
 END_MODULE_DECLARATION()

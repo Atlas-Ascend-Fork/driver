@@ -17,6 +17,7 @@ asdrv_dpa-objs += apm/msg/host/apm_host_msg.o
 asdrv_dpa-objs += apm/task_group/proxy_adapt/host/apm_device_slave_proxy_domain.o apm/task_group/proxy_adapt/host/apm_host_proxy.o
 asdrv_dpa-objs += apm/res_map/proxy_adapt/host/apm_res_map_host.o
 asdrv_dpa-objs += apm/slave_ssid/adapt/host/apm_remote_slave_ssid.o
+asdrv_dpa-objs += apm/apm_dev.o
 
 DRIVER_SRC_DPA_BASE_DIR := $(DRIVER_KERNEL_DIR)/dpa
 EXTRA_CFLAGS += -I$(C_SEC_INCLUDE)

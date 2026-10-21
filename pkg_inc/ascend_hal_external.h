@@ -127,9 +127,10 @@ typedef struct mp_attr {
     unsigned int align;         /**< must be power of 2 */
     unsigned long hugePageFlag; /**< huge page support */
     char poolName[BUFF_POOL_NAME_LEN];
-    unsigned int poolType; /* 00: soft buff/mbuf pool; 01: DQS Mbuf */
-    unsigned int useFlag;  /* 00: normal pool; 01: created by DataGW for inter-chip/inter-domain use. */
-    int reserve[BUFF_RESERVE_LEN - 2];
+    unsigned int poolType;           /* 00: soft buff/mbuf pool; 01: DQS Mbuf */
+    unsigned int useFlag;            /* 00: normal pool; 01: created by DataGW for inter-chip/inter-domain use. */
+    unsigned int allocFailPrintFlag; /* 0: print; 1: no print */
+    int reserve[BUFF_RESERVE_LEN - 3];
 } mpAttr;
 
 struct memzone_buff_cfg {
@@ -546,7 +547,8 @@ typedef struct {
     bool overWriteFlag;
     unsigned int deploy_type : 1;
     unsigned int queue_entity_type : 2; /* 00：soft queue; 01: Qmngr queue；10: GQM queue */
-    unsigned int resv : 29;
+    unsigned int owHandleFlag : 1;
+    unsigned int resv : 28;
 } QueueAttr;
 
 typedef struct {
@@ -608,6 +610,8 @@ typedef enum {
     QUEUE_QUERY_SUPPORT_INTER_DEV_QUE,
     QUEUE_QUERY_CMD_MAX,
 } QueueQueryCmdType;
+
+#define QUEUE_QUERY_CMD_TYPE_NAME "QueueQueryCmdType"
 
 typedef struct {
     void *inBuff;

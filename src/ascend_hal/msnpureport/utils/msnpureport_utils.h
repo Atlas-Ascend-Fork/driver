@@ -16,6 +16,7 @@
 #include "log_system_api.h"
 
 #define MAX_DEV_NUM 64
+#define MEMORY_WARNING_MSG "Insufficient memory. Please check available system memory or process memory limit."
 
 #ifdef __cplusplus
 extern "C" {

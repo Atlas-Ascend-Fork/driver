@@ -25,9 +25,9 @@
 #include "dsmi_common.h"
 #include "dm_msg_intf.h"
 
-#define DM_RECV_HANDLE_TIMEOUT  5000   /* 5s */
-#define DM_RECV_HANDLE_TIMEOUT_CNT  5
-#define DM_RECV_HANDLE_TIMEOUT_MAX  8
+#define DM_RECV_HANDLE_TIMEOUT 5000 /* 5s */
+#define DM_RECV_HANDLE_TIMEOUT_CNT 5
+#define DM_RECV_HANDLE_TIMEOUT_MAX 8
 
 #define DATA_LEN_CHECK() \
     if (data_len <= 0) { \
@@ -148,6 +148,7 @@ STATIC int __dm_pending_req_add(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigne
     DATA_LEN_CHECK();
     req = malloc(sizeof(*req));
     if (req == NULL) {
+        DEV_MON_ERR("malloc fail, errno=%d.\n", errno);
         return -ENOMEM;
     }
 
@@ -173,15 +174,13 @@ STATIC int __dm_pending_req_add(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigne
 
     req->msg.data = req->msg_data;
     ret = memmove_s(req->msg_data, DM_MSG_DATA_MAX, msg->data, req->msg.data_len);
-    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req);
-                                req = NULL;
-                                DEV_MON_ERR("memmove_s error\n"));
+    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req); req = NULL; DEV_MON_ERR("memmove_s error\n"));
 
     /* copy the user_data */
     if ((user_data != NULL) && data_len != 0) {
         req->user_data = malloc((size_t)data_len);
-
         if (req->user_data == NULL) {
+            DEV_MON_ERR("malloc fail, errno=%d.\n", errno);
             free(req);
             req = NULL;
             return -ENOMEM;
@@ -198,10 +197,7 @@ STATIC int __dm_pending_req_add(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigne
         }
 
         ret = memmove_s(req->user_data, (size_t)data_len, user_data, (size_t)data_len);
-        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req->user_data);
-                                    req->user_data = NULL;
-                                    free(req);
-                                    req = NULL;
+        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req->user_data); req->user_data = NULL; free(req); req = NULL;
                                     DEV_MON_ERR("memmove_s error\n"));
         req->data_len = data_len;
     }
@@ -212,8 +208,8 @@ STATIC int __dm_pending_req_add(DM_INTF_S *intf, const DM_ADDR_ST *addr, unsigne
     if (req->retries >= 0) {
         /* if retries >= 0, auto-response 0xC3 when timeout
            if retries < 0, do nothing */
-        ret = poller_timer_add(cb->intf_poller, (int)intf->retry_time_ms, __dm_timeout_handle, &req, sizeof(PENDING_REQ_T *),
-                               &req->timer_id);
+        ret = poller_timer_add(cb->intf_poller, (int)intf->retry_time_ms, __dm_timeout_handle, &req,
+                               sizeof(PENDING_REQ_T *), &req->timer_id);
         if (ret != 0) {
             free(req->user_data);
             req->user_data = NULL;
@@ -407,8 +403,8 @@ STATIC void dm_recv_time_check(DM_INTF_S *intf, struct timespec start, struct ti
         intf->stats.msg_handle_timeout++;
         if ((intf->stats.msg_handle_timeout >= DM_RECV_HANDLE_TIMEOUT_CNT) &&
             (intf->stats.msg_handle_timeout <= DM_RECV_HANDLE_TIMEOUT_MAX)) {
-            DEV_MON_ERR("Recv handle cost long time. (intf_name=%s; timeout=%u; recv_time=%llums)\n",
-                intf->name, intf->stats.msg_handle_timeout, recv_time);
+            DEV_MON_ERR("Recv handle cost long time. (intf_name=%s; timeout=%u; recv_time=%llums)\n", intf->name,
+                        intf->stats.msg_handle_timeout, recv_time);
         }
     } else {
         intf->stats.msg_handle_timeout = 0;
@@ -422,8 +418,8 @@ STATIC void __dm_recv(int fd, short revents, void *user_data, int data_len)
     DM_ADDR_ST addr = {0};
     DM_RECV_ST st_recv = {0};
     int ret;
-    struct timespec time_start = { 0, 0 };
-    struct timespec time_end = { 0, 0 };
+    struct timespec time_start = {0, 0};
+    struct timespec time_end = {0, 0};
 
     (void)data_len;
 
@@ -511,7 +507,7 @@ int dm_cmd_register(DM_CB_S *dm_cb, DM_MSG_CMD_HNDL_T hndl, DM_MSG_UNSUP_HNDL_T 
 
     req = calloc(1, sizeof(*req));
     if (req == NULL) {
-        DEV_MON_ERR("dm_cmd_register alloc mem error!\n");
+        DEV_MON_ERR("dm_cmd_register alloc mem error, errno=%d.\n", errno);
         return -ENOMEM;
     }
 
@@ -521,16 +517,14 @@ int dm_cmd_register(DM_CB_S *dm_cb, DM_MSG_CMD_HNDL_T hndl, DM_MSG_UNSUP_HNDL_T 
     if ((user_data != NULL) && data_len != 0) {
         req->user_data = calloc(1, (size_t)data_len);
         if (req->user_data == NULL) {
+            DEV_MON_ERR("calloc fail, errno=%d.\n", errno);
             free(req);
             req = NULL;
             return -ENOMEM;
         }
 
         ret = memcpy_s(req->user_data, (size_t)data_len, user_data, (size_t)data_len);
-        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req->user_data);
-                                    req->user_data = NULL;
-                                    free(req);
-                                    req = NULL;
+        DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req->user_data); req->user_data = NULL; free(req); req = NULL;
                                     DEV_MON_ERR("memcpy_s error\n"));
         req->data_len = data_len;
     }
@@ -547,7 +541,7 @@ int dm_cmd_register(DM_CB_S *dm_cb, DM_MSG_CMD_HNDL_T hndl, DM_MSG_UNSUP_HNDL_T 
         req = NULL;
     }
 
-    return 0;  //lint !e593 !e429
+    return 0; // lint !e593 !e429
 }
 
 int dm_cmd_deregister(DM_CB_S *dm_cb)
@@ -646,7 +640,7 @@ int dm_init(DM_CB_S **dm_cb)
 
     cb = malloc(sizeof(DM_CB_S));
     if (cb == NULL) {
-        DEV_MON_ERR("dm_init malloc cb error.");
+        DEV_MON_ERR("dm_init malloc cb error, errno=%d.", errno);
         return -ENOMEM;
     }
 
@@ -795,8 +789,7 @@ int dm_send_req(DM_INTF_S *intf, DM_ADDR_ST *addr, unsigned int addr_len, const 
     return ret;
 }
 
-int dm_send_rsp(DM_INTF_S *intf, DM_ADDR_ST *addr, unsigned int addr_len, const DM_MSG_ST *msg,
-                signed long seq_no)
+int dm_send_rsp(DM_INTF_S *intf, DM_ADDR_ST *addr, unsigned int addr_len, const DM_MSG_ST *msg, signed long seq_no)
 {
     int ret;
     if ((intf == NULL) || (intf->send_msg == NULL)) {

@@ -18,8 +18,8 @@
 
 typedef int (*vmnga_admin_func)(struct vmng_msg_dev *msg_dev, struct vmng_msg_chan_rx_proc_info *proc_info);
 
-int vmnga_register_admin_rx_func(int opcode, vmnga_admin_func admin_func);
-void vmnga_unregister_admin_rx_func(int opcode);
+int vmnga_register_admin_rx_func(u32 opcode, vmnga_admin_func admin_func);
+void vmnga_unregister_admin_rx_func(u32 opcode);
 
 int vmnga_init_msg_admin(struct vmng_msg_dev *msg_dev);
 void vmnga_uninit_vpc_msg_admin(struct vmng_msg_dev *msg_dev);

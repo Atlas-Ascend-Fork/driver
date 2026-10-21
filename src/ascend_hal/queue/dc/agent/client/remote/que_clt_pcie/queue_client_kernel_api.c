@@ -52,7 +52,7 @@ STATIC int queue_open_dev(void)
     }
     fd = open(davinci_intf_get_dev_path(), O_RDWR | O_SYNC);
     if (fd < 0) {
-        QUEUE_LOG_ERR("open dev failed. (fd=%d)\n", fd);
+        QUEUE_LOG_ERR("open dev=%d.\n", fd);
         return fd;
     } else {
         int flags = fcntl(fd, F_GETFD);
@@ -89,17 +89,17 @@ void queue_close_dev(int fd)
     if (ret != 0) {
         QUEUE_LOG_ERR("strcpy_s failed, ret(%d).\n", ret);
         (void)close(fd);
+        set_g_queue_fd(-1);
         return;
     }
 
     ret = ioctl(fd, DAVINCI_INTF_IOCTL_CLOSE, &arg);
     if (ret != 0) {
         QUEUE_LOG_ERR("DAVINCI_INTF_IOCTL_CLOSE failed, ret(%d).\n", ret);
-        (void)close(fd);
-        return;
     }
 
     (void)close(fd);
+    set_g_queue_fd(-1);
 }
 
 STATIC drvError_t queue_ioctl(unsigned int cmd, void *para)
@@ -154,6 +154,7 @@ drvError_t queue_ctrl_msg_send(struct queue_ctrl_msg_send_stru *ctrl_msg_send)
     if (memcpy_s(&arg, sizeof(struct queue_ioctl_ctrl_msg_send), ctrl_msg_send,
                  sizeof(struct queue_ioctl_ctrl_msg_send)) != 0) {
         QUEUE_LOG_ERR("set msg_send args err!");
+        return DRV_ERROR_INNER_ERR;
     }
     return queue_ioctl(QUEUE_CTRL_MSG_SEND_CMD, &arg);
 }
@@ -163,6 +164,18 @@ drvError_t queue_enqueue_cmd(struct queue_enqueue_stru *queue_enqueue)
     struct queue_enqueue_stru arg;
     if (memcpy_s(&arg, sizeof(struct queue_ioctl_enqueue), queue_enqueue, sizeof(struct queue_ioctl_enqueue)) != 0) {
         QUEUE_LOG_ERR("queue_enqueue args err!");
+        return DRV_ERROR_INNER_ERR;
     }
     return queue_ioctl(QUEUE_ENQUEUE_CMD, &arg);
+}
+
+drvError_t queue_get_all_feature(struct queue_ioctl_feature *all_features)
+{
+    drvError_t ret;
+    all_features->user_feature_num = QUEUE_FEATURE_MAX;
+    ret = queue_ioctl(QUEUE_GET_ALL_FEATURE_CMD, all_features);
+    if (ret != DRV_ERROR_NONE) {
+        QUEUE_LOG_ERR("queue_get_all_feature: ioctl QUEUE_GET_ALL_FEATURE_CMD failed. (ret=%d)\n", ret);
+    }
+    return ret;
 }

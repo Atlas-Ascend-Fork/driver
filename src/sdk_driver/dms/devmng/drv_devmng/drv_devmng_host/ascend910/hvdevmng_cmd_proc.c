@@ -126,8 +126,7 @@ int hvdevmng_get_device_startup_status(u32 dev_id, u32 fid, struct vdevmng_ioctl
     } else if (dev_info->shm_head->head_info.version != DEVMNG_SHM_INFO_HEAD_VERSION) {
         devdrv_drv_err("dev(%u) version of share memory in host is 0x%llx, "
                        "the version in device is 0x%llx, magic is 0x%x.\n",
-                       dev_info->dev_id, DEVMNG_SHM_INFO_HEAD_VERSION,
-                       dev_info->shm_head->head_info.version,
+                       dev_info->dev_id, DEVMNG_SHM_INFO_HEAD_VERSION, dev_info->shm_head->head_info.version,
                        dev_info->shm_head->head_info.magic);
         return -EINVAL;
     } else {
@@ -168,8 +167,7 @@ int hvdevmng_mdev_info_get(u32 dev_id, u32 fid, struct vdevdrv_info_msg *ready_i
 
     dev_info = devdrv_get_devdrv_info_array(dev_id);
     if ((dev_info == NULL) || (ready_info == NULL)) {
-        devdrv_drv_err("dev(%u) dev_info(%pK) or ready_info(%pK) is NULL, .\n",
-                       dev_id, dev_info, ready_info);
+        devdrv_drv_err("dev(%u) dev_info(%pK) or ready_info(%pK) is NULL, .\n", dev_id, dev_info, ready_info);
         return -EINVAL;
     }
 
@@ -180,7 +178,7 @@ int hvdevmng_mdev_info_get(u32 dev_id, u32 fid, struct vdevdrv_info_msg *ready_i
     if ((ret_core != 0) || (ret_aicpu != 0) || (ret_vecore != 0) || (ret_template != 0)) {
         devdrv_drv_err("Get aicore or aicpu or vector or template name failed;\
             (dev_id=%u; ret_core=%d; ret_aicpu=%d; ret_vecore=%d; ret_template=%d).\n",
-            dev_id, ret_core, ret_aicpu, ret_vecore, ret_template);
+                       dev_id, ret_core, ret_aicpu, ret_vecore, ret_template);
         return -EINVAL;
     }
 
@@ -243,13 +241,11 @@ int hvdevmng_vpc_get_dev_resource_info(u32 dev_id, u32 fid, struct vdevmng_ioctl
 
     ret = hvdevmng_get_dev_resource(dev_id, tsid, &info);
     if (ret) {
-        devdrv_drv_err("get dev resource info failed, devid(%u) vfid(%u) tsid(%u ret(%d).\n",
-            dev_id, fid, tsid, ret);
+        devdrv_drv_err("get dev resource info failed, devid(%u) vfid(%u) tsid(%u ret(%d).\n", dev_id, fid, tsid, ret);
         return ret;
     }
 
-    ret = memcpy_s((void *)iomsg->cmd_data.resource_info.buf, DEVDRV_MAX_PAYLOAD_LEN,
-                   &info.value, sizeof(u64));
+    ret = memcpy_s((void *)iomsg->cmd_data.resource_info.buf, DEVDRV_MAX_PAYLOAD_LEN, &info.value, sizeof(u64));
 
     return ret;
 }
@@ -280,8 +276,9 @@ int hvdevmng_get_error_code(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg *iomsg
         iomsg->cmd_data.error_code_para.error_code[i] = dev_info->shm_status->event_code[j].event_code;
     }
 
-    iomsg->cmd_data.error_code_para.error_code_count = (error_cnt + event_cnt) > DMANAGE_ERROR_ARRAY_NUM ? \
-                                                       DMANAGE_ERROR_ARRAY_NUM : (error_cnt + event_cnt);
+    iomsg->cmd_data.error_code_para.error_code_count = (error_cnt + event_cnt) > DMANAGE_ERROR_ARRAY_NUM ?
+                                                           DMANAGE_ERROR_ARRAY_NUM :
+                                                           (error_cnt + event_cnt);
     return 0;
 }
 
@@ -334,11 +331,11 @@ int hvdevmng_get_current_aic_freq(u32 dev_id, u32 fid, struct vdevmng_ioctl_msg 
     feature_cfg.filter = NULL;
     freq_in.dev_id = dev_id;
     freq_in.core_id = AICORE0_ID;
-    ret = dms_send_msg_to_device_by_h2d(&feature_cfg, (void *)&freq_in, sizeof(struct dms_lpm_info_in),
-        (void *)&freq, sizeof(u32));
+    ret = dms_send_msg_to_device_by_h2d(&feature_cfg, (void *)&freq_in, sizeof(struct dms_lpm_info_in), (void *)&freq,
+                                        sizeof(u32));
     if (ret != 0) {
-        devdrv_drv_ex_notsupport_err(ret, "Get current aicore frequency failed. (dev_id=%u; vfid=%u; ret=%d)\n",
-            dev_id, fid, ret);
+        devdrv_drv_ex_notsupport_err(ret, "Get current aicore frequency failed. (dev_id=%u; vfid=%u; ret=%d)\n", dev_id,
+                                     fid, ret);
         return ret;
     }
 

@@ -88,12 +88,17 @@ void svm_release_da(struct devmm_svm_process *svm_proc)
 void svm_da_recycle(struct devmm_svm_process *svm_proc)
 {
     struct svm_da_info *da_info = &svm_proc->da_info;
-    struct svm_da_node_info *node = NULL, *tmp = NULL;
+    ka_rb_node_t *rbnode = devmm_rb_first(&da_info->rbtree);
 
-    ka_base_rbtree_postorder_for_each_entry_safe(node, tmp, &da_info->rbtree, rbnode)
-    {
-        (void)devmm_rb_erase(&da_info->rbtree, &node->rbnode);
+    while (rbnode != NULL) {
+        struct svm_da_node_info *node = ka_base_rb_entry(rbnode, struct svm_da_node_info, rbnode);
+        int ret = devmm_rb_erase(&da_info->rbtree, &node->rbnode);
+        if (ret != 0) {
+            devmm_drv_err("Erase da node failed. (ret=%d; va=0x%llx; size=0x%llx)\n", ret, node->va, node->size);
+            break;
+        }
         devmm_kvfree(node);
+        rbnode = devmm_rb_first(&da_info->rbtree);
     }
 }
 

@@ -76,13 +76,13 @@ STATIC int dms_hccs_credit_num_update_check(u32 dev_id, u64 cur_cnt)
     }
     interval_time_s = (cur_timestamp - g_hccs_credit_update_info[dev_id].old_update_timestamp) / KA_NSEC_PER_SEC;
 
-    if (cur_cnt == g_hccs_credit_update_info[dev_id].old_cnt &&
-        interval_time_s > expire_times) {
-        if(cur_cnt != g_hccs_credit_update_info[dev_id].log_cnt) {
+    if (cur_cnt == g_hccs_credit_update_info[dev_id].old_cnt && interval_time_s > expire_times) {
+        if (cur_cnt != g_hccs_credit_update_info[dev_id].log_cnt) {
             dms_err("The number of credit has not been updated for more than %d seconds. "
-                "(dev_id=%u; old_cnt=%llu; old_timestamp=%llus; cur_timestamp=%llus)\n",
-                expire_times, dev_id, g_hccs_credit_update_info[dev_id].old_cnt,
-                g_hccs_credit_update_info[dev_id].old_update_timestamp / KA_NSEC_PER_SEC, cur_timestamp / KA_NSEC_PER_SEC);
+                    "(dev_id=%u; old_cnt=%llu; old_timestamp=%llus; cur_timestamp=%llus)\n",
+                    expire_times, dev_id, g_hccs_credit_update_info[dev_id].old_cnt,
+                    g_hccs_credit_update_info[dev_id].old_update_timestamp / KA_NSEC_PER_SEC,
+                    cur_timestamp / KA_NSEC_PER_SEC);
             g_hccs_credit_update_info[dev_id].log_cnt = cur_cnt;
         }
         return -EBUSY;
@@ -144,8 +144,8 @@ STATIC int dms_get_hccs_credit_num(struct dms_get_device_info_in *in, unsigned i
     }
 
     if (dev_id >= ASCEND_PDEV_MAX_NUM || in->buff_size < sizeof(hccs_credit_info_t)) {
-        dms_err("Invalid parameter. (dev_id=%u; buff_size=%u; min_size=%zu)\n",
-            dev_id, in->buff_size, sizeof(hccs_credit_info_t));
+        dms_err("Invalid parameter. (dev_id=%u; buff_size=%u; min_size=%zu)\n", dev_id, in->buff_size,
+                sizeof(hccs_credit_info_t));
         return -EINVAL;
     }
 
@@ -161,7 +161,7 @@ STATIC int dms_get_hccs_credit_num(struct dms_get_device_info_in *in, unsigned i
     }
 
     ret = memcpy_s(info.credit_num, sizeof(info.credit_num), credit_num_info.pa_credit_num,
-        sizeof(credit_num_info.pa_credit_num));
+                   sizeof(credit_num_info.pa_credit_num));
     if (ret != 0) {
         dms_err("memcpy_s credit_num failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return -ENOMEM;
@@ -193,7 +193,7 @@ int dms_get_hccs_credit_info(void *feature, char *in, u32 in_len, char *out, u32
     input = (struct dms_get_device_info_in *)in;
     if (input->buff == NULL) {
         dms_err("Input buffer is null or buffer size is not valid. (buff_is_null=%d; buff_size=%u)\n",
-            (input->buff != NULL), input->buff_size);
+                (input->buff != NULL), input->buff_size);
         return -EINVAL;
     }
 
@@ -206,7 +206,7 @@ int dms_get_hccs_credit_info(void *feature, char *in, u32 in_len, char *out, u32
     ret = uda_devid_to_phy_devid(input->dev_id, &physical_dev_id, &vfid);
     if (ret != 0) {
         dms_err("Failed to convert the logical_id to the physical_id (logical_id=%u; physical_id=%u; ret=%d)\n",
-            input->dev_id, physical_dev_id, ret);
+                input->dev_id, physical_dev_id, ret);
         return -EINVAL;
     }
     input->dev_id = physical_dev_id;
@@ -248,9 +248,9 @@ STATIC void convert_reg_val_to_credit_num(unsigned int *credit_num, const u32 re
 }
 
 /*One PA corresponds to four macro ports.
-* PA0: macro4~7
-* PA1: macro0~3
-*/
+ * PA0: macro4~7
+ * PA1: macro0~3
+ */
 #define PA_TO_MACRO_NUM 4
 STATIC int g_pa0_macro_map[PA_TO_MACRO_NUM] = {4, 5, 6, 7};
 STATIC int g_pa1_macro_map[PA_TO_MACRO_NUM] = {0, 1, 2, 3};
@@ -259,11 +259,11 @@ STATIC int read_credit_num_by_sec_io_read(u32 dev_id, hccs_credit_num *info)
 {
     u32 reg_val_h = 0;
     u32 reg_val_l = 0;
-    u32 pa0_credit_num[PA_TO_MACRO_NUM]  = {0};
+    u32 pa0_credit_num[PA_TO_MACRO_NUM] = {0};
     u32 pa1_credit_num[PA_TO_MACRO_NUM] = {0};
     int i;
     int ret;
-    if (info == NULL || dev_id >= ASCEND_DIE_NUM_MAX ) {
+    if (info == NULL || dev_id >= ASCEND_DIE_NUM_MAX) {
         dms_err("Invalid input. (dev_id=%u; info=%s)\n", dev_id, info == NULL ? "null" : "not null");
         return -EINVAL;
     }
@@ -453,4 +453,3 @@ int dms_hccs_credit_info_task_unregister(u32 dev_id)
     return ret;
 }
 #endif
-

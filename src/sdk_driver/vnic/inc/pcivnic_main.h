@@ -55,7 +55,9 @@
 #define devdrv_info_spinlock(fmt, ...)
 #define devdrv_debug_spinlock(fmt...)
 
+#ifndef CFG_FEATURE_OVER_XCOM
 #define USE_DMA_ADDR
+#endif
 
 #define PCIVNIC_VALID 1
 #define PCIVNIC_INVALID 0
@@ -65,11 +67,19 @@
 #define PCIVNIC_DESC_QUEUE_TX 0
 #define PCIVNIC_DESC_QUEUE_RX 1
 
+#ifdef CFG_FEATURE_OVER_XCOM
+#define PCIVNIC_DESC_QUEUE_DEPTH 64
+#else
 #define PCIVNIC_DESC_QUEUE_DEPTH 512
+#endif
 #define PCIVNIC_NET_LINKED 1
 
 /* The kernel will add other fields to ensure no more than 1 page */
+#ifdef CFG_FEATURE_OVER_XCOM
+#define PCIVNIC_MAX_PKT_SIZE 3914
+#else
 #define PCIVNIC_MAX_PKT_SIZE 3840
+#endif
 #define PCIVNIC_MTU_DEFAULT 3000
 
 #define PCIVNIC_RX_BUDGET 64
@@ -215,6 +225,8 @@ struct pcivnic_pcidev {
     ka_task_spinlock_t lock;
     ka_tasklet_struct_t tx_finish_task;
     ka_tasklet_struct_t rx_notify_task;
+    ka_tasklet_struct_t tx_sq_task;
+    ka_tasklet_struct_t tx_cq_task;
     ka_workqueue_struct_t *rx_workqueue;
     ka_work_struct_t rx_notify_work;
 #ifdef CFG_FEATURE_S2S
@@ -232,6 +244,12 @@ struct pcivnic_pcidev {
     /* msg guard work */
     ka_delayed_work_t guard_work;
     bool is_mdev_vm_boot_mode;
+#ifdef CFG_FEATURE_OVER_XCOM
+    ka_class_t *class;
+    u32 sync_work_phase;
+    ka_delayed_work_t init;
+    struct pcivnic_over_xcom_block_pool *pool;
+#endif
 };
 
 struct pcivnic_net_dev_stat {
@@ -251,6 +269,9 @@ struct pcivnic_netdev {
     ka_delayed_work_t timeout;
     struct pcivnic_pcidev *pcidev[NETDEV_PCIDEV_NUM];
     ka_sk_buff_head_t skbq;
+#ifdef CFG_FEATURE_OVER_XCOM
+    ka_atomic_t process_state[NETDEV_PCIDEV_NUM];
+#endif
 };
 
 #define PCIVNIC_DIE_NUM_ONE_CHIP 2
@@ -266,14 +287,14 @@ int pcivnic_get_addr_mode(void);
 extern struct pcivnic_pcidev *pcivnic_get_pcidev(void *msg_chan);
 extern struct pcivnic_sq_desc *pcivnic_get_w_sq_desc(void *msg_chan, u32 *tail);
 extern void pcivnic_set_w_sq_desc_head(void *msg_chan, u32 head);
-extern void pcivnic_copy_sq_desc_to_remote(struct pcivnic_pcidev *pcidev, const struct pcivnic_sq_desc *sq_desc);
+extern int pcivnic_copy_sq_desc_to_remote(struct pcivnic_pcidev *pcidev, const struct pcivnic_sq_desc *sq_desc);
 extern bool pcivnic_w_sq_full_check(void *msg_chan);
 extern struct pcivnic_sq_desc *pcivnic_get_r_sq_desc(void *msg_chan, u32 *head);
 extern void pcivnic_move_r_sq_desc(void *msg_chan);
 extern int pcivnic_dma_copy(const struct pcivnic_pcidev *pcidev, u64 src, u64 dst, u32 size,
                             struct devdrv_asyn_dma_para_info *para_info);
 extern struct pcivnic_cq_desc *pcivnic_get_w_cq_desc(void *msg_chan);
-extern void pcivnic_copy_cq_desc_to_remote(struct pcivnic_pcidev *pcidev, const struct pcivnic_cq_desc *cq_desc);
+extern int pcivnic_copy_cq_desc_to_remote(struct pcivnic_pcidev *pcidev, const struct pcivnic_cq_desc *cq_desc);
 extern struct pcivnic_cq_desc *pcivnic_get_r_cq_desc(void *msg_chan);
 extern void pcivnic_move_r_cq_desc(void *msg_chan);
 
@@ -312,4 +333,17 @@ extern bool pcivnic_get_sysfs_creat_group_capbility(ka_device_t *dev, int dev_id
 void pcivnic_net_timeout_new(ka_net_device_t *ndev, unsigned int txqueue);
 void pcivnic_guard_work_init(struct pcivnic_pcidev *pcidev);
 void pcivnic_guard_work_uninit(struct pcivnic_pcidev *pcidev);
+
+void pcivnic_tx_sq_task(unsigned long data);
+void pcivnic_tx_cq_task(unsigned long data);
+int pcivnic_get_next_valid_pcidev(struct pcivnic_netdev *vnic_dev, int begin);
+int pcivnic_pciedev_s2s_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, ka_net_device_t *ndev);
+int pcivnic_pciedev_send(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, ka_net_device_t *ndev);
+int pcivnic_forward_flow_ctrl(struct pcivnic_netdev *vnic_dev, int forward_dev, int next_hop);
+void pcivnic_forward_packet(ka_sk_buff_t *skb, struct pcivnic_netdev *vnic_dev, int forward_dev);
+void pcivnic_rx_block_free(struct pcivnic_pcidev *pcidev, u64 dma_addr);
+void pcivnic_free_block(struct pcivnic_pcidev *pcidev, u32 offset);
+void pcivnic_rx_block_finish_proc(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, u64 dma_addr, u32 len);
+int pcivnic_rx_block_proc(struct pcivnic_pcidev *pcidev, u32 tx_offset, u64 *tx_addr, u64 *rx_addr);
+int pcivnic_tx_block_proc(ka_sk_buff_t *skb, struct pcivnic_pcidev *pcidev, u64 *addr);
 #endif // _DEVDRV_MAIN_H_

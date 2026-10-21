@@ -143,7 +143,7 @@ static void __attribute__((constructor(SVM_INIT_PRI_LOW))) cache_init(void)
 
     ret = svm_register_ioctl_dev_uninit_pre_handle(cache_dev_uninit);
     if (ret != DRV_ERROR_NONE) {
-        svm_err("Register ioctl dev init post handle failed.\n");
+        svm_err("Register ioctl dev uninit pre handle failed.\n");
     }
 
     ret = svm_criu_register_ops(&g_cache_malloc_criu_ops);

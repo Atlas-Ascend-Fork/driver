@@ -59,13 +59,14 @@ STATIC int os_dev_node_config(unsigned int user_id, struct soft_dev *s_dev)
 {
     int pid = ka_task_get_current_tgid();
     struct dms_node_operations *soft_ops = soft_get_ops();
-    struct dms_node s_node = SOFT_NODE_DEF(HAL_DMS_DEV_TYPE_OS_LINUX, "OS Linux", s_dev->dev_id,
-        s_dev->node_id, soft_ops);
-    struct dms_sensor_object_cfg s_cfg = SOFT_SENSOR_DEF(DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT, "OS init", 0UL,
-        user_id, SF_SUB_ID0, 0xFFFF, 0xFDFF, SF_SENSOR_SCAN_TIME, soft_fault_event_scan, pid);
+    struct dms_node s_node = SOFT_NODE_DEF(HAL_DMS_DEV_TYPE_OS_LINUX, "OS Linux", s_dev->dev_id, s_dev->node_id,
+                                           soft_ops);
+    struct dms_sensor_object_cfg s_cfg = SOFT_SENSOR_DEF(DMS_SEN_TYPE_GENERAL_SOFTWARE_FAULT, "OS init", 0UL, user_id,
+                                                         SF_SUB_ID0, 0xFFFF, 0xFDFF, SF_SENSOR_SCAN_TIME,
+                                                         soft_fault_event_scan, pid);
 
-    s_cfg.private_data =
-        soft_combine_private_data(s_dev->dev_id, user_id, HAL_DMS_DEV_TYPE_OS_LINUX, s_dev->node_id, SF_SUB_ID0);
+    s_cfg.private_data = soft_combine_private_data(s_dev->dev_id, user_id, HAL_DMS_DEV_TYPE_OS_LINUX, s_dev->node_id,
+                                                   SF_SUB_ID0);
     /* for kernel space, not used the pid, set default value -1 */
     s_cfg.pid = -1;
     s_node.pid = -1;
@@ -88,8 +89,8 @@ int os_dev_register(u32 devid)
 
     client = soft_ctrl->s_dev_t[devid][user_id];
     if (client->registered == 1) {
-        soft_drv_warn("Node OS-Linux already registered, return. (dev_id=%u; registered=%u)\n",
-            devid, client->registered);
+        soft_drv_warn("Node OS-Linux already registered, return. (dev_id=%u; registered=%u)\n", devid,
+                      client->registered);
         ka_task_mutex_unlock(&soft_ctrl->mutex[devid]);
         return 0;
     }
@@ -139,9 +140,13 @@ void os_dev_unregister(void)
     struct drv_soft_ctrl *soft_ctrl = soft_get_ctrl();
 
     for (i = 0; i < ASCEND_DEV_MAX_NUM; i++) {
+        ka_task_mutex_lock(&soft_ctrl->mutex[i]);
         client = soft_ctrl->s_dev_t[i][SF_SENSOR_OS];
         soft_free_one_node(client, HAL_DMS_DEV_TYPE_OS_LINUX);
-        soft_ctrl->user_num[i]--;
+        if (soft_ctrl->user_num[i] > 0) {
+            soft_ctrl->user_num[i]--;
+        }
+        ka_task_mutex_unlock(&soft_ctrl->mutex[i]);
     }
 
     return;

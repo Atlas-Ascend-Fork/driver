@@ -149,30 +149,9 @@ wait_pcie_device_init() {
     fi
 }
 
-get_ub_info() {
-    return 0
-}
-
-wait_ub_device_init() {
-    # This feature will be developed by comm. Currently, it is stubs
-    source "${targetdir}"/driver/script/specific_func.inc
-    get_ub_info
-    for i in $(seq 1 400)
-    do
-        local dev_num=$(ls /dev/davinci* 2>/dev/null | grep -cE "/dev/davinci[0-9]{1,2}$")
-        # stub: A device was found, indicating successful initialization。
-        if [ $dev_num -ge 1 ]; then
-            break
-        fi
-        sleep 1
-    done
-}
-
 wait_device_init() {
     if [ "$connect_type" == "pcie" ]; then
         wait_pcie_device_init
-    else
-        wait_ub_device_init
     fi
 }
 
@@ -261,7 +240,6 @@ ub_insmod_asdrv() {
     modprobe asdrv_dms
     modprobe asdrv_esched
     modprobe drv_pcie_hdc_host
-    modprobe ubdevshm
     modprobe asdrv_svm
     modprobe asdrv_trs
     modprobe asdrv_buff

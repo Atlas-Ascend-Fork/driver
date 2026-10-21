@@ -126,7 +126,7 @@ int trs_cb_event_wait(uint32_t dev_id, uint32_t tid, int32_t timeout, uint8_t *b
         }
     }
 
-    trs_err("Event Msg len is invalid. (dev_id=%u, tid=%d; msg_len=%u)\n", dev_id, tid, event.priv.msg_len);
+    trs_err("Event Msg len is error. (dev_id=%u, tid=%d; msg_len=%u)\n", dev_id, tid, event.priv.msg_len);
     return DRV_ERROR_PARA_ERROR;
 }
 

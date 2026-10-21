@@ -78,7 +78,6 @@ typedef struct hdc_urma_jfr {
 typedef struct hdc_urma_jfs {
     urma_jfs_t *jfs; // use urma_post_jfs_wr to send
     int jfs_tseg_flag[HDC_URMA_MAX_JFS_DEPTH];
-    sem_t tseg_sema;
 } hdc_urma_jfs_t;
 
 struct hdc_ub_rx_buf {
@@ -107,11 +106,10 @@ typedef struct hdc_ub_context {
 
     urma_token_t token;
     urma_token_id_t *token_id;
+    void *token_id_node;
     uint32_t uasid;
     uint32_t devid;
     uint32_t session_fd;
-    mmMutex_t mutex_jfs;
-    mmMutex_t mutex_jfr;
 } hdc_ub_context_t;
 
 // Used to exchange information between two sides.
@@ -226,6 +224,11 @@ struct hdc_event_wait_info {
     unsigned int tid;
 };
 
+struct hdc_pipe_event_msg {
+    struct hdcdrv_event_msg event_msg;
+    struct timespec pipe_write_start;
+};
+
 typedef struct hdc_ub_accept_info {
     unsigned long long conn_wait;
     unsigned long long res_init;
@@ -235,6 +238,12 @@ typedef struct hdc_ub_accept_info {
     unsigned long long add_ctrl;
     unsigned long long send_ctrl_msg;
     unsigned long long accept;
+    unsigned long long notify_search;
+    unsigned long long k2u_trans;
+    unsigned long long k_pre;
+    unsigned long long k_send;
+    unsigned long long k_ret;
+    unsigned long long pipe_trans;
 } hdc_ub_accept_info_t;
 
 typedef struct hdc_ub_connect_info {
@@ -248,6 +257,12 @@ typedef struct hdc_ub_connect_info {
     unsigned long long check_reply;
     unsigned long long free_tid_and_fill_jetty_info;
     unsigned long long connect_end;
+    unsigned long long k_pre;
+    unsigned long long k_send;
+    unsigned long long k_wait;
+    unsigned long long k_copy;
+    unsigned long long k_sched;
+    unsigned long long k_ret;
 } hdc_ub_connect_info_t;
 
 typedef struct hdc_urma_init_info {
@@ -258,7 +273,11 @@ typedef struct hdc_urma_init_info {
     unsigned long long alloc_token_id;
     unsigned long long register_share_seg;
     unsigned long long urma_init_end;
-    unsigned long long register_own_seg;
+    unsigned long long lock_wait;
+    unsigned long long own_reg_re;
+    unsigned long long reg_alloc_tid;
+    unsigned long long own_reg_new;
+    unsigned long long reg_dmp;
     unsigned long long create_jfce;
     unsigned long long create_jfc;
     unsigned long long rearm_jfc;
@@ -322,8 +341,9 @@ unsigned long long hdc_get_time_cost(struct timespec *start_tval, struct timespe
 void hdc_get_recv_time_cost(struct hdc_time_record_for_single_recv *recv_record, struct hdc_ub_session *session);
 void hdc_get_send_time_cost(struct hdc_time_record_for_single_send *send_record, struct hdc_ub_session *session);
 void hdc_get_accept_time_cost(struct hdc_time_record_for_accept *accept_record, struct hdc_ub_session *session,
-                              bool succ_flag);
-void hdc_get_connect_time_cost(struct hdc_time_record_for_connect *connect_record, struct hdc_ub_session *session);
+                              bool succ_flag, const union hdcdrv_cmd *send_cmd);
+void hdc_get_connect_time_cost(struct hdc_time_record_for_connect *connect_record, struct hdc_ub_session *session,
+                               const union hdcdrv_cmd *send_cmd);
 void hdc_get_close_time_cost(struct hdc_time_record_for_close *close_record);
 void hdc_get_ub_res_info(hdc_ub_context_t *ctx, hdc_ub_res_info_t *ub_res_info);
 void hdc_update_session_recv_record(struct hdc_ub_rx_buf *buf, struct hdc_time_record_for_single_recv *recv_record);
@@ -342,7 +362,7 @@ void hdc_update_session_recv_record(struct hdc_ub_rx_buf *buf, struct hdc_time_r
 #define HDC_PERF_LOG_RUN_INFO_LIMIT(format, ...)                                                          \
     do {                                                                                                  \
         static int __drv_log_cnt = 0;                                                                     \
-        if (getenv(HDC_PERF_LOG_LIMIT_TIME_ENV) != NULL ||                                                \
+        if (hdc_ub_perf_log_not_limit() ||                                                                \
             !drv_log_rate_limit(&__drv_log_cnt, HDC_PERF_LOG_LIMIT_BRANCH_RATE, HDC_PERF_LOG_LIMIT_TIME)) \
             DRV_RUN_INFO(HAL_MODULE_TYPE_HDC, format, ##__VA_ARGS__);                                     \
     } while (0)
@@ -374,11 +394,16 @@ void hdc_update_session_recv_record(struct hdc_ub_rx_buf *buf, struct hdc_time_r
         }                                                                                                         \
     } while (0)
 
-void hdc_recv_data_in_event_handle(struct hdc_ub_epoll_node *node);
+bool hdc_ub_perf_log_not_limit(void);
+void hdc_ub_perf_log_env_init(void);
+int hdc_recv_data_in_event_handle(struct hdc_ub_epoll_node *node);
 int hdc_ub_epoll_thread_init(void);
 void hdc_ub_epoll_thread_uninit(void);
 int hdc_ub_add_ctl_to_thread_epoll(struct hdc_ub_session *session);
 void hdc_ub_del_ctl_to_thread_epoll(struct hdc_ub_session *session);
+bool hdc_ub_is_epoll_thread_created(void);
+signed int hdc_ub_get_epoll_thread_epfd(void);
+unsigned long long hdc_ub_get_epoll_recv_abnormal_cnt(void);
 int hdc_poll_jfc(hdc_urma_jfc_t *hdc_jfc, urma_cr_t *cr, struct hdc_ub_session *session, int tx_rx_flag,
                  int service_type);
 void hdc_ack_jfc(hdc_urma_jfc_t *hdc_jfc);
@@ -387,10 +412,17 @@ int hdc_mem_res_init(struct hdc_mem_res_info *mem_info, int service_type);
 void hdc_mem_res_uninit(struct hdc_mem_res_info *mem_info, unsigned int dev_id);
 int hdc_register_share_urma_seg(struct hdcConfig *hdc_config, unsigned int dev_id, unsigned int token_val);
 void hdc_unregister_share_urma_seg(urma_target_seg_t *tseg);
-int hdc_register_own_urma_seg(hdc_ub_context_t *ctx, unsigned long long len, unsigned long long va, int service_type);
-void hdc_unregister_own_urma_seg(urma_target_seg_t *tseg, int service_type);
+int hdc_alloc_token_id(urma_context_t *urma_ctx, bool is_global, urma_token_id_t **token_id);
+void hdc_free_token_id(urma_token_id_t *token_id);
+int hdc_register_own_urma_seg(hdc_ub_context_t *ctx, unsigned long long len, unsigned long long va, int service_type,
+                              struct hdc_time_record_for_urma_init *record);
+void hdc_unregister_own_urma_seg(urma_target_seg_t *tseg, void *token_id_node, uint32_t dev_id, int service_type);
+int hdc_register_dev_dmp_urma_seg(hdc_ub_context_t *ctx, unsigned long long len, unsigned long long va,
+                                  int service_type);
+void hdc_unregister_dmp_urma_seg(urma_target_seg_t *tseg, int service_type);
+void hdc_token_id_list_init(void);
 
-int hdc_process_thread_init(unsigned int dev_id);
+int hdc_process_thread_init(unsigned int dev_id, const char *func_name);
 void hdc_process_thread_uninit(unsigned int dev_id);
 
 void hdc_ub_get_urma_dfx(struct hdc_ub_session *session, hdc_urma_jfs_t *hdc_jfs, hdc_urma_jfr_t *hdc_jfr,
@@ -450,7 +482,7 @@ drvError_t __attribute__((weak)) hdc_connect_event_proc(uint32_t dev_id, void *m
 drvError_t __attribute__((weak)) hdc_dfx_query_event_proc(uint32_t dev_id, void *msg, uint32_t msg_len);
 drvError_t __attribute__((weak)) hdc_remote_close_proc(uint32_t dev_id, void *msg, uint32_t msg_len);
 void __attribute__((weak)) hdc_release_remote_session(void);
-signed int __attribute__((weak)) hdc_link_event_pre_init(unsigned int dev_id);
+signed int __attribute__((weak)) hdc_link_event_pre_init(unsigned int dev_id, const char *func_name);
 void __attribute__((weak)) hdc_link_event_pre_uninit(signed int dev_id);
 const char *__attribute__((weak)) hdc_get_sevice_str(int service_type);
 int __attribute__((weak)) hdc_get_lock_index(int dev_id, int session_id);
@@ -464,7 +496,9 @@ signed int __attribute__((weak)) hdc_ub_get_peer_devId(mmProcess handle, signed 
 signed int __attribute__((weak)) hdc_ub_ioctl(mmProcess handle, signed int ioctl_code, union hdcdrv_cmd *hdc_cmd);
 void __attribute__((weak)) hdc_fill_event_msg(struct hdcdrv_event_msg *msg, union hdcdrv_cmd *hdc_cmd,
                                               struct hdc_ub_session *session, enum hdcdrv_notify_type notify_type);
-signed int __attribute__((weak)) hdc_send_ctrl_msg(mmProcess fd, int dev_id, void *event_msg, size_t msg_len);
+void __attribute__((weak)) hdc_fill_send_ctrl_msg_cmd(union hdcdrv_cmd *hdc_cmd, int dev_id, void *event_msg,
+                                                      size_t msg_len);
+signed int __attribute__((weak)) hdc_send_ctrl_msg(mmProcess fd, union hdcdrv_cmd *hdc_cmd);
 void __attribute__((weak)) hdc_ub_fill_send_recv_info(hdc_ub_send_recv_info_t *send_recv_info,
                                                       struct hdc_ub_session *session);
 #endif

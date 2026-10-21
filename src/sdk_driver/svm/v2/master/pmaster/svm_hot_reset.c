@@ -71,7 +71,7 @@ static void devmm_set_stop_business_flag(u32 devid)
 {
     if (uda_is_phy_dev(devid) == true) {
         ka_task_down_write(&g_svm_business_info->stop_business_rw_sema);
-        g_svm_business_info->stop_business_flag |= 1 << devid;
+        g_svm_business_info->stop_business_flag |= 1ULL << devid;
         ka_task_up_write(&g_svm_business_info->stop_business_rw_sema);
     }
 }
@@ -80,7 +80,7 @@ static void devmm_clear_stop_business_flag(u32 devid)
 {
     if (uda_is_phy_dev(devid) == true) {
         ka_task_down_write(&g_svm_business_info->stop_business_rw_sema);
-        g_svm_business_info->stop_business_flag &= ~(1 << devid);
+        g_svm_business_info->stop_business_flag &= ~(1ULL << devid);
         ka_task_up_write(&g_svm_business_info->stop_business_rw_sema);
     }
 }

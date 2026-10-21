@@ -40,15 +40,16 @@ drvError_t mp_free_buff(void *mempool, void *buff)
         }
     }
 
-    head->mbuf_data_flag = UNI_MBUF_DATA_DISABLE;
-    head->status = UNI_STATUS_IDLE;
-    head->buff_type = TYPE_NONE;
-
     buff_index = head->index;
     if (buff_index >= mp->blk_num) {
         buff_err("Buff free. (mp=%p; buff=%p; index=%u; bit_num=%u)\n", mp, buff, buff_index, mp->blk_num);
         return DRV_ERROR_INVALID_VALUE;
     }
+
+    head->mbuf_data_flag = UNI_MBUF_DATA_DISABLE;
+    head->status = UNI_STATUS_IDLE;
+    head->buff_type = TYPE_NONE;
+
     offset = buff_index & (BITS_PER_LONG - 1);
     bitmap_clear_bit_atomic(&mp->bitmap[buff_index / BITS_PER_LONG], offset);
     mp_mng_put(mp);

@@ -120,7 +120,7 @@ int apm_res_addr_map(u32 udevid, struct res_map_info_in *res_info, u64 *va, u32 
 
     /* check res perm */
     if (!apm_res_is_belong_to_proc(master_tgid, slave_tgid, udevid, res_info)) {
-        apm_err("Current task does not own the resource. (udevid=%u; res_type=%u; res_id=%u; proc_type=%d)\n", udevid,
+        apm_err("Current task does not have the resource. (udevid=%u; res_type=%u; res_id=%u; proc_type=%d)\n", udevid,
                 res_info->res_type, res_info->res_id, res_info->target_proc_type);
         return -EPERM;
     }

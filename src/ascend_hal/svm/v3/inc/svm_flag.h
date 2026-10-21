@@ -55,6 +55,8 @@
 #define SVM_FLAG_ATTR_VA_WITHOUT_MASTER (1ULL << 34ULL)
 #define SVM_FLAG_ATTR_MASTER_UVA (1ULL << 35ULL)
 #define SVM_FLAG_ATTR_VA_ONLY_WITHOUT_POPULATE (1ULL << 36ULL)
+#define SVM_FLAG_SNAPSHOT_OPTIONAL (1ULL << 37ULL)
+#define SVM_FLAG_SNAPSHOT_REQUIRED (1ULL << 38ULL)
 
 /* pa attr */
 #define SVM_FLAG_ATTR_PA_HPAGE (1ULL << 40ULL)
@@ -67,9 +69,11 @@
 #define SVM_FLAG_ATTR_PG_RDONLY (1ULL << 49ULL)
 
 /* others */
+#define SVM_FLAG_VMM_MAP_OWNER_NO_ACCESS (1ULL << 51ULL)
 #define SVM_FLAG_MUST_WITH_PRIV (1ULL << 52ULL)
 #define SVM_FLAG_BY_PASS_CACHE (1ULL << 53ULL)
 #define SVM_FLAG_DEV_CP_ONLY (1ULL << 54ULL) /* not support share and op(host ldst/memcpy/memset) */
+#define SVM_FLAG_DEV_PRIVATE (1ULL << 55ULL) /* device-private memory, copy is forbidden */
 
 /* model id: bit56~63 */
 #define SVM_FLAG_MODULE_ID_BIT 56ULL
@@ -292,6 +296,11 @@ static inline bool svm_flag_attr_is_pg_rdonly(u64 flag)
     return svm_flag_bit_is_set(flag, SVM_FLAG_ATTR_PG_RDONLY);
 }
 
+static inline bool svm_flag_is_vmm_map_owner_no_access(u64 flag)
+{
+    return svm_flag_bit_is_set(flag, SVM_FLAG_VMM_MAP_OWNER_NO_ACCESS);
+}
+
 static inline bool svm_flag_is_must_with_priv(u64 flag)
 {
     return svm_flag_bit_is_set(flag, SVM_FLAG_MUST_WITH_PRIV);
@@ -305,6 +314,11 @@ static inline bool svm_flag_is_by_pass_cache(u64 flag)
 static inline bool svm_flag_is_dev_cp_only(u64 flag)
 {
     return svm_flag_bit_is_set(flag, SVM_FLAG_DEV_CP_ONLY);
+}
+
+static inline bool svm_flag_is_dev_private(u64 flag)
+{
+    return svm_flag_bit_is_set(flag, SVM_FLAG_DEV_PRIVATE);
 }
 
 static inline bool svm_flag_is_va_only_without_populate(u64 flag)

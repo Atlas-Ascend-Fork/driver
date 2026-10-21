@@ -36,7 +36,7 @@
 */
 
 #define TASK_CTX_HASH_BIT 6
-#define TASK_CTX_HASH_MAX (1 << TASK_CTX_HASH_BIT)
+#define TASK_CTX_HASH_MAX (1U << TASK_CTX_HASH_BIT)
 #define TASK_CTX_DOMAIN_FLAG_ACTIVE (1ULL << 0ULL)
 
 struct task_ctx_domain {
@@ -431,6 +431,54 @@ static inline void task_ctx_for_each_safe(struct task_ctx_domain *domain, void *
     for (bkt = 0; bkt < TASK_CTX_HASH_MAX; bkt++) {
         _task_ctx_for_each_safe(&domain->ctx_htable[bkt], &domain->ctx_lock[bkt], priv, func);
     }
+}
+
+static inline void task_ctx_try_cond_resched_by_time(unsigned long *pre_stamp, unsigned long time)
+{
+    unsigned long timeinterval;
+
+    if (ka_base_in_atomic()) {
+        return;
+    }
+
+    timeinterval = ka_system_jiffies_to_msecs(ka_jiffies - *pre_stamp);
+    if (timeinterval > time) {
+        ka_task_cond_resched();
+        *pre_stamp = ka_jiffies;
+    }
+}
+
+#define TASK_CTX_COND_RESCHED_TIME 500
+static inline int task_ctx_for_each_safe_ex(struct task_ctx_domain *domain, void *priv,
+                                            int (*func)(struct task_ctx *ctx, void *priv), bool break_if_fail)
+{
+    unsigned long stamp = ka_jiffies;
+    u32 bkt;
+
+    for (bkt = 0; bkt < TASK_CTX_HASH_MAX; bkt++) {
+        struct task_ctx *ctx = task_ctx_get_first(&domain->ctx_htable[bkt], &domain->ctx_lock[bkt]);
+        int ret = 0;
+
+        while (ctx != NULL) {
+            /* search and then release to ensure that the ctx is not deleted before the search */
+            struct task_ctx *next_ctx = task_ctx_get_next(ctx, &domain->ctx_lock[bkt]);
+            ret = func(ctx, priv);
+            task_ctx_put(ctx);
+
+            if (!((ret != 0) && (break_if_fail == true))) {
+                ctx = next_ctx;
+                task_ctx_try_cond_resched_by_time(&stamp, TASK_CTX_COND_RESCHED_TIME);
+                continue;
+            }
+
+            if (next_ctx != NULL) {
+                task_ctx_put(next_ctx);
+            }
+            return ret;
+        }
+    }
+
+    return 0;
 }
 
 static inline void task_ctx_item_show(struct task_ctx *ctx, void *priv)

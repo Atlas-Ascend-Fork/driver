@@ -18,17 +18,17 @@
 #define SYS_OK 0
 #define SYS_ERROR (-1)
 
-#define STATE_MANAGE_TYPE  0
-#define CONFIG_MANAGE_TYPE  1
+#define STATE_MANAGE_TYPE 0
+#define CONFIG_MANAGE_TYPE 1
 #define FAULT_MANAGE_TYPE 2
 #define FIRMWARE_UPDATE_TYPE 3
 #define CRITICAL_STATE_TYPE 4
-#define MAX_FILE_TYPE  5
-#define UNDEFINED_TYPE  6
+#define MAX_FILE_TYPE 5
+#define UNDEFINED_TYPE 6
 
-#define MSG_QUEUE_NUM_MAX               12
-#define IAM_CLIENT_APP_NAME_LEN             200
-#define IAM_MSG_QUEUE_SIZE                  32
+#define MSG_QUEUE_NUM_MAX 12
+#define IAM_CLIENT_APP_NAME_LEN 200
+#define IAM_MSG_QUEUE_SIZE 32
 typedef struct DM_IAM_ADDR_S {
     int addr_type;
     short channel;
@@ -78,4 +78,3 @@ typedef struct IAM_MSG_S {
 #define IAMMSG_HEAD_SIZE (sizeof(IAM_MSG_ST) - DM_IMA_MSG_DATA_MAX)
 #pragma pack()
 #endif
-

@@ -17,11 +17,6 @@ target_include_directories(queue_obj PRIVATE
     ${DRIVER_USER_DIR}/queue/dc/agent/common
 )
 
-target_compile_definitions(queue_obj PRIVATE
-    CFG_FEATURE_HOST_DEFAULT_CLIENT_QUEUE
-    CFG_FEATURE_SUPPORT_SRIOV
-)
-
 add_subdirectory(que_clt_pcie)
 if(${PRODUCT} IN_LIST support_ub)
     add_subdirectory(que_clt_ub)

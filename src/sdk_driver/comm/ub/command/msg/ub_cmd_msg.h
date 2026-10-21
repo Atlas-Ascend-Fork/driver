@@ -29,14 +29,13 @@
 #define UBDRV_CREATE_URMA_CHAN_CMD_RSV 2
 #define JETTY_EXCHANGE_DATA_RSV 5
 #define UBDRV_JETTY_EXCHANGE_DATA_RSV 3
-#define UBDRV_MSG_CHAN_INFO_RSV 2
-#define UBDRV_MSG_CHAN_TX_INFO_RSV 4
-#define UBDRV_MSG_CHAN_RX_INFO_RSV 4
-#define UBDRV_MSG_CHAN_DFX_INFO_RSV 7
+#define UBDRV_MSG_CHAN_INFO_RSV 8
+#define UBDRV_MSG_CHAN_RX_INFO_RSV 32
+#define UBDRV_MSG_CHAN_DFX_INFO_RSV 28
 #define UBDRV_COMMON_MSG_STAT_RSV 7
 #define UBDRV_CHAN_DFX_CMD_RSV 3
 #define UBDRV_VERSION_LEN 64
-#define UBDRV_LINK_EXCHANGE_DATA_RSV 2
+#define UBDRV_LINK_EXCHANGE_DATA_RSV 1
 
 enum ubdrv_msg_chan_mode {
     UBDRV_MSG_CHAN_FOR_LINK = 0,
@@ -66,10 +65,10 @@ struct ascend_ub_msg_desc {
     u32 real_data_len;
     u32 msg_num;
     u32 time_out;
-    u32 client_type; // none_trans reserve
+    u32 client_type; // common msg type
     u32 opcode;
     u32 rsv[UBDRV_MSG_DESC_RSV];
-    char user_data[0];
+    char user_data[];
 };
 
 // =============================================================================
@@ -122,6 +121,8 @@ enum ubdrv_proc_admin_sub_cmd {
     UBDRV_PROCFS_ADMIN_CHAN_CMD = 0,
     UBDRV_PROCFS_NONTRANS_CHAN_CMD,
     UBDRV_PROCFS_COMMON_CHAN_CMD,
+    UBDRV_PROCFS_ENABLE_PROF_CMD,
+    UBDRV_PROCFS_DISABLE_PROF_CMD,
     UBDRV_PROC_TYPE_MAX
 };
 
@@ -129,7 +130,7 @@ struct ubdrv_msg_chan_stat {
     // chan info
     u32 dev_id;
     u32 chan_id;
-    u32 rsv[UBDRV_MSG_CHAN_INFO_RSV];
+    u8 rsv[UBDRV_MSG_CHAN_INFO_RSV];
 
     // tx dfx info
     u64 tx_total;
@@ -138,13 +139,16 @@ struct ubdrv_msg_chan_stat {
     u64 tx_cqe_timeout; // local send cqe timeout
     u64 tx_poll_cqe_err;
     u64 tx_cqe_status_err;
-    u64 tx_rebuild_jfs;
-    u64 tx_recv_cqe_timeout; // poll remote replat data cqe timeout
+    u64 tx_rebuild;
+    u64 tx_recv_cqe_timeout; // poll remote reply data cqe timeout
     u64 tx_recv_cqe;
     u64 tx_recv_poll_cqe_err;
     u64 tx_recv_cqe_status_err;
     u64 tx_recv_data_err; // remote reply data content check err
-    u64 tx_rsv[UBDRV_MSG_CHAN_TX_INFO_RSV];
+    u64 tx_start_stamp;
+    u64 tx_post_stamp;
+    u64 tx_wait_reply_stamp;
+    u64 tx_recv_stamp;
 
     // rx dfx info
     u64 rx_total; // recv msg jfce call cnt
@@ -160,12 +164,12 @@ struct ubdrv_msg_chan_stat {
     u64 rx_tx_cqe_timeout;
     u64 rx_tx_cqe;
     u64 rx_tx_cqe_status_err;
-    u64 rx_tx_rebuild_jfs;
+    u64 rx_rebuild;
     u64 rx_stamp;
     u64 rx_work_stamp;
     u32 rx_max_time;
     u32 rx_work_max_time;
-    u64 rx_rsv[UBDRV_MSG_CHAN_RX_INFO_RSV];
+    u8 rx_rsv[UBDRV_MSG_CHAN_RX_INFO_RSV];
 
     // chan dfx info
     u32 jfae_err;
@@ -177,7 +181,7 @@ struct ubdrv_msg_chan_stat {
     u32 rx_jfr_jfc_id;
     u32 rx_jfs_id;
     u32 rx_jfs_jfc_id;
-    u32 reserved[UBDRV_MSG_CHAN_DFX_INFO_RSV];
+    u8 reserved[UBDRV_MSG_CHAN_DFX_INFO_RSV];
 };
 
 struct ubdrv_common_msg_stat {
@@ -228,6 +232,7 @@ struct ubdrv_link_exchange_data {
     struct jetty_exchange_data send_admin_info;
     struct jetty_exchange_data client_info;
     struct ubdrv_id_info id_info;
+    u32 chip_type;
     u32 reserved[UBDRV_LINK_EXCHANGE_DATA_RSV];
 };
 

@@ -56,7 +56,7 @@ STATIC int urd_check_module_init(const char *module_name)
     }
     name_len = strnlen(module_name, DEV_MODULE_INIT_INFO_LEN);
     if (name_len >= DEV_MODULE_INIT_INFO_LEN) {
-        urd_err("Length out of range. (length=%ld)\n", name_len);
+        urd_err("Length out of range. (length=%zu)\n", name_len);
         return -1;
     }
     buff = (char *)malloc(DEV_MODULE_INIT_INFO_LEN);
@@ -224,7 +224,7 @@ STATIC void __attribute__((destructor)) urd_user_uninit(void)
 
 STATIC inline int is_valid_user_errno(int err)
 {
-    return ((err >= 0) && (err <= DRV_ERROR_POWER_OP_FAIL)) || (err == DRV_ERROR_NOT_SUPPORT);
+    return ((err >= 0) && (err <= DRV_ERROR_CONNECT)) || (err == DRV_ERROR_NOT_SUPPORT);
 }
 
 /*
@@ -259,6 +259,10 @@ STATIC drvError_t urd_ioctl(unsigned long cmd, struct urd_ioctl_arg *ioarg)
         return DRV_ERROR_PARA_ERROR;
     }
 
+    if (!urd_ioctl_cmd_check(cmd, ioarg->cmd.main_cmd, ioarg->cmd.sub_cmd, ioarg->cmd.filter)) {
+        return DRV_ERROR_PERMISSION;
+    }
+
     fd = urd_open_intf();
     if (!FdIsValid(fd)) {
         urd_err("Open device failed. (fd=%d)\n", fd);
@@ -281,35 +285,7 @@ STATIC drvError_t urd_ioctl(unsigned long cmd, struct urd_ioctl_arg *ioarg)
 
 int urd_dev_usr_cmd(uint32_t devid, struct urd_cmd *cmd, struct urd_cmd_para *cmd_para)
 {
-    struct urd_ioctl_arg ioarg = {0};
-    int ret;
-
-    if ((cmd == NULL) || (cmd_para == NULL)) {
-        urd_err("Invalid cmd_para or cmd is NULL. (devid=%u, cmd=%s, cmd_para=%s)\n", devid,
-                (cmd == NULL) ? "NULL" : "OK", (cmd_para == NULL) ? "NULL" : "OK");
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    ioarg.devid = devid;
-    ret = memcpy_s(&(ioarg.cmd), sizeof(ioarg.cmd), cmd, sizeof(*cmd));
-    if (ret != 0) {
-        urd_err("Memcpy fail. (ret=%d; devid=%u)\n", ret, devid);
-        return DRV_ERROR_INNER_ERR;
-    }
-
-    ret = memcpy_s(&(ioarg.cmd_para), sizeof(ioarg.cmd_para), cmd_para, sizeof(*cmd_para));
-    if (ret != 0) {
-        urd_err("Memcpy fail. (ret=%d; devid=%u)\n", ret, devid);
-        return DRV_ERROR_INNER_ERR;
-    }
-
-    ret = urd_ioctl(URD_IOCTL_CMD, &ioarg);
-    if (ret != 0) {
-        urd_ex_err(ret, "Ioctl fail. (ret=%d; devid=%u; main_cmd=0x%x; sub_cmd=0x%x)\n", ret, devid, cmd->main_cmd,
-                   cmd->sub_cmd);
-        return ret;
-    }
-    return 0;
+    return urd_dev_usr_cmd_ex(devid, URD_IOCTL_CMD, cmd, cmd_para);
 }
 
 int urd_dev_usr_cmd_ex(uint32_t devid, unsigned long ioctl_cmd, struct urd_cmd *cmd, struct urd_cmd_para *cmd_para)
@@ -345,6 +321,12 @@ int urd_dev_usr_cmd_ex(uint32_t devid, unsigned long ioctl_cmd, struct urd_cmd *
     return 0;
 }
 
+int urd_usr_cmd_ex(unsigned long ioctl_cmd, struct urd_cmd *cmd, struct urd_cmd_para *cmd_para)
+{
+    /* 0: no used */
+    return urd_dev_usr_cmd_ex(0, ioctl_cmd, cmd, cmd_para);
+}
+
 int urd_usr_cmd(struct urd_cmd *cmd, struct urd_cmd_para *cmd_para)
 {
     /* 0: no used */
@@ -364,7 +346,7 @@ drvError_t urdCloseRestoreHandler(uint32_t devid, halDevCloseIn *in)
     fd = urd_open_intf();
     if (!FdIsValid(fd)) {
         urd_close_intf();
-        urd_err("Open urd failed. (fd=%d)\n", fd);
+        urd_err("Open URD(User Request Distribute) failed. (fd=%d)\n", fd);
         return DRV_ERROR_OPEN_FAILED;
     }
     return DRV_ERROR_NONE;

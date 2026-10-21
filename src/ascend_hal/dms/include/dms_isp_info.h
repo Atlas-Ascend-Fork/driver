@@ -21,4 +21,3 @@
 int DmsGetIspInfo(unsigned int dev_id, unsigned int vfid, unsigned int subcmd, void *buf, unsigned int *size);
 
 #endif
-

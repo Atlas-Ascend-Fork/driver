@@ -43,14 +43,20 @@ static pthread_mutex_t prefetch_mutex = PTHREAD_MUTEX_INITIALIZER;
 static u32 svm_show_prefetch_node(struct svm_prefetch_node *prefetch_node, char *buf, u32 buf_len)
 {
     void *va_handle = NULL;
-    int len = snprintf_s(buf, buf_len, buf_len - 1, "va 0x%llx\n", prefetch_node->va);
+    int len;
+
+    if (buf_len == 0) {
+        return 0;
+    }
+
+    len = snprintf_s(buf, buf_len, buf_len - 1, "va 0x%llx\n", prefetch_node->va);
     if (len < 0) {
         return 0;
     }
 
     va_handle = svm_handle_get(prefetch_node->va);
     if (va_handle != NULL) {
-        len += (int)svm_svmm_inst_show_detail(prefetch_node->svmm_inst, buf, buf_len);
+        len += (int)svm_svmm_inst_show_detail(prefetch_node->svmm_inst, buf + len, buf_len - (u32)len);
     }
     svm_handle_put(va_handle);
 

@@ -11,8 +11,6 @@
 #ifndef __DMS_PCIE_H
 #define __DMS_PCIE_H
 
-#include "ascend_hal_error.h"
-
 #ifdef STATIC_SKIP
 #define STATIC
 #else
@@ -29,8 +27,7 @@ struct devdrv_pcie_info_para {
     unsigned int sub_cmd;
 };
 
-int dms_get_pcie_link_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf, unsigned int *size);
+int dms_get_pcie_link_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
+                           unsigned int *size);
 int DmsGetPcieInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
-drvError_t drvPciePreReset(uint32_t devId);
-drvError_t drvPcieRescan(uint32_t devId);
 #endif

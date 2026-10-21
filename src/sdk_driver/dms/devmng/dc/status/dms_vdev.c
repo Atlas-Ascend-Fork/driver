@@ -20,8 +20,7 @@
 #include "dms_vdev.h"
 
 #ifdef CFG_FEATURE_VDEV_MEM
-int dms_drv_get_vdevice_info(void *feature, char *in, u32 in_len,
-    char *out, u32 out_len)
+int dms_drv_get_vdevice_info(void *feature, char *in, u32 in_len, char *out, u32 out_len)
 {
     struct dms_get_vdevice_info_out inf_out = {0};
     struct dms_get_vdevice_info_in *input = NULL;
@@ -80,7 +79,7 @@ int dms_feature_set_sriov_switch(void *feature, char *in, u32 in_len, char *out,
 
     sriov_switch_in = (struct dms_sriov_switch_in *)in;
     if (sriov_switch_in->dev_id >= ASCEND_PDEV_MAX_NUM) {
-        dms_err("Device id invalid. (dev_id=%u)\n", sriov_switch_in->dev_id);
+        dms_err("Device id invalid. (dev_id=%u; max=%u)\n", sriov_switch_in->dev_id, ASCEND_PDEV_MAX_NUM);
         return -EINVAL;
     }
 

@@ -48,8 +48,15 @@ long hdcdrv_convert_id_from_vir_to_phy(u32 drv_cmd, union hdcdrv_cmd *cmd_data, 
         case HDCDRV_CMD_ACCEPT:
         case HDCDRV_CMD_CONNECT:
         case HDCDRV_CMD_ALLOC_MEM:
+        case HDCDRV_CMD_FREE_MEM:
+        case HDCDRV_CMD_FAST_SEND:
+        case HDCDRV_CMD_FAST_RECV:
         case HDCDRV_CMD_DMA_MAP:
+        case HDCDRV_CMD_DMA_UNMAP:
         case HDCDRV_CMD_DMA_REMAP:
+        case HDCDRV_CMD_REGISTER_MEM:
+        case HDCDRV_CMD_UNREGISTER_MEM:
+        case HDCDRV_CMD_WAIT_MEM:
             p_devid = &cmd_data->cmd_com.dev_id;
             break;
         case HDCDRV_CMD_EPOLL_ALLOC_FD:

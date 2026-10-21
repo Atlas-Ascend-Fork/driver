@@ -124,8 +124,8 @@ int trs_proc_add_res(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_
 int trs_proc_add_res_ex(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst, int res_type, u32 res_id,
                         bool is_agent_res);
 int trs_proc_del_res(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst, int res_type, u32 res_id);
-int trs_res_get(struct trs_core_ts_inst *ts_inst, int pid, int res_type, u32 res_id);
-int trs_res_put(struct trs_core_ts_inst *ts_inst, int res_type, u32 res_id);
+int trs_res_get(struct trs_core_ts_inst *ts_inst, int pid, int res_type, u32 res_id, u32 hpid, u32 seq);
+int trs_res_put(struct trs_core_ts_inst *ts_inst, int res_type, u32 res_id, u32 hpid, u32 seq);
 bool trs_is_proc_res_limited(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst, int res_type);
 
 struct trs_proc_ctx *trs_proc_ctx_find(struct trs_core_ts_inst *ts_inst, int pid);
@@ -152,9 +152,12 @@ struct trs_proc_ctx *trs_get_share_ctx(struct trs_core_ts_inst *ts_inst, u32 sha
 
 struct trs_mem_map_para {
     int type;
+    bool cc_shared; /* Use decrypted page protection for this mapping in a confidential VM. */
     unsigned long va;
     unsigned long pa;
     unsigned long len;
+    struct ka_pa_wraper *pa_wraper_list;
+    u32 pa_num;
 };
 
 struct trs_mem_unmap_para {
@@ -163,13 +166,15 @@ struct trs_mem_unmap_para {
     unsigned long len;
 };
 
-static inline void trs_remap_fill_para(struct trs_mem_map_para *para, int type, unsigned long va, unsigned long pa,
-                                       unsigned long len)
+static inline void trs_remap_fill_para(struct trs_mem_map_para *para, int type, bool cc_shared, unsigned long va,
+                                       unsigned long pa, unsigned long len)
 {
     para->type = type;
+    para->cc_shared = cc_shared;
     para->va = va;
     para->pa = pa;
     para->len = len;
+    para->pa_num = 1; /* default pa_num */
 }
 
 static inline void trs_unmap_fill_para(struct trs_mem_unmap_para *para, int type, unsigned long va, unsigned long len)

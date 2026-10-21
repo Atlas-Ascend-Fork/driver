@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@
 #include "virtmng_public_def.h"
 #include "virtmnghost_pci.h"
 #include "virtmng_res_drv.h"
+#include "virtmnghost_feature.h"
 #include "virtmnghost_ctrl.h"
 
 struct vmngh_client *g_vmngh_clients[VMNG_CLIENT_TYPE_MAX];
@@ -153,7 +154,7 @@ STATIC int vmngh_alloc_vfid_dynamic(u32 dev_id, u32 *fid)
 STATIC int vmngh_alloc_vfid_static(u32 dev_id, u32 fid)
 {
     if (vmngh_get_ctrl(dev_id, fid)->vdev_ctrl.status != VMNG_VDEV_STATUS_FREE) {
-        vmng_err("fid already in used. (dev_id=%u; fid=%u)\n", dev_id, fid);
+        vmng_err("fid is already in use. (dev_id=%u; fid=%u)\n", dev_id, fid);
         return VMNG_ERR;
     }
 
@@ -369,7 +370,6 @@ void vmngh_bw_data_clear_timer_init(u32 dev_id, u32 vfid)
 
 void vmngh_bw_ctrl_info_init(u32 dev_id)
 {
-#ifndef CFG_SOC_PLATFORM_CLOUD_V4
     struct vmngh_pci_dev *vmngh_pdev = NULL;
     u64 raw_bandwidth = 0;
     u64 raw_packspeed = 0;
@@ -378,6 +378,10 @@ void vmngh_bw_ctrl_info_init(u32 dev_id)
     u32 packspeed_ratio = 0;
     u64 addr = 0;
     int ret;
+
+    if (vmngh_feature_not_support(dev_id, VMNG_FEATURE_BW_CTRL)) {
+        return;
+    }
 
     vmngh_pdev = vmngh_get_pdev_from_unit(dev_id);
     if (vmngh_pdev == NULL) {
@@ -412,13 +416,15 @@ void vmngh_bw_ctrl_info_init(u32 dev_id)
         vmng_err("Bandwidth ctrl ka_mm_ioremap failed. (dev_id=%u)\n", dev_id);
         return;
     }
-#endif
 }
 
 void vmngh_bw_ctrl_info_uninit(u32 dev_id)
 {
-#ifndef CFG_SOC_PLATFORM_CLOUD_V4
     struct vmngh_pci_dev *vmngh_pdev = NULL;
+
+    if (vmngh_feature_not_support(dev_id, VMNG_FEATURE_BW_CTRL)) {
+        return;
+    }
 
     vmngh_pdev = vmngh_get_pdev_from_unit(dev_id);
     if (vmngh_pdev == NULL) {
@@ -433,7 +439,6 @@ void vmngh_bw_ctrl_info_uninit(u32 dev_id)
 
     vmngh_pdev->bw_ctrl.bandwidth = 0;
     vmngh_pdev->bw_ctrl.packspeed = 0;
-#endif
 }
 
 STATIC int vmngh_get_map_info_handle(struct vmngh_client_instance *instance, const struct vmngh_vascend_client *client,
@@ -924,7 +929,9 @@ int vmngh_unregister_client(struct vmngh_client *client)
 
     ret = vmngh_uninit_instance_all_dev(client->type, client);
     if (ret != 0) {
-        vmng_err("Uninit all device error. (client_type=%u;ret=%d)\n", client->type, ret);
+#ifndef DRV_UT
+        vmng_err("Uninit all device failed. (client_type=%u; ret=%d)\n", client->type, ret);
+#endif
         return ret;
     }
     g_vmngh_clients[client->type] = NULL;
@@ -1311,8 +1318,10 @@ int vmngh_alloc_vm_id(u32 dev_id, u32 fid, u32 vm_pid, u32 vm_devid)
             if (g_vmngh_vm_ctrl[vm_id].pdev_cnt < VMNG_VM_MAX) {
                 g_vmngh_vm_ctrl[vm_id].pdev_cnt++;
             } else {
-                vmng_err("vm_devid is exceed MAX. (dev_id=%u; fid=%u; vm_pid=%u; vm_devid=%u)", dev_id, fid, vm_pid,
-                         vm_devid);
+#ifndef DRV_UT
+                vmng_err("vm_devid exceeds MAX. (dev_id=%u; fid=%u; vm_pid=%u; vm_devid=%u; max=%u)", dev_id, fid,
+                         vm_pid, vm_devid, VMNG_VM_MAX);
+#endif
                 ka_task_mutex_unlock(&g_vmngh_vm_ctrl_mutex);
                 return -EINVAL;
             }
@@ -1670,7 +1679,9 @@ int vmngh_create_container_vdev(u32 dev_id, u32 dtype, u32 *vfid, struct vmng_vf
         ret = uda_dev_ctrl(dev_id, UDA_CTRL_TO_MIA);
         if (ret != 0) {
             ka_task_mutex_unlock(&pdev->vpdev_mutex);
-            vmng_err("To mia mode failed. (dev_id=%u)\n", dev_id);
+#ifndef DRV_UT
+            vmng_err("uda_dev_ctrl switch to MIA mode failed. (dev_id=%u)\n", dev_id);
+#endif
             return ret;
         }
 
@@ -1720,7 +1731,7 @@ STATIC int vmngh_destroy_single_container_vdev(u32 dev_id, u32 vfid)
     vmngh_ctrl_set_startup_flag(info.dev_id, info.vfid, VMNG_STARTUP_PROBED);
 
     if (vmng_ops_pci_offline(ops, dev_id, vfid) != 0) {
-        vmng_err("Uninit instance all client failed. (dev_id=%u;vfid=%u)\n", dev_id, vfid);
+        vmng_err("Uninit instance all client failed. (dev_id=%u; vfid=%u)\n", dev_id, vfid);
     }
 
     if (vmng_ops_free_vf(ops, dev_id, vfid) != 0) {
@@ -2075,7 +2086,7 @@ STATIC int vmngh_get_dev_numa_info(unsigned int dev_id, struct vmng_vf_memory_in
 int vmngh_check_vdev_phy_address(unsigned int dev_id, u64 phy_address, u64 length)
 {
     struct vmng_vf_memory_info *mem_info = NULL;
-    u64 numa_start, numa_end;
+    u64 numa_start, numa_end, phy_addr_end;
     int ret;
     u32 i;
 
@@ -2085,10 +2096,17 @@ int vmngh_check_vdev_phy_address(unsigned int dev_id, u64 phy_address, u64 lengt
         return ret;
     }
 
+    phy_addr_end = phy_address + length;
+    if ((phy_addr_end < phy_address) || (phy_addr_end < length)) {
+        vmng_err("Invalid physical address or length. (dev_id=%u;phy_address=0x%pK;length=0x%llx)\n", dev_id,
+                 (void *)(uintptr_t)phy_address, length);
+        return -EINVAL;
+    }
+
     for (i = 0; i < mem_info->number; ++i) {
         numa_start = mem_info->address[i].start;
         numa_end = mem_info->address[i].end;
-        if ((phy_address >= numa_start) && (phy_address + length <= numa_end)) {
+        if ((phy_address >= numa_start) && (phy_addr_end <= numa_end)) {
             return 0;
         }
     }
@@ -2196,7 +2214,7 @@ int vmngh_bw_set_token_limit(u32 dev_id, u32 vfid)
 
     ret = vmngh_bw_calcu_token_limit(dev_id, vfid, &flow_limit, &pack_limit);
     if (ret != 0) {
-        vmng_err("Calculate token limit error. (dev_id=%u;vfid=%u;ret=%d)\n", dev_id, vfid, ret);
+        vmng_err("Calcu token limit error. (dev_id=%u; vfid=%u; ret=%d)\n", dev_id, vfid, ret);
         return -EINVAL;
     }
 

@@ -21,11 +21,16 @@
 #ifdef CONFIG_PLATFORM_950
 #include "ascend_platform/ascend_dev_num_950.h"
 #endif
-#ifdef CONFIG_PLATFORM_910_96
+#ifdef CONFIG_PLATFORM_960
 #include "ascend_platform/ascend_dev_num_950.h"
 #endif
 #ifdef CONFIG_PLATFORM_350
 #include "ascend_platform/ascend_dev_num_350.h"
 #endif
-
+#ifdef CONFIG_PLATFORM_310N
+#include "ascend_platform/ascend_dev_num_310N.h"
+#endif
+#ifdef CONFIG_PLATFORM_970
+#include "ascend_platform/ascend_dev_num_950.h"
+#endif
 #endif /* __ASCEND_DEV_NUM_H__ */

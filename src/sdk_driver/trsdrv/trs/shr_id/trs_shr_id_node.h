@@ -28,9 +28,11 @@ struct shr_id_node_op_attr {
     char name[SHR_ID_NSM_NAME_SIZE];
     u32 flag;         /* remote flag */
     u32 stars_die_id; /* die id of stars in this ts inst */
+    u32 get_seq;      /* global seq for remote get/put idempotency */
+    u32 get_hpid;     /* host pid for remote get/put idempotency */
 
-    int (*res_get)(struct trs_id_inst *inst, int res_type, u32 res_id);
-    int (*res_put)(struct trs_id_inst *inst, int res_type, u32 res_id);
+    int (*res_get)(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq);
+    int (*res_put)(struct trs_id_inst *inst, int res_type, u32 res_id, u32 hpid, u32 seq);
 };
 
 void shr_id_node_init(void);

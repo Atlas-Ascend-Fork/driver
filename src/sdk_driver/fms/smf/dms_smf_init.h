@@ -18,5 +18,3 @@ int dms_smf_init(void);
 void dms_smf_exit(void);
 
 #endif
-
-

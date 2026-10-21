@@ -32,8 +32,6 @@ int va_dev_dcache_allocator_init(void)
             svm_err("Reserve va failed. (ret=%d; size=0x%llx)\n", ret, g_dache_size);
             return ret;
         }
-
-        g_dache_size -= svm_align_up(svm_va_get_gap(), (2ULL * SVM_BYTES_PER_MB)); /* align 2M */
     }
 
     return DRV_ERROR_NONE;

@@ -32,6 +32,11 @@ STATIC struct bbox_ub_dump_ctx ub_dump_ctx_mng[ASCEND_DEV_MAX_NUM][MEM_CTRL_TYPE
 
 struct bbox_ub_dump_ctx *bbox_get_ub_dump_ctx(u32 dev_id, u32 type)
 {
+    if ((dev_id >= ASCEND_DEV_MAX_NUM) || (type >= MEM_CTRL_TYPE_MAX)) {
+        dms_err("Invalid dev_id or type. (dev_id=%u; type=%u)\n", dev_id, type);
+        return NULL;
+    }
+
     return &ub_dump_ctx_mng[dev_id][type];
 }
 
@@ -125,7 +130,7 @@ void bbox_unimport_ub_segment(struct bbox_ub_dump_ctx *ctx)
     }
 }
 
-STATIC int bbox_ub_get_dump_ctx_para_check(struct bbox_ub_dump_ctx *ctx, u32 offset, u32 len)
+STATIC int bbox_ub_get_dump_ctx_para_check(struct bbox_ub_dump_ctx *ctx, u32 len)
 {
     if ((ctx->va == NULL) || (KA_IS_ERR_OR_NULL(ctx->target_seg)) || (KA_IS_ERR_OR_NULL(ctx->remote_seg))) {
         dms_err("Unmapped addr or seg. (target_seg_is_null=%d; remote_seg_is_null=%d)\n",
@@ -133,7 +138,7 @@ STATIC int bbox_ub_get_dump_ctx_para_check(struct bbox_ub_dump_ctx *ctx, u32 off
         return -EINVAL;
     }
 
-    if (offset + len > ctx->size || offset + len < offset || offset >= ctx->size) {
+    if (len > ctx->size) {
         dms_err("Unmapped region or invalid para. (len=0x%x; ctx_size=0x%x)\n", len, ctx->size);
         return -EINVAL;
     }
@@ -158,7 +163,7 @@ int bbox_ub_get_data(u32 dev_id, u32 type, u32 offset, u32 len, void *buf)
     int ret;
 
     ka_task_down_read(&ub_dump_ctx->sem);
-    ret = bbox_ub_get_dump_ctx_para_check(ub_dump_ctx, offset, len);
+    ret = bbox_ub_get_dump_ctx_para_check(ub_dump_ctx, len);
     if (ret != 0) {
         ka_task_up_read(&ub_dump_ctx->sem);
         return ret;

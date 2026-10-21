@@ -80,15 +80,16 @@ STATIC int vmngh_msg_get_cluster_from_db(struct vmng_msg_dev *msg_dev, u32 db_ve
         }
     }
 
-    vmng_err("Get db_vector. (dev_id=%u; fid=%u; db=%u)\n", msg_dev->dev_id, msg_dev->fid, db_vector);
+    vmng_err("Get msg cluster by db_vector failed. (dev_id=%u; fid=%u; db=%u)\n", msg_dev->dev_id, msg_dev->fid,
+             db_vector);
     for (i = VMNG_MSG_CHAN_TYPE_COMMON; i < VMNG_MSG_CHAN_TYPE_MAX; i++) {
         if (msg_dev->msg_cluster[i].status == 0) {
             continue;
         }
         db_id_beg = msg_dev->msg_cluster[i].msg_chan_rx_beg->rx_recv_irq;
         db_id_end = db_id_beg + msg_dev->msg_cluster[i].res.rx_num - 1;
-        vmng_err("Get db_id. (type=%u; status=%u; beg=%u; end=%u)\n", i, msg_dev->msg_cluster[i].status, db_id_beg,
-                 db_id_end);
+        vmng_err("db_id is out of range. (type=%u; status=%u; db_id_beg=%u; db_id_end=%u)\n", i,
+                 msg_dev->msg_cluster[i].status, db_id_beg, db_id_end);
     }
     return -EINVAL;
 }
@@ -332,8 +333,10 @@ int vmngh_alloc_msg_cluster(struct vmng_msg_dev *msg_dev, enum vmng_msg_chan_typ
     /* 1. prepare parameter, msg_dev, res, irqs */
     res = vmngh_get_msg_cluster_res(msg_dev, chan_type);
     if (res == NULL) {
-        vmng_err("Get message cluster res. (dev_id=%u; fid=%u; chan_type=%u)\n", msg_dev->dev_id, msg_dev->fid,
+#ifndef DRV_UT
+        vmng_err("Get message cluster res failed. (dev_id=%u; fid=%u; chan_type=%u)\n", msg_dev->dev_id, msg_dev->fid,
                  chan_type);
+#endif
         return -EINVAL;
     }
 
@@ -493,6 +496,12 @@ KA_EXPORT_SYMBOL(vmngh_init_vpc_msg);
 void vmngh_uninit_vpc_msg(void *unit_in)
 {
     struct vmngh_vpc_unit *unit = (struct vmngh_vpc_unit *)unit_in;
+
+    if (unit == NULL) {
+        vmng_err("Input unit is NULL.\n");
+        return;
+    }
+
     vmngh_uninit_admin_msg(unit->msg_dev);
     vmng_free_msg_dev(unit->msg_dev);
     unit->msg_dev = NULL;

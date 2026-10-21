@@ -19,7 +19,7 @@
 #include "ka_task_pub.h"
 
 #define KV_TABLE_BIT 10
-#define KV_TABLE_SIZE (0x1 << KV_TABLE_BIT)
+#define KV_TABLE_SIZE (0x1U << KV_TABLE_BIT)
 #define KV_TABLE_MASK (KV_TABLE_SIZE - 1)
 
 #define KV_KEY_MAX_LEN 256
@@ -46,7 +46,7 @@ int dms_kv_init(void);
 int dms_kv_get(const char *key, void *value, int len);
 int dms_kv_set(const char *key, void *value, int len);
 int dms_kv_del(const char *key);
-int dms_kv_get_ex(const char* key, void* value, int len);
+int dms_kv_get_ex(const char *key, void *value, int len);
 void dms_kv_uninit(void);
 
 #endif

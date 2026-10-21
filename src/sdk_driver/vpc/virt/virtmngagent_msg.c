@@ -169,6 +169,7 @@ STATIC struct vmng_msg_dev *vmnga_msg_dev_alloc(struct vmnga_vpc_unit *unit)
 {
     struct vmng_msg_dev *msg_dev = NULL;
     int ret = 0;
+    u32 i;
 
     vmng_info("Get msg_dev size. (dev_id=%u; size=%lu)\n", unit->dev_id, sizeof(struct vmng_msg_dev));
     msg_dev = vmng_kzalloc(sizeof(struct vmng_msg_dev), KA_GFP_KERNEL);
@@ -193,6 +194,9 @@ STATIC struct vmng_msg_dev *vmnga_msg_dev_alloc(struct vmnga_vpc_unit *unit)
     msg_dev->ops.rx_irq_init = vmnga_rx_irq_init;
     msg_dev->ops.rx_irq_uninit = vmnga_rx_irq_uninit;
 
+    for (i = 0; i < VMNG_MSG_COMMON_TYPE_MAX; i++) {
+        ka_task_init_rwsem(&msg_dev->common_msg.common_fun_rwsem[i]);
+    }
     msg_dev->work_queue = ka_task_create_workqueue("vmnga_wq");
     if (msg_dev->work_queue == NULL) {
         vmng_err("Create msg work_queue failed. (dev_id=%u)\n", unit->dev_id);

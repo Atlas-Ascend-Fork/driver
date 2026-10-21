@@ -110,7 +110,7 @@ bool hw_dvt_check_host_is_uvp(void)
     ret = ka_fs_kernel_read(fp, uvp_version_buf, UVP_VERSION_INFO_SIZE, &pos);
     ka_fs_filp_close(fp, NULL);
     if ((ret <= 0) || (ret > UVP_VERSION_INFO_SIZE)) {
-        ka_dfx_pr_err("get cpuset file content failed. (ret=%ld)\n", ret);
+        ka_dfx_pr_err("get cpuset file content failed, ret = %ld.\n", ret);
         return false;
     }
 
@@ -155,7 +155,9 @@ int hw_dvt_get_mode(int *mode)
         return -EINVAL;
     }
 
+    ka_task_down_read(&g_vdev_mode.rw_sem);
     *mode = g_vdev_mode.mode;
+    ka_task_up_read(&g_vdev_mode.rw_sem);
     return 0;
 }
 KA_EXPORT_SYMBOL_GPL(hw_dvt_get_mode);

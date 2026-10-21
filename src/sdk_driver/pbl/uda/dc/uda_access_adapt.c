@@ -14,11 +14,25 @@
 #include "pbl_uda.h"
 #include "ka_system_pub.h"
 #include "uda_access_adapt.h"
+#include "uda_pub_def.h"
 
 void uda_init_phy_dev_num(void)
 {
 #ifndef DRV_HOST
-    u32 node_num = (u32)ka_system_cpu_to_node((int)ka_system_num_online_cpus() - 1) + 1;
-    (void)uda_set_detected_phy_dev_num(node_num);
+    u32 cpu_count = ka_system_num_online_cpus();
+    int node_id;
+
+    if (cpu_count == 0) {
+        uda_err("No online CPUs found, use default phy dev num.\n");
+        return;
+    }
+
+    node_id = ka_system_cpu_to_node((int)cpu_count - 1);
+    if (node_id < 0) {
+        uda_err("Failed to get NUMA node ID (node_id=%d), use default phy dev num.\n", node_id);
+        return;
+    }
+
+    (void)uda_set_detected_phy_dev_num((u32)node_id + 1);
 #endif
 }

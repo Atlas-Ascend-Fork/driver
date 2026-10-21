@@ -23,6 +23,7 @@
 #include "trs_timestamp.h"
 #include "trs_core_trace.h"
 #include "trs_logic_cq.h"
+#include "trs_sqcq_timestamp.h"
 
 /* non stars cqe */
 struct trs_logic_cqe_v1 {
@@ -268,8 +269,8 @@ static int trs_logic_cq_recv_para_check(struct trs_proc_ctx *proc_ctx, struct tr
     }
 
     if (((para->timeout < 0) && (para->timeout != -1)) || (para->cqe_num == 0) || (para->cqe_addr == NULL)) {
-        trs_err("Invalid para. (devid=%u; tsid=%u; logic_cqid=%u; timeout=%d(ms); cqe_num=%u)\n", inst->devid,
-                inst->tsid, para->cqId, para->timeout, para->cqe_num);
+        trs_err("Invalid para. (devid=%u; tsid=%u; logic_cqid=%u; timeout=%d; cqe_num=%u)\n", inst->devid, inst->tsid,
+                para->cqId, para->timeout, para->cqe_num);
         return -EINVAL;
     }
 
@@ -618,10 +619,109 @@ int trs_logic_cq_config(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *
     return -EOPNOTSUPP;
 }
 
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+static void trs_dfx_print_cq_basic_info(struct trs_logic_cq *logic_cq, u32 head, u32 tail, u32 cqe_num)
+{
+    trs_info("DFX logic_cq_info: cqid=%u valid=%u head=%u tail=%u depth=%u cqe_num=%u "
+             "cqe_version=%u cqe_size=%u thread_bind_irq=%d "
+             "enque=%llu full_drop=%llu wakeup=%llu recv=%llu recv_in=%llu timeout=%llu "
+             "wait_thread_num=%d wakeup_num=%d\n",
+             logic_cq->cqid, logic_cq->valid, head, tail, logic_cq->cq_depth, cqe_num, logic_cq->cqe_verion,
+             logic_cq->cqe_size, logic_cq->thread_bind_irq, logic_cq->stat.enque, logic_cq->stat.full_drop,
+             logic_cq->stat.wakeup, logic_cq->stat.recv, logic_cq->stat.recv_in, logic_cq->stat.timeout,
+             ka_base_atomic_read(&logic_cq->wait_thread_num), ka_base_atomic_read(&logic_cq->wakeup_num));
+}
+
+static void trs_dfx_print_cqe_trace(u32 tsid, u32 logic_cqid, struct trs_logic_cq *logic_cq, u32 idx)
+{
+    struct trs_logic_cqe *cqe = (struct trs_logic_cqe *)(logic_cq->addr + idx * logic_cq->cqe_size);
+    struct trs_logic_cqe_trace_info *trace = trs_dfx_get_logic_cq_enque_trace(tsid, logic_cqid, idx);
+    trs_info("    [%u] sq_id=%u task_id=%u stream_id=%u enque_ts=%llums\n", idx, cqe->sq_id, cqe->task_id,
+             cqe->stream_id, (trace != NULL) ? trs_tick_to_millisecond(trace->timestamp) : 0);
+}
+
+static void trs_dfx_print_logic_cq_info(u32 tsid, struct trs_logic_cq *logic_cq)
+{
+    u32 head;
+    u32 tail;
+    u32 depth = logic_cq->cq_depth;
+    u32 cqe_num;
+    u32 i;
+
+    ka_task_spin_lock_bh(&logic_cq->lock);
+    head = logic_cq->head;
+    tail = logic_cq->tail;
+    ka_task_spin_unlock_bh(&logic_cq->lock);
+
+    cqe_num = (head == tail) ? 0 : (head < tail) ? (tail - head) : (depth - head + tail);
+    trs_dfx_print_cq_basic_info(logic_cq, head, tail, cqe_num);
+
+    if (head == tail) {
+        trs_info("  CQE ring empty: head=%u tail=%u\n", head, tail);
+        return;
+    }
+
+    if (head < tail) {
+        trs_info("  CQE ring [head=%u, tail=%u) (no wrap):\n", head, tail);
+        for (i = head; i < tail; i++) {
+            trs_dfx_print_cqe_trace(tsid, logic_cq->cqid, logic_cq, i);
+        }
+    } else {
+        trs_info("  CQE ring [head=%u..depth=%u) + [0..tail=%u) (wrap):\n", head, depth, tail);
+        for (i = head; i < depth; i++) {
+            trs_dfx_print_cqe_trace(tsid, logic_cq->cqid, logic_cq, i);
+        }
+        for (i = 0; i < tail; i++) {
+            trs_dfx_print_cqe_trace(tsid, logic_cq->cqid, logic_cq, i);
+        }
+    }
+}
+
+static void trs_dfx_recv_timeout_print(struct trs_core_ts_inst *ts_inst, struct trs_logic_cq *logic_cq,
+                                       u64 recv_start_tick, struct halReportRecvInfo *para, int err)
+{
+    u32 tsid = ts_inst->inst.tsid;
+    u32 logic_cqid = logic_cq->cqid;
+    u64 wait_start_ms = trs_tick_to_millisecond(recv_start_tick);
+    u64 wait_end_ms = trs_tick_to_millisecond(trs_get_cpu_tick());
+    u32 head;
+    u32 tail;
+
+    if (trs_sqcq_dfx_ratelimited()) {
+        return;
+    }
+
+    if (err == -ETIMEDOUT) {
+        ka_task_spin_lock_bh(&logic_cq->lock);
+        head = logic_cq->head;
+        tail = logic_cq->tail;
+        ka_task_spin_unlock_bh(&logic_cq->lock);
+        if (head == tail) {
+            return;
+        }
+
+        trs_info("wait logic cq result show, (tsid=%u, logic_cq_id=%u, version=%u, cqe_num=%u, timeout=%dms, "
+                 "streamid=%u, taskid=%u, err=%d, wait_start_timestamp=%llums, wait_end_timestamp=%llums).\n",
+                 tsid, logic_cqid, para->res[0], para->cqe_num, para->timeout, para->stream_id, para->task_id, err,
+                 wait_start_ms, wait_end_ms);
+
+        trs_dfx_print_timestamp_nodes(tsid, logic_cqid, recv_start_tick);
+        trs_dfx_print_logic_cq_info(tsid, logic_cq);
+    } else if (err == -ERESTARTSYS) {
+        trs_warn("wait event interrupted, (tsid=%u, logic_cq_id=%u, version=%u, cqe_num=%u, timeout=%dms, "
+                 "err=%d, wait_start_timestamp=%llums, wait_end_timestamp=%llums).\n",
+                 tsid, logic_cqid, para->res[0], para->cqe_num, para->timeout, err, wait_start_ms, wait_end_ms);
+    }
+}
+#endif /* CFG_FEATURE_SUPPORT_CQ_RECV_DFX */
+
 int trs_logic_cq_recv(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst, struct halReportRecvInfo *para)
 {
     struct trs_logic_cq *logic_cq = NULL;
     int ret;
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+    u64 recv_start_tick = trs_get_cpu_tick();
+#endif
 
     ret = trs_logic_cq_recv_para_check(proc_ctx, ts_inst, para);
     if (ret != 0) {
@@ -632,7 +732,13 @@ int trs_logic_cq_recv(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts
     logic_cq->stat.recv_in++;
 
     if (logic_cq->thread_bind_irq >= 0) {
-        return trs_thread_bind_irq_wait(logic_cq, para->timeout);
+        ret = trs_thread_bind_irq_wait(logic_cq, para->timeout);
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+        if (ret < 0) {
+            trs_dfx_recv_timeout_print(ts_inst, logic_cq, recv_start_tick, para, ret);
+        }
+#endif
+        return ret;
     }
     trs_logic_cq_recv_trace("Recv start", ts_inst, para);
     do {
@@ -654,20 +760,26 @@ int trs_logic_cq_recv(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts
         }
     } while (ret >= 0);
 
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+    if (ret < 0) {
+        trs_dfx_recv_timeout_print(ts_inst, logic_cq, recv_start_tick, para, ret);
+    }
+#endif
+
     return ret;
 }
 
-static void trs_logic_cq_wakeup(struct trs_logic_cq *logic_cq)
+static void trs_logic_cq_wakeup(struct trs_core_ts_inst *ts_inst, struct trs_logic_cq *logic_cq)
 {
     int wait_thread_num = ka_base_atomic_read(&logic_cq->wait_thread_num);
     int wakeup_num = (wait_thread_num > 0) ? wait_thread_num : 1;
 
     ka_base_atomic_set(&logic_cq->wakeup_num, wakeup_num);
     trs_debug("Wakeup all. (logic_cqid=%u; wait_thread_num=%d)\n", logic_cq->cqid, wait_thread_num);
-    /*
-     * Ensure that stores to normal memory are visible to the other CPUs before wake up.
-     */
     ka_smp_mb();
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+    trs_dfx_set_logic_cq_wakeup_tick(ts_inst->inst.tsid, logic_cq->cqid);
+#endif
     if (ka_task_waitqueue_active(&logic_cq->wait_queue) != 0) {
         ka_task_wake_up_nr(&logic_cq->wait_queue, wakeup_num);
         logic_cq->stat.wakeup++;
@@ -697,7 +809,13 @@ int trs_logic_cq_enque(struct trs_core_ts_inst *ts_inst, u32 logic_cq_id, u32 st
 
     (void)memcpy_s(logic_cq->addr + logic_cq->tail * logic_cq->cqe_size, logic_cq->cqe_size, cqe, logic_cq->cqe_size);
     ka_smp_wmb();
-
+#ifdef CFG_FEATURE_SUPPORT_CQ_RECV_DFX
+    {
+        struct trs_logic_cqe *logic_cqe_ptr = (struct trs_logic_cqe *)cqe;
+        trs_dfx_set_logic_cq_enque_trace(inst->tsid, logic_cq_id, (u16)task_id, (u16)stream_id, logic_cqe_ptr->sq_id,
+                                         logic_cq->tail);
+    }
+#endif
     logic_cq->tail = (logic_cq->tail + 1) % logic_cq->cq_depth;
     ka_task_spin_unlock_bh(&logic_cq->lock);
 
@@ -706,7 +824,7 @@ int trs_logic_cq_enque(struct trs_core_ts_inst *ts_inst, u32 logic_cq_id, u32 st
 
     ka_smp_wmb();
     trs_logic_cq_enque_trace(ts_inst, logic_cq, stream_id, task_id, cqe);
-    trs_logic_cq_wakeup(logic_cq);
+    trs_logic_cq_wakeup(ts_inst, logic_cq);
     logic_cq->stat.enque++;
     return 0;
 }
@@ -878,7 +996,7 @@ static void trs_logic_cq_id_uninit(struct trs_proc_ctx *proc_ctx, struct trs_cor
     logic_cq->valid = 0;
     ka_task_spin_unlock_bh(&logic_cq->lock);
     ka_wmb();
-    trs_logic_cq_wakeup(logic_cq);
+    trs_logic_cq_wakeup(ts_inst, logic_cq);
     if (logic_cq->thread_bind_irq >= 0) {
         ka_base_atomic_dec(&proc_ctx->ts_ctx[ts_inst->inst.tsid].thread_bind_irq_num);
         trs_thread_bind_irq_free(ts_inst, logic_cq->thread_bind_irq);

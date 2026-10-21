@@ -127,7 +127,8 @@ int hdcdrv_iova_fmem_map(u32 dev_id, u32 fid, struct hdcdrv_fast_mem *f_mem)
         }
 
         if ((num_new + dma_sgt->nents) > HDCDRV_MEM_MAX_PHY_NUM) {
-            hdcdrv_err("New physic number too big. (dev=%u; fid=%u)\n", dev_id, fid);
+            hdcdrv_err("New physical page number too big. (dev=%u; fid=%u)\n", dev_id, fid);
+
             unmap_num = i;
             goto map_fail;
         }
@@ -196,12 +197,10 @@ struct hdcdrv_mem_pool *find_mem_pool(int pool_type, int dev_id, int len)
 {
     struct hdcdrv_dev *dev = NULL;
 
-#ifndef CFG_FEATURE_MIRROR
     if (ka_unlikely((len > hdcdrv_mem_block_capacity()) || (len <= 0))) {
         hdcdrv_err_limit("data len invalid. (len=%d, capacity=%d)\n", len, hdcdrv_mem_block_capacity());
         return NULL;
     }
-#endif
     dev = &hdc_ctrl->devices[dev_id];
     if (dev->valid != HDCDRV_VALID) {
         hdcdrv_err("Input parameter is error. (dev_id=%d)\n", dev_id);
@@ -291,15 +290,9 @@ void free_mem(void *buf)
 
 int hdcdrv_map_reserve_mem(struct hdccom_mem_init *init_mem, int pool_type, u32 segment, u32 num)
 {
-    u32 peer_id;
     int ret = 0;
 
-    ret = hdcdrv_get_peer_id_by_devid((u32)init_mem->dev_id, &peer_id);
-    if (ret != 0) {
-        hdcdrv_err("devid adapt fail. (devid=%d)\n", init_mem->dev_id);
-        return HDCDRV_ERR;
-    }
-    ret = devdrv_get_reserve_mem_info(peer_id, devdrv_msg_client_hdc, &init_mem->reserve_mem_pa,
+    ret = devdrv_get_reserve_mem_info(init_mem->dev_id, devdrv_msg_client_hdc, &init_mem->reserve_mem_pa,
                                       &init_mem->reserve_mem_size);
     if (ret != 0) {
         hdcdrv_err("devdrv_get_reserve_mem_info failed. (pool_type=%d, devid=%d)\n", pool_type, init_mem->dev_id);

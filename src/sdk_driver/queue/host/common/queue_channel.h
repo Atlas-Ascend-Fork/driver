@@ -72,7 +72,7 @@ struct queue_chan_enque {
 
     u32 max_mem_node_num;
 
-    u32 copyed_va_node_num;
+    u32 copied_va_node_num;
     u32 va_node_num;
     u32 dma_node_num;
     struct queue_chan_mem_node mem_node[];

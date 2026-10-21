@@ -23,6 +23,7 @@
 #include "kernel_version_adapt.h"
 #include "securec.h"
 #include "pbl_uda.h"
+#include "pbl/pbl_runenv_config.h"
 #include "dpa_kernel_interface.h"
 
 #include "trs_proc_fs.h"
@@ -133,7 +134,7 @@ bool trs_proc_has_res_with_pid(struct trs_core_ts_inst *ts_inst, int pid, int re
     return trs_is_res_pid_match(ts_inst, pid, task_id, res_type, res_id);
 }
 
-int trs_res_get(struct trs_core_ts_inst *ts_inst, int pid, int res_type, u32 res_id)
+int trs_res_get(struct trs_core_ts_inst *ts_inst, int pid, int res_type, u32 res_id, u32 hpid, u32 seq)
 {
     struct trs_res_mng *res_mng = &ts_inst->res_mng[res_type];
     s64 task_id;
@@ -151,13 +152,27 @@ int trs_res_get(struct trs_core_ts_inst *ts_inst, int pid, int res_type, u32 res
         return -EINVAL;
     }
 
+    if ((hpid != 0) && (seq != 0)) {
+        if ((res_mng->ids[res_id].ref_hpid != 0) || (res_mng->ids[res_id].ref_seq != 0)) {
+            /* Already remote-get, only allow once */
+            ka_task_mutex_unlock(&res_mng->mutex);
+            trs_err("Res already remote-get. (devid=%u; type=%d; id=%u; hpid=%u; seq=%u; get_hpid=%u; get_seq=%u)\n",
+                    ts_inst->inst.devid, res_type, res_id, res_mng->ids[res_id].ref_hpid, res_mng->ids[res_id].ref_seq,
+                    hpid, seq);
+            return -EBUSY;
+        }
+
+        res_mng->ids[res_id].ref_hpid = (int)hpid;
+        res_mng->ids[res_id].ref_seq = seq;
+    }
+
     res_mng->ids[res_id].ref++;
     ka_task_mutex_unlock(&res_mng->mutex);
 
     return 0;
 }
 
-int trs_res_put(struct trs_core_ts_inst *ts_inst, int res_type, u32 res_id)
+int trs_res_put(struct trs_core_ts_inst *ts_inst, int res_type, u32 res_id, u32 hpid, u32 seq)
 {
     struct trs_res_mng *res_mng = &ts_inst->res_mng[res_type];
     int ref;
@@ -172,6 +187,19 @@ int trs_res_put(struct trs_core_ts_inst *ts_inst, int res_type, u32 res_id)
                 res_type, res_id);
         ka_task_mutex_unlock(&res_mng->mutex);
         return -EINVAL;
+    }
+
+    if ((hpid != 0) && (seq != 0)) {
+        if (!((res_mng->ids[res_id].ref_hpid == (int)hpid) && (res_mng->ids[res_id].ref_seq == seq))) {
+            /* hpid/seq mismatch: get never succeeded or already compensated */
+            ka_task_mutex_unlock(&res_mng->mutex);
+            trs_debug("Remote put skip. (devid=%u; type=%d; id=%u; hpid=%u; seq=%u)\n", ts_inst->inst.devid, res_type,
+                      res_id, hpid, seq);
+            return -EKEYREJECTED;
+        }
+
+        res_mng->ids[res_id].ref_hpid = 0;
+        res_mng->ids[res_id].ref_seq = 0;
     }
 
     res_mng->ids[res_id].ref--;
@@ -289,7 +317,7 @@ int trs_proc_del_res(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_
         ka_base_atomic_dec(&proc_ctx->ts_ctx[inst->tsid].agent_id_num[res_type]);
     }
 
-    return trs_res_put(ts_inst, res_type, res_id);
+    return trs_res_put(ts_inst, res_type, res_id, 0, 0);
 }
 
 struct trs_proc_ctx *trs_proc_ctx_find(struct trs_core_ts_inst *ts_inst, int pid)
@@ -496,19 +524,25 @@ static int trs_check_va_unmap(ka_vm_area_struct_t *vma, unsigned long addr, unsi
     return 0;
 }
 
-static int trs_get_remap_prot(int type, ka_mm_pgprot_t vm_page_prot, ka_mm_pgprot_t *prot)
+static int trs_get_remap_prot(int type, bool cc_shared, ka_mm_pgprot_t vm_page_prot, ka_mm_pgprot_t *prot)
 {
     if ((type == TRS_MAP_TYPE_REG) || (type == TRS_MAP_TYPE_RO_REG)) {
         *prot = ka_mm_pgprot_device(vm_page_prot);
     } else if (type == TRS_MAP_TYPE_MEM) {
         *prot = vm_page_prot;
-    } else { /* TRS_MAP_TYPE_DEV_MEM TRS_MAP_TYPE_DEV_RD_MEM */
+    } else { /* TRS_MAP_TYPE_DEV_MEM TRS_MAP_TYPE_RO_DEV_MEM */
 #ifdef CONFIG_ARM64
         *prot = ka_mm_pgprot_writecombine(vm_page_prot);
 #else
         *prot = vm_page_prot;
 #endif
     }
+
+    if (!run_in_confidential_virtual_mach()) {
+        return 0;
+    }
+
+    *prot = cc_shared ? ka_mm_pgprot_decrypted(*prot) : ka_mm_pgprot_encrypted(*prot);
 
     return 0;
 }
@@ -529,19 +563,34 @@ static int trs_remap_pfn(struct trs_proc_ctx *proc_ctx, struct trs_mem_map_para 
 {
     ka_mm_pgprot_t prot;
     int ret;
+    u32 i;
+    unsigned long current_va;
 
-    ret = trs_get_remap_prot(para->type, *ka_mm_get_vm_pgprot(vma), &prot);
+    ret = trs_get_remap_prot(para->type, para->cc_shared, *ka_mm_get_vm_pgprot(vma), &prot);
     if (ret != 0) {
         return ret;
     }
 
-    ret = ka_mm_remap_pfn_range(vma, para->va, __ka_mm_phys_to_pfn(para->pa), para->len, prot);
-    if (ret != 0) {
-#ifndef EMU_ST
-        trs_err("Remap va failed. (vma_start=%pK; end=%pK; addr=%pK; len=0x%lx)\n",
-                (void *)(uintptr_t)ka_mm_get_vm_start(vma), (void *)(uintptr_t)ka_mm_get_vm_end(vma),
-                (void *)(uintptr_t)para->va, para->len);
-#endif
+    if ((para->pa_num > 1) && (para->pa_wraper_list != NULL)) {
+        current_va = para->va;
+        for (i = 0; i < para->pa_num; i++) {
+            ret = ka_mm_remap_pfn_range(vma, current_va, __ka_mm_phys_to_pfn(para->pa_wraper_list[i].pa),
+                                        para->pa_wraper_list[i].size, prot);
+            if (ret != 0) {
+                trs_err("Remap va failed. (vma_start=%pK; va=%pK; len=0x%llx)\n",
+                        (void *)(uintptr_t)ka_mm_get_vm_start(vma), (void *)(uintptr_t)current_va,
+                        para->pa_wraper_list[i].size);
+                return ret;
+            }
+            current_va += para->pa_wraper_list[i].size;
+        }
+    } else {
+        ret = ka_mm_remap_pfn_range(vma, para->va, __ka_mm_phys_to_pfn(para->pa), para->len, prot);
+        if (ret != 0) {
+            trs_err("Remap va failed. (vma_start=%pK; end=%pK; addr=%pK; len=0x%lx)\n",
+                    (void *)(uintptr_t)ka_mm_get_vm_start(vma), (void *)(uintptr_t)ka_mm_get_vm_end(vma),
+                    (void *)(uintptr_t)para->va, para->len);
+        }
     }
 
     return ret;
@@ -680,7 +729,8 @@ int trs_proc_release_check_ts(struct trs_proc_ctx *proc_ctx, u32 tsid)
             return ret;
         }
 #ifdef CFG_FEATURE_SUPPORT_FAST_EXIT
-        (i < 60) ? ka_system_msleep(5) : ka_system_msleep(200); /* first 60 times, sleep 5 ms, then sleep 200 ms */
+        (i < 60) ? ka_system_usleep_range(4000, 6000) :
+                   ka_system_usleep_range(180000, 220000); /* first 60 times, sleep 5 ms, then sleep 200 ms */
 #else
         (i < 10) ? ka_system_msleep(100) :
                    ka_system_msleep(1000); /* first 10 times, sleep 100 ms, then sleep 1000 ms */
@@ -768,6 +818,7 @@ static void trs_for_each_proc_res_id(struct trs_proc_ctx *proc_ctx, struct trs_c
 {
     struct trs_res_mng *res_mng = &ts_inst->res_mng[res_type];
     struct trs_id_inst *inst = &ts_inst->inst;
+    unsigned long stamp = ka_jiffies;
     u32 recycle_num = 0;
     u32 i;
 
@@ -778,6 +829,7 @@ static void trs_for_each_proc_res_id(struct trs_proc_ctx *proc_ctx, struct trs_c
     for (i = 0; i < res_mng->max_id; i++) {
         if (trs_is_id_pid_match(&res_mng->ids[i], proc_ctx->pid, proc_ctx->task_id)) {
             recycle_num++;
+            trs_try_resched(&stamp, 1000);
             recycle_func(proc_ctx, ts_inst, res_type, i);
             if (trs_get_proc_res_num(proc_ctx, ts_inst->inst.tsid, res_type) == 0) {
                 break;
@@ -882,6 +934,9 @@ static int trs_proc_ts_res_recycle(struct trs_proc_ctx *proc_ctx, struct trs_cor
     trs_for_each_proc_res_id(proc_ctx, ts_inst, TRS_SW_CQ, trs_sw_sqcq_recycle);
     trs_for_each_proc_res_id(proc_ctx, ts_inst, TRS_MAINT_SQ, trs_maint_sqcq_recycle);
     trs_for_each_proc_res_id(proc_ctx, ts_inst, TRS_MAINT_CQ, trs_maint_sqcq_recycle);
+    trs_for_each_proc_res_id(proc_ctx, ts_inst, TRS_STARS_H2D_JETTY, trs_res_id_recycle);
+    trs_for_each_proc_res_id(proc_ctx, ts_inst, TRS_STARS_D2D_IN_BOARD_JETTY, trs_res_id_recycle);
+    trs_for_each_proc_res_id(proc_ctx, ts_inst, TRS_STARS_D2D_CROSS_BOARD_JETTY, trs_res_id_recycle);
 
     if (!proc_ctx->force_recycle) {
         for (i = 0; i < TRS_HW_SQ; i++) {

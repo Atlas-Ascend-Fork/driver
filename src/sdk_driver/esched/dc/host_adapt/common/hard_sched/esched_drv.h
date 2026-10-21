@@ -20,6 +20,7 @@
 #include "trs_chan.h"
 #include "esched_kernel_interface.h"
 #include "esched_drv_interface.h"
+#include "esched_drv_dc_adapt.h"
 
 #define SCHED_DRV_REPORT_NONE 0
 #define SCHED_DRV_REPORT_ACK 1
@@ -59,15 +60,6 @@ enum esched_topic_sched_version {
 
 #define TOPIC_SCHED_SLIENT_FAULT 0x7U /* error code defined by aicpu */
 
-#ifndef CFG_ENV_HOST
-/* Reserve one for the softirq context. */
-#define TOPIC_SCHED_RTSQ_CLASS_NUM (TOPIC_SCHED_MAX_PRIORITY + 1U)
-
-#define TOPIC_SCHED_RTSQ_NUM_FOR_IRQ 1
-#define TOPIC_SCHED_RTSQ_FOR_IRQ (TOPIC_SCHED_RTSQ_CLASS_NUM - 1U)
-#else
-#define TOPIC_SCHED_RTSQ_CLASS_NUM TOPIC_SCHED_MAX_PRIORITY
-#endif
 #define TOPIC_SCHED_MAX_RTSQ_NUM_PER_CLASS 8U
 
 #define TOPIC_SCHED_MB_STATUS_IDLE 0
@@ -216,6 +208,7 @@ struct sched_hard_res {
     u32 die_id;
     u32 cpu_work_mode; /* 0: mailbox, 1: msgq */
     int msgq_res_map_pid;
+    ka_mutex_t msgq_map_mutex;
     int sentry_mode;
     u32 topic_chan_to_cpuid[TOPIC_SCHED_MAX_CHAN_NUM];
     struct sched_thread_spec thread_spec;
@@ -295,7 +288,9 @@ int esched_drv_abnormal_task_handle(struct trs_id_inst *inst, u32 sqid, void *sq
 int esched_drv_convert_cpuid_to_topic_chan(u32 devid, u32 cpuid, u32 *topic_chan_id);
 void sched_record_cpu_port_clear_log(struct sched_cpu_port_clear_info *clr_info);
 
-#ifndef CFG_ENV_HOST
-int esched_drv_get_host_pid(u32 chip_id, int pid, u32 *host_pid, int *cp_type);
-#endif
+/* Platform-specific: defined in esched_device_adapt.c (device) or esched_dc_host_adapt.c (host) */
+struct sched_thread_ctx *sched_drv_sched_cpu_get_next_thread(struct sched_cpu_ctx *cpu_ctx);
+void esched_drv_sched_cpu_to_idle(struct sched_thread_ctx *thread_ctx, struct sched_cpu_ctx *cpu_ctx);
+struct topic_data_chan *esched_drv_get_thread_topic_chan(u32 dev_id, struct sched_thread_ctx *thread_ctx);
+
 #endif

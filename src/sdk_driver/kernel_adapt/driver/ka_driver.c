@@ -15,7 +15,6 @@
 #include "ka_base_pub.h"
 #include "ka_driver_pub.h"
 #include "ka_kvm_pub.h"
-#include "kernel_adapt_init.h"
 #include "ka_task_pub.h"
 
 #ifndef VFIO_IOMMU_NOTIFY_DMA_UNMAP
@@ -158,14 +157,14 @@ void ka_vfio_unpin_pages(ka_vfio_device_t *vfio_device, ka_pin_info *pin_info)
 {
 #if IS_ENABLED(CONFIG_VFIO)
 #if KA_IS_ASCEND_HOST_KERNEL
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
+#ifndef FUNC_VFIO_UNPIN_PAGES_ARG2_IS_DMA_ADDR_T
     unsigned long *gfns = NULL;
     ka_mdev_device_t *__maybe_unused mdev = NULL;
     int i = 0;
 #endif
     int ret = pin_info->npage;
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
+#ifndef FUNC_VFIO_UNPIN_PAGES_ARG2_IS_DMA_ADDR_T
     gfns = kzalloc(sizeof(unsigned long) * pin_info->npage, GFP_KERNEL);
     if (IS_ERR_OR_NULL(gfns)) {
         return;
@@ -175,16 +174,19 @@ void ka_vfio_unpin_pages(ka_vfio_device_t *vfio_device, ka_pin_info *pin_info)
     }
 #endif
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0))
+#ifdef FUNC_VFIO_UNPIN_PAGES_ARG2_IS_DMA_ADDR_T
     vfio_unpin_pages(vfio_device, pin_info->gfn << PAGE_SHIFT, pin_info->npage);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0))
+#elif defined(FUNC_VFIO_UNPIN_PAGES_ARG1_IS_VFIO_DEVICE_PTR)
     ret = vfio_unpin_pages(vfio_device, gfns, pin_info->npage);
+#elif defined(FUNC_VFIO_UNPIN_PAGES_ARG1_IS_DEVICE_PTR) && !defined(FUNC_VFIO_DEVICE_DATA_PRESENT) && \
+    defined(TYPE_VFIO_DEVICE_HAS_MEMBER_DEV)
+    ret = vfio_unpin_pages(vfio_device->dev, gfns, pin_info->npage);
 #else
     mdev = vfio_device_data(vfio_device);
     ret = vfio_unpin_pages(mdev_dev(mdev), gfns, pin_info->npage);
 #endif
     WARN_ON(ret != pin_info->npage);
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
+#ifndef FUNC_VFIO_UNPIN_PAGES_ARG2_IS_DMA_ADDR_T
     kfree(gfns);
 #endif
 #endif /* KA_IS_ASCEND_HOST_KERNEL */
@@ -192,7 +194,7 @@ void ka_vfio_unpin_pages(ka_vfio_device_t *vfio_device, ka_pin_info *pin_info)
 }
 EXPORT_SYMBOL_GPL(ka_vfio_unpin_pages);
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
+#ifndef FUNC_VFIO_PIN_PAGES_ARG2_IS_DMA_ADDR_T
 #if KA_IS_ASCEND_HOST_KERNEL
 static int ka_init_gfns_pfns(unsigned long **gfns, unsigned long **pfns, unsigned long gfn, int npage)
 {
@@ -222,30 +224,33 @@ static void ka_clean_gfns_pfns(unsigned long **gfns, unsigned long **pfns)
     *pfns = NULL;
 }
 #endif /* KA_IS_ASCEND_HOST_KERNEL */
-#endif /* KERNEL_VERSION(6,0,0) */
+#endif /* !FUNC_VFIO_PIN_PAGES_ARG2_IS_DMA_ADDR_T */
 
 int ka_vfio_pin_pages(ka_vfio_device_t *vfio_device, ka_pin_info *pin_info)
 {
     int ret = -1;
 #if IS_ENABLED(CONFIG_VFIO)
 #if KA_IS_ASCEND_HOST_KERNEL
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
+#ifndef FUNC_VFIO_PIN_PAGES_ARG2_IS_DMA_ADDR_T
     int i = 0;
     unsigned long *gfns = NULL, *pfns = NULL;
     ka_mdev_device_t *__maybe_unused mdev = NULL;
 #endif
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
+#ifndef FUNC_VFIO_PIN_PAGES_ARG2_IS_DMA_ADDR_T
     ret = ka_init_gfns_pfns(&gfns, &pfns, pin_info->gfn, pin_info->npage);
     if (ret != 0) {
         return ret;
     }
 #endif
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0))
+#ifdef FUNC_VFIO_PIN_PAGES_ARG2_IS_DMA_ADDR_T
     ret = vfio_pin_pages(vfio_device, pin_info->gfn << PAGE_SHIFT, pin_info->npage, IOMMU_READ | IOMMU_WRITE,
                          pin_info->pages);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0))
+#elif defined(FUNC_VFIO_PIN_PAGES_ARG1_IS_VFIO_DEVICE_PTR)
     ret = vfio_pin_pages(vfio_device, gfns, pin_info->npage, IOMMU_READ | IOMMU_WRITE, pfns);
+#elif defined(FUNC_VFIO_PIN_PAGES_ARG1_IS_DEVICE_PTR) && !defined(FUNC_VFIO_DEVICE_DATA_PRESENT) && \
+    defined(TYPE_VFIO_DEVICE_HAS_MEMBER_DEV)
+    ret = vfio_pin_pages(vfio_device->dev, gfns, pin_info->npage, IOMMU_READ | IOMMU_WRITE, pfns);
 #else
     mdev = vfio_device_data(vfio_device);
     ret = vfio_pin_pages(mdev_dev(mdev), gfns, pin_info->npage, IOMMU_READ | IOMMU_WRITE, pfns);
@@ -253,13 +258,13 @@ int ka_vfio_pin_pages(ka_vfio_device_t *vfio_device, ka_pin_info *pin_info)
     if (ret != pin_info->npage) {
         ret = (ret < 0) ? ret : -EINVAL;
     }
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 0, 0))
+#ifndef FUNC_VFIO_PIN_PAGES_ARG2_IS_DMA_ADDR_T
     for (i = 0; ret > 0 && i < pin_info->npage; i++) {
         pin_info->pages[i] = pfn_to_page(pfns[i]);
     }
 
     ka_clean_gfns_pfns(&gfns, &pfns);
-#endif /* KERNEL_VERSION(6,0,0) */
+#endif /* !FUNC_VFIO_PIN_PAGES_ARG2_IS_DMA_ADDR_T */
 #endif /* KA_IS_ASCEND_HOST_KERNEL */
 #endif /* CONFIG_VFIO */
     return ret;
@@ -373,7 +378,7 @@ void ka_copy_reserved_iova(ka_iova_domain_t *from, ka_iova_domain_t *to)
 
         new_iova = reserve_iova(to, iova->pfn_lo, iova->pfn_hi);
         if (IS_ERR_OR_NULL(new_iova)) {
-            ka_err("Reserve iova range %lx@%lx failed\n", iova->pfn_lo, iova->pfn_hi);
+            printk(KERN_ERR "Reserve iova range %lx@%lx failed\n", iova->pfn_lo, iova->pfn_hi);
         }
     }
     spin_unlock_irqrestore(&from->iova_rbtree_lock, flags);
@@ -506,7 +511,7 @@ static void guid_to_uuid(ka_device_t *dev, uuid_le *dst, const guid_t *src)
 
 uuid_le ka_get_uuid(ka_mdev_device_t *mdev)
 {
-    uuid_le uuid;
+    uuid_le uuid = {0};
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0)
     ka_device_t *pdev = ka_get_mdev_parent(mdev);

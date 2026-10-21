@@ -20,4 +20,3 @@ void dev_mon_set_log_flag(unsigned int value)
     g_dev_mon_debug = value;
     return;
 }
-

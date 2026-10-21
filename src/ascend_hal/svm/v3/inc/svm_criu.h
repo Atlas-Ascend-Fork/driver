@@ -30,9 +30,9 @@ int svm_criu_register_ops(const struct svm_criu_ops *ops);
 int svm_criu_unregister_ops(const struct svm_criu_ops *ops);
 
 /* Backup/restore callbacks are invoked in registration order, reset callbacks in reverse registration order. */
-int svm_criu_backup(u32 devid);
+int svm_criu_backup(u32 devid, void *data);
 int svm_criu_reset(u32 devid);
-int svm_criu_restore(u32 devid);
+int svm_criu_restore(u32 devid, void *data);
 
 bool svm_criu_is_resetting(u32 devid);
 bool svm_criu_is_device_reopen(u32 devid);

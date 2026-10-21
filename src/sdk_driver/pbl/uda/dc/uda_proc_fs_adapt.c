@@ -18,14 +18,10 @@
 const char *uda_get_chip_name(unsigned int type)
 {
     static const char *chip_name[HISI_CHIP_NUM] = {
-        [HISI_MINI_V1] = "mini_v1",
-        [HISI_CLOUD_V1] = "cloud_v1",
-        [HISI_MINI_V2] = "mini_v2",
-        [HISI_CLOUD_V2] = "cloud_v2",
-        [HISI_MINI_V3] = "mini_v3",
-        [HISI_CLOUD_V4] = "cloud_v4",
-        [HISI_CLOUD_V5] = "cloud_v5",
-        [HISI_MINI_V4] = "mini_v4",
+        [HISI_MINI_V1] = "mini_v1",   [HISI_CLOUD_V1] = "cloud_v1",     [HISI_MINI_V2] = "mini_v2",
+        [HISI_CLOUD_V2] = "cloud_v2", [HISI_MINI_V3] = "mini_v3",       [HISI_CLOUD_V4] = "cloud_v4",
+        [HISI_CLOUD_V5] = "cloud_v5", [HISI_MINI_V4] = "mini_v4",       [HISI_CLOUD_V6] = "cloud_v6",
+        [HISI_CLOUD_V7] = "cloud_v7", [HISI_MINI_V5_RC] = "mini_v5_rc", [HISI_MINI_V5] = "mini_v5",
     };
 
     if (type < HISI_CHIP_NUM && chip_name[type] == NULL) {

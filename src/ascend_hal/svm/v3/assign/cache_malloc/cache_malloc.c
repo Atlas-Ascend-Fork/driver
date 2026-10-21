@@ -294,7 +294,7 @@ int svm_cache_malloc(u32 devid, u32 flag, u64 align, u64 *va, u64 size)
     }
 
     if (align != ca->strategy.alloc_gran) {
-        svm_err("Cur cache flag not support such align. (devid=%u; flag=0x%x; align=%llu)\n", devid, flag, align);
+        svm_err("Cur cache flag does not support such align. (devid=%u; flag=0x%x; align=%llu)\n", devid, flag, align);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -312,7 +312,7 @@ int svm_cache_free(u32 devid, u32 flag, u64 align, u64 va, u64 size)
     }
 
     if (align != ca->strategy.alloc_gran) {
-        svm_err("Cur cache flag not support such align. (devid=%u; flag=0x%x; align=%llu)\n", devid, flag, align);
+        svm_err("Cur cache flag does not support such align. (devid=%u; flag=0x%x; align=%llu)\n", devid, flag, align);
         return DRV_ERROR_INVALID_VALUE;
     }
 

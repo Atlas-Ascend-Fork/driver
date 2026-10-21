@@ -90,7 +90,7 @@ static int mga_inst_init(struct mga_inst *inst, struct mga_attr *attr)
         svm_ga_attr_pack(mga_align_type_to_size(align_type), &ga_attr);
         ga_inst = svm_ga_inst_create(&ga_attr);
         if (ga_inst == NULL) {
-            svm_debug("Create ga_inst not success.\n");
+            svm_debug("Create ga_inst completed. (ga_inst_is_null=%d)\n", (ga_inst == NULL));
             mga_inst_uninit(inst);
             return DRV_ERROR_OUT_OF_MEMORY;
         }
@@ -238,7 +238,7 @@ static int mga_expand(struct mga_inst *inst)
     size = inst->attr.expand_gran;
     ret = inst->attr.expand((void *)inst, &size, &va);
     if (ret != 0) {
-        svm_err("Expand va fail. (ret=%d; size=%llu)\n", ret, size);
+        svm_no_err_if((ret == DRV_ERROR_OUT_OF_MEMORY), "Expand va not succ. (ret=%d; size=%llu)\n", ret, size);
         return ret;
     }
 

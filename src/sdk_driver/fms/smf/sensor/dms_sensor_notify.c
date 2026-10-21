@@ -52,8 +52,8 @@ static int dms_sensor_add_notify_event(unsigned int dev_id, struct dms_sensor_ob
     if ((notify_queue->tail + 1) % notify_queue->size == notify_queue->head) {
         ka_task_spin_unlock_irqrestore(&notify_queue->notify_lock, flags);
         dms_err("notify queue is full, (dev_id=%u; sensor_type=%u; sensor_name=%.*s; size=%u; head=%u; tail=%u).\n",
-            dev_id, psensor_obj_cfg->sensor_type, DMS_SENSOR_DESCRIPT_LENGTH, psensor_obj_cfg->sensor_name,
-            notify_queue->size, notify_queue->head, notify_queue->tail);
+                dev_id, psensor_obj_cfg->sensor_type, DMS_SENSOR_DESCRIPT_LENGTH, psensor_obj_cfg->sensor_name,
+                notify_queue->size, notify_queue->head, notify_queue->tail);
         return -ENODATA;
     }
 
@@ -66,7 +66,8 @@ static int dms_sensor_add_notify_event(unsigned int dev_id, struct dms_sensor_ob
 }
 
 static int dms_sensor_scan_notify_sensor_obj(struct dms_dev_sensor_cb *dev_sensor_cb,
-    struct dms_node_sensor_cb *node_sensor_cb, struct dms_sensor_object_cfg *psensor_obj_cfg)
+                                             struct dms_node_sensor_cb *node_sensor_cb,
+                                             struct dms_sensor_object_cfg *psensor_obj_cfg)
 {
     struct dms_sensor_object_cb *psensor_obj_cb = NULL;
     struct dms_sensor_object_cb *tmp_sensor_ctl = NULL;
@@ -74,7 +75,8 @@ static int dms_sensor_scan_notify_sensor_obj(struct dms_dev_sensor_cb *dev_senso
     struct dms_sensor_scan_time_recorder ptime_recorder = {0};
 
     ptime_recorder.record_scan_time_flag = DMS_SENSOR_CHECK_NOT_RECORD;
-    ka_list_for_each_entry_safe(psensor_obj_cb, tmp_sensor_ctl, &(node_sensor_cb->sensor_object_table), list) {
+    ka_list_for_each_entry_safe(psensor_obj_cb, tmp_sensor_ctl, &(node_sensor_cb->sensor_object_table), list)
+    {
         if ((psensor_obj_cb->sensor_object_cfg.sensor_type != psensor_obj_cfg->sensor_type) ||
             (ka_base_strcmp(psensor_obj_cb->sensor_object_cfg.sensor_name, psensor_obj_cfg->sensor_name) != 0) ||
             (psensor_obj_cb->sensor_object_cfg.private_data != psensor_obj_cfg->private_data)) {
@@ -96,7 +98,7 @@ static int dms_sensor_scan_notify_sensor_obj(struct dms_dev_sensor_cb *dev_senso
 }
 
 static void dms_sensor_scan_notify_sensor(struct dms_dev_sensor_cb *dev_sensor_cb,
-    struct dms_sensor_object_cfg *psensor_obj_cfg, unsigned int scan_mode)
+                                          struct dms_sensor_object_cfg *psensor_obj_cfg, unsigned int scan_mode)
 {
     struct dms_node_sensor_cb *node_sensor_cb = NULL;
     struct dms_node_sensor_cb *tmp_ctl = NULL;
@@ -113,7 +115,7 @@ static void dms_sensor_scan_notify_sensor(struct dms_dev_sensor_cb *dev_sensor_c
         }
         /* From user mode, but the process PID is invalid */
         if ((node_sensor_cb->env_type == DMS_SENSOR_ENV_USER_SPACE) && (node_sensor_cb->pid <= 0)) {
-            dms_err("env error, (nodeid=0x%x; pid=%d)\n", node_sensor_cb->env_type, node_sensor_cb->pid);
+            dms_err("env error, (env_type=0x%x; pid=%d)\n", node_sensor_cb->env_type, node_sensor_cb->pid);
             continue;
         }
         if (dms_sensor_scan_notify_sensor_obj(dev_sensor_cb, node_sensor_cb, psensor_obj_cfg) == 0) {
@@ -130,7 +132,7 @@ static void dms_sensor_scan_notify_sensor(struct dms_dev_sensor_cb *dev_sensor_c
 /* note: there is no lock design for g_sensor_notify_queue.
  * only one consumer get notify event at head, don't need notify_lock;
  * sometime need support multiple consumer or threads, you must redesign here.
-*/
+ */
 static void dms_sensor_report_notify_event(unsigned int scan_mode)
 {
     struct dms_dev_ctrl_block *dev_ctrl = NULL;
@@ -141,6 +143,7 @@ static void dms_sensor_report_notify_event(unsigned int scan_mode)
         dev_ctrl = dms_get_dev_cb(notify_queue->sensor_obj_queue[notify_queue->head].dev_id);
         if (dev_ctrl == NULL) {
             dms_err("dev_ctrl NULL, (dev_id=%u)\n", notify_queue->sensor_obj_queue[notify_queue->head].dev_id);
+            notify_queue->head = (notify_queue->head + 1) % notify_queue->size;
             continue;
         }
         psensor_obj_cfg = &notify_queue->sensor_obj_queue[notify_queue->head].notify_sensor_obj;
@@ -174,15 +177,15 @@ int dms_sensor_event_notify(unsigned int dev_id, struct dms_sensor_object_cfg *p
 
     ret = dms_sensor_add_notify_event(dev_id, psensor_obj_cfg);
     if (ret != 0) {
-        dms_err("add notify event failed, (dev_id=%u; sensor_name=%.*s; ret=%d)\n",
-            dev_id, DMS_SENSOR_DESCRIPT_LENGTH, psensor_obj_cfg->sensor_name, ret);
+        dms_err("add notify event failed, (dev_id=%u; sensor_name=%.*s; ret=%d)\n", dev_id, DMS_SENSOR_DESCRIPT_LENGTH,
+                psensor_obj_cfg->sensor_name, ret);
         return ret;
     }
 
     sys_cb = dms_get_sys_ctrl_cb();
     if (sys_cb == NULL) {
-        dms_err("sys_cb NULL, (dev_id=%u; sensor_name=%.*s)\n", dev_id,
-            DMS_SENSOR_DESCRIPT_LENGTH, psensor_obj_cfg->sensor_name);
+        dms_err("sys_cb NULL, (dev_id=%u; sensor_name=%.*s)\n", dev_id, DMS_SENSOR_DESCRIPT_LENGTH,
+                psensor_obj_cfg->sensor_name);
         return -EINVAL;
     }
 

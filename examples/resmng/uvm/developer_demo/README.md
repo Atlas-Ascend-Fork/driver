@@ -35,4 +35,3 @@
     - 调用 halMemManagedRangeGetAttributes 接口查询内存属性。
 - 内存拷贝
     - 调用 drvMemcpy 接口进行内存数据拷贝。
-    

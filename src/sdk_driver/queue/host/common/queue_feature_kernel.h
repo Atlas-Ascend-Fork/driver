@@ -14,20 +14,8 @@
 #ifndef QUEUE_FEATURE_KERNEL_H
 #define QUEUE_FEATURE_KERNEL_H
 
-/*
- * queue feature ID definitions
- * Used by both kernel queue and user-space tools
- */
-
-enum queue_feature_id {
-    QUEUE_FEATURE_PLATFORM_MINI_DMA = 0,
-    QUEUE_FEATURE_SURPORT_PCIE_DMA_SVA,
-    QUEUE_FEATURE_SHARE_LOG,
-    QUEUE_FEATURE_KA_ALLOC_INTERFACE,
-    QUEUE_FEATURE_HOST_LOG,
-
-    QUEUE_FEATURE_MAX
-};
+/* queue_feature_id is defined in queue_ioctl.h (shared with user-space) */
+#include "queue_ioctl.h"
 
 /*
  * Check if a feature exists in the feature array

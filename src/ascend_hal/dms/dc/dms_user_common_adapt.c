@@ -11,15 +11,15 @@
 #include "dms_user_common.h"
 
 #ifndef __linux
-    #pragma comment(lib, "libc_sec.lib")
-    #include "devdrv_manager_win.h"
-    #define PTHREAD_MUTEX_INITIALIZER NULL
-    #define FdIsValid(fd) fd != (mmProcess)DEVDRV_INVALID_FD_OR_INDEX
+#pragma comment(lib, "libc_sec.lib")
+#include "devdrv_manager_win.h"
+#define PTHREAD_MUTEX_INITIALIZER NULL
+#define FdIsValid(fd) fd != (mmProcess)DEVDRV_INVALID_FD_OR_INDEX
 #else
-    #include <errno.h>
-    #include <sys/ioctl.h>
+#include <errno.h>
+#include <sys/ioctl.h>
 
-    #define FdIsValid(fd) ((fd) >= 0)
+#define FdIsValid(fd) ((fd) >= 0)
 #endif
 
 #include "securec.h"
@@ -57,4 +57,13 @@ int dms_ioctl_open(int fd)
     }
 
     return 0;
+}
+
+bool dms_ioctl_cmd_check(unsigned long ioctl_cmd, unsigned int main_cmd, unsigned int sub_cmd, const char *filter)
+{
+    (void)ioctl_cmd;
+    (void)main_cmd;
+    (void)sub_cmd;
+    (void)filter;
+    return true;
 }

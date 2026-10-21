@@ -46,8 +46,7 @@ STATIC bbox_status bbox_klog_mng_check(u64 length, const struct printk_managemen
     BBOX_CHK_NULL_PTR(mng, return BBOX_FAILURE);
     BBOX_CHK_INVALID_PARAM(length == 0, return BBOX_FAILURE, "%llu", length);
 
-    if ((mng->printk_start == mng->printk_next) ||
-        (mng->printk_start > length) || (mng->printk_next > length) ||
+    if ((mng->printk_start == mng->printk_next) || (mng->printk_start > length) || (mng->printk_next > length) ||
         (mng->printk_buf_size > length) || (mng->printk_buf_size == 0) ||
         (mng->printk_buf_size < sizeof(struct printk_log))) {
 #ifndef BBOX_UT_TEST
@@ -106,25 +105,25 @@ bbox_status bbox_klog_save_fs_printk_info_log(const void *buffer, u32 len, const
     u64 total = 0;
 
     bbox_status ret = bbox_klog_mng_check((len - head_size), mng);
-    BBOX_CHK_EXPR_CTRL(BBOX_WAR, ret != BBOX_SUCCESS,  return BBOX_FAILURE, "check klog msg unsuccessfully.");
-/*
- *      Memory distribution
- *      -----------------------------------------------------
- *      | PAGE_SIZE  RO                                     |
- *      -----------------------------------------------------
- *      | PAGE_SIZE  manage_data  (printk_management)        |
- *      -----------------------------------------------------
- *      | PAGE_SIZE  RO                                     |
- *      -----------------------------------------------------
- *      | Remaining  printk_log:                             |
- *      |            printk_log+char_log ......               |
- *      -----------------------------------------------------
- *      | PAGE_SIZE  RO                                     |
- *      -----------------------------------------------------
- */
+    BBOX_CHK_EXPR_CTRL(BBOX_WAR, ret != BBOX_SUCCESS, return BBOX_FAILURE, "check klog msg unsuccessfully.");
+    /*
+     *      Memory distribution
+     *      -----------------------------------------------------
+     *      | PAGE_SIZE  RO                                     |
+     *      -----------------------------------------------------
+     *      | PAGE_SIZE  manage_data  (printk_management)        |
+     *      -----------------------------------------------------
+     *      | PAGE_SIZE  RO                                     |
+     *      -----------------------------------------------------
+     *      | Remaining  printk_log:                             |
+     *      |            printk_log+char_log ......               |
+     *      -----------------------------------------------------
+     *      | PAGE_SIZE  RO                                     |
+     *      -----------------------------------------------------
+     */
     // prevent infinite loops
     const struct printk_log *msg = (const struct printk_log *)buf_start;
-    BBOX_CHK_EXPR_CTRL(BBOX_WAR, msg->len == 0,  return BBOX_FAILURE, "bad message length at offset 0.");
+    BBOX_CHK_EXPR_CTRL(BBOX_WAR, msg->len == 0, return BBOX_FAILURE, "bad message length at offset 0.");
 
     u64 start = log_start;
     while (start != log_end) {
@@ -138,7 +137,8 @@ bbox_status bbox_klog_save_fs_printk_info_log(const void *buffer, u32 len, const
             }
             total += msg->len;
             s32 dump_len = bbox_klog_msg_dump(msg, msg->len, log_path);
-            BBOX_CHK_EXPR_CTRL(BBOX_WAR, dump_len <= 0, return BBOX_FAILURE, "msg dump not succeed. ret [%d]", dump_len);
+            BBOX_CHK_EXPR_CTRL(BBOX_WAR, dump_len <= 0, return BBOX_FAILURE, "msg dump was not successful. ret [%d]",
+                               dump_len);
         }
 
         // get next printk log entry
@@ -146,7 +146,7 @@ bbox_status bbox_klog_save_fs_printk_info_log(const void *buffer, u32 len, const
         if ((start == log_start) || (start > buf_size)) {
 #ifndef BBOX_USER_UT
             BBOX_ERR_CTRL(BBOX_WAR, return BBOX_FAILURE, "get bad klog next head eq[%d], gt[%d]",
-                (int)(start == log_start), (int)(start > buf_size));
+                          (int)(start == log_start), (int)(start > buf_size));
 #endif
         }
     }
@@ -161,4 +161,3 @@ bool bbox_klog_is_printk_info_log(const char *manage_data)
     }
     return false;
 }
-

@@ -14,7 +14,7 @@
 #include "dm_msg_intf.h"
 #define DEV_SB_SLAVE "/dev/i2c0_slave"
 
-#define PORT_TO_SLAVE(port) ((unsigned char)((port)&0xFF))
+#define PORT_TO_SLAVE(port) ((unsigned char)((port) & 0xFF))
 
 typedef struct DM_SB_SLAVE_ADDR_S {
     int addr_type;
@@ -28,13 +28,13 @@ typedef struct DM_SB_SLAVE_ADDR_S {
 
 #pragma pack(1)
 typedef struct SB_SLAVE_MSG_S {
-    unsigned short type;                      /* message type */
-    unsigned short version;                   /* message version */
-    unsigned short data_len;                  /* message length, starting from data */
-    DM_MSG_TYPE msg_type;                     /* message type */
-    unsigned long sequence;                   /* message sequence number */
-    unsigned char reserved2[SB_SLAVE_MSG_RESERVED2_LEN];              /* reserved for expansion */
-    unsigned char data[MAX_SB_SLAVE_MSG_BUF]; /* message data */
+    unsigned short type;                                 /* message type */
+    unsigned short version;                              /* message version */
+    unsigned short data_len;                             /* message length, starting from data */
+    DM_MSG_TYPE msg_type;                                /* message type */
+    unsigned long sequence;                              /* message sequence number */
+    unsigned char reserved2[SB_SLAVE_MSG_RESERVED2_LEN]; /* reserved for expansion */
+    unsigned char data[MAX_SB_SLAVE_MSG_BUF];            /* message data */
 } SB_SLAVE_MSG_T;
 
 #pragma pack()

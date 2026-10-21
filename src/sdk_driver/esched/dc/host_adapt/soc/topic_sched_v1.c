@@ -18,6 +18,8 @@
 #include "ascend_hal_define.h"
 #include "esched_kernel_interface.h"
 
+#include "esched_adapt_platform.h"
+
 #include "esched.h"
 #include "esched_host_msg.h"
 #include "esched_drv_adapt.h"
@@ -198,81 +200,81 @@ void esched_drv_cpu_report_v1(struct topic_data_chan *topic_chan, u32 vf_id, u32
 
 int esched_drv_host_map_addr_v1(u32 dev_id, struct sched_hard_res *res)
 {
-#ifndef CFG_SOC_PLATFORM_CLOUD_V4
-    int ret;
-    u64 reg_base;
-    size_t size;
-    u64 rsv_mem_pa;
+    if (!esched_adapt_is_soc_cloud_v4(dev_id)) {
+        int ret;
+        u64 reg_base;
+        size_t size;
+        u64 rsv_mem_pa;
 
-    /* topic sched base */
-    ret = devdrv_get_addr_info(dev_id, DEVDRV_ADDR_STARS_TOPIC_SCHED_BASE, 0, &reg_base, &size);
-    if (ret != 0) {
-        sched_err("Failed to invoke the devdrv_get_addr_info. "
-                  "(dev_id=%u; type=%d)\n",
-                  dev_id, DEVDRV_ADDR_STARS_TOPIC_SCHED_BASE);
+        /* topic sched base */
+        ret = devdrv_get_addr_info(dev_id, DEVDRV_ADDR_STARS_TOPIC_SCHED_BASE, 0, &reg_base, &size);
+        if (ret != 0) {
+            sched_err("Failed to invoke the devdrv_get_addr_info. "
+                      "(dev_id=%u; type=%d)\n",
+                      dev_id, DEVDRV_ADDR_STARS_TOPIC_SCHED_BASE);
+            return ret;
+        }
+
+        /* rsv_mem_pa are different between PF and VF */
+        if (uda_is_pf_dev(dev_id)) {
+            reg_base += SCHED_HOST_TOPIC_ADDR_OFFSET;
+        }
+
+        res->io_base = ka_mm_ioremap(reg_base, size);
+        if (res->io_base == NULL) {
+            sched_err("Failed to invoke the ioremap. (dev_id=%u; size=0x%x)\n", res->dev_id, (u32)size);
+            return -ENOMEM;
+        }
+
+        res->int_io_base = NULL;
+
+        ret = devdrv_get_addr_info(dev_id, DEVDRV_ADDR_STARS_TOPIC_SCHED_RES_MEM_BASE, 0, &rsv_mem_pa, &size);
+        if (ret != 0) {
+            sched_err("Failed to invoke the devdrv_get_addr_info. (dev_id=%u; type=%d; size=0x%x; ret=%d)\n", dev_id,
+                      DEVDRV_ADDR_STARS_TOPIC_SCHED_RES_MEM_BASE, (u32)size, ret);
+            goto iounmap_io_base;
+        }
+
+        res->rsv_mem_pa = rsv_mem_pa;
+        res->rsv_mem_va = ka_mm_ioremap(res->rsv_mem_pa, size);
+        if (res->rsv_mem_va == NULL) {
+            sched_err("Failed to invoke the ioremap. (dev_id=%u; size=0x%x)\n", res->dev_id, (u32)size);
+            ret = -ENOMEM;
+            goto iounmap_io_base;
+        }
+
+        sched_info("Show details. (dev_id=%u; io_base=%pK; int_io_base=%pK; rsv_mem_pa=0x%pK; size=0x%x)\n", dev_id,
+                   res->io_base, res->int_io_base, (void *)res->rsv_mem_pa, (u32)size);
+
+        return 0;
+
+    iounmap_io_base:
+        ka_mm_iounmap(res->io_base);
+        res->io_base = NULL;
         return ret;
+    } else {
+        return 0;
     }
-
-    /* rsv_mem_pa are different between PF and VF */
-    if (uda_is_pf_dev(dev_id)) {
-        reg_base += SCHED_HOST_TOPIC_ADDR_OFFSET;
-    }
-
-    res->io_base = ka_mm_ioremap(reg_base, size);
-    if (res->io_base == NULL) {
-        sched_err("Failed to invoke the ioremap. (dev_id=%u; size=0x%x)\n", res->dev_id, (u32)size);
-        return -ENOMEM;
-    }
-
-    res->int_io_base = NULL;
-
-    ret = devdrv_get_addr_info(dev_id, DEVDRV_ADDR_STARS_TOPIC_SCHED_RES_MEM_BASE, 0, &rsv_mem_pa, &size);
-    if (ret != 0) {
-        sched_err("Failed to invoke the devdrv_get_addr_info. (dev_id=%u; type=%d; size=0x%x; ret=%d)\n", dev_id,
-                  DEVDRV_ADDR_STARS_TOPIC_SCHED_RES_MEM_BASE, (u32)size, ret);
-        goto iounmap_io_base;
-    }
-
-    res->rsv_mem_pa = rsv_mem_pa;
-    res->rsv_mem_va = ka_mm_ioremap(res->rsv_mem_pa, size);
-    if (res->rsv_mem_va == NULL) {
-        sched_err("Failed to invoke the ioremap. (dev_id=%u; size=0x%x)\n", res->dev_id, (u32)size);
-        ret = -ENOMEM;
-        goto iounmap_io_base;
-    }
-
-    sched_info("Show details. (dev_id=%u; io_base=%pK; int_io_base=%pK; rsv_mem_pa=0x%pK; size=0x%x)\n", dev_id,
-               res->io_base, res->int_io_base, (void *)res->rsv_mem_pa, (u32)size);
-
-    return 0;
-
-iounmap_io_base:
-    ka_mm_iounmap(res->io_base);
-    res->io_base = NULL;
-    return ret;
-#else
-    return 0;
-#endif
 }
 
 void esched_host_iounmap_v1(struct sched_hard_res *res)
 {
-#ifndef CFG_SOC_PLATFORM_CLOUD_V4
-    if (res->io_base != NULL) {
-        ka_mm_iounmap(res->io_base);
-        res->io_base = NULL;
-    }
+    if (!esched_adapt_is_soc_cloud_v4(res->dev_id)) {
+        if (res->io_base != NULL) {
+            ka_mm_iounmap(res->io_base);
+            res->io_base = NULL;
+        }
 
-    if (res->int_io_base != NULL) {
-        ka_mm_iounmap(res->int_io_base);
-        res->int_io_base = NULL;
-    }
+        if (res->int_io_base != NULL) {
+            ka_mm_iounmap(res->int_io_base);
+            res->int_io_base = NULL;
+        }
 
-    if (res->rsv_mem_va != NULL) {
-        ka_mm_iounmap(res->rsv_mem_va);
-        res->rsv_mem_va = NULL;
+        if (res->rsv_mem_va != NULL) {
+            ka_mm_iounmap(res->rsv_mem_va);
+            res->rsv_mem_va = NULL;
+        }
     }
-#endif
 }
 #else
 void esched_drv_host_topic_sched_v1(void)

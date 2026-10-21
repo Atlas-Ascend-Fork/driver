@@ -32,6 +32,7 @@ void *queue_context_private_data_create(void)
     }
     KA_INIT_LIST_HEAD(&ctx_private->node_list_head);
     ka_task_spin_lock_init(&ctx_private->lock);
+    ka_task_mutex_init(&ctx_private->hdc_session_mutex);
 
     return ctx_private;
 }
@@ -39,7 +40,17 @@ void *queue_context_private_data_create(void)
 void queue_context_private_data_destroy(void *private_data)
 {
     struct context_private_data *ctx_private = (struct context_private_data *)private_data;
+#ifndef EMU_ST
+    int devid;
 
+    for (devid = 0; devid < MAX_DEVICE; devid++) {
+        if (ctx_private->hdc_session[devid] >= 0) {
+            (void)hdcdrv_kernel_close(ctx_private->hdc_session[devid], NULL);
+            ctx_private->hdc_session[devid] = -1;
+        }
+    }
+#endif
+    ka_task_mutex_destroy(&ctx_private->hdc_session_mutex);
     queue_drv_kfree(ctx_private);
     return;
 }

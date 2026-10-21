@@ -18,7 +18,8 @@
 #include "dms_device_info.h"
 #include "dms_pcie.h"
 
-int dms_get_pcie_link_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf, unsigned int *size)
+int dms_get_pcie_link_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
+                           unsigned int *size)
 {
     (void)dev_id;
     (void)vfid;
@@ -35,5 +36,5 @@ int DmsGetPcieInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd,
         return DRV_ERROR_NOT_SUPPORT;
     }
 
-    return DmsGetDeviceInfoEx(dev_id, DSMI_MAIN_CMD_PCIE, sub_cmd, buf, size);
+    return halDmsGetDeviceInfoEx(dev_id, DSMI_MAIN_CMD_PCIE, sub_cmd, buf, size);
 }

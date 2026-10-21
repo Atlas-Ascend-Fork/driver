@@ -16,6 +16,7 @@
 #include "ka_driver_pub.h"
 #include "kernel_cgroup_mem_adapt.h"
 
+#include "trs_pub_def.h"
 #include "trs_ts_inst.h"
 #include "trs_sqcq_map.h"
 
@@ -212,7 +213,7 @@ static int trs_sq_shr_info_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_
     }
     sq_ctx->shr_info.len = KA_MM_PAGE_SIZE;
 
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, uio_info->sq_ctrl_addr[TRS_UIO_SHR_INFO],
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, false, uio_info->sq_ctrl_addr[TRS_UIO_SHR_INFO],
                         ka_mm_virt_to_phys(sq_ctx->shr_info.kva), KA_MM_PAGE_SIZE);
     ret = trs_remap_sq(proc_ctx, ts_inst, &map_para);
     if (ret != 0) {
@@ -249,7 +250,7 @@ static void trs_sq_reg_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_i
     int ret;
 
     /* head reg addr not page align */
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_RO_REG, uio_info->sq_ctrl_addr[TRS_UIO_HEAD_REG],
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_RO_REG, true, uio_info->sq_ctrl_addr[TRS_UIO_HEAD_REG],
                         KA_DRIVER_ALIGN_DOWN(sq_info->head_addr, KA_MM_PAGE_SIZE), KA_MM_PAGE_SIZE);
     ret = trs_remap_sq(proc_ctx, ts_inst, &map_para);
     if (ret == 0) {
@@ -262,7 +263,7 @@ static void trs_sq_reg_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_i
     }
 
     /* tail reg addr not page align */
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_RO_REG, uio_info->sq_ctrl_addr[TRS_UIO_TAIL_REG],
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_RO_REG, true, uio_info->sq_ctrl_addr[TRS_UIO_TAIL_REG],
                         KA_DRIVER_ALIGN_DOWN(sq_info->tail_addr, KA_MM_PAGE_SIZE), KA_MM_PAGE_SIZE);
     ret = trs_remap_sq(proc_ctx, ts_inst, &map_para);
     if (ret == 0) {
@@ -290,6 +291,27 @@ static void trs_sq_reg_unmap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_i
         (void)trs_unmap_sq(proc_ctx, ts_inst, &unmap_para);
         sq_ctx->tail_reg.uva = 0;
     }
+}
+
+static int trs_sq_mem_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst,
+                            struct trs_uio_info *uio_info, struct trs_sq_ctx *sq_ctx, struct trs_chan_sq_info *sq_info)
+{
+    unsigned long que_mem_len = KA_MM_PAGE_ALIGN(sq_info->sq_para.sq_depth * sq_info->sq_para.sqe_size);
+    struct trs_mem_map_para map_para = {0};
+
+    if (sq_info->sq_phy_addr == TRS_INVALID_PHYS_ADDR) {
+        return 0;
+    }
+
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, uio_info->soft_que_flag == 0, uio_info->sq_que_addr,
+                        sq_info->sq_phy_addr, que_mem_len);
+
+    if (sq_info->addr_num > 1 && sq_info->sq_pa_wraper_list != NULL) {
+        map_para.pa_wraper_list = sq_info->sq_pa_wraper_list;
+        map_para.pa_num = sq_info->addr_num;
+    }
+
+    return trs_sq_que_remap(proc_ctx, ts_inst, sq_ctx, &map_para);
 }
 
 int trs_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst, struct halSqCqInputInfo *para,
@@ -334,8 +356,7 @@ int trs_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst
 
     if (((para->flag & TSDRV_FLAG_SPECIFIED_SQ_MEM) == 0) && (sq_info->sq_phy_addr != TRS_INVALID_PHYS_ADDR)) {
         /* specific sq mem not need remap pfn */
-        trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, uio_info->sq_que_addr, sq_info->sq_phy_addr, que_mem_len);
-        ret = trs_sq_que_remap(proc_ctx, ts_inst, sq_ctx, &map_para);
+        ret = trs_sq_mem_remap(proc_ctx, ts_inst, uio_info, sq_ctx, sq_info);
         if (ret != 0) {
 #ifndef EMU_ST /* not delete for uio ut */
             goto fail;
@@ -344,7 +365,7 @@ int trs_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst
     }
 
     /* head addr not page align */
-    trs_remap_fill_para(&map_para, sq_reg_type, uio_info->sq_ctrl_addr[TRS_UIO_HEAD],
+    trs_remap_fill_para(&map_para, sq_reg_type, sq_reg_type == TRS_MAP_TYPE_REG, uio_info->sq_ctrl_addr[TRS_UIO_HEAD],
                         KA_DRIVER_ALIGN_DOWN(sq_info->head_addr, KA_MM_PAGE_SIZE), KA_MM_PAGE_SIZE);
     uio_info->sq_ctrl_addr[TRS_UIO_HEAD] += sq_info->head_addr % KA_MM_PAGE_SIZE;
     ret = trs_sq_head_remap(proc_ctx, ts_inst, sq_ctx, &map_para);
@@ -353,7 +374,7 @@ int trs_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst
     }
 
     /* tail addr not page align */
-    trs_remap_fill_para(&map_para, sq_reg_type, uio_info->sq_ctrl_addr[TRS_UIO_TAIL],
+    trs_remap_fill_para(&map_para, sq_reg_type, sq_reg_type == TRS_MAP_TYPE_REG, uio_info->sq_ctrl_addr[TRS_UIO_TAIL],
                         KA_DRIVER_ALIGN_DOWN(sq_info->tail_addr, KA_MM_PAGE_SIZE), KA_MM_PAGE_SIZE);
     uio_info->sq_ctrl_addr[TRS_UIO_TAIL] += sq_info->tail_addr % KA_MM_PAGE_SIZE;
     ret = trs_sq_tail_remap(proc_ctx, ts_inst, sq_ctx, &map_para);
@@ -362,7 +383,7 @@ int trs_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_inst
     }
 
     /* db addr not page align */
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_REG, uio_info->sq_ctrl_addr[TRS_UIO_DB],
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_REG, true, uio_info->sq_ctrl_addr[TRS_UIO_DB],
                         KA_DRIVER_ALIGN_DOWN(sq_info->db_addr, KA_MM_PAGE_SIZE), KA_MM_PAGE_SIZE);
     uio_info->sq_ctrl_addr[TRS_UIO_DB] += sq_info->db_addr % KA_MM_PAGE_SIZE;
     ret = trs_sq_db_remap(proc_ctx, ts_inst, sq_ctx, &map_para);

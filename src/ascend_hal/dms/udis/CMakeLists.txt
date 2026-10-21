@@ -11,8 +11,8 @@ target_sources(dms_obj PRIVATE
     udis_user_common.c
     $<$<STREQUAL:${PRODUCT},ascend910B>:${CMAKE_CURRENT_SOURCE_DIR}/udis_user.c>
     $<$<STREQUAL:${PRODUCT},ascend950>:${CMAKE_CURRENT_SOURCE_DIR}/udis_user.c>
-    $<$<STREQUAL:${PRODUCT},ascend910_96>:${CMAKE_CURRENT_SOURCE_DIR}/udis_user.c>
-    $<$<STREQUAL:${PRODUCT},ascend910_96esl>:${CMAKE_CURRENT_SOURCE_DIR}/udis_user.c>
+    $<$<STREQUAL:${PRODUCT},ascend960>:${CMAKE_CURRENT_SOURCE_DIR}/udis_user.c>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:${CMAKE_CURRENT_SOURCE_DIR}/udis_user.c>
 )
 
 target_include_directories(dms_obj PRIVATE

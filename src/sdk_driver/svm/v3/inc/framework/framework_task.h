@@ -28,6 +28,7 @@ int svm_task_set_feature_priv(void *task_ctx, u32 feature_id, const char *featur
 void *svm_task_get_feature_priv(void *task_ctx, u32 feature_id);
 
 void svm_task_ctx_for_each(u32 udevid, void *priv, void (*func)(void *task_ctx, void *priv));
+u32 svm_get_task_max_num(u32 udevid);
 void svm_get_all_task_tgids(u32 udevid, int tgid[], u32 num);
 
 void *svm_get_task_mm(void *task_ctx);

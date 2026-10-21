@@ -29,7 +29,7 @@
 struct pfc_storm_parse {
     char *param;
     int (*parse_proc)(int argc, char **argv, int *argc_index, struct pfc_storm_cfg_param *user_param,
-        const struct dfx_u32_parse *dfx);
+                      const struct dfx_u32_parse *dfx);
     unsigned int minv;
     unsigned int maxv;
 };
@@ -39,7 +39,7 @@ struct pfc_storm_save {
 };
 
 int dfx_parse_uinteger_param(int argc, char **argv, int *argc_index, unsigned int *value,
-    const struct dfx_u32_parse *dfx)
+                             const struct dfx_u32_parse *dfx)
 {
     int ret;
     if (*argc_index + 1 >= argc) {
@@ -55,8 +55,8 @@ int dfx_parse_uinteger_param(int argc, char **argv, int *argc_index, unsigned in
     }
 
     if (*value < dfx->minv || *value > dfx->maxv) {
-        roce_err("%s invalid param [%s].(value=[%u], min=[%u], max=[%u]))", dfx->dfx_name, argv[*argc_index],
-            *value, dfx->minv, dfx->maxv);
+        roce_err("%s invalid param [%s].(value=[%u], min=[%u], max=[%u]))", dfx->dfx_name, argv[*argc_index], *value,
+                 dfx->minv, dfx->maxv);
         return UDA_PARAM_INVALID_ERR;
     }
     char value_str[MAX_U32_PARAM_LENGTH] = {0};
@@ -77,50 +77,45 @@ int dfx_parse_uinteger_param(int argc, char **argv, int *argc_index, unsigned in
 }
 
 STATIC int pfc_storm_parse_mode(int argc, char **argv, int *argc_index, struct pfc_storm_cfg_param *user_param,
-    const struct dfx_u32_parse *dfx)
+                                const struct dfx_u32_parse *dfx)
 {
     return dfx_parse_uinteger_param(argc, argv, argc_index, &user_param->mode, dfx);
 }
 
 STATIC int pfc_storm_parse_close_time(int argc, char **argv, int *argc_index, struct pfc_storm_cfg_param *user_param,
-    const struct dfx_u32_parse *dfx)
+                                      const struct dfx_u32_parse *dfx)
 {
     return dfx_parse_uinteger_param(argc, argv, argc_index, &user_param->close_time, dfx);
 }
- 
+
 STATIC int pfc_storm_parse_detect_period(int argc, char **argv, int *argc_index, struct pfc_storm_cfg_param *user_param,
-    const struct dfx_u32_parse *dfx)
+                                         const struct dfx_u32_parse *dfx)
 {
     return dfx_parse_uinteger_param(argc, argv, argc_index, &user_param->detect_period, dfx);
 }
- 
+
 STATIC int pfc_storm_parse_warn_thrd(int argc, char **argv, int *argc_index, struct pfc_storm_cfg_param *user_param,
-    const struct dfx_u32_parse *dfx)
+                                     const struct dfx_u32_parse *dfx)
 {
     return dfx_parse_uinteger_param(argc, argv, argc_index, &user_param->warn_thrd, dfx);
 }
- 
+
 STATIC int pfc_storm_parse_err_thrd(int argc, char **argv, int *argc_index, struct pfc_storm_cfg_param *user_param,
-    const struct dfx_u32_parse *dfx)
+                                    const struct dfx_u32_parse *dfx)
 {
     return dfx_parse_uinteger_param(argc, argv, argc_index, &user_param->err_thrd, dfx);
 }
- 
+
 STATIC struct pfc_storm_parse g_pfc_storm_parse_list[] = {
-    {"mode", pfc_storm_parse_mode,
-     PFC_STORM_WATCHDOG_MODE_0, PFC_STORM_WATCHDOG_MODE_2},
-    {"close_time", pfc_storm_parse_close_time,
-     PFC_STORM_WATCHDOG_CLOSE_TIME_MIN,  PFC_STORM_WATCHDOG_CLOSE_TIME_MAX},
-    {"detect_period", pfc_storm_parse_detect_period,
-     PFC_STORM_WATCHDOG_DETECT_PERIOD_MIN, PFC_STORM_WATCHDOG_DETECT_PERIOD_MAX},
-    {"warn_thrd", pfc_storm_parse_warn_thrd,
-     PFC_STORM_WARN_THRD_MIN, PFC_STORM_WARN_THRD_MAX},
-    {"err_thrd", pfc_storm_parse_err_thrd,
-     PFC_STORM_ERR_THRD_MIN, PFC_STORM_ERR_THRD_MAX}
-};
+    {"mode", pfc_storm_parse_mode, PFC_STORM_WATCHDOG_MODE_0, PFC_STORM_WATCHDOG_MODE_2},
+    {"close_time", pfc_storm_parse_close_time, PFC_STORM_WATCHDOG_CLOSE_TIME_MIN, PFC_STORM_WATCHDOG_CLOSE_TIME_MAX},
+    {"detect_period", pfc_storm_parse_detect_period, PFC_STORM_WATCHDOG_DETECT_PERIOD_MIN,
+     PFC_STORM_WATCHDOG_DETECT_PERIOD_MAX},
+    {"warn_thrd", pfc_storm_parse_warn_thrd, PFC_STORM_WARN_THRD_MIN, PFC_STORM_WARN_THRD_MAX},
+    {"err_thrd", pfc_storm_parse_err_thrd, PFC_STORM_ERR_THRD_MIN, PFC_STORM_ERR_THRD_MAX}};
 
 STATIC int tool_pfc_storm_watchdog_param_list_parse(int argc, char **argv, struct pfc_storm_cfg_param *user_cfg_param,
-    struct tool_param *param_of_tool)
+                                                    struct tool_param *param_of_tool)
 {
     int ret;
     int argc_idx;
@@ -150,8 +145,8 @@ STATIC int tool_pfc_storm_watchdog_param_list_parse(int argc, char **argv, struc
         dfx.maxv = g_pfc_storm_parse_list[parse_idx].maxv;
         ret = g_pfc_storm_parse_list[parse_idx].parse_proc(argc, argv, &argc_idx, user_cfg_param, &dfx);
         if (ret != UDA_EXE_SUCCESS) {
-            roce_err("%s get param failed.(ret=[%d], phy_id=[%d], logic_id=[%d])", __func__, ret,
-                param_of_tool->phy_id, param_of_tool->logic_id);
+            roce_err("%s get param failed.(ret=[%d], phy_id=[%d], logic_id=[%d])", __func__, ret, param_of_tool->phy_id,
+                     param_of_tool->logic_id);
             return ret;
         }
 
@@ -162,7 +157,7 @@ STATIC int tool_pfc_storm_watchdog_param_list_parse(int argc, char **argv, struc
 }
 
 STATIC int tool_check_pfc_storm_watchdog_param(struct pfc_storm_cfg_param *user_cfg_param,
-    const struct pfc_storm_cfg_param *watchdog_cfg_param)
+                                               const struct pfc_storm_cfg_param *watchdog_cfg_param)
 {
     int ret;
     int err_changed_flag = 0, warn_changed_flag = 0, period_changed_flag = 0;
@@ -175,18 +170,19 @@ STATIC int tool_check_pfc_storm_watchdog_param(struct pfc_storm_cfg_param *user_
         roce_err("[ERROR]err_threshold cannot be less than or equal to warn_threshold.");
         return UDA_PARAM_INVALID_ERR;
     }
-    const char *mode_description[PFC_STORM_WATCHDOG_MODE_NUM] = {"[Disable PFC storm detection]",
-        "[Only warn and err counts are counted, and no closing action is performed]", "[Enable PFC storm detection]"};
+    const char *mode_description[PFC_STORM_WATCHDOG_MODE_NUM] = {
+        "[Disable PFC storm detection]", "[Only warn and err counts are counted, and no closing action is performed]",
+        "[Enable PFC storm detection]"};
     if (user_cfg_param->mode != watchdog_cfg_param->mode) {
-        TOOL_PRINT_INFO("[Warning]mode has been changed to %u %s.",
-            user_cfg_param->mode, mode_description[user_cfg_param->mode]);
+        TOOL_PRINT_INFO("[Warning]mode has been changed to %u %s.", user_cfg_param->mode,
+                        mode_description[user_cfg_param->mode]);
     }
     /* Comparison with existing configurations for double check */
     if (user_cfg_param->detect_period != watchdog_cfg_param->detect_period) {
         period_changed_flag = 1;
         TOOL_PRINT_INFO("[Warning]detect_period has been changed to %u(100ms).", user_cfg_param->detect_period);
     }
-    
+
     if (user_cfg_param->err_thrd != watchdog_cfg_param->err_thrd) {
         err_changed_flag = 1;
         TOOL_PRINT_INFO("[Warning]err_thrd has been changed to %u%%.", user_cfg_param->err_thrd);
@@ -208,22 +204,22 @@ STATIC int tool_check_pfc_storm_watchdog_param(struct pfc_storm_cfg_param *user_
     }
     return UDA_EXE_SUCCESS;
 }
- 
+
 STATIC int tool_pfc_storm_watchdog_param_parse(int argc, char **argv, int logic_id,
-    struct pfc_storm_cfg_param *user_cfg_param, struct tool_param *param_of_tool, unsigned int *new_param_flag)
+                                               struct pfc_storm_cfg_param *user_cfg_param,
+                                               struct tool_param *param_of_tool, unsigned int *new_param_flag)
 {
     int ret;
 
     struct pfc_storm_cfg_param watchdog_cfg_param = {0};
     ret = dsmi_get_pfc_storm_watchdog_param(logic_id, &watchdog_cfg_param);
     if (ret != 0) {
-        roce_err("get pfc storm watchdog param failed when parse param. (ret=[%d]; logic_id=[%d])",
-                 ret, logic_id);
+        roce_err("get pfc storm watchdog param failed when parse param. (ret=[%d]; logic_id=[%d])", ret, logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 
     ret = memcpy_s(user_cfg_param, sizeof(struct pfc_storm_cfg_param), &watchdog_cfg_param,
-        sizeof(struct pfc_storm_cfg_param));
+                   sizeof(struct pfc_storm_cfg_param));
     if (ret != 0) {
         roce_err("%s memcpy_s failed. (ret=%d).", __func__, ret);
         return ret;
@@ -302,28 +298,26 @@ STATIC int pfc_storm_watchdog_save_err_thrd(char *inbuf, int length, struct pfc_
     return 0;
 }
 
-struct pfc_storm_save g_pfc_storm_save_list[] = {
-    {"mode", pfc_storm_watchdog_save_mode},
-    {"close_time", pfc_storm_watchdog_save_close_time},
-    {"detect_period", pfc_storm_watchdog_save_detect_period},
-    {"warn_thrd", pfc_storm_watchdog_save_warn_thrd},
-    {"err_thrd", pfc_storm_watchdog_save_err_thrd}
-};
+struct pfc_storm_save g_pfc_storm_save_list[] = {{"mode", pfc_storm_watchdog_save_mode},
+                                                 {"close_time", pfc_storm_watchdog_save_close_time},
+                                                 {"detect_period", pfc_storm_watchdog_save_detect_period},
+                                                 {"warn_thrd", pfc_storm_watchdog_save_warn_thrd},
+                                                 {"err_thrd", pfc_storm_watchdog_save_err_thrd}};
 
 STATIC int tool_pfc_storm_watchdog_save_param(struct pfc_storm_cfg_param *user_cfg_param,
-    struct tool_param *param_of_tool)
+                                              struct tool_param *param_of_tool)
 {
     int ret;
     char config_buf[MAX_PFC_STORM_STORM_PARAM_LEN] = {0};
     char param_name[MAX_PFC_STORM_STORM_PARAM_LEN] = {0};
     int save_list_len = sizeof(g_pfc_storm_save_list) / sizeof(g_pfc_storm_save_list[0]);
-    
+
     for (int i = 0; i < save_list_len; ++i) {
         ret = sprintf_s(param_name, MAX_PFC_STORM_STORM_PARAM_LEN, "pfc_storm_watchdog_%s",
-            g_pfc_storm_save_list[i].param);
+                        g_pfc_storm_save_list[i].param);
         if (ret <= 0) {
-            roce_err("save pfc storm watchdog param %s sprintf_s failed. (ret=%d)",
-                g_pfc_storm_save_list[i].param, ret);
+            roce_err("save pfc storm watchdog param %s sprintf_s failed. (ret=%d)", g_pfc_storm_save_list[i].param,
+                     ret);
             return UDA_TOOL_NO_MEM_ERR;
         }
 
@@ -368,7 +362,7 @@ STATIC int tool_pfc_storm_watchdog_cfg(int argc, char **argv, struct tool_param 
     }
 
     ret = tool_pfc_storm_watchdog_param_parse(argc, argv, logic_id, &cfg_info.user_cfg_param, param,
-        &cfg_info.cfg_change_flag);
+                                              &cfg_info.cfg_change_flag);
     if (ret != 0) {
         roce_err("%s Invalid param. (ret = %d)", __func__, ret);
         return ret;
@@ -376,11 +370,10 @@ STATIC int tool_pfc_storm_watchdog_cfg(int argc, char **argv, struct tool_param 
 
     ret = dsmi_set_pfc_storm_watchdog_param(logic_id, &cfg_info);
     if (ret != 0) {
-        roce_err("dsmi set pfc storm watchdog param failed. (ret=[%d]; logic_id=[%d])",
-                 ret, logic_id);
+        roce_err("dsmi set pfc storm watchdog param failed. (ret=[%d]; logic_id=[%d])", ret, logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
-    
+
     ret = tool_pfc_storm_watchdog_save_param(&cfg_info.user_cfg_param, param);
     if (ret != 0) {
         roce_err("save pfc storm watchdog param failed. (ret=%d; phy_id=%d)", ret, param->phy_id);
@@ -388,19 +381,19 @@ STATIC int tool_pfc_storm_watchdog_cfg(int argc, char **argv, struct tool_param 
     }
     return UDA_EXE_SUCCESS;
 }
- 
+
 STATIC void tool_pfc_storm_watchdog_print(struct pfc_storm_cfg_param *user_cfg_param)
 {
     TOOL_PRINT_INFO("Config info:");
     switch (user_cfg_param->mode) {
-        case PFC_STORM_WATCHDOG_MODE_0 :
+        case PFC_STORM_WATCHDOG_MODE_0:
             TOOL_PRINT_INFO("mode: %u [Disable PFC storm detection]", user_cfg_param->mode);
             break;
-        case PFC_STORM_WATCHDOG_MODE_1 :
+        case PFC_STORM_WATCHDOG_MODE_1:
             TOOL_PRINT_INFO("mode: %u [Only warn and err counts are counted, and no closing action is performed]",
-                user_cfg_param->mode);
+                            user_cfg_param->mode);
             break;
-        case PFC_STORM_WATCHDOG_MODE_2 :
+        case PFC_STORM_WATCHDOG_MODE_2:
             TOOL_PRINT_INFO("mode: %u [Enable PFC storm detection]", user_cfg_param->mode);
             break;
         default:
@@ -411,7 +404,7 @@ STATIC void tool_pfc_storm_watchdog_print(struct pfc_storm_cfg_param *user_cfg_p
     TOOL_PRINT_INFO("warn_threshold: %u%%", user_cfg_param->warn_thrd);
     TOOL_PRINT_INFO("err_threshold: %u%%", user_cfg_param->err_thrd);
 }
- 
+
 STATIC int tool_get_pfc_storm_whtchdog(int argc, char **argv, struct tool_param *param)
 {
     int ret;
@@ -429,7 +422,7 @@ STATIC int tool_get_pfc_storm_whtchdog(int argc, char **argv, struct tool_param 
     tool_pfc_storm_watchdog_print(&user_cfg_param);
     return UDA_EXE_SUCCESS;
 }
- 
+
 int tool_pfc_storm_cmd_execute(int argc, char **argv, struct tool_param *param)
 {
     int ret;
@@ -450,7 +443,7 @@ int tool_pfc_storm_cmd_execute(int argc, char **argv, struct tool_param *param)
         roce_err("err argc. (argc=%d)", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
- 
+
     logic_id = param->logic_id;
 
     if (!strncmp(argv[0], "-s", strlen("-s") + 1)) {
@@ -481,7 +474,7 @@ STATIC int pfc_storm_watchdog_recovery_get_saved_config(int *argc, char **argv, 
     int ret;
     int i;
     char param_name_saved[MAX_PFC_STORM_STORM_PARAM_LEN];
-    
+
     for (i = 0; i < MAX_PFC_STORM_WATCHDOG_PARAM_NUM; ++i) {
         ret = memset_s(param_name_saved, MAX_PFC_STORM_STORM_PARAM_LEN, 0, MAX_PFC_STORM_STORM_PARAM_LEN);
         if (ret != 0) {
@@ -490,25 +483,25 @@ STATIC int pfc_storm_watchdog_recovery_get_saved_config(int *argc, char **argv, 
         }
 
         ret = sprintf_s(param_name_saved, MAX_PFC_STORM_STORM_PARAM_LEN, "pfc_storm_watchdog_%s",
-            g_pfc_storm_parse_list[i].param);
+                        g_pfc_storm_parse_list[i].param);
         if (ret <= 0) {
             roce_err("%s sprintf_s for param %s failed. (ret=%d)", __func__, g_pfc_storm_parse_list[i].param, ret);
             return UDA_TOOL_NO_MEM_ERR;
         }
-        
+
         ret = cfg_read_conf(param_of_tool->phy_id, param_name_saved, argv[TWO_VALUE * (*argc) + 1],
-            MAX_PFC_STORM_STORM_PARAM_LEN);
+                            MAX_PFC_STORM_STORM_PARAM_LEN);
         if (ret == UDA_TOOL_SYS_RD_FILE_NOT_FOUND) {
             roce_info("pfc storm watchdog do not need recover cfg %s. (ret=%d, phy_id=%d)",
-                g_pfc_storm_parse_list[i].param, ret, param_of_tool->phy_id);
+                      g_pfc_storm_parse_list[i].param, ret, param_of_tool->phy_id);
             continue;
         } else if (ret != 0) {
             roce_err("%s cfg_read_conf for %s failed. (ret=%d)", __func__, param_name_saved, ret);
             return ret;
         }
-        
+
         ret = memcpy_s(argv[TWO_VALUE * (*argc)], MAX_PFC_STORM_STORM_PARAM_LEN, g_pfc_storm_parse_list[i].param,
-            strlen(g_pfc_storm_parse_list[i].param) + 1);
+                       strlen(g_pfc_storm_parse_list[i].param) + 1);
         if (ret != 0) {
             roce_err("%s get param name failed. (ret=%d)", __func__, ret);
             return ret;
@@ -568,10 +561,10 @@ int tool_cfg_pfc_storm_watchdog_recovery(struct tool_param *param_of_tool)
         goto malloc_free;
     }
     // argv有效的字符串数量是 argc*2：参数名 + 值
-    ret = tool_pfc_storm_watchdog_cfg(TWO_VALUE*argc, argv, param_of_tool);
+    ret = tool_pfc_storm_watchdog_cfg(TWO_VALUE * argc, argv, param_of_tool);
     if (ret != 0) {
-        roce_err("recovery the cfg parameters of the pfc storm watchdog fail. (ret=%d; phy_id=%d)",
-            ret, param_of_tool->phy_id);
+        roce_err("recovery the cfg parameters of the pfc storm watchdog fail. (ret=%d; phy_id=%d)", ret,
+                 param_of_tool->phy_id);
         goto malloc_free;
     }
 

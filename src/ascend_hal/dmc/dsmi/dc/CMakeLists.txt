@@ -24,6 +24,7 @@ target_include_directories(drvdsmi_host PRIVATE
     ${DRIVER_USER_DIR}/dmc/device_monitor/dc
     ${DRIVER_USER_DIR}/dmc/device_monitor/include
     ${DRIVER_USER_DIR}/dmc/device_monitor/lib/include
+    ${DRIVER_USER_DIR}/dmc/feature/host
     ${DRIVER_USER_DIR}/inc
     ${DRIVER_USER_DIR}/inc/mmpa_sdk
     ${DRIVER_USER_DIR}/dms/fault
@@ -85,15 +86,16 @@ target_compile_definitions(drvdsmi_host PRIVATE
     $<$<IN_LIST:${PRODUCT},${product_950_series}>:CFG_FEATURE_PCIE_LINK_INFO>
     $<$<IN_LIST:${PRODUCT},${product_950_series}>:CFG_FEATURE_FAULT_EVENT>
     $<$<STREQUAL:${PRODUCT},ascend950>:CFG_FEATURE_BIST>
-    $<$<STREQUAL:${PRODUCT},ascend910_96>:CFG_FEATURE_BIST>
-    $<$<STREQUAL:${PRODUCT},ascend910_96esl>:CFG_FEATURE_BIST>
+    $<$<STREQUAL:${PRODUCT},ascend960>:CFG_FEATURE_BIST>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:CFG_FEATURE_BIST>
     $<$<IN_LIST:${PRODUCT},${support_auth_enable_sign_host_list}>:CFG_FEATURE_SUPPORT_AUTH_ENABLE_SIGN>
     $<$<STREQUAL:${PRODUCT},ascend910B>:CFG_FEATURE_SUPPORT_UDIS>
     $<$<STREQUAL:${PRODUCT},ascend950>:CFG_FEATURE_SUPPORT_UDIS>
-    $<$<STREQUAL:${PRODUCT},ascend910_96>:CFG_FEATURE_SUPPORT_UDIS>
-    $<$<STREQUAL:${PRODUCT},ascend910_96esl>:CFG_FEATURE_SUPPORT_UDIS>
+    $<$<STREQUAL:${PRODUCT},ascend960>:CFG_FEATURE_SUPPORT_UDIS>
+    $<$<STREQUAL:${PRODUCT},ascend960esl>:CFG_FEATURE_SUPPORT_UDIS>
     $<$<STREQUAL:${PRODUCT},ascend910B>:CFG_FEATURE_UDIS_UTIL_FROM_TS>
     $<$<STREQUAL:${PRODUCT},ascend950>:CFG_FEATURE_UDIS_UTIL_FROM_TS>
+    $<$<STREQUAL:${PRODUCT},ascend960>:CFG_FEATURE_UDIS_UTIL_FROM_TS>
 )
 
 target_compile_options(drvdsmi_host PRIVATE

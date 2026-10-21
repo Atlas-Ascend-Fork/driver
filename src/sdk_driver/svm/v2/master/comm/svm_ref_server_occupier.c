@@ -48,6 +48,7 @@ static struct devmm_ref_server_occupier *devmm_ref_server_occupier_create(struct
     if (ret != 0) {
         devmm_drv_err("Insert fail. (ret=%d; sdid=%u)\n", ret, sdid);
         devmm_kvfree_ex(occupier);
+        occupier = NULL;
     }
 
     return occupier;
@@ -150,13 +151,13 @@ void devmm_ref_server_occupier_mng_init(struct devmm_ref_server_occupier_mng *mn
 
 void devmm_ref_server_occupier_mng_uninit(struct devmm_ref_server_occupier_mng *mng)
 {
-    struct devmm_ref_server_occupier *occupier = NULL;
-    struct devmm_ref_server_occupier *tmp = NULL;
+    ka_rb_node_t *rbnode = NULL;
     u32 stamp = (u32)ka_jiffies;
 
     ka_task_down_write(&mng->rw_sem);
-    ka_base_rbtree_postorder_for_each_entry_safe(occupier, tmp, &mng->root, node)
-    {
+    while ((rbnode = devmm_rb_first(&mng->root)) != NULL) {
+        struct devmm_ref_server_occupier *occupier = ka_base_rb_entry(rbnode, struct devmm_ref_server_occupier, node);
+
         devmm_try_cond_resched(&stamp);
         devmm_ref_server_occupier_destroy(mng, occupier);
     }

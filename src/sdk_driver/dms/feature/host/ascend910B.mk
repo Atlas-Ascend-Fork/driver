@@ -9,7 +9,6 @@
 # ------------------------------------------------------------------------------------------------------------
 
 # ==== devmng ====
-EXTRA_CFLAGS += -DCFG_FEATURE_KA
 EXTRA_CFLAGS += -DCFG_FEATURE_DEV_TOPOLOGY
 EXTRA_CFLAGS += -DCFG_FEATURE_CHIP_INFO_FROM_DEVINFO
 EXTRA_CFLAGS += -DCFG_FEATURE_GET_CURRENT_EVENTINFO

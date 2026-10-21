@@ -9,7 +9,7 @@
 # ------------------------------------------------------------------------------------------------------------
 
 obj-m += asdrv_fms.o
-asdrv_fms-objs := fms_module.o
+asdrv_fms-objs := fms_module_feature.o fms_module.o
 
 DRIVER_SOURCE_DIR := $(DRIVER_KERNEL_DIR)
 

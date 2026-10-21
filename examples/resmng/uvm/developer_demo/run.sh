@@ -9,7 +9,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ------------------------------------------------------------------------------------------------------------
 DEP_INFO_FILE="/etc/ascend_install.info"
- if [ -f "${DEP_INFO_FILE}" ]; then
+if [ -f "${DEP_INFO_FILE}" ]; then
     . ${DEP_INFO_FILE}
     DRV_INSTALL_PATH=""${Driver_Install_Path_Param%*/}"/driver"
     DRV_LIB64_COMMON_LDPATH=""${Driver_Install_Path_Param%*/}"/driver/lib64/common"
@@ -23,7 +23,7 @@ fi
 source $DRV_INSTALL_PATH/bin/setenv.bash
 
 BASE_DIR=$(cd "$(dirname $0)/../../../.."; pwd)
- 
+
 rm -rf build
 mkdir -p build
 cmake -B build \
@@ -36,4 +36,4 @@ cmake --install build
 file_path=output_msg.txt
 ./build/main | tee $file_path
 
-exit $?
+exit 0

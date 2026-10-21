@@ -115,19 +115,19 @@ STATIC int queue_data_in(int devid, int vfid, int local_pid, struct hdcdrv_data_
     int ret;
 
     if (reply_msg == NULL) {
-        queue_err("head is NULL, invalid src_addr.\n");
-        return HDCDRV_RX_FINISH;
+        queue_debug("head is NULL, invalid src_addr.\n");
+        return HDCDRV_RX_ABNORMAL;
     }
 
     if (data.len != sizeof(struct queue_reply_complete_msg)) {
-        queue_err("invalid in_data_len(%u).\n", data.len);
-        return HDCDRV_RX_FINISH;
+        queue_debug("invalid in_data_len(%u).\n", data.len);
+        return HDCDRV_RX_ABNORMAL;
     }
 
     ctx = queue_context_get(reply_msg->dma_info.hostpid);
     if (ctx == NULL) {
-        queue_err("Pid does not exist. (pid=%d)\n", reply_msg->dma_info.hostpid);
-        return HDCDRV_RX_FINISH;
+        queue_debug("Pid does not exist. (pid=%d)\n", reply_msg->dma_info.hostpid);
+        return HDCDRV_RX_ABNORMAL;
     }
 
     qid_status = queue_get_qid_status(ctx, reply_msg->qid);
@@ -143,8 +143,9 @@ STATIC int queue_data_in(int devid, int vfid, int local_pid, struct hdcdrv_data_
 
     queue_context_put(ctx);
     if (ret != 0) {
-        queue_err("queue_free_dma_node failed. (ret=%d, serial_num=%llu; que_chan_addr=0x%pK).\n", ret,
-                  reply_msg->dma_info.serial_num, (void *)(uintptr_t)reply_msg->dma_info.que_chan_addr);
+        queue_debug("queue_free_dma_node failed. (ret=%d, serial_num=%llu; que_chan_addr=0x%pK).\n", ret,
+                    reply_msg->dma_info.serial_num, (void *)(uintptr_t)reply_msg->dma_info.que_chan_addr);
+        return HDCDRV_RX_ABNORMAL;
     }
 
     return HDCDRV_RX_FINISH;

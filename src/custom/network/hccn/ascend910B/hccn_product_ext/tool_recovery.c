@@ -87,8 +87,8 @@ static int tool_get_exist_ip_rule_check(const char *prefix, const char *cfg, str
                 return ret;
             }
             slice_str[slice_length] = '\0';
-            if (strstr(slice_str, dir) != NULL && strstr(slice_str, ip_str) != NULL
-                && strstr(slice_str, table_str) != NULL) {
+            if (strstr(slice_str, dir) != NULL && strstr(slice_str, ip_str) != NULL &&
+                strstr(slice_str, table_str) != NULL) {
                 ip_rule_exsit->same_list[i] = IP_RULE_EXSIT_FLAG;
                 ret = IP_RULE_EXSIT_FLAG;
                 break;
@@ -128,8 +128,8 @@ static int tool_get_ip_rule_for_recovery_str(int logic_id, struct ip_rule_exsit_
         free(data_info.out_buf);
         return UDA_TOOL_NO_MEM_ERR;
     }
-    ret = strncpy_s(ip_rule_exsit->ip_rule_out_buf, ip_rule_exsit->ip_rule_out_buf_size,
-        data_info.out_buf, data_info.size_out);
+    ret = strncpy_s(ip_rule_exsit->ip_rule_out_buf, ip_rule_exsit->ip_rule_out_buf_size, data_info.out_buf,
+                    data_info.size_out);
     if (ret != 0) {
         roce_err("get ip rule recovery strcpy cfg failed. (ret=%d)", ret);
         free(data_info.out_buf);
@@ -183,7 +183,7 @@ static int tool_open_cfg_file(FILE **fp)
 }
 
 static int tool_cfg_cmdline_recovery_check(const char *prefix, int max_len, struct tool_param *param,
-    int (*recovery)(const char *, struct tool_param *param))
+                                           int (*recovery)(const char *, struct tool_param *param))
 {
     FILE *fp = NULL;
     char line_buf[CONLINE_LENGTH] = {0};
@@ -195,7 +195,7 @@ static int tool_cfg_cmdline_recovery_check(const char *prefix, int max_len, stru
     if (ret) {
         return ret;
     }
-    
+
     ret = tool_get_ip_rule_for_recovery_str(param->logic_id, &ip_rule_exsit_param);
     if (ret) {
         roce_err("get ip rule for recovery check failed. (ret=%d; logic_id=%d)", ret, param->logic_id);
@@ -244,8 +244,8 @@ static int tool_send_recovery_ip_rule_cmd(int logic_id, const char *cmdline)
     char dir[MAX_PARAM_LEN] = {0};
     unsigned char ip_fst, ip_sed, ip_thd, ip_fth;
 
-    ret = sscanf_s(cmdline, "add %s %hhu.%hhu.%hhu.%hhu table %u", dir, sizeof(dir),
-        &ip_fst, &ip_sed, &ip_thd, &ip_fth, &cmd_info.table_id);
+    ret = sscanf_s(cmdline, "add %s %hhu.%hhu.%hhu.%hhu table %u", dir, sizeof(dir), &ip_fst, &ip_sed, &ip_thd, &ip_fth,
+                   &cmd_info.table_id);
     if (ret <= 0) {
         roce_err("Tool ip rule recovery get param failed. (ret=%d)", ret);
         return UDA_TOOL_NO_MEM_ERR;
@@ -292,9 +292,9 @@ static int tool_send_recovery_ip_route_cmd(int logic_id, const char *cmdline)
         return UDA_TOOL_INNER_PARAM_ERR;
     }
 
-    ret = sscanf_s(cmdline, "add %hhu.%hhu.%hhu.%hhu/%u via %hhu.%hhu.%hhu.%hhu dev eth%u table %u",
-        &ip_fst, &ip_sed, &ip_thd, &ip_fth, &cmd_info.ip_mask, &via_fst, &via_sed, &via_thd, &via_fth,
-        &cmd_info.eth_id, &cmd_info.table_id);
+    ret = sscanf_s(cmdline, "add %hhu.%hhu.%hhu.%hhu/%u via %hhu.%hhu.%hhu.%hhu dev eth%u table %u", &ip_fst, &ip_sed,
+                   &ip_thd, &ip_fth, &cmd_info.ip_mask, &via_fst, &via_sed, &via_thd, &via_fth, &cmd_info.eth_id,
+                   &cmd_info.table_id);
     if (ret <= 0) {
         roce_err("Tool ip route recovery get param failed. (ret=%d)", ret);
         return UDA_TOOL_NO_MEM_ERR;
@@ -382,8 +382,7 @@ STATIC int tool_send_ip_route_recovery_cmd(const char *cfg, struct tool_param *p
     // 如果ip_route已经存在就不再重复配置
     ret = (ret == EEXIST) ? 0 : ret;
     if (ret != 0) {
-        roce_err("Tool ip route recovery failed. (ret=%d; err_str=\"%s\")",
-            ret, get_cmd_err_str(ret));
+        roce_err("Tool ip route recovery failed. (ret=%d; err_str=\"%s\")", ret, get_cmd_err_str(ret));
     }
     return ret;
 }
@@ -508,11 +507,11 @@ char *get_cmd_err_str(int err_code)
     int cnt;
     int i;
     const struct err_code g_err_code_map[] = {
-        {"No such file or directory", ENOENT},      /* 2 */
-        {"Permission denied", EACCES},             /* 13 */
-        {"Invalid argument", EFAULT},             /* 14 */
-        {"File exists", EEXIST},                   /* 17 */
-        {"Network is unreachable", ENETUNREACH},   /* 114 */
+        {"No such file or directory", ENOENT},          /* 2 */
+        {"Permission denied", EACCES},                  /* 13 */
+        {"Invalid argument", EFAULT},                   /* 14 */
+        {"File exists", EEXIST},                        /* 17 */
+        {"Network is unreachable", ENETUNREACH},        /* 114 */
         {"Nexthop has invalid gateway", EADDRNOTAVAIL}, /* 125 */
     };
 
@@ -532,7 +531,7 @@ int change_ip_form(char *ip, int ip_len)
     char change_ip[MAX_IP6_LEN] = {0};
     // loc冒号或者最后一个\0的坐标 loc_tmp每断四个16进制的起始坐标
     int add_len = 0, total_add_len = 0, part_len = 0, ret = 0, loc = 0, loc_tmp = 0;
-    char* find = NULL;
+    char *find = NULL;
     if (ip == NULL) {
         return;
     }
@@ -552,7 +551,7 @@ int change_ip_form(char *ip, int ip_len)
                 return ret;
             }
             loc = ++loc_tmp;
-        } else if (part_len < 4) { // 小于4需要补0
+        } else if (part_len < 4) {    // 小于4需要补0
             add_len = 4 - (part_len); // ipv6一段完整的是4个16进制申数字，不够的需要补齐0
             ret = memset_s(change_ip + loc + total_add_len, add_len, '0', add_len);
             if (ret != 0) {
@@ -584,7 +583,7 @@ int change_ip_form(char *ip, int ip_len)
 STATIC int rule_list_match(char list[][CONLINE_LENGTH], int list_cnt, const char *dst)
 {
     int i, len, ret;
-    char* ipv6_str = NULL;
+    char *ipv6_str = NULL;
     char ip_tmp[MAX_IP6_LEN] = {0};
     char ipv6_conf[CONLINE_LENGTH] = {0};
     int copylen, copylen1, ip_len_before, ip_len_after;
@@ -635,7 +634,7 @@ STATIC int rule_list_match(char list[][CONLINE_LENGTH], int list_cnt, const char
 }
 
 STATIC int handle_conf_to_file_proc_buf(FILE *fp, int op_type, char match_list[][CONLINE_LENGTH], int list_cnt,
-    char *file_buf)
+                                        char *file_buf)
 {
     int ret;
     int find = false;
@@ -773,10 +772,10 @@ static int tool_send_recovery_neigh_cmd(int logic_id, char *cmdline)
         cmdline[len_cmdline] = '\0';
     }
 
-    ret = sscanf_s(cmdline, "-i eth%u -s %s %hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &cmd_info.eth_id,
-        ipv6_address, sizeof(ipv6_address), &cmd_info.mac_address[INDEX_ZERO], &cmd_info.mac_address[INDEX_ONE],
-        &cmd_info.mac_address[INDEX_TWO], &cmd_info.mac_address[INDEX_THREE], &cmd_info.mac_address[INDEX_FOUR],
-        &cmd_info.mac_address[INDEX_FIVE]);
+    ret = sscanf_s(cmdline, "-i eth%u -s %s %hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &cmd_info.eth_id, ipv6_address,
+                   sizeof(ipv6_address), &cmd_info.mac_address[INDEX_ZERO], &cmd_info.mac_address[INDEX_ONE],
+                   &cmd_info.mac_address[INDEX_TWO], &cmd_info.mac_address[INDEX_THREE],
+                   &cmd_info.mac_address[INDEX_FOUR], &cmd_info.mac_address[INDEX_FIVE]);
     if (ret <= 0) {
         roce_err("Tool neigh recovery get param failed. (ret=%d)", ret);
         return UDA_TOOL_NO_MEM_ERR;
@@ -830,7 +829,7 @@ int tool_send_neigh_recovery_cmd(const char *cfg, struct tool_param *param)
     p[strlen(p) - 1] = '\0';
 
     ret = tool_send_recovery_neigh_cmd(param->logic_id, p);
-    
+
     return ret;
 }
 

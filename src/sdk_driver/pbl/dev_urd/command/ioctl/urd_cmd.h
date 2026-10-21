@@ -12,5 +12,7 @@ struct urd_ioctl_arg {
 
 #define DMS_MAGIC 'V'
 #define URD_IOCTL_CMD _IO(DMS_MAGIC, 1)
+#define URD_QUERY_IOCTL_CMD _IO(DMS_MAGIC, 2)
+#define URD_CONFIG_IOCTL_CMD _IO(DMS_MAGIC, 3)
 
 #endif

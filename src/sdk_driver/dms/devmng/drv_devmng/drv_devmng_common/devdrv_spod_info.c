@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #include "ascend_kernel_hal.h"
 #include "devdrv_common.h"
 #include "devdrv_manager_common.h"
@@ -34,6 +33,9 @@ STATIC void devdrv_make_set_sdid(u32 host_udevid, struct devdrv_info *dev_info)
     } else {
         parse_stru.server_id = dev_info->server_id;
     }
+    if (parse_stru.server_id > SERVER_ID_INVALID) {
+        parse_stru.server_id = SERVER_ID_INVALID;
+    }
 #else
     if (dev_info->server_id > SERVER_ID_MAX) {
         dev_info->server_id = SERVER_ID_INVALID;
@@ -46,11 +48,11 @@ STATIC void devdrv_make_set_sdid(u32 host_udevid, struct devdrv_info *dev_info)
     ret = dbl_make_sdid(&parse_stru, &sdid);
     if (ret != 0) {
         devdrv_drv_err("make sdid fail. (dev_id=%u;server=%u;chip=%u;die=%u;udevid=%u)\n", dev_info->dev_id,
-            parse_stru.server_id, parse_stru.chip_id, parse_stru.die_id, parse_stru.udevid);
+                       parse_stru.server_id, parse_stru.chip_id, parse_stru.die_id, parse_stru.udevid);
         return;
     }
-    devdrv_drv_info("make sdid success. (dev_id=%u;sdid=0x%x;server=%u;chip=%u;die=%u;udevid=%u)\n",
-        dev_info->dev_id, sdid, parse_stru.server_id, parse_stru.chip_id, parse_stru.die_id, parse_stru.udevid);
+    devdrv_drv_info("make sdid success. (dev_id=%u;sdid=0x%x;server=%u;chip=%u;die=%u;udevid=%u)\n", dev_info->dev_id,
+                    sdid, parse_stru.server_id, parse_stru.chip_id, parse_stru.die_id, parse_stru.udevid);
     spod_stru.sdid = sdid;
     spod_stru.scale_type = dev_info->scale_type;
     spod_stru.super_pod_id = dev_info->super_pod_id;
@@ -58,12 +60,13 @@ STATIC void devdrv_make_set_sdid(u32 host_udevid, struct devdrv_info *dev_info)
     spod_stru.chassis_id = dev_info->chassis_id;
     spod_stru.super_pod_type = dev_info->super_pod_type;
     spod_stru.super_pod_intercon_type = dev_info->super_pod_intercon_type;
+    spod_stru.scale_up_group_id = dev_info->scale_up_group_id;
+    spod_stru.scale_out_group_id = dev_info->scale_out_group_id;
     ret = dbl_set_spod_info(dev_info->dev_id, &spod_stru);
     if (ret != 0) {
         devdrv_drv_err("set spod info fail.(ret=%d)\n", ret);
     }
 }
-
 
 #ifdef CFG_HOST_ENV
 void devdrv_host_generate_sdid(struct devdrv_info *dev_info)

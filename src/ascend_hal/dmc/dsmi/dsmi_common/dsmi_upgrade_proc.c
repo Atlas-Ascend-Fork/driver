@@ -19,7 +19,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <linux/limits.h>
-#include "ascend_hal.h"
+#include "ascend_inpackage_hal.h"
 #include "dm_hdc.h"
 #include "dm_udp.h"
 #include "dsmi_common_interface.h"
@@ -77,7 +77,8 @@ int dsmi_update_send_file_name(int device_id, DSMI_COMPONENT_TYPE component_type
 
     file_name_len = (unsigned int)strnlen(file_name, PATH_MAX);
     if (file_name_len >= PATH_MAX) {
-        dev_upgrade_err("devid %d dsmi_update_send_file_name filename len error:%d\n", device_id, file_name_len);
+        dev_upgrade_err("devid %d dsmi_update_send_file_name filename len error:%d, max=%d\n", device_id, file_name_len,
+                        PATH_MAX);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -251,8 +252,9 @@ int upgrade_single_component(int device_id, const char *file_name, DSMI_COMPONEN
     // check component_type is support or not
     ret = check_component_type_validity(component_list, component_type, component_num);
     if (ret != 0) {
-        dev_upgrade_debug("device 0x%x  is not support upgrade component type 0x%x, ret = 0x%x\n", device_id,
-                          component_type, ret);
+        dev_upgrade_debug(
+            "device does not support upgrade component type. (device=0x%x; component_type=0x%x; ret=0x%x)\n", device_id,
+            component_type, ret);
         return ret;
     }
 
@@ -265,13 +267,13 @@ int upgrade_single_component(int device_id, const char *file_name, DSMI_COMPONEN
     // path unity change to UPGRADE_DST_PATH
     ret = find_file_name(device_id, file_name, dst_compoent_name);
     if (ret != 0) {
-        dev_upgrade_err("devid %d find file fail, file_name: %s fail, ret = %x\n", device_id, file_name, ret);
+        dev_upgrade_err("devid %d find file fail, file_name: %s fail, ret = 0x%x\n", device_id, file_name, ret);
         goto exit;
     }
 
     ret = transmit_file_to_device(device_id, file_name, dst_compoent_name, component_type);
     if (ret != 0) {
-        dev_upgrade_err("update device %d when transmit file %s to device %s fail, ret = %x\n", device_id, file_name,
+        dev_upgrade_err("update device %d when transmit file %s to device %s fail, ret = 0x%x\n", device_id, file_name,
                         dst_compoent_name, ret);
     }
 
@@ -393,7 +395,7 @@ int upgrade_trans_mami_patch(int device_id, const char *file_name)
     }
 
     if (strcmp(file_name, "NULL") != 0) {
-        dev_upgrade_info("Send alone UB patch. (device_id=%d)\n", device_id);
+        dev_upgrade_info("Send alone mami patch. (device_id=%d)\n", device_id);
         ret = send_patch_to_device(device_id, file_name, dst_compoent_name);
         if (ret != 0) {
             goto exit;
@@ -402,15 +404,15 @@ int upgrade_trans_mami_patch(int device_id, const char *file_name)
         ret = dsmi_cmd_load_mami_patch(device_id, 1, dst_compoent_name,
                                        (unsigned int)(strnlen(dst_compoent_name, PATH_MAX) + 1UL));
         if (ret != 0) {
-            dev_upgrade_ex_notsupport_err(ret, "Load UB patch failed. (devid=%d; ret=0x%x)\n", device_id, ret);
+            dev_upgrade_ex_notsupport_err(ret, "Load mami patch failed. (devid=%d; ret=0x%x)\n", device_id, ret);
             goto exit;
         }
     } else {
-        dev_upgrade_info("Load default UB patch. (device_id=%d)\n", device_id);
+        dev_upgrade_info("Load default mami patch. (device_id=%d)\n", device_id);
         ret = dsmi_cmd_load_mami_patch(device_id, 0, dst_compoent_name,
                                        (unsigned int)(strnlen(dst_compoent_name, PATH_MAX) + 1UL));
         if (ret != 0) {
-            dev_upgrade_ex_notsupport_err(ret, "Load UB patch failed. (devid=%d; ret=0x%x)\n", device_id, ret);
+            dev_upgrade_ex_notsupport_err(ret, "Load mami patch failed. (devid=%d; ret=0x%x)\n", device_id, ret);
             goto exit;
         }
     }

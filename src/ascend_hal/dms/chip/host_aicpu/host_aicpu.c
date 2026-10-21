@@ -25,8 +25,7 @@ drvError_t DmsSetHostAicpuInfo(unsigned int dev_id, unsigned int sub_cmd, const 
     unsigned int bitmap_num = 0;
 
     if ((dev_id >= ASCEND_DEV_MAX_NUM) || (buf == NULL) || (size != sizeof(struct dsmi_host_aicpu_info))) {
-        DMS_ERR("The input parameter is incorrect. (dev_id=%u; buf=%d; size=%u;)\n",
-            dev_id, (buf != NULL), size);
+        DMS_ERR("The input parameter is incorrect. (dev_id=%u; buf=%d; size=%u;)\n", dev_id, (buf != NULL), size);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -45,8 +44,8 @@ drvError_t DmsSetHostAicpuInfo(unsigned int dev_id, unsigned int sub_cmd, const 
 
     /* Allow the bitmap not to be set. */
     if ((info->num > DMS_HOST_AICPU_MAX_NUM) || ((bitmap_num != 0) && (bitmap_num != info->num))) {
-        DMS_ERR("The input parameter is incorrect. (dev_id=%u; aicpu_num=%u; bitmap_num=%u)\n",
-            dev_id, info->num, bitmap_num);
+        DMS_ERR("The input parameter is incorrect. (dev_id=%u; aicpu_num=%u; bitmap_num=%u)\n", dev_id, info->num,
+                bitmap_num);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -58,8 +57,8 @@ drvError_t DmsSetHostAicpuInfo(unsigned int dev_id, unsigned int sub_cmd, const 
     return DmsSetDeviceInfo(dev_id, DSMI_MAIN_CMD_HOST_AICPU, sub_cmd, buf, size);
 }
 
-drvError_t DmsGetHostAicpuInfo(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t DmsGetHostAicpuInfo(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                               unsigned int *size)
 {
     struct dsmi_host_aicpu_info *info = buf;
     int ret;

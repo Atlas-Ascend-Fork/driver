@@ -52,7 +52,7 @@ static int svm_host_unregister(u32 user_devid, u64 va, u64 size)
     svm_dst_va_pack(svm_get_host_devid(), 0, va, size, &register_va);
     ret = svm_unregister_to_master(user_devid, &register_va, 0);
     if (ret != DRV_ERROR_NONE) {
-        svm_err_if((ret != DRV_ERROR_PARA_ERROR),
+        svm_err_if(((ret != DRV_ERROR_PARA_ERROR) && (ret != DRV_ERROR_BUSY)),
                    "Unregister local mem to master failed. (ret=%d; devid=%u; host_va=0x%llx; size=%llu)\n", ret,
                    user_devid, va, size);
     }
@@ -62,19 +62,27 @@ static int svm_host_unregister(u32 user_devid, u64 va, u64 size)
 static int svm_try_host_register_vmm_existed_mem(void *seg_handle, u64 start, struct svm_global_va *src_info,
                                                  void *priv)
 {
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
     u32 devid = svm_svmm_get_seg_devid(seg_handle);
     u32 user_devid = *(u32 *)priv;
 
-    return (devid == svm_get_host_devid()) ? svm_host_register(user_devid, start, src_info->size) : 0;
+    return ((devid == svm_get_host_devid()) && ((svm_flag & SVM_FLAG_CAP_SYNC_COPY) != 0) &&
+            (svm_flag_cap_is_support_vmm_ipc_unmap(svm_flag) == false)) ?
+               svm_host_register(user_devid, start, src_info->size) :
+               0;
 }
 
 static int svm_try_host_unregister_vmm_existed_mem(void *seg_handle, u64 start, struct svm_global_va *src_info,
                                                    void *priv)
 {
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
     u32 devid = svm_svmm_get_seg_devid(seg_handle);
     u32 user_devid = *(u32 *)priv;
 
-    return (devid == svm_get_host_devid()) ? svm_host_unregister(user_devid, start, src_info->size) : 0;
+    return ((devid == svm_get_host_devid()) && ((svm_flag & SVM_FLAG_CAP_SYNC_COPY) != 0) &&
+            (svm_flag_cap_is_support_vmm_ipc_unmap(svm_flag) == false)) ?
+               svm_host_unregister(user_devid, start, src_info->size) :
+               0;
 }
 
 static int svm_try_host_register_existed_mem(void *va_handle, u64 start, struct svm_prop *prop, void *priv)
@@ -84,7 +92,7 @@ static int svm_try_host_register_existed_mem(void *va_handle, u64 start, struct 
 
     if (svm_flag_cap_is_support_normal_free(prop->flag)) {
         if ((svm_flag_attr_is_va_only(prop->flag) == false) && (prop->is_from_cache == false) &&
-            (prop->devid == svm_get_host_devid())) {
+            (prop->devid == svm_get_host_devid()) && ((prop->flag & SVM_FLAG_CAP_SYNC_COPY) != 0)) {
             return svm_host_register(devid, start, prop->aligned_size);
         }
     } else {
@@ -103,7 +111,7 @@ static int svm_try_host_unregister_existed_mem(void *va_handle, u64 start, struc
 
     if (svm_flag_cap_is_support_normal_free(prop->flag)) {
         if ((svm_flag_attr_is_va_only(prop->flag) == false) && (prop->is_from_cache == false) &&
-            (prop->devid == svm_get_host_devid())) {
+            (prop->devid == svm_get_host_devid()) && ((prop->flag & SVM_FLAG_CAP_SYNC_COPY) != 0)) {
             return svm_host_unregister(devid, start, prop->aligned_size);
         }
     } else {
@@ -138,6 +146,11 @@ static int svm_host_register_enable(u32 devid)
     int ret;
 
     if ((devid == svm_get_host_devid()) || g_support_register[devid]) {
+        return 0;
+    }
+
+    /* Bounce-buffer mappings are limited and must be created explicitly through HOST_PINNED. */
+    if (svm_dbi_is_cc_vm()) {
         return 0;
     }
 
@@ -206,13 +219,11 @@ static void svm_host_unregister_pre_free(u32 devid, u64 start, u64 size, u32 fla
 struct svm_normal_ops host_register_ops = {.post_malloc = svm_host_register_post_malloc,
                                            .pre_free = svm_host_unregister_pre_free};
 
-static int svm_host_register_post_map(void *seg_handle, u32 devid, u64 start, u64 svm_flag,
-                                      struct svm_global_va *src_info)
+static int svm_host_register_post_map(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
 {
     u32 i, j;
     int ret;
 
-    SVM_UNUSED(seg_handle);
     if ((devid == svm_get_host_devid()) && ((svm_flag & SVM_FLAG_CAP_SYNC_COPY) != 0)) {
         for (i = 0; i < SVM_MAX_DEV_AGENT_NUM; i++) {
             ret = svm_host_register(i, start, src_info->size);
@@ -227,12 +238,10 @@ static int svm_host_register_post_map(void *seg_handle, u32 devid, u64 start, u6
     return 0;
 }
 
-static int svm_host_register_pre_unmap(u32 task_bitmap, u32 devid, u64 start, u64 svm_flag,
-                                       struct svm_global_va *src_info)
+static int svm_host_register_pre_unmap(u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info)
 {
     u32 i;
 
-    SVM_UNUSED(task_bitmap);
     if ((devid == svm_get_host_devid()) && ((svm_flag & SVM_FLAG_CAP_SYNC_COPY) != 0)) {
         for (i = 0; i < SVM_MAX_DEV_AGENT_NUM; i++) {
             int ret = svm_host_unregister(i, start, src_info->size);
@@ -261,6 +270,6 @@ void __attribute__((constructor)) svm_host_register_init(void)
 
     ret = svm_register_ioctl_dev_uninit_pre_handle(svm_host_register_disable);
     if (ret != DRV_ERROR_NONE) {
-        svm_err("Register ioctl dev init post handle failed.\n");
+        svm_err("Register ioctl dev uninit pre handle failed.\n");
     }
 }

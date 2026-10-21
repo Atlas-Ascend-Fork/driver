@@ -76,8 +76,16 @@ const u32 g_vdev_dtype[VDAVINCI_SUPPORT_DIVIDE_AICORE_NUM + 1] = {
 
 STATIC struct dev_mnt_vdev_inform g_vdev_inform;
 STATIC DEV_MNT_VDEV_CB_T *g_mnt_vdev_cb = NULL;
-static ka_file_operations_t dev_mnt_vdev_fops_real = {ka_fs_init_f_owner(KA_THIS_MODULE) ka_fs_init_f_open(
-    NULL) ka_fs_init_f_release(NULL) ka_fs_init_f_unlocked_ioctl(NULL) ka_fs_init_f_mmap(NULL)};
+
+// clang-format off
+static ka_file_operations_t dev_mnt_vdev_fops_real = {
+    ka_fs_init_f_owner(KA_THIS_MODULE)
+    ka_fs_init_f_open(NULL)
+    ka_fs_init_f_release(NULL)
+    ka_fs_init_f_unlocked_ioctl(NULL)
+    ka_fs_init_f_mmap(NULL)
+};
+// clang-format on
 
 STATIC void dev_mnt_vdevice_inform_release(void);
 
@@ -249,7 +257,7 @@ STATIC int dev_mnt_destory_all_vdevice(u32 phy_id)
     if (destroy_succ) {
         return 0;
     }
-    devdrv_drv_err("all vdevice of dev(%u) are not alloced.\n", phy_id);
+    devdrv_drv_err("all vdevice of dev are not allocated. (dev=%u)\n", phy_id);
     return -ENODEV;
 }
 #endif
@@ -761,7 +769,7 @@ int dev_mnt_vdevice_init(void)
 
     g_mnt_vdev_cb = dbl_kzalloc(sizeof(DEV_MNT_VDEV_CB_T), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (g_mnt_vdev_cb == NULL) {
-        devdrv_drv_err("stream alloc_chrdev_region failed.\n");
+        devdrv_drv_err("Alloc memory for g_mnt_vdev_cb failed. (ret=%d)\n", -ENOMEM);
         return -ENOMEM;
     }
 
@@ -843,8 +851,8 @@ STATIC int dev_mnt_check_create_para_single(u32 phy_id, struct vdev_create_info 
 
     ratio = VDEV_TOKEN_MAP_VALUE(token) + 1;
     if (g_split_details.splitted_total + ratio > MAX_SPLIT_PIECE) {
-        devdrv_drv_err("It is over current tops. (splitted_total=%u; ratio=%u)\n", g_split_details.splitted_total,
-                       ratio);
+        devdrv_drv_err("It is over current tops. (splitted_total=%u; ratio=%u; max=%u)\n",
+                       g_split_details.splitted_total, ratio, MAX_SPLIT_PIECE);
         return -EINVAL;
     }
 
@@ -915,12 +923,13 @@ STATIC void dev_mnt_vdevice_bind(u32 vdev_id, ka_mnt_namespace_t *ns, u64 contai
         return;
     }
 
+    ka_task_mutex_lock(&g_mnt_vdev_cb->vdev[offset_id].lock);
     if (g_mnt_vdev_cb->vdev[offset_id].alloc_state != VDAVINCI_USED) {
+        ka_task_mutex_unlock(&g_mnt_vdev_cb->vdev[offset_id].lock);
         devdrv_drv_err_spinlock("vdev_id(%u) is not alloc\n", vdev_id);
         return;
     }
 
-    ka_task_mutex_lock(&g_mnt_vdev_cb->vdev[offset_id].lock);
     info = &g_mnt_vdev_cb->vdev[offset_id].info;
     if (info->used == VDAVINCI_STATE_INUSED) {
         ka_task_mutex_unlock(&g_mnt_vdev_cb->vdev[offset_id].lock);
@@ -949,16 +958,17 @@ STATIC void dev_mnt_vdevice_unbind(u32 vdev_id)
         return;
     }
 
+    ka_task_mutex_lock(&g_mnt_vdev_cb->vdev[offset_id].lock);
     if (g_mnt_vdev_cb->vdev[offset_id].alloc_state != VDAVINCI_USED) {
+        ka_task_mutex_unlock(&g_mnt_vdev_cb->vdev[offset_id].lock);
         devdrv_drv_err_spinlock("vdev_id(%u) is not alloc\n", vdev_id);
         return;
     }
 
-    ka_task_mutex_lock(&g_mnt_vdev_cb->vdev[offset_id].lock);
     info = &g_mnt_vdev_cb->vdev[offset_id].info;
     if (info->used == VDAVINCI_STATE_IDLE) {
         ka_task_mutex_unlock(&g_mnt_vdev_cb->vdev[offset_id].lock);
-        devdrv_drv_err_spinlock("unbind failed, vdev_id(%u) had not bind\n", vdev_id);
+        devdrv_drv_err_spinlock("unbind failed, vdev_id(%u) had not been bound\n", vdev_id);
         return;
     }
 

@@ -25,7 +25,7 @@ if (PRODUCT STREQUAL "ascend910B")
         COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libkmc.so.25 ${CMAKE_BINARY_DIR}/lib/lib64/driver/
         COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libsdp.so.25 ${CMAKE_BINARY_DIR}/lib/lib64/driver/
         COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libcmscbb.so ${CMAKE_BINARY_DIR}/lib/lib64/driver/
-        COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libtls_adp.so ${CMAKE_BINARY_DIR}/lib/lib64/driver/
+        COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libtls_product.so ${CMAKE_BINARY_DIR}/lib/lib64/driver/
         COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libmbedcrypto.so.16 ${CMAKE_BINARY_DIR}/lib/lib64/driver/
         COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libmbedtls.so.21 ${CMAKE_BINARY_DIR}/lib/lib64/driver/
         COMMAND ${CMAKE_COMMAND} -E copy ${DRV_DEV_ARCHIVE_PREFIX}/lib64/driver/libmbedx509.so.7 ${CMAKE_BINARY_DIR}/lib/lib64/driver/

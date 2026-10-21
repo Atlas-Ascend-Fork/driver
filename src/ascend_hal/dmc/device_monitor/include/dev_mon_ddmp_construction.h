@@ -31,7 +31,8 @@ int ddmp_get_device_fw_ver(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned cha
 int ddmp_get_peripheral_device_fw_ver(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned char *ver, unsigned int len);
 int ddmp_get_pcie_vender_id(DM_INTF_S *intf, DM_RECV_ST *data, unsigned short vid);
 int ddmp_get_pcie_device_id(DM_INTF_S *intf, DM_RECV_ST *data, unsigned short did);
-int ddmp_get_device_serial_number(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned char *sn, unsigned int total_length);
+int ddmp_get_device_serial_number(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned char *sn,
+                                  unsigned int total_length);
 int ddmp_get_pcie_sub_vender_id(DM_INTF_S *intf, DM_RECV_ST *data, unsigned short sub_vid);
 int ddmp_get_pcie_sub_device_id(DM_INTF_S *intf, DM_RECV_ST *data, unsigned short sub_did);
 int ddmp_get_device_voltage(DM_INTF_S *intf, DM_RECV_ST *data, unsigned short volt);
@@ -50,7 +51,8 @@ int ddmp_get_ub_link_status(DM_INTF_S *intf, DM_RECV_ST *data, const void *buf, 
 int ddmp_get_ub_port_status(DM_INTF_S *intf, DM_RECV_ST *data, const void *buf, unsigned int size);
 
 /* peripheral device information, which may vary and needs to be expanded as needed */
-int ddmp_get_peripheral_device_info(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned char *buff, unsigned int total_length);
+int ddmp_get_peripheral_device_info(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned char *buff,
+                                    unsigned int total_length);
 int ddmp_get_ecc_statistics(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned int *value, unsigned int count);
 int ddmp_get_system_time(DM_INTF_S *intf, DM_RECV_ST *data, unsigned int system_clock);
 
@@ -69,7 +71,7 @@ int ddmp_send_failed_response(DM_INTF_S *intf, DM_RECV_ST *data, int errorcode);
 int ddmp_get_freq_info(DM_INTF_S *intf, DM_RECV_ST *data, unsigned int freq);
 int ddmp_get_chip_info(DM_INTF_S *intf, DM_RECV_ST *data, unsigned int chip_info);
 int ddmp_get_chip_version(DM_INTF_S *intf, DM_RECV_ST *data, unsigned char chip_info);
-int ddmp_get_device_cgroup_info(DM_INTF_S* intf, DM_RECV_ST* data, const void *buff, unsigned int len);
+int ddmp_get_device_cgroup_info(DM_INTF_S *intf, DM_RECV_ST *data, const void *buff, unsigned int len);
 int ddmp_get_all_device_node(DM_INTF_S *intf, DM_RECV_ST *data, const void *buf, unsigned int len);
 
 #define ddmp_send_normal_response(a, b) ddmp_send_failed_response(a, b, DRV_ERROR_NONE)
@@ -101,6 +103,6 @@ int ddmp_send_data_bin_response(DM_INTF_S *intf, DM_RECV_ST *data, const unsigne
                                 unsigned int total_length);
 int ddmp_get_common_struct_info(DM_INTF_S *intf, DM_RECV_ST *data, const void *buff, unsigned int total_length);
 int ddmp_get_device_info(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned char *buff, unsigned int total_length);
-int ddmp_get_persistence_statistics(DM_INTF_S *intf, DM_RECV_ST *data,
-    const unsigned int *value, unsigned int total_length);
+int ddmp_get_persistence_statistics(DM_INTF_S *intf, DM_RECV_ST *data, const unsigned int *value,
+                                    unsigned int total_length);
 #endif

@@ -39,7 +39,7 @@ ka_mm_struct_t *svm_mm_get(int tgid, bool wlock)
         ka_task_down_read(get_mmap_sem(mm));
     }
 
-    ka_mm_mmput(mm);
+    /* Keep the mm reference until the mmap lock is released in svm_mm_put. */
 task_put:
     ka_task_put_task_struct(tsk);
     return mm;
@@ -52,4 +52,5 @@ void svm_mm_put(ka_mm_struct_t *mm, bool wlock)
     } else {
         ka_task_up_read(get_mmap_sem(mm));
     }
+    ka_mm_mmput(mm);
 }

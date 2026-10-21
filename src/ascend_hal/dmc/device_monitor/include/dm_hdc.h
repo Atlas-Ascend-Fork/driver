@@ -41,12 +41,14 @@ typedef struct HDC_MSG_S {
 #define HDCMSG_HEAD_SIZE (sizeof(HDC_MSG_ST) - DM_MSG_DATA_MAX)
 
 #ifndef return_val_do_info
-#define return_val_do_info(expr, val, msg, info) do { \
-        if ((expr)){ \
-            free(msg); \
-            msg = NULL; \
-            info; \
-            return val;} \
+#define return_val_do_info(expr, val, msg, info) \
+    do {                                         \
+        if ((expr)) {                            \
+            free(msg);                           \
+            msg = NULL;                          \
+            info;                                \
+            return val;                          \
+        }                                        \
     } while (0)
 #endif
 

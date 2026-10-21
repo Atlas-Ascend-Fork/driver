@@ -18,6 +18,9 @@
 #include "va_allocator.h"
 #include "normal_malloc.h"
 
+/* TODO: Move it to a separate file later for declaration. */
+bool svm_is_dev_closing(u32 devid);
+
 struct svm_normal_ops *normal_ops = NULL;
 
 void svm_normal_set_ops(struct svm_normal_ops *ops)
@@ -61,8 +64,8 @@ static int normal_va_alloc(u32 devid, u32 flag, u64 align, u64 *va, u64 size)
 
     ret = svm_alloc_va(*va, size, align, devid, va_allocator_flag, va);
     if (ret != DRV_ERROR_NONE) {
-        svm_no_err_if(ret == DRV_ERROR_OUT_OF_MEMORY, "Alloc va not success. (ret=%d; flag=%x; size=0x%llx)\n", ret,
-                      flag, size);
+        svm_no_err_if(ret == DRV_ERROR_OUT_OF_MEMORY, "Alloc va completed. (ret=%d; flag=%x; size=0x%llx)\n", ret, flag,
+                      size);
     }
 
     return ret;
@@ -87,6 +90,7 @@ static u32 normal_malloc_flag_to_mpl_flag(u32 flag)
     mpl_flag |= ((flag & SVM_NORMAL_MALLOC_FLAG_PG_RDONLY) != 0) ? SVM_MPL_FLAG_PG_RDONLY : 0;
     mpl_flag |= ((flag & SVM_NORMAL_MALLOC_FLAG_DEV_CP_ONLY) != 0) ? SVM_MPL_FLAG_DEV_CP_ONLY : 0;
     mpl_flag |= ((flag & SVM_NORMAL_MALLOC_FLAG_VA_WITHOUT_POPULATE) != 0) ? SVM_MPL_FLAG_NO_REMOTE_OPS : 0;
+    mpl_flag |= ((flag & SVM_NORMAL_MALLOC_FLAG_DEV_PRIVATE) != 0) ? SVM_MPL_FLAG_DEV_PRIVATE : 0;
 
     if ((flag & SVM_NORMAL_MALLOC_FLAG_FIXED_NUMA) != 0) {
         mpl_flag |= SVM_MPL_FLAG_FIXED_NUMA;
@@ -104,8 +108,8 @@ static int normal_mem_populate(u32 devid, u32 flag, u64 va, u64 size)
     ret = svm_mpl_client_populate(devid, va, size, mpl_flag);
     if (ret != DRV_ERROR_NONE) {
         svm_no_err_if((ret == DRV_ERROR_OUT_OF_MEMORY),
-                      "Mpl client populate not success. (ret=%d; mpl_flag=%u; va=0x%llx; size=%llu)\n", ret, mpl_flag,
-                      va, size);
+                      "Mpl client populate completed. (ret=%d; mpl_flag=%u; va=0x%llx; size=%llu)\n", ret, mpl_flag, va,
+                      size);
     }
 
     return ret;
@@ -118,10 +122,11 @@ static int normal_mem_depopulate(u32 devid, u64 va, u64 size, u32 flag)
 
     ret = svm_mpl_client_depopulate(devid, va, size, mpl_flag);
     if (ret != DRV_ERROR_NONE) {
-        svm_warn("Mpl client depopulate not succ. (ret=%d; devid=%u; va=0x%llx; size=%llu)\n", ret, devid, va, size);
+        svm_warn("Mpl client depopulate completed. (ret=%d; devid=%u; va=0x%llx; size=%llu)\n", ret, devid, va, size);
     }
 
-    return ret;
+    /* We deserve forcefully destroy the handle resource when closing the device. */
+    return (ret == DRV_ERROR_BUSY) ? (svm_is_dev_closing(devid) ? DRV_ERROR_NONE : ret) : ret;
 }
 
 int svm_normal_malloc(u32 devid, u32 flag, u64 align, u64 *va, u64 size)
@@ -139,7 +144,9 @@ int svm_normal_malloc(u32 devid, u32 flag, u64 align, u64 *va, u64 size)
     if ((flag & SVM_NORMAL_MALLOC_FLAG_VA_ONLY) == 0) {
         ret = normal_mem_populate(devid, flag, tmp_va, size);
         if (ret != DRV_ERROR_NONE) {
-            normal_va_free(devid, flag, align, tmp_va, size);
+            if ((flag & SVM_NORMAL_MALLOC_FLAG_POPULATE_ONLY) == 0) {
+                normal_va_free(devid, flag, align, tmp_va, size);
+            }
             return ret;
         }
     }

@@ -90,6 +90,9 @@ static int trs_sec_eh_sqe_update(u32 devid, struct vmng_rx_msg_proc_info *proc_i
     int ret = -EINVAL;
     u32 data_len;
 
+    if (info->sqe_num > data_size / TRS_HW_SQE_SIZE) {
+        return -EINVAL;
+    }
     data_len = sizeof(struct trs_sec_eh_sq_update_info) - data_size + info->sqe_num * TRS_HW_SQE_SIZE;
     *(proc_info->real_out_len) = data_len;
 
@@ -124,8 +127,7 @@ static int trs_sec_eh_res_ctrl(u32 devid, struct vmng_rx_msg_proc_info *proc_inf
     trs_id_inst_pack(&inst, devid, info->head.tsid);
     ret = _trs_sec_eh_res_ctrl(&inst, info->id_type, info->id, info->cmd);
     if (ret != 0) {
-        trs_err("Failed to res ctrl. (devid=%u; id_type=%u; id=%u; cmd=%u)\n", devid, info->id_type, info->id,
-                info->cmd);
+        trs_err("Res ctrl failed. (devid=%u; id_type=%u; id=%u; cmd=%u)\n", devid, info->id_type, info->id, info->cmd);
     }
 
     return ret;

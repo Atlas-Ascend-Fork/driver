@@ -40,6 +40,7 @@ struct udis_timer_task {
 struct udis_period_task_node {
     ka_list_head_t node;
     ka_rcu_head_t rcu;
+    ka_work_struct_t free_work;
     char task_name[TASK_NAME_MAX_LEN];
     unsigned long privilege_data;
     int (*period_task_func)(unsigned int udevid, unsigned long privilege_data);

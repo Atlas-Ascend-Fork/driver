@@ -46,7 +46,9 @@ STATIC int devdrv_get_device_boot_status_urd(void *feature, char *in, u32 in_len
     /* only judge the physical id is available in container */
     if (run_in_normal_docker()) {
         if (!uda_task_can_access_udevid_inherit(ka_task_get_current(), phys_id)) {
-            devdrv_err("device phyid %u is not belong to current docker\n", phys_id);
+#ifndef DRV_UT
+            devdrv_err("device phyid %u does not belong to current docker\n", phys_id);
+#endif
             return -EFAULT;
         }
     }
@@ -150,10 +152,9 @@ STATIC int devdrv_get_device_info_urd(void *feature, char *in, u32 in_len, char 
 
     ret = devdrv_get_device_info(dev_id, &device_info);
     if (ret == -EOPNOTSUPP) {
-        devdrv_warn("Not support get dev info. (dev_id=%u)\n", dev_id);
         return ret;
     } else if (ret != 0) {
-        devdrv_err("devdrv_get_pcie_id failed.\n");
+        devdrv_err("devdrv_get_device_info failed.\n");
         return ret;
     }
 
@@ -164,7 +165,7 @@ STATIC int devdrv_get_device_info_urd(void *feature, char *in, u32 in_len, char 
     device_id_info.bus = device_info.bus;
     device_id_info.device = device_info.device;
     device_id_info.fn = device_info.fn;
-
+    device_id_info.domain = device_info.domain;
     ret = memcpy_s((void *)out, out_len, &device_id_info, sizeof(struct urd_vender_id_info));
     if (ret) {
         devdrv_err("copy_to_user_safe failed.\n");

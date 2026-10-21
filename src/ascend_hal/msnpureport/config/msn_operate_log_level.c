@@ -21,22 +21,23 @@
 #include "msnpureport_print.h"
 #include "msnpureport_common.h"
 
-#define MAX_ERRSTR_LEN               128
-#define MSG_MAX_LEN                  1024
-#define COMPUTE_POWER_GROUP_FLAG     26
+#define MAX_ERRSTR_LEN 128
+#define MSG_MAX_LEN 1024
+#define COMPUTE_POWER_GROUP_FLAG 26
 #define DEVICE_LEVEL_SETTING_SUCCESS "set device_%d level success."
-#define LEVEL_SETTING_SUCCESS        "++OK++"
-#define LEVEL_GETTING_SUCCESS        "[global]"
-#define COMPUTE_POWER_GROUP          "multiple hosts use one device, prohibit operating log level"
+#define LEVEL_SETTING_SUCCESS "++OK++"
+#define LEVEL_GETTING_SUCCESS "[global]"
+#define COMPUTE_POWER_GROUP "multiple hosts use one device, prohibit operating log level"
 
-typedef void*   MsnMemHandle;
+typedef void *MsnMemHandle;
 
-#define XFREE(ptr) do {                                   \
-    if ((ptr) != NULL) {                                  \
-        free(ptr);                                        \
-    }                                                     \
-    (ptr) = NULL;                                         \
-} while (0)
+#define XFREE(ptr)           \
+    do {                     \
+        if ((ptr) != NULL) { \
+            free(ptr);       \
+        }                    \
+        (ptr) = NULL;        \
+    } while (0)
 
 /**
  * @brief       : malloc specify size space and clear
@@ -75,8 +76,8 @@ STATIC MsnMemHandle MsnXmalloc(size_t size)
  * @param [in]  : logOperatonType log operaton type
  * @return      : EN_OK: succeed; others: failed
  */
-STATIC int32_t MsnOperateDeviceLevel(const struct tlv_req *req, char *logLevelResult, \
-                                     int32_t logLevelResultLength, int32_t logOperatonType)
+STATIC int32_t MsnOperateDeviceLevel(const struct tlv_req *req, char *logLevelResult, int32_t logLevelResultLength,
+                                     int32_t logOperatonType)
 {
     char *resultBuf = (char *)MsnXmalloc(MSG_MAX_LEN);
     if (resultBuf == NULL) {
@@ -96,8 +97,8 @@ STATIC int32_t MsnOperateDeviceLevel(const struct tlv_req *req, char *logLevelRe
             err = EN_ERROR;
             char errBuf[MAX_ERRSTR_LEN + 1];
             memset_s(errBuf, sizeof(errBuf), 0, sizeof(errBuf));
-            MSNPU_ERR("Strncpy_s device level result failed, result=%d, strerr=%s.",
-                strcpyRes, mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN));
+            MSNPU_ERR("Strncpy_s device level result failed, result=%d, strerr=%s.", strcpyRes,
+                      mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN));
         } else {
             int32_t strcmpRes = 0;
             if (logOperatonType == (int32_t)CONFIG_GET) {
@@ -172,7 +173,7 @@ int32_t MsnOperateDeviceLogLevel(uint16_t devId, const char *logLevel, char *log
 {
     int32_t err = EN_ERROR;
     if (logLevel == NULL) {
-        MSNPU_ERR("Set device log level input parameter invalied");
+        MSNPU_ERR("Set device log level input parameter invalid");
         return err;
     }
 
@@ -192,7 +193,7 @@ int32_t MsnOperateDeviceLogLevel(uint16_t devId, const char *logLevel, char *log
             MSNPU_WAR("Multiple hosts use one device, prohibit operating log level");
         } else {
             MSNPU_ERR("%s device log level exception! device id = %u.",
-                logOperatonType == (int32_t)CONFIG_GET ? "Get" : "Set", devId);
+                      logOperatonType == (int32_t)CONFIG_GET ? "Get" : "Set", devId);
         }
         XFREE(reqBuf);
         return EN_ERROR;

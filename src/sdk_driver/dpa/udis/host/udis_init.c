@@ -449,7 +449,7 @@ int udis_init(void)
     uda_davinci_near_real_entity_type_pack(&type);
     ret = uda_notifier_register(UDIS_HOST_NOTIFIER, &type, UDA_PRI4, udis_host_notifier_func);
     if (ret != 0) {
-        udis_err("Register uda notifier failed. (ret=%d)\n", ret);
+        udis_err("Rigister uda notifier failed. (ret=%d)\n", ret);
         goto uda_register_fail;
     }
 

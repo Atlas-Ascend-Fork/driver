@@ -11,7 +11,7 @@
  * GNU General Public License for more details.
  */
 
- #ifndef SPOD_INFO_H
+#ifndef SPOD_INFO_H
 #define SPOD_INFO_H
 
 void spod_info_init(void);

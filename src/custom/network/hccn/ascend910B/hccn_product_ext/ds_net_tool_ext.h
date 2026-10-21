@@ -12,16 +12,16 @@
 #define SRC_DRIVER_NETWORK_HCCN_DSMI_DS_NET_TOOL_EXT_H
 #include <linux/types.h>
 
-#define MAX_ROCE_PORT_NUM            32
-#define UDP_MODE_MULTI_QP            2
-#define UDP_MODE_CODE                3
-#define QP_NUM_MIN                   2
-#define QP_NUM_MAX                   32
-#define UDP_PORT_MIN                 4097
-#define UDP_PORT_MAX                 65535
-#define LISTEN_PORT_MIN              10000
-#define LISTEN_PORT_MAX              57999
-#define DEFAULT_LISTEN_PORT          16668
+#define MAX_ROCE_PORT_NUM 32
+#define UDP_MODE_MULTI_QP 2
+#define UDP_MODE_CODE 3
+#define QP_NUM_MIN 2
+#define QP_NUM_MAX 32
+#define UDP_PORT_MIN 4097
+#define UDP_PORT_MAX 65535
+#define LISTEN_PORT_MIN 10000
+#define LISTEN_PORT_MAX 57999
+#define DEFAULT_LISTEN_PORT 16668
 
 struct ds_roce_port_info {
     unsigned int port_mode;
@@ -40,10 +40,10 @@ struct ds_gateway_v6_addr {
     unsigned char address[MAX_IPV6_NUM];
 };
 
-int dsmi_ping_enable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip,
-    uint32_t dest_sdid, char *is_same_card);
-int dsmi_ping_disable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip,
-    uint32_t dest_sdid, char *is_same_card);
+int dsmi_ping_enable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip, uint32_t dest_sdid,
+                         char *is_same_card);
+int dsmi_ping_disable_p2p(uint32_t src_phy_id, uint32_t dest_phy_id, uint32_t dstip, uint32_t dest_sdid,
+                          char *is_same_card);
 int dsmi_handle_multi_roce_ports(int logic_id, struct ds_roce_port_info *info, int cmd_mode);
 int dsmi_set_ipv6_gateway_address(int logic_id, struct ds_gateway_v6_addr gw_v6_ip);
 int dsmi_get_ipv6_gateway_address(int logic_id, struct ds_gateway_v6_addr *gw_v6_ip);

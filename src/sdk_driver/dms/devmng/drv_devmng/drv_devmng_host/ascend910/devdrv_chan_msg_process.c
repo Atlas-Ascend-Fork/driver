@@ -311,7 +311,7 @@ STATIC int devdrv_set_host_aicpu_num_from_device(void *msg, u32 *ack_len)
 
     /* aicpu_num must only be 6 or 7 */
     if (*aicpu_num > 7 || *aicpu_num < 6) {
-        devdrv_drv_err("Invalid aicpu number. (dev_id=%u, aicpu_num=%u)\n", dev_id, *aicpu_num);
+        devdrv_drv_err("Invalid aicpu number. (dev_id=%u, aicpu_num=%u, valid range=6-7)\n", dev_id, *aicpu_num);
         return -EINVAL;
     }
 
@@ -398,9 +398,8 @@ int devdrv_manager_rx_msg_process(void *msg_chan, void *data, u32 in_data_len, u
 
     if ((msg_chan == NULL) || (data == NULL) || (real_out_len == NULL) ||
         (in_data_len < sizeof(struct devdrv_manager_msg_info))) {
-        devdrv_drv_err(
-            "msg_chan or data or real_out_len is NULL. (msg_chan=%pK; data=%pK; real_out_len=%pK; in_data_len=%u)\n",
-            msg_chan, data, real_out_len, in_data_len);
+        devdrv_drv_err("msg_chan(%pK) or data(%pK) or real_out_len(%pK) is NULL, in_data_len(%u)\n", msg_chan, data,
+                       real_out_len, in_data_len);
         return -EINVAL;
     }
     msg_id = ((struct devdrv_manager_msg_head *)data)->msg_id;

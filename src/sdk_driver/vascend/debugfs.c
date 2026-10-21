@@ -27,11 +27,14 @@ STATIC ka_dentry_t *vascend_debugfs_root = NULL;
 
 STATIC int vdavinci_msix_count_show(struct seq_file *s, void *unused)
 {
-    int i;
+    int i = 0;
     struct hw_vdavinci *vdavinci = s->private;
 
     ka_fs_seq_printf(s, "%-16s %-16s\n", "Vector", "Count");
-    for (i = 0; i < vdavinci->debugfs.nvec; i++) {
+    if (vdavinci->debugfs.msix_count == NULL) {
+        return 0;
+    }
+    for (i = 0; i < vdavinci->msix_nvec; i++) {
         ka_fs_seq_printf(s, "%-16d %-16llu\n", i, vdavinci->debugfs.msix_count[i]);
     }
 
@@ -59,12 +62,16 @@ void hw_dvt_debugfs_add_vdavinci(struct hw_vdavinci *vdavinci)
     int ret;
     char *name = NULL;
 
+    if (vdavinci->dvt->debugfs_root == NULL) {
+        return;
+    }
+
     name = ka_mm_kzalloc(MAX_NAME_LEN, KA_GFP_KERNEL);
     if (!name) {
         ret = -ENOMEM;
         vascend_err(vdavinci_to_dev(vdavinci),
                     "add debugfs failed, "
-                    "malloc name fialed, vid: %u, ret: %d\n",
+                    "malloc name failed, vid: %u, ret: %d\n",
                     vdavinci->id, ret);
         return;
     }
@@ -111,7 +118,7 @@ STATIC void hw_dvt_debugfs_release(ka_kref_t *ref)
 /**
  * hw_dvt_debugfs_init - register dvt debugfs root entry
  */
-void hw_dvt_debugfs_init(struct hw_dvt *dvt)
+int hw_dvt_debugfs_init(struct hw_dvt *dvt)
 {
     int ret;
     char *name = NULL;
@@ -120,12 +127,12 @@ void hw_dvt_debugfs_init(struct hw_dvt *dvt)
 
     ka_task_mutex_lock(&debugfs_vascend_lock);
     if (vascend_debugfs_root == NULL) {
-        ka_base_kref_init(&debugfs_ref);
         vascend_debugfs_root = vdavinci_debugfs_create_dir("vascend", NULL);
         if (vascend_debugfs_root == NULL) {
             ka_task_mutex_unlock(&debugfs_vascend_lock);
-            goto debugfs_root;
+            return -ENODEV;
         }
+        ka_base_kref_init(&debugfs_ref);
     } else {
         ka_base_kref_get(&debugfs_ref);
     }
@@ -134,33 +141,34 @@ void hw_dvt_debugfs_init(struct hw_dvt *dvt)
     name = ka_mm_kzalloc(MAX_NAME_LEN, KA_GFP_KERNEL);
     if (!name) {
         ret = -ENOMEM;
-        vascend_err(vdavinci_priv->dev,
-                    "debugfs init failed, "
-                    "malloc name fialed, ret: %d\n",
-                    ret);
-        goto debugfs_root;
+        vascend_err(vdavinci_priv->dev, "debugfs init failed, malloc name failed. (ret=%d)\n", ret);
+        goto err_put_kref;
     }
 
     ret = snprintf_s(name, MAX_NAME_LEN, MAX_NAME_LEN - 1, "vascend_%02x_%02x_%u", pdev->bus->number,
                      KA_PCI_SLOT(pdev->devfn), KA_PCI_FUNC(pdev->devfn));
     if (ret < 0) {
-        vascend_err(vdavinci_priv->dev,
-                    "debugfs init failed, "
-                    "snprientf_s fialed, ret: %d\n",
-                    ret);
-        goto free_name;
+        vascend_err(vdavinci_priv->dev, "debugfs init failed, format name failed. (ret=%d)\n", ret);
+        goto err_free_name;
     }
 
     dvt->debugfs_root = vdavinci_debugfs_create_dir(name, vascend_debugfs_root);
+    if (dvt->debugfs_root == NULL) {
+        ret = -ENODEV;
+        vascend_err(vdavinci_priv->dev, "debugfs init failed, create dir failed. (ret=%d)\n", ret);
+        goto err_free_name;
+    }
     ka_mm_kfree(name);
-    return;
 
-free_name:
+    return 0;
+
+err_free_name:
     ka_mm_kfree(name);
-debugfs_root:
+err_put_kref:
     ka_task_mutex_lock(&debugfs_vascend_lock);
     (void)ka_base_kref_put(&debugfs_ref, hw_dvt_debugfs_release);
     ka_task_mutex_unlock(&debugfs_vascend_lock);
+    return ret;
 }
 
 /**
@@ -168,6 +176,10 @@ debugfs_root:
  */
 void hw_dvt_debugfs_clean(struct hw_dvt *dvt)
 {
+    if (dvt->debugfs_root == NULL) {
+        return;
+    }
+
     vdavinci_debugfs_remove(dvt->debugfs_root);
     dvt->debugfs_root = NULL;
 

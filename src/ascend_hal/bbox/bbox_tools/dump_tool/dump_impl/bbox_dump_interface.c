@@ -8,6 +8,7 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 #include "bbox_dump_interface.h"
+#include "bbox_dump_process.h"
 #include "bbox_drv_adapter.h"
 #include "bbox_print.h"
 
@@ -44,7 +45,7 @@ STATIC bbox_status bbox_pcie_dump_data(u32 phy_id, u32 offset, u32 size, u8 *buf
                 /* to handle the hboot log */
                 return ret;
             }
-            BBOX_ERR("Get pcie bar data failed with %d. offset[0x%x], size[0x%x]", (int)ret, offset, size);
+            BBOX_ERR("Get data failed with %d. offset[0x%x], size[0x%x]", (int)ret, offset, size);
             return BBOX_FAILURE;
         }
     }
@@ -67,12 +68,15 @@ STATIC bbox_status bbox_dma_dump_data(u32 phy_id, u32 offset, u32 size, u8 *buff
 
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(read_func, return BBOX_FAILURE);
-    BBOX_CHK_INVALID_PARAM(size < blck, return BBOX_FAILURE, "%u", size);
+    if (size < blck) {
+        BBOX_ERR("size is too small. (size=%u, min_size=%u)", size, blck);
+        return BBOX_FAILURE;
+    }
 
     u32 l;
     u8 *buf = buffer;
     u32 start = offset;
-    u32 length = size & (~blck + 1);    // 1MB align
+    u32 length = size & (~blck + 1); // 1MB align
     for (l = 0; l < length && l < size; l += blck, start += blck, buf += blck) {
         drvError_t ret = read_func(phy_id, start, blck, buf);
         if (ret != DRV_ERROR_NONE) {
@@ -87,7 +91,8 @@ STATIC bbox_status bbox_dma_dump_data(u32 phy_id, u32 offset, u32 size, u8 *buff
     return BBOX_SUCCESS;
 }
 
-STATIC bbox_status bbox_read_sram_data(u32 phy_id, u32 offset, u32 size, u8 *buffer, const bbox_drv_ub_sram_read read_func)
+STATIC bbox_status bbox_read_sram_data(u32 phy_id, u32 offset, u32 size, u8 *buffer,
+                                       const bbox_drv_ub_sram_read read_func)
 {
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(read_func, return BBOX_FAILURE);
@@ -208,6 +213,20 @@ bbox_status bbox_pcie_dump_klog_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 }
 
 /**
+ * @brief       read kernel log data through URD cmd protocol (David platform version)
+ *              Milan counterpart bbox_pcie_dump_klog_data uses drvMemRead
+ * @param [in]  phy_id:       device phy id
+ * @param [in]  offset:      data offset
+ * @param [in]  size:        size of data to read. also size of buffer
+ * @param [out] buf:         buffer to store read data
+ * @return      == -1 failed, == 0 success
+ */
+bbox_status bbox_dump_klog_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
+{
+    return bbox_pcie_dump_data(phy_id, offset, size, buf, bbox_drv_klog_ddr_read);
+}
+
+/**
  * @brief       read ts log data through pcie
  * @param [in]  phy_id:       device phy id
  * @param [in]  offset:      data offset
@@ -312,6 +331,20 @@ bbox_status bbox_dma_dump_bbox_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 }
 
 /**
+ * @brief       read bbox data through DMA using URD cmd protocol (David platform version)
+ *              Milan counterpart bbox_dma_dump_bbox_data uses drvMemRead
+ * @param [in]  phy_id:       device phy id
+ * @param [in]  offset:      data offset
+ * @param [in]  size:        size of data to read. also size of buffer
+ * @param [out] buf:         buffer to store read data
+ * @return      == -1 failed, == 0 success
+ */
+bbox_status bbox_dump_bbox_data_read(u32 phy_id, u32 offset, u32 size, u8 *buf)
+{
+    return bbox_dma_dump_data(phy_id, offset, size, buf, bbox_drv_memory_dump_read);
+}
+
+/**
  * @brief       read bbox data through PCIe
  * @param [in]  phy_id:       device phy id
  * @param [in]  offset:      data offset
@@ -322,6 +355,20 @@ bbox_status bbox_dma_dump_bbox_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 bbox_status bbox_pcie_dump_bbox_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 {
     return bbox_pcie_dump_data(phy_id, offset, size, buf, bbox_drv_memory_pcie_dump);
+}
+
+/**
+ * @brief       read bbox data through PCIe using URD cmd protocol (David platform version)
+ *              Milan counterpart bbox_pcie_dump_bbox_data uses drvMemRead
+ * @param [in]  phy_id:       device phy id
+ * @param [in]  offset:      data offset
+ * @param [in]  size:        size of data to read. also size of buffer
+ * @param [out] buf:         buffer to store read data
+ * @return      == -1 failed, == 0 success
+ */
+bbox_status bbox_dump_bbox_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
+{
+    return bbox_pcie_dump_data(phy_id, offset, size, buf, bbox_drv_memory_dump_read_data);
 }
 
 /**
@@ -338,6 +385,20 @@ bbox_status bbox_dma_dump_cdr_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 }
 
 /**
+ * @brief       read chip full dfx through DMA using URD cmd protocol (David platform version)
+ *              Milan counterpart bbox_dma_dump_cdr_data uses drvMemRead
+ * @param [in]  phy_id:       device phy id
+ * @param [in]  offset:      data offset
+ * @param [in]  size:        size of data to read. also size of buffer
+ * @param [out] buf:         buffer to store read data
+ * @return      == -1 failed, == 0 success
+ */
+bbox_status bbox_dump_cdr_data_read(u32 phy_id, u32 offset, u32 size, u8 *buf)
+{
+    return bbox_dma_dump_data(phy_id, offset, size, buf, bbox_drv_memory_dump_read_cdr);
+}
+
+/**
  * @brief       read bbox data through pcie
  * @param [in]  phy_id:       device phy id
  * @param [in]  offset:      data offset
@@ -348,6 +409,20 @@ bbox_status bbox_dma_dump_cdr_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 bbox_status bbox_pcie_dump_cdr_full_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 {
     return bbox_pcie_dump_data(phy_id, offset, size, buf, bbox_drv_memory_pcie_dump_cdr);
+}
+
+/**
+ * @brief       read chip full dfx through PCIe using URD cmd protocol (David platform version)
+ *              Milan counterpart bbox_pcie_dump_cdr_full_data uses drvMemRead
+ * @param [in]  phy_id:       device phy id
+ * @param [in]  offset:      data offset
+ * @param [in]  size:        size of data to read. also size of buffer
+ * @param [out] buf:         buffer to store read data
+ * @return      == -1 failed, == 0 success
+ */
+bbox_status bbox_dump_cdr_full_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
+{
+    return bbox_pcie_dump_data(phy_id, offset, size, buf, bbox_drv_memory_dump_cdr_read);
 }
 
 /**
@@ -364,6 +439,20 @@ bbox_status bbox_dma_dump_vmcore_data(u32 phy_id, u32 offset, u32 size, u8 *buf)
 }
 
 /**
+ * @brief       read vmcore data through DMA using URD cmd protocol (David platform version)
+ *              Milan counterpart bbox_dma_dump_vmcore_data uses drvMemRead
+ * @param [in]  phy_id:       device phy id
+ * @param [in]  offset:      data offset
+ * @param [in]  size:        size of data to read
+ * @param [out] buf:         buffer to store read data
+ * @return      == -1 failed, == 0 success
+ */
+bbox_status bbox_dma_dump_vmcore_data_read(u32 phy_id, u32 offset, u32 size, u8 *buf)
+{
+    return bbox_dma_dump_data(phy_id, offset, size, buf, bbox_drv_vmcore_read);
+}
+
+/**
  * @brief       read vmcore status and size
  * @param [in]  phy_id:       device phy id
  * @param [in]  offset:      data offset
@@ -377,6 +466,20 @@ bbox_status bbox_pcie_dump_vmcore_stat_read(u32 phy_id, u32 offset, u32 size, u8
 }
 
 /**
+ * @brief       read vmcore status and size through PCIe using URD cmd protocol (David platform version)
+ *              Milan counterpart bbox_pcie_dump_vmcore_stat_read uses drvMemRead
+ * @param [in]  phy_id:       device phy id
+ * @param [in]  offset:      data offset
+ * @param [in]  size:        size of data to read
+ * @param [out] buf:         buffer to store read data
+ * @return      == -1 failed, == 0 success
+ */
+bbox_status bbox_dump_vmcore_stat_read(u32 phy_id, u32 offset, u32 size, u8 *buf)
+{
+    return bbox_pcie_dump_data(phy_id, offset, size, buf, bbox_drv_vmcore_stat_read);
+}
+
+/**
  * @brief       set specified data to specified device id from pcie
  * @param [in]  phy_id:       device phy id
  * @param [in]  offset:      data offset
@@ -385,7 +488,8 @@ bbox_status bbox_pcie_dump_vmcore_stat_read(u32 phy_id, u32 offset, u32 size, u8
  * @param [in]  write_func:    function pointer
  * @return      == -1 failed, == 0 success
  */
-STATIC bbox_status bbox_pcie_set_data(u32 phy_id, u32 offset, u32 size, u8 *buffer, const bbox_drv_pcie_write write_func)
+STATIC bbox_status bbox_pcie_set_data(u32 phy_id, u32 offset, u32 size, u8 *buffer,
+                                      const bbox_drv_pcie_write write_func)
 {
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(write_func, return BBOX_FAILURE);
@@ -408,7 +512,7 @@ STATIC bbox_status bbox_pcie_set_data(u32 phy_id, u32 offset, u32 size, u8 *buff
             if (ret == DRV_ERROR_NOT_SUPPORT) {
                 return ret;
             }
-            BBOX_ERR("Get pcie bar data failed with %d. offset[0x%x], size[0x%x]", (int)ret, offset, size);
+            BBOX_ERR("Get data failed with %d. offset[0x%x], size[0x%x]", (int)ret, offset, size);
             return BBOX_FAILURE;
         }
     }
@@ -426,5 +530,5 @@ STATIC bbox_status bbox_pcie_set_data(u32 phy_id, u32 offset, u32 size, u8 *buff
  */
 bbox_status bbox_pcie_set_kdump_flag(u32 phy_id, u32 offset, u32 size, u8 *buf)
 {
-    return bbox_pcie_set_data(phy_id, offset, size, buf, bbox_drv_pcie_kdump_write);
+    return bbox_kdump_flag_set_data(phy_id, offset, size, buf, bbox_pcie_set_data);
 }

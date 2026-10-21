@@ -16,7 +16,7 @@
 #ifdef STATIC_SKIP
 #define STATIC
 #else
-#define STATIC    static
+#define STATIC static
 #endif
 
 #define DEVDRV_IPV4 (0)

@@ -24,6 +24,7 @@ struct devmm_shid_map_node_info {
     int share_id;
     u32 share_devid;
     u32 share_sdid;
+    u64 pa_pg_size;
 };
 
 struct devmm_share_id_map_node {
@@ -33,6 +34,7 @@ struct devmm_share_id_map_node {
     struct devmm_shid_map_node_info shid_map_node_info;
     u32 blk_type;
     int hostpid;
+    bool is_local_blk;
 };
 
 int devmm_ioctl_mem_export(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg);

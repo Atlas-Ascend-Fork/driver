@@ -73,6 +73,7 @@ typedef struct prof_user_stop_para {
     uint32_t report_len;
     bool support_host_sample;
     uint32_t host_sample_release_flag;
+    drvError_t h2d_ret;
 } prof_user_stop_para_t;
 
 typedef struct prof_user_read_para {

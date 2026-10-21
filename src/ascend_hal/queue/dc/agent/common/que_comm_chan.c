@@ -943,9 +943,19 @@ static void que_inter_dev_ini_uninit(struct que_ini_proc *ini_proc)
     ini_proc->pkt_send_jetty = NULL;
 }
 
+static bool que_wait_f2nf_timeout(uint64 timestamp, struct que_ini_proc *ini_proc)
+{
+    if (((timestamp - ini_proc->wait_f2nf_start_time) / NS_PER_SECOND) > QUE_TIMEOUT_SECOND) {
+        ini_proc->wait_f2nf_start_time = timestamp;
+        return true;
+    }
+    return false;
+}
+
 static bool que_update_status(struct que_ini_proc *ini_proc, ASYNC_QUE_INI_EVENT event)
 {
     bool ini_try_flag = 0;
+    uint64 curr_time = que_get_cur_time_ns();
     (void)pthread_rwlock_wrlock(&ini_proc->ini_status_lock);
     switch (ini_proc->ini_status) {
         case INI_ABNORMAL:
@@ -966,6 +976,7 @@ static bool que_update_status(struct que_ini_proc *ini_proc, ASYNC_QUE_INI_EVENT
             } else if (event == INI_ACK_FULL) {
                 if (ini_proc->f2nf_back == ini_proc->f2nf_update) {
                     ini_proc->ini_status = INI_WAIT_F2NF;
+                    ini_proc->wait_f2nf_start_time = curr_time;
                 } else {
                     ini_proc->f2nf_back = ini_proc->f2nf_update;
                     ini_try_flag = 1;
@@ -981,7 +992,7 @@ static bool que_update_status(struct que_ini_proc *ini_proc, ASYNC_QUE_INI_EVENT
             }
             break;
         case INI_WAIT_F2NF:
-            if (event == INI_RECV_F2NF) {
+            if ((event == INI_RECV_F2NF) || ((event == INI_ENQUE_TRY) && que_wait_f2nf_timeout(curr_time, ini_proc))) {
                 ini_try_flag = 1;
                 ini_proc->ini_status = INI_ENQUE_BUSY;
             }

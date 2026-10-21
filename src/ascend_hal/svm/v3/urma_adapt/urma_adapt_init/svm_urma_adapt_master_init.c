@@ -21,6 +21,7 @@
 #include "svm_urma_seg_mng.h"
 #include "svm_urma_chan.h"
 #include "svm_dbi.h"
+#include "svm_timestamp.h"
 
 static int svm_urma_dev_valid[SVM_MAX_DEV_NUM];
 
@@ -162,7 +163,11 @@ static int svm_urma_dev_uninit_va_release(u64 va, u64 size, void *priv)
 static int _svm_urma_master_dev_init(u32 devid)
 {
     int ret;
+    u64 start, end_ub, end_va;
     u32 hd_connect_type = svm_get_device_connect_type(devid);
+
+    start = svm_get_timestamp_ns();
+
     if (hd_connect_type == HOST_DEVICE_CONNECT_TYPE_UB) {
 #ifdef CFG_FEATURE_SUPPORT_UB
         ret = svm_urma_chan_init(devid);
@@ -180,6 +185,8 @@ static int _svm_urma_master_dev_init(u32 devid)
         }
     }
 
+    end_ub = svm_get_timestamp_ns();
+
     ret = va_reserve_for_each_node(svm_urma_dev_init_va_reserve, (void *)(uintptr_t)devid);
     if (ret != 0) {
         if (hd_connect_type == HOST_DEVICE_CONNECT_TYPE_UB) {
@@ -192,6 +199,11 @@ static int _svm_urma_master_dev_init(u32 devid)
     }
 
     svm_urma_dev_valid[devid] = 1;
+
+    end_va = svm_get_timestamp_ns();
+
+    svm_run_info("Urma master dev init ok. (devid=%u; ub init=%llu ns; va reserve=%llu ns)\n", devid, end_ub - start,
+                 end_va - end_ub);
 
     return 0;
 }

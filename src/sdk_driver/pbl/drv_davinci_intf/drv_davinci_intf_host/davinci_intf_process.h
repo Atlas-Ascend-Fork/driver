@@ -19,51 +19,32 @@
 #include "ka_memory_pub.h"
 
 #ifndef __KA_GFP_ACCOUNT
-#  ifdef __GFP_KMEMCG
-#    define __KA_GFP_ACCOUNT __GFP_KMEMCG /* for linux version 3.10 */
-#  endif
-#  ifdef __GFP_NOACCOUNT
-#    define __KA_GFP_ACCOUNT 0 /* for linux version 4.1 */
-#  endif
+#ifdef __GFP_KMEMCG
+#define __KA_GFP_ACCOUNT __GFP_KMEMCG /* for linux version 3.10 */
+#endif
+#ifdef __GFP_NOACCOUNT
+#define __KA_GFP_ACCOUNT 0 /* for linux version 4.1 */
+#endif
 #endif
 
-struct davinci_intf_file_stru *create_file_proc_entry(
-    struct davinci_intf_process_stru *proc,
-    ka_file_t *file);
-struct davinci_intf_file_stru *get_file_proc_entry(
-    struct davinci_intf_process_stru *proc,
-    ka_file_t *file);
+struct davinci_intf_file_stru *create_file_proc_entry(struct davinci_intf_process_stru *proc, ka_file_t *file);
+struct davinci_intf_file_stru *get_file_proc_entry(struct davinci_intf_process_stru *proc, ka_file_t *file);
 unsigned int get_file_module_cnt(struct davinci_intf_process_stru *proc, const char *module_name);
 
 void destory_file_proc_list(struct davinci_intf_process_stru *proc);
-struct davinci_intf_process_stru *create_process_entry(
-    struct davinci_intf_stru *cb,
-    ka_pid_t proc_pid,
-    TASK_TIME_TYPE start_time);
-struct davinci_intf_process_stru *get_process_entry(
-    struct davinci_intf_stru *cb,
-    ka_pid_t proc_pid,
-    TASK_TIME_TYPE start_time);
-struct davinci_intf_process_stru *get_process_entry_latest(
-    struct davinci_intf_stru *cb,
-    ka_pid_t proc_pid);
+struct davinci_intf_process_stru *create_process_entry(struct davinci_intf_stru *cb, ka_pid_t proc_pid,
+                                                       TASK_TIME_TYPE start_time);
+struct davinci_intf_process_stru *get_process_entry(struct davinci_intf_stru *cb, ka_pid_t proc_pid,
+                                                    TASK_TIME_TYPE start_time);
+struct davinci_intf_process_stru *get_process_entry_latest(struct davinci_intf_stru *cb, ka_pid_t proc_pid);
 void free_process_entry(struct davinci_intf_process_stru *proc);
 void destroy_process_list(struct davinci_intf_stru *cb);
-int add_file_to_list(struct davinci_intf_stru *cb, ka_file_t *file,
-    struct davinci_intf_private_stru *private_data);
-int add_module_to_list(struct davinci_intf_stru *cb,
-    struct davinci_intf_private_stru *file_private,
-    ka_file_t *file,
-    const char *module_name);
-void remove_file_from_list(struct davinci_intf_stru *cb,
-    ka_pid_t owner_pid,
-    ka_file_t *file);
-int check_module_file_close(struct davinci_intf_stru *cb,
-    const char *module_name);
-int check_module_file_close_in_process(
-    struct davinci_intf_process_stru *proc,
-    const char *module_name);
-void destroy_free_node_and_list(struct davinci_intf_process_stru *proc,
-    struct davinci_intf_private_stru *private_data);
+int add_file_to_list(struct davinci_intf_stru *cb, ka_file_t *file, struct davinci_intf_private_stru *private_data);
+int add_module_to_list(struct davinci_intf_stru *cb, struct davinci_intf_private_stru *file_private, ka_file_t *file,
+                       const char *module_name);
+void remove_file_from_list(struct davinci_intf_stru *cb, ka_pid_t owner_pid, ka_file_t *file);
+int check_module_file_close(struct davinci_intf_stru *cb, const char *module_name);
+int check_module_file_close_in_process(struct davinci_intf_process_stru *proc, const char *module_name);
+void destroy_free_node_and_list(struct davinci_intf_process_stru *proc, struct davinci_intf_private_stru *private_data);
 
 #endif

@@ -12,8 +12,7 @@
 #define DSMI_PART_VFY_PROC_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 int verify_partitions_info(const char *config_xml_path);
 #ifdef __cplusplus
@@ -21,4 +20,3 @@ int verify_partitions_info(const char *config_xml_path);
 #endif
 
 #endif
-

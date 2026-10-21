@@ -47,21 +47,10 @@ drvError_t __attribute__((weak)) prof_user_get_host_sample_chan_ops(struct prof_
 drvError_t prof_adapt_get_chan_ops(uint32_t dev_id, uint32_t chan_mode, struct prof_chan_ops **ops,
                                    bool support_host_sample)
 {
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-    HAL_CC_INFO cc_info = {0};
-    int size = sizeof(HAL_CC_INFO);
-    drvError_t ret = halGetDeviceInfoByBuff(dev_id, MODULE_TYPE_CC, INFO_TYPE_CC, &cc_info, &size);
-    if (ret != DRV_ERROR_NOT_SUPPORT) {
-        if (ret != 0) {
-            PROF_ERR("Failed to halGetDeviceInfoByBuff. (ret = %u)\n", ret);
-            return PROF_ERROR;
-        }
-        if (cc_info.cc_cfg_info.cc_mode == HAL_CC_MODE_NORMAL) {
-            PROF_INFO("CPU is currently in confidential computing mode, and prof drv is disabled.\n");
-            return PROF_NOT_SUPPORT;
-        }
+    drvError_t ret = prof_adapt_check_cc_mode(dev_id);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
     }
-#endif
     if (support_host_sample) {
         return prof_user_get_host_sample_chan_ops(ops);
     }

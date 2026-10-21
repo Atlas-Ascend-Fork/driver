@@ -29,7 +29,7 @@ static u64 g_log_count = 0;
 static inline u64 hdc_get_time_interval(u64 *caller_jiffies, u64 *time_now)
 {
     ka_system_get_abs_or_rel_mstime(time_now);
-    return (*time_now - *caller_jiffies);
+    return (*time_now < *caller_jiffies) ? 0 : (*time_now - *caller_jiffies);
 }
 
 static inline bool hdc_print_timed_ratelimit(u64 *caller_jiffies, u64 interval_msecs)
@@ -161,6 +161,14 @@ enum hdcdrv_limit_exclusive_log {
     HDCDRV_LIMIT_LOG_0x14,
     HDCDRV_LIMIT_LOG_0x15,
     HDCDRV_LIMIT_LOG_0x16,
+    HDCDRV_LIMIT_LOG_0x17,
+    HDCDRV_LIMIT_LOG_0x18,
+    HDCDRV_LIMIT_LOG_0x19,
+    HDCDRV_LIMIT_LOG_0x1A,
+    HDCDRV_LIMIT_LOG_0x1B,
+    HDCDRV_LIMIT_LOG_0x1C,
+    HDCDRV_LIMIT_LOG_0x1D,
+    HDCDRV_LIMIT_LOG_0x1E,
     // only ADC use log
     HDCDRV_LIMIT_LOG_0x100,
     HDCDRV_LIMIT_LOG_0x101,
@@ -191,4 +199,6 @@ enum hdcdrv_limit_exclusive_log {
         }                                                                                                         \
     } while (0)
 
+// The length of plog can be truncated directly. No need to worry about the length change of the log
+#define HDCDRV_LOG_MAX_LEN 1024
 #endif /* _HDCDRV_LOG_H_ */

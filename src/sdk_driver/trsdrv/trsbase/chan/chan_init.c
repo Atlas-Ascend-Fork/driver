@@ -66,23 +66,34 @@ static KA_TASK_DEFINE_RWLOCK(chan_idr_lock);
 static void _trs_chan_get_sq_info(struct trs_chan *chan, struct trs_chan_sq_info *info)
 {
     info->sqid = chan->sq.sqid;
-    info->sq_vaddr = chan->sq.sq_addr;
     info->sq_dev_vaddr = chan->sq.sq_dev_vaddr;
-    info->sq_phy_addr = chan->sq.mem_attr.phy_addr;
     info->head_addr = chan->sq.head_addr;
     info->tail_addr = chan->sq.tail_addr;
     info->db_addr = chan->sq.db_addr;
     info->sq_para = chan->sq.para;
     info->mem_type = chan->sq.mem_attr.mem_type;
+    info->addr_num = chan->sq.mem_attr.pa_num;
+    info->sq_vaddr = chan->sq.sq_addr;
+    if (chan->sq.mem_attr.vmap_pfn_handle != NULL) {
+        info->vmap_pfn_handle = chan->sq.mem_attr.vmap_pfn_handle;
+    }
+    if (info->addr_num > 1) {
+        info->sq_pa_wraper_list = chan->sq.mem_attr.pa_wraper_list;
+    } else if (info->addr_num == 1) {
+        info->sq_phy_addr = chan->sq.mem_attr.phy_addr;
+    } else {
+        info->sq_phy_addr = TRS_INVALID_PHYS_ADDR;
+    }
 }
 
 static void _trs_chan_get_cq_info(struct trs_chan *chan, struct trs_chan_cq_info *info)
 {
     info->cqid = chan->cq.cqid;
     info->irq = (int)chan->irq;
+    info->cq_para = chan->cq.para;
+    info->addr_num = chan->cq.mem_attr.pa_num;
     info->cq_vaddr = chan->cq.cq_addr;
     info->cq_phy_addr = chan->cq.mem_attr.phy_addr;
-    info->cq_para = chan->cq.para;
 }
 
 static struct trs_chan_irq_ctx *trs_chan_find_irq_ctx_with_least_chan(struct trs_chan_irq_ctx *irq_ctx, u32 irq_num)
@@ -205,7 +216,7 @@ static void sq_map_param_pack(struct trs_sq_mem_map_para *sq_map_param, struct t
 {
     sq_map_param->host_pid = chan->pid;
     sq_map_param->sq_para = sq->para;
-    sq_map_param->sq_phy_addr = sq->mem_attr.phy_addr;
+    sq_map_param->sq_phy_addr = (sq->mem_attr.pa_num == 1) ? sq->mem_attr.phy_addr : 0;
     sq_map_param->chan_types = chan->types;
     sq_map_param->mem_type = sq->mem_attr.mem_type;
 }
@@ -232,15 +243,16 @@ static int trs_chan_sq_mem_init(struct trs_chan_ts_inst *ts_inst, struct trs_cha
         return ret;
     }
 
-    if ((ts_inst->location == UDA_REMOTE) && (chan->types.type == CHAN_TYPE_HW) &&
-        (chan->types.sub_type == CHAN_SUB_TYPE_HW_RTS)) {
+    if ((ts_inst->location == UDA_REMOTE) &&
+        (((chan->types.type == CHAN_TYPE_HW) && (chan->types.sub_type == CHAN_SUB_TYPE_HW_RTS)) ||
+         ((chan->types.type == CHAN_TYPE_HW) && (chan->types.sub_type == CHAN_SUB_TYPE_HW_TOPIC_SCHED)))) {
         /* VM VF scene, rtsq memory is in pm */
         sq->mem_attr.phy_addr = TRS_INVALID_PHYS_ADDR;
         return 0;
     }
 
     sq->sq_addr = ts_inst->ops.sq_mem_alloc(inst, &chan->types, &sq->para, &sq->mem_attr);
-    if (sq->sq_addr == NULL) {
+    if ((sq->sq_addr == NULL) && (sq->mem_attr.vmap_pfn_handle == NULL)) {
         trs_err("Alloc sq mem failed. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
         return -ENOMEM;
     }
@@ -544,6 +556,7 @@ static int trs_chan_notice_ts(struct trs_chan *chan, u32 op)
     info.types = chan->types;
     info.pid = chan->pid;
     info.irq_type = (chan->types.type == CHAN_TYPE_MAINT) ? TS_FUNC_CQ_IRQ : TS_CQ_UPDATE_IRQ;
+
     _trs_chan_get_sq_info(chan, &info.sq_info);
     _trs_chan_get_cq_info(chan, &info.cq_info);
 
@@ -570,6 +583,14 @@ static int trs_chan_notice_ts(struct trs_chan *chan, u32 op)
 
     if ((chan->flag & (0x1 << CHAN_FLAG_NO_CQ_MEM_BIT)) != 0) {
         info.no_cq_mem_flag = 1;
+    }
+
+    if ((chan->flag & (0x1 << CHAN_FLAG_NO_SQ_MEM_BIT)) != 0) {
+        info.sq_info.sq_phy_addr = 0;
+    }
+
+    if (chan->sq.mem_attr.pa_num > 1) {
+        info.sq_addr_is_virtual = 1;
     }
 
     trs_debug("Info. (pid=%d; master_pid=%d; flag=0x%x)\n", ka_task_get_current_tgid(), info.msg[SQCQ_INFO_LENGTH - 1],
@@ -850,7 +871,7 @@ int trs_sq_switch_stream_chan_update(struct trs_id_inst *inst, u32 chan_id, u32 
     }
 
     if (sq_depth > TRS_SQCQ_DEPTH_MAX) {
-        trs_err("Invalid sq depth. (sq_depth=%u; max=%u)\n", sq_depth, (u32)TRS_SQCQ_DEPTH_MAX);
+        trs_err("Invalid sq depth. (sq_depth=%u)\n", sq_depth);
         trs_chan_put(chan);
         return -EINVAL;
     }
@@ -998,7 +1019,7 @@ int trs_chan_get_sq_info(struct trs_id_inst *inst, int chan_id, struct trs_chan_
 
     if (!trs_chan_has_sq(chan)) {
         trs_chan_put(chan);
-        trs_err("Chan has no sq\n");
+        trs_err("Chan does not have sq\n");
         return -EINVAL;
     }
 
@@ -1008,6 +1029,23 @@ int trs_chan_get_sq_info(struct trs_id_inst *inst, int chan_id, struct trs_chan_
     return 0;
 }
 KA_EXPORT_SYMBOL_GPL(trs_chan_get_sq_info);
+
+bool trs_chan_get_virt_flag_test(struct trs_id_inst *inst)
+{
+    struct trs_chan_ts_inst *ts_inst = NULL;
+    bool flag = false;
+
+    ts_inst = trs_chan_ts_inst_get(inst);
+    if (ts_inst == NULL) {
+        trs_err("Invalid para. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        return false;
+    }
+
+    flag = ts_inst->vaddr_enable;
+    trs_chan_ts_inst_put(ts_inst);
+    return flag;
+}
+KA_EXPORT_SYMBOL_GPL(trs_chan_get_virt_flag_test);
 
 int trs_chan_get_chan_id(struct trs_id_inst *inst, int res_type, u32 res_id, int *chan_id)
 {
@@ -1062,7 +1100,7 @@ int trs_chan_get_cq_info(struct trs_id_inst *inst, int chan_id, struct trs_chan_
 
     if (!trs_chan_has_cq(chan)) {
         trs_chan_put(chan);
-        trs_err("Chan has no cq\n");
+        trs_err("Chan does not have cq\n");
         return -EINVAL;
     }
 

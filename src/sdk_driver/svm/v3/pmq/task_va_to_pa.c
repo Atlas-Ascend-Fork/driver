@@ -26,6 +26,7 @@
 #include "svm_gup.h"
 #include "svm_mm.h"
 #include "pmq.h"
+#include "svm_kapi_stats.h"
 
 void svm_pmq_pa_put(struct svm_pa_seg pa_seg[], u64 seg_num)
 {
@@ -137,17 +138,18 @@ int hal_kernel_svm_get_user_pages(int pid, u64 va, u32 nr_pages, void **pages, b
     }
 
     if (va != svm_align_down(va, KA_MM_PAGE_SIZE)) {
-        svm_info("Va not align with PAGE_SIZE. (va=0%llx; size=%lu)\n", va, KA_MM_PAGE_SIZE * nr_pages);
+        svm_info("Va not align with PAGE_SIZE. (va=0x%llx; size=%lu)\n", va, KA_MM_PAGE_SIZE * nr_pages);
         return -EINVAL;
     }
 
     ret = svm_pin_svm_range_uva_npages(pid, va, true, (ka_page_t **)pages, nr_pages);
     if (ret != 0) {
-        svm_err("Svm_pin_svm_range_uva_npages failed. (pid=%d; va=0%llx; size=%llu)\n", pid, va,
+        svm_err("Svm_pin_svm_range_uva_npages failed. (pid=%d; va=0x%llx; size=%llu)\n", pid, va,
                 KA_MM_PAGE_SIZE * (u64)nr_pages);
         return ret;
     }
     *is_remap_addr = true;
+    svm_kapi_stats_inc(SVM_KAPI_STATS_TYPE_0);
     return ret;
 }
 KA_EXPORT_SYMBOL_GPL(hal_kernel_svm_get_user_pages);
@@ -159,6 +161,7 @@ void hal_kernel_svm_put_user_pages(void **pages, u32 nr_pages, bool is_remap_add
     }
 
     svm_unpin_svm_range_uva_npages((ka_page_t **)pages, nr_pages, nr_pages);
+    svm_kapi_stats_dec(SVM_KAPI_STATS_TYPE_0);
 }
 KA_EXPORT_SYMBOL_GPL(hal_kernel_svm_put_user_pages);
 #else
@@ -172,14 +175,16 @@ int hal_kernel_svm_get_user_pages(int pid, u64 va, u32 nr_pages, void **pages, b
     }
 
     if (va != svm_align_down(va, KA_MM_PAGE_SIZE)) {
-        svm_info("Va not align with PAGE_SIZE. (va=0%llx; size=%lu)\n", va, KA_MM_PAGE_SIZE * nr_pages);
+        svm_info("Va not align with PAGE_SIZE. (va=0x%llx; size=%lu)\n", va, KA_MM_PAGE_SIZE * nr_pages);
         return -EINVAL;
     }
 
     ret = svm_get_user_pages(pid, va, (u64)nr_pages, pages, is_remap_addr);
     if (ret != 0) {
-        svm_err("Get user pages failed. (ret=%d; pid=%d; va=0x%llx; size=%llu bytes; is_pfn_map=%u)\n", ret, pid, va,
+        svm_err("Get user pages failed. (ret=%d; pid=%d; va=0x%llx; size=%llu; is_pfn_map=%u)\n", ret, pid, va,
                 KA_MM_PAGE_SIZE * (u64)nr_pages, (u32)*is_remap_addr);
+    } else {
+        svm_kapi_stats_inc(SVM_KAPI_STATS_TYPE_0);
     }
 
     return ret;
@@ -193,6 +198,7 @@ void hal_kernel_svm_put_user_pages(void **pages, u32 nr_pages, bool is_remap_add
     }
 
     svm_put_user_pages(pages, (u64)nr_pages, is_remap_addr);
+    svm_kapi_stats_dec(SVM_KAPI_STATS_TYPE_0);
 }
 KA_EXPORT_SYMBOL_GPL(hal_kernel_svm_put_user_pages);
 #endif

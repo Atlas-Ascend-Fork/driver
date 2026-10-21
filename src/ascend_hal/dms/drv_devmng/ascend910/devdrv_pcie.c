@@ -42,10 +42,12 @@
 #include "drv_devmng_adapt.h"
 #include "dms/dms_soc_interface.h"
 
-#define DRV_P2P_TYPE_ALL    0
-#define DRV_P2P_TYPE_MEM    1
-#define DRV_P2P_TYPE_NOTIFY 2
-#define DRV_P2P_TYPE_MAX    3
+typedef enum {
+    DRV_P2P_TYPE_ALL = 0,
+    DRV_P2P_TYPE_MEM,
+    DRV_P2P_TYPE_NOTIFY,
+    DRV_P2P_TYPE_MAX
+} drv_p2p_type;
 
 #define I2C_24CXX_ADDR 0x20
 #define WRITE_VALUE 0xCF
@@ -246,11 +248,14 @@ STATIC int drv_get_i2c_dev_count(const char *root)
         }
         DEVDRV_DRV_DEBUG("%s%s\n", root, ptr->d_name);
         ret = sscanf_s(ptr->d_name, "i2c-%d", &i2c_index_tmp);
-        if (ret != 1) {
+        if (ret < 0) {
             DEVDRV_DRV_ERR("sscanf_s failed, ret(%d).\n", ret);
             (void)closedir(dir);
             dir = NULL;
             return ret;
+        } else if (ret == 0) {
+            ptr = readdir(dir);
+            continue;
         }
 
         i2c_index_max = (i2c_index_max > i2c_index_tmp) ? i2c_index_max : i2c_index_tmp;
@@ -367,7 +372,7 @@ drvError_t drvResetDevice(uint32_t devId)
 
 #ifdef CFG_FEATURE_SUPPORT_DEVMNG_BBOX
 STATIC drvError_t drvPcieRead(uint32_t devId, uint32_t offset, uint8_t *value, uint32_t len,
-    enum devdrv_pcie_read_type type)
+                              enum devdrv_pcie_read_type type)
 {
     struct devdrv_pcie_read_para pcie_read_para = {0};
     uint32_t i;
@@ -418,11 +423,11 @@ STATIC drvError_t drvPcieRead(uint32_t devId, uint32_t offset, uint8_t *value, u
 }
 
 STATIC drvError_t drv_pcie_read_log_dump(uint32_t devId, uint32_t offset, uint8_t *value, uint32_t len,
-    enum devdrv_pcie_read_type type)
+                                         enum devdrv_pcie_read_type type)
 {
 #ifdef CFG_FEATURE_LOG_DUMP_FROM_PCIE
     int ret;
-    struct urd_ioctl_arg ioarg = { 0 };
+    struct urd_ioctl_arg ioarg = {0};
     struct devdrv_bbox_pcie_logdump bbox_pcie_log_dump = {0};
 
     if (value == NULL) {
@@ -602,8 +607,7 @@ STATIC drvError_t drvPcieWrite(uint32_t devId, uint32_t offset, uint8_t *value, 
     mmIoctlBuf buf = {0};
 
     if (devId >= ASCEND_DEV_MAX_NUM) {
-        DEVDRV_DRV_ERR("Invalid device id. (dev_id=%u; max_dev_num=%u; type=%d)\n",
-            devId, ASCEND_DEV_MAX_NUM, type);
+        DEVDRV_DRV_ERR("Invalid device id. (dev_id=%u; max_dev_num=%u; type=%d)\n", devId, ASCEND_DEV_MAX_NUM, type);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -613,8 +617,8 @@ STATIC drvError_t drvPcieWrite(uint32_t devId, uint32_t offset, uint8_t *value, 
     }
 
     if ((len == 0) || (len > DEVDRV_VALUE_SIZE)) {
-        DEVDRV_DRV_ERR("Invalid length. (len=%u; max_len=%u; dev_id=%u; type=%d)\n",
-            len, DEVDRV_VALUE_SIZE, devId, type);
+        DEVDRV_DRV_ERR("Invalid length. (len=%u; max_len=%u; dev_id=%u; type=%d)\n", len, DEVDRV_VALUE_SIZE, devId,
+                       type);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -642,8 +646,8 @@ STATIC drvError_t drvPcieWrite(uint32_t devId, uint32_t offset, uint8_t *value, 
     if (ret != 0) {
         err_buf = errno;
         ret = errno_to_user_errno(err_buf);
-        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Ioctl failed. (devid=%u; type=%u; ret=%d; errno=%d)\n",
-            devId, type, ret, err_buf);
+        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Ioctl failed. (devid=%u; type=%u; ret=%d; errno=%d)\n", devId, type, ret,
+                                     err_buf);
         return ret;
     }
 
@@ -824,13 +828,13 @@ drvError_t halDeviceDisableP2PNotify(uint32_t phy_dev, uint32_t peer_phy_dev, ui
     }
     return DmsDisableP2P(logical_id, peer_phy_dev, DRV_P2P_TYPE_NOTIFY);
 }
-#endif //CFG_FEATURE_P2P_NOTIFY
+#endif // CFG_FEATURE_P2P_NOTIFY
 
 drvError_t halDeviceCanAccessPeer(int *canAccessPeer, uint32_t dev, uint32_t peer_dev)
 {
     return DmsCanAccessPeer(dev, peer_dev, canAccessPeer);
 }
-#endif //PCIE_HOST
+#endif // PCIE_HOST
 
 int drvGetDeviceDevIDByHostDevID(uint32_t host_dev_id, uint32_t *local_dev_id)
 {
@@ -880,8 +884,8 @@ drvError_t drvDeviceGetPcieInfo(uint32_t devId, int32_t *bus, int32_t *dev, int3
     int ret;
 
     if (devId >= ASCEND_DEV_MAX_NUM || bus == NULL || dev == NULL || func == NULL) {
-        DEVDRV_DRV_ERR("Parameter is invalid. (devid=%u; bus_is_null=%d; dev_is_null=%d; func_is_null=%d)\n",
-            devId, (bus == NULL), (dev == NULL), (func == NULL));
+        DEVDRV_DRV_ERR("Parameter is invalid. (devid=%u; bus_is_null=%d; dev_is_null=%d; func_is_null=%d)\n", devId,
+                       (bus == NULL), (dev == NULL), (func == NULL));
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -944,6 +948,11 @@ drvError_t drvDeviceGetPcieIdInfo(uint32_t devId, struct tag_pcie_idinfo *pcie_i
 #endif
 }
 
+drvError_t halDrvDeviceGetPcieIdInfo(unsigned int devId, void *pcie_idinfo)
+{
+    return drvDeviceGetPcieIdInfo((uint32_t)devId, (struct tag_pcie_idinfo *)pcie_idinfo);
+}
+
 drvError_t drv_get_pcieinfo(uint32_t devId, int32_t info_type, int64_t *value)
 {
     int ret;
@@ -957,7 +966,8 @@ drvError_t drv_get_pcieinfo(uint32_t devId, int32_t info_type, int64_t *value)
             return ret;
         }
         /* obtain the lower eight bits of bus */
-        *value = (((((uint32_t)dev) & 0x1f) << PCIE_NUM) | ((uint32_t)(func) & 0x07) | (((uint32_t)(bus) & 0xff) << 8u));
+        *value = (((((uint32_t)dev) & 0x1f) << PCIE_NUM) | (((uint32_t)func) & 0x07) |
+                  ((((uint32_t)bus) & 0xff) << 8u));
     } else if (info_type == INFO_TYPE_P2P_CAPABILITY) {
         ret = DmsGetP2PCapbility(devId, (unsigned long long *)&val);
         if (ret != 0) {
@@ -972,4 +982,3 @@ drvError_t drv_get_pcieinfo(uint32_t devId, int32_t info_type, int64_t *value)
 
     return DRV_ERROR_NONE;
 }
-

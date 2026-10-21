@@ -16,10 +16,12 @@
 
 #include "ka_system_pub.h"
 #include "virtmnghost_ctrl.h"
+#include "virtmnghost_feature.h"
 
 #define VMNG_WAIT_REMOTE_ID_S 15
 #define VMNG_WAIT_RESET_S 5
 
 int vmngh_res_init_cloud_v2(u32 devid, struct vmngh_ctrl_ops *ops);
+vmng_feature_bitmap_t vmngh_feature_init_cloud_v2(void);
 
 #endif

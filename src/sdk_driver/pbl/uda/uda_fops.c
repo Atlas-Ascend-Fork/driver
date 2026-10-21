@@ -59,7 +59,7 @@ static int ioctl_uda_setup_dev_table(unsigned int cmd, unsigned long arg)
 }
 
 #ifndef EMU_ST
-static int check_uda_dev_list_para(struct uda_dev_list* para)
+static int check_uda_dev_list_para(struct uda_dev_list *para)
 {
     if ((para->start_devid > UDA_UDEV_MAX_NUM) || (para->end_devid > UDA_UDEV_MAX_NUM) ||
         (para->start_devid >= para->end_devid)) {
@@ -231,8 +231,8 @@ static long uda_ioctl(ka_file_t *file, unsigned int cmd, unsigned long arg)
 {
     int cmd_nr = _KA_IOC_NR(cmd);
     if ((cmd_nr < 0) || (cmd_nr >= UDA_MAX_CMD) || (uda_ioctl_handles[cmd_nr] == NULL)) {
-        uda_err("Unsupported command. (cmd_nr=%d)\n", cmd_nr);
-        return -EINVAL;
+        uda_debug("Unsupported command. (cmd_nr=%d)\n", cmd_nr);
+        return -EOPNOTSUPP;
     }
 
     return (long)uda_ioctl_handles[cmd_nr](cmd, arg);
@@ -248,12 +248,14 @@ static int uda_release(ka_inode_t *inode, ka_file_t *file)
     return 0;
 }
 
+// clang-format off
 static ka_file_operations_t uda_fops = {
     ka_fs_init_f_owner(KA_THIS_MODULE)
     ka_fs_init_f_open(uda_open)
     ka_fs_init_f_release(uda_release)
     ka_fs_init_f_unlocked_ioctl(uda_ioctl)
 };
+// clang-format on
 
 int uda_init_module(void)
 {

@@ -116,6 +116,13 @@ struct hdcdrv_ctrl_msg_get_stat {
     unsigned int para;
 };
 
+struct hdcdrv_ctrl_msg_get_feature_info {
+    unsigned int feature_type;
+    unsigned int is_support;
+    unsigned int is_npu_depend;
+    unsigned int version;
+};
+
 struct hdcdrv_ctrl_msg {
     int type;
     int error_code;
@@ -126,6 +133,7 @@ struct hdcdrv_ctrl_msg {
         struct hdcdrv_ctrl_msg_close close_msg;
         struct hdcdrv_ctrl_msg_chan_set chan_set_msg;
         struct hdcdrv_ctrl_msg_get_stat stat;
+        struct hdcdrv_ctrl_msg_get_feature_info feature_info;
     };
 } __attribute__((aligned(128)));
 

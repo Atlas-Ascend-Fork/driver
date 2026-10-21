@@ -89,7 +89,8 @@ Key directory structure is as follows:
 │   │   ├── lqdrv                                  # Lingqu PCIe fault detection
 │   │   ├── ndr                                    # NPU RDMA passthrough feature
 │   │   ├── network                                # DCMI network interface implementation
-│   │   └── ops_debug                              # Operator debugging directory
+│   │   ├── ops_debug                              # Operator debugging directory
+│   │   └── tools                                  # Customized Tool Directory for Secondary Development
 │   └── sdk_driver                                 # SDK layer source code folder
 │       ├── buff                                   # Inter-process shared memory management
 │       ├── comm                                   # Communication host-side <-> device-side communication layer

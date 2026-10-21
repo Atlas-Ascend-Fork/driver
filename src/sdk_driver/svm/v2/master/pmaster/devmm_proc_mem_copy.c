@@ -140,7 +140,7 @@ static void devmm_mmap_convert_bar_addr(u32 dev_id, struct devmm_share_memory_he
         for (i = 0; i < convert_mng->total_block_num; i++) {
             ret = devdrv_devmem_addr_d2h(dev_id, info->ts_shm_addr[i], &(convert_mng->block_addr[i]));
             if (ret != 0) {
-                devmm_drv_info("Devdrv_devmem_addr_d2h does not support, not write by bar.\n");
+                devmm_drv_info("Devdrv_devmem_addr_d2h not support, not write by bar.\n");
                 return;
             }
         }
@@ -413,7 +413,7 @@ static void devmm_try_free_convert_index(struct devmm_share_memory_head *convert
                 devmm_free_convert_index(dev_id, data[i].vfid, recycle_index);
                 (*recycle_num)++;
             } else {
-                devmm_drv_err("Unexpected, data.vfid is out of range. (vfid=%u)\n", data[i].vfid);
+                devmm_drv_err("Vfid is out of range. (vfid=%u; valid range=[0, %u))\n", data[i].vfid, DEVMM_MAX_VF_NUM);
             }
         }
     }
@@ -764,11 +764,10 @@ int devmm_clear_translate_pa_addr_inner(u32 dev_id, u32 vfid, u64 va, u64 len, u
         if (data.image_word == DEVMM_READED_MAGIC_WORD) {
             /* The log cannot be modified, because in the failure mode library. */
 #ifndef EMU_ST
-            devmm_drv_err(
-                "Vaddress is not finished image word, please GE and RUNTIME call unbind_stream before rtfree. "
-                "(devid=%u; idx=%d; host_pid=%d; va=%llx; image_word=%x; offset=%llu)\n",
-                dev_id, i, host_pid, convert_mng->share_memory_mng[i].va, data.image_word,
-                devmm_convert_index_to_offset(dev_id, i));
+            devmm_drv_err("Vaddress has not finished image word. "
+                          "(devid=%u; idx=%d; host_pid=%d; va=%llx; image_word=%x; offset=%llu)\n",
+                          dev_id, i, host_pid, convert_mng->share_memory_mng[i].va, data.image_word,
+                          devmm_convert_index_to_offset(dev_id, i));
 #endif
             return -EBUSY;
         }
@@ -791,7 +790,7 @@ static int devmm_va_to_palist_check(struct devmm_svm_process *svm_proc, u64 va, 
 
     heap = devmm_svm_get_heap(svm_proc, va);
     if (heap == NULL) {
-        devmm_drv_err("Oper may exceed heap size. (src=0x%llx; count=%llu)\n", va, sz);
+        devmm_drv_err("Oper may out heap size. (src=0x%llx; count=%llu)\n", va, sz);
         return -EADDRNOTAVAIL;
     }
     bitmap = devmm_get_page_bitmap_with_heap(heap, va);
@@ -964,13 +963,13 @@ static int devmm_d2d_pa_to_bar_dma(u32 src_dev_id, u32 dst_dev_id, u64 dst_pa, u
     if (devmm_is_pcie_connect(dst_dev_id)) {
         ret = devdrv_devmem_addr_d2h(dst_dev_id, dst_pa, dst_dma);
         if (ret != 0) {
-            devmm_drv_err("Pcie fill pa-to-barpa failed. (dev_id=%u; ret=%d)\n", dst_dev_id, ret);
+            devmm_drv_err("Pcie fill pa-to-barpa fail. (dev_id=%u; ret=%d)\n", dst_dev_id, ret);
             return ret;
         }
 
         ret = devdrv_devmem_addr_bar_to_dma(src_dev_id, dst_dev_id, *dst_dma, dst_dma);
         if (ret != 0) {
-            devmm_drv_err("Pcie fill bar2dma failed. (src_dev_id=%u; dst_dev_id=%u; ret=%d)\n", src_dev_id, dst_dev_id,
+            devmm_drv_err("Pcie fill bar2dma fail. (src_dev_id=%u; dst_dev_id=%u; ret=%d)\n", src_dev_id, dst_dev_id,
                           ret);
             return ret;
         }
@@ -1011,7 +1010,7 @@ static int devmm_fill_dmanode(struct devmm_dma_block *blks, struct devmm_dma_blo
         dma_node->direction = DEVDRV_DMA_DEVICE_TO_HOST;
         dma_node->loc_passid = (u32)blks->ssid;
     } else {
-        devmm_drv_err("The copy direction is not supported. (copy_direction=%d)\n", copy_direction);
+        devmm_drv_err("The copy direction not support. (copy_direction=%d)\n", copy_direction);
         return -EINVAL;
     }
 
@@ -1302,8 +1301,7 @@ int devmm_get_non_svm_addr_pa_list(struct devmm_svm_process *svm_proc, u64 va, u
 
     ret = devmm_get_user_pages(svm_proc, va, side->num, write, pages);
     if (ret != 0) {
-        devmm_drv_err("Get user pages fail. (ret=%d; va=0x%llx; size=0x%llx bytes; num=%d)\n", ret, va, size,
-                      side->num);
+        devmm_drv_err("Get user pages fail. (ret=%d; va=0x%llx; size=0x%llx; num=%d)\n", ret, va, size, side->num);
         devmm_kvfree(pages);
         return ret;
     }
@@ -1820,7 +1818,7 @@ static int devmm_make_convert2d_para(struct devmm_ioctl_arg *arg, struct devmm_m
         convrt2d_para->dmaAddr.phyAddr.flag = 0;
         ret = devmm_convert2d_make_sqcq_addr(arg, convrt_para, res);
         if (ret != 0) {
-            devmm_drv_err("Convert2d make sqcq fail. (address_num=%llu)\n", convrt2d_para->height);
+            devmm_drv_err("Convrt2d make sqcq fail. (address_num=%llu)\n", convrt2d_para->height);
             return ret;
         }
         convrt2d_para->dmaAddr.phyAddr.src = (void *)(uintptr_t)res->dma_prepare->sq_dma_addr;
@@ -2310,7 +2308,6 @@ static void devmm_dma_async_callback(void *data, u32 trans_id, u32 status)
     } else {
         u32 finish_num, submit_num, occupy_num;
 
-        occupy_num = (u32)ka_base_atomic_dec_return(&copy_task->occupy_num);
         submit_num = copy_task->submit_num;
         devmm_isb(); /* to protect devmm_dma_wait_task_finish free copy_task when submit error */
         finish_num = (u32)ka_base_atomic_inc_return(&copy_task->finish_num);
@@ -2318,6 +2315,9 @@ static void devmm_dma_async_callback(void *data, u32 trans_id, u32 status)
             svm_proc = res->svm_pro;
             devmm_set_async_api_cpy_task_result(copy_task);
         }
+
+        devmm_isb(); /* to protect copy_task */
+        occupy_num = (u32)ka_base_atomic_dec_return(&copy_task->occupy_num);
         if (task_mode == DEVMM_CPY_ASYNC_API_MODE) {
             if (occupy_num == 0) {
                 devmm_kvfree(copy_task);
@@ -2338,19 +2338,21 @@ static void devmm_dma_async_callback(void *data, u32 trans_id, u32 status)
     }
 }
 
-void devmm_wait_task_finish(u32 dev_id, ka_atomic_t *finish_num, int submit_num)
+/* Returns false if timed out; true if all callbacks completed or link abnormal.
+ * Link abnormal means DMA will never complete, so treat as finished to free directly. */
+bool devmm_wait_task_finish(u32 dev_id, ka_atomic_t *finish_num, int submit_num)
 {
     u32 wait_times = 0;
 
     while ((submit_num > ka_base_atomic_read(finish_num)) && (wait_times++ < DMA_COPY_TASK_WAIT_TIMES)) {
         if (devmm_is_dma_link_abnormal(dev_id)) {
-#ifndef EMU_ST
-            return;
-#endif
+            return true;
         }
 
         ka_system_usleep_range(DMA_COPY_TASK_WAIT_SLEEP_MIN_TIME, DMA_COPY_TASK_WAIT_SLEEP_MAX_TIME);
     }
+
+    return (submit_num <= ka_base_atomic_read(finish_num));
 }
 
 static int devmm_dma_wait_task_finish(struct devmm_copy_res *res, struct devmm_mem_copy_convrt_para *para)
@@ -2358,24 +2360,39 @@ static int devmm_dma_wait_task_finish(struct devmm_copy_res *res, struct devmm_m
     struct devmm_dma_copy_task *copy_task = res->copy_task;
     struct devmm_svm_process *svm_proc = res->svm_pro;
     bool need_delete_task = true;
-    int ret;
+    bool finished = false;
+    int ret = -EINVAL;
 
     if (copy_task == NULL) {
         return -EINVAL;
     }
 
-    devmm_wait_task_finish(para->dev_id, &copy_task->finish_num, (int)para->seq);
-    if (para->task_query_id != DEVMM_SVM_INVALID_INDEX) {
-        void *tmp = NULL;
+    finished = devmm_wait_task_finish(para->dev_id, &copy_task->finish_num, (int)para->seq);
 
-        tmp = devmm_async_task_remove(svm_proc, para->task_query_id);
+    /* Remove from idr and dec task_cnt for ASYNC_API_MODE, regardless of timeout.
+     * On timeout copy_task goes to timeout_task_list instead of being freed. */
+    if (para->task_query_id != DEVMM_SVM_INVALID_INDEX) {
+        void *tmp = devmm_async_task_remove(svm_proc, para->task_query_id);
         if (tmp == NULL) {
             need_delete_task = false;
-            ret = -EINVAL;
             devmm_drv_err("Remove fail. (id=%d)\n", para->task_query_id);
         }
         para->task_query_id = DEVMM_SVM_INVALID_INDEX;
         devmm_async_task_record_dec(svm_proc, para->dev_id);
+    }
+
+    if (!finished) {
+#ifndef EMU_ST
+        if (need_delete_task) {
+            /* Timeout: hang copy_task on svm_proc timeout list, do not free.
+             * Do NOT NULL res->copy_task: callback obtains copy_task via res->copy_task. */
+            devmm_timeout_task_add(svm_proc, copy_task);
+        }
+        /* If !need_delete_task, copy_task was already removed from idr by another path
+         * and is not owned by us — do not hang it on the list (would double-free). */
+        para->copy_task = NULL;
+        return -ETIMEDOUT;
+#endif
     }
 
     if (need_delete_task) {
@@ -2604,10 +2621,17 @@ int devmm_ioctl_memcpy_process(struct devmm_svm_process *svm_proc, struct devmm_
     return ret;
 
 dma_node_unpin_flag:
-    devmm_free_raw_dmanode_list(res);
+    if (ret != -ETIMEDOUT) {
+        devmm_free_raw_dmanode_list(res);
+    }
 free_copy_mem:
-    devmm_memcpy_exception_handle(res, para);
-    devmm_free_copy_mem(res);
+    /* Skip exception handle and res free on timeout — devmm_dma_wait_task_finish
+     * already ran and hung copy_task on the timeout list. Pending callbacks will
+     * free res and dmanode via devmm_free_raw_dmanode_list + devmm_free_copy_mem. */
+    if (ret != -ETIMEDOUT) {
+        devmm_memcpy_exception_handle(res, para);
+        devmm_free_copy_mem(res);
+    }
 
     return ret;
 }
@@ -2683,7 +2707,7 @@ static int devmm_uvm_h2h_copy_loop(struct devmm_mem_copy_convrt_para *para, stru
                                    size_t off_dst)
 {
     u32 idx_src = 0, idx_dst = 0, stamp = (u32)ka_jiffies;
-    size_t total_len = 0;
+    size_t total_len = 0, cur_off_src = off_src, cur_off_dst = off_dst;
     int ret = 0;
 
     while ((total_len < para->count) && (idx_dst < res->to.num) && (idx_src < res->from.num)) {
@@ -2692,8 +2716,8 @@ static int devmm_uvm_h2h_copy_loop(struct devmm_mem_copy_convrt_para *para, stru
         size_t copy_len, end_blk_src, end_blk_dst;
         void *src_kvaddr, *dst_kvaddr;
 
-        end_blk_src = ka_base_min(sz_src - off_src, para->count - total_len);
-        end_blk_dst = ka_base_min(sz_dst - off_dst, para->count - total_len);
+        end_blk_src = ka_base_min(sz_src - cur_off_src, para->count - total_len);
+        end_blk_dst = ka_base_min(sz_dst - cur_off_dst, para->count - total_len);
 
 #ifndef EMU_ST
         src_kvaddr = ka_mm_page_address(res->from.blks[idx_src].page);
@@ -2706,18 +2730,18 @@ static int devmm_uvm_h2h_copy_loop(struct devmm_mem_copy_convrt_para *para, stru
             return -EINVAL;
         }
 #endif
-        src_kvaddr += off_src;
-        dst_kvaddr += off_dst;
+        src_kvaddr += cur_off_src;
+        dst_kvaddr += cur_off_dst;
         copy_len = ka_base_min(end_blk_src, end_blk_dst);
-        off_src += copy_len;
-        off_dst += copy_len;
+        cur_off_src += copy_len;
+        cur_off_dst += copy_len;
         if (copy_len == end_blk_src) {
             idx_src++;
-            off_src = 0;
+            cur_off_src = 0;
         }
         if (copy_len == end_blk_dst) {
             idx_dst++;
-            off_dst = 0;
+            cur_off_dst = 0;
         }
 
         total_len += copy_len;

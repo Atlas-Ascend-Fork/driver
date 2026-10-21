@@ -127,7 +127,6 @@ drvError_t queue_param_check(unsigned int dev_id, unsigned int qid, const struct
 
     if (dev_id >= MAX_DEVICE) {
         QUEUE_LOG_ERR("devId is invalid.(devid=%u)\n", dev_id);
-        report_arg_out_of_range(func_name, "device ID", dev_id, 0, MAX_DEVICE);
         return DRV_ERROR_INVALID_VALUE;
     }
     if (qid >= MAX_SURPORT_QUEUE_NUM) {
@@ -174,5 +173,5 @@ void queue_report_insufficient_device_memory(struct buff_iovec *vector, int ret)
     for (i = 0; i < vector->count; i++) {
         buf_len += vector->ptr[i].len;
     }
-    report_insufficient_device_memory(buf_len, drv_log_get_module_str(HAL_MODULE_TYPE_QUEUE_MANAGER));
+    report_insufficient_device_memory(buf_len, halDrvLogGetModuleStr(HAL_MODULE_TYPE_QUEUE_MANAGER));
 }

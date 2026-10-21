@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 #include "apm_auto_init.h"
-#include "pbl/pbl_kernel_adapt.h"
 
 #include "apm_fops.h"
 #include "apm_proc_fs.h"

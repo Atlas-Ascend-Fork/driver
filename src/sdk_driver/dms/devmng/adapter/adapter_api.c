@@ -24,7 +24,7 @@ void adap_dev_state_notifier_register(devdrv_dev_state_notify state_callback)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(0); /* use device 0 get connect type */
     if (adap->pcie.notifier_register != NULL) {
         adap->pcie.notifier_register(state_callback);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("Pcie.notifier_register is NULL.\n");
     }
@@ -38,7 +38,7 @@ void adap_dev_state_notifier_unregister(void)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(0); /* use device 0 get connect type */
     if (adap->pcie.notifier_unregister != NULL) {
         adap->pcie.notifier_unregister();
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("Pcie.notifier_unregister is NULL.\n");
     }
@@ -78,7 +78,7 @@ bool adap_is_p2p_enabled(u32 dev_id, u32 peer_dev_id)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(dev_id); /* use device 0 get connect type */
     if (adap->p2p.is_enabled != NULL) {
         ret = adap->p2p.is_enabled(dev_id, peer_dev_id);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("P2p.is_enabled is NULL.\n");
     }
@@ -93,7 +93,7 @@ void adap_flush_p2p(int pid)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(0); /* use device 0 get connect type */
     if (adap->p2p.flush != NULL) {
         adap->p2p.flush(pid);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("P2p.flush is NULL.\n");
     }
@@ -133,7 +133,7 @@ int adap_get_pci_dev_info(u32 devid, struct devdrv_pci_dev_info *dev_info)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(devid);
     if (adap->pcie.get_pci_dev_info != NULL) {
         ret = adap->pcie.get_pci_dev_info(devid, dev_info);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("Pcie.get_pci_dev_info is NULL.\n");
     }
@@ -142,7 +142,7 @@ int adap_get_pci_dev_info(u32 devid, struct devdrv_pci_dev_info *dev_info)
 }
 KA_EXPORT_SYMBOL(adap_get_pci_dev_info);
 
-int adap_get_pcie_id_info(u32 devid, struct devdrv_pcie_id_info  *pcie_id_info)
+int adap_get_pcie_id_info(u32 devid, struct devdrv_pcie_id_info *pcie_id_info)
 {
     int ret = -EOPNOTSUPP;
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(devid);
@@ -191,7 +191,7 @@ int adap_get_addr_info(u32 devid, enum devdrv_addr_type type, u32 index, u64 *ad
 KA_EXPORT_SYMBOL(adap_get_addr_info);
 
 int adap_get_bbox_reservd_mem(unsigned int devid, unsigned long long *dma_addr, ka_page_t **dma_pages,
-    unsigned int *len)
+                              unsigned int *len)
 {
     int ret = -EOPNOTSUPP;
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(devid);
@@ -208,8 +208,7 @@ int adap_get_hccs_link_status_and_group_id(u32 devid, u32 *hccs_status, u32 hccs
     int ret = -EOPNOTSUPP;
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(devid);
     if (adap->hccs.get_hccs_link_status_and_group_id != NULL) {
-        ret = adap->hccs.get_hccs_link_status_and_group_id(devid, hccs_status,
-            hccs_group_id, group_id_num);
+        ret = adap->hccs.get_hccs_link_status_and_group_id(devid, hccs_status, hccs_group_id, group_id_num);
     }
     put_adapter(adap);
     return ret;
@@ -223,7 +222,7 @@ int adap_register_black_callback(struct devdrv_black_callback *black_callback)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(0); /* use device 0 get connect type */
     if (adap->pcie.register_black_callback != NULL) {
         ret = adap->pcie.register_black_callback(black_callback);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("Pcie.register_black_callback is NULL.\n");
     }
@@ -238,7 +237,7 @@ void adap_unregister_black_callback(const struct devdrv_black_callback *black_ca
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(0); /* use device 0 get connect type */
     if (adap->pcie.unregister_black_callback != NULL) {
         adap->pcie.unregister_black_callback(black_callback);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("Pcie.unregister_black_callback is NULL.\n");
     }
@@ -253,7 +252,7 @@ int adap_set_module_init_finish(int dev_id, int module)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(dev_id); /* use device 0 get connect type */
     if (adap->pcie.set_module_init_finish != NULL) {
         ret = adap->pcie.set_module_init_finish(dev_id, module);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("Pcie.set_module_init_finish is NULL.\n");
     }
@@ -268,7 +267,7 @@ void adap_dev_startup_register(devdrv_dev_startup_notify startup_callback)
     struct bus_adpater_stu *adap = get_adapter_by_dev_id(0); /* use device 0 get connect type */
     if (adap->pcie.startup_register != NULL) {
         adap->pcie.startup_register(startup_callback);
-    } else if (log_logged == false){
+    } else if (log_logged == false) {
         log_logged = true;
         dms_err("Pcie.startup_register is NULL.\n");
     }
@@ -296,7 +295,7 @@ int adap_get_master_devid_in_the_same_os(u32 dev_id, u32 *master_dev_id)
     if (adap->pcie.get_master_devid_in_the_same_os != NULL) {
         ret = adap->pcie.get_master_devid_in_the_same_os(dev_id, master_dev_id);
     } else {
-        if (log_logged == false){
+        if (log_logged == false) {
             log_logged = true;
             dms_err("Pcie.get_master_devid_in_the_same_os is NULL.\n");
         }

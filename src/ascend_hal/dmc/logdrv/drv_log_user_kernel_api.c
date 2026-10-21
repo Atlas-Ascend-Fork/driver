@@ -11,13 +11,14 @@
 #include <sys/mman.h>
 #include <string.h>
 #include "securec.h"
-#include "drv_log_user_kernel_api.h"
 #include "dmc/dmc_log_user.h"
 #include "hal_error_code/drv_error_code.h"
+#include "dmc/drv_log_urma.h"
+#include "drv_log_user_kernel_api.h"
 
 #define BUFF_LENTH (64U)
 #define DRV_LOG_START_TIME (1900)
-#define ERROR_NUN_MAX (EHWPOISON + 1U)
+#define ERROR_NUN_MAX (EUBOPFAIL + 1U)
 
 #ifdef STATIC_SKIP
 #define STATIC
@@ -187,6 +188,10 @@ static int32_t user_err[ERROR_NUN_MAX] = {
     [ENOTRECOVERABLE] = DRV_ERROR_IOCRL_FAIL,
     [ERFKILL] = DRV_ERROR_IOCRL_FAIL,
     [EHWPOISON] = DRV_ERROR_IOCRL_FAIL,
+    [EUBINITFAIL] = DRV_ERROR_URMA_INIT_FAIL,
+    [EUBNORES] = DRV_ERROR_URMA_NO_RES,
+    [EUBNODEV] = DRV_ERROR_URMA_NO_DEVICE,
+    [EUBOPFAIL] = DRV_ERROR_URMA_OP_FAIL,
 
 };
 
@@ -246,6 +251,7 @@ const char *drv_log_get_module_str_inner(enum devdrv_module_type module)
         [HAL_MODULE_TYPE_QUEUE_MANAGER] = "queuemng",
         [HAL_MODULE_TYPE_DP_PROC_MNG] = "dp-procmng",
         [HAL_MODULE_TYPE_COMMON] = "common",
+        [HAL_MODULE_TYPE_ASCEND_URMA_ADAPT] = "ascend_urma_adapt",
         [HAL_MODULE_TYPE_LIDAR_DP] = "lidar_dp",
         [HAL_MODULE_TYPE_ADSPC] = "adspc",
         [HAL_MODULE_TYPE_APM] = "apm",
@@ -253,7 +259,11 @@ const char *drv_log_get_module_str_inner(enum devdrv_module_type module)
     uint32_t module_type = (uint32_t)module;
 
     if (module_type >= (uint32_t)(HAL_MODULE_TYPE_MAX)) {
-        return NULL;
+        return "unknown";
+    }
+
+    if (drv_log_module_str[module_type] == NULL) {
+        return "unknown";
     }
 
     return drv_log_module_str[module_type];
@@ -362,27 +372,25 @@ STATIC uint32_t g_run_log_status;
 
 int32_t drv_log_out_handle_register_inner(struct log_out_handle *handle, size_t input_size, uint32_t flag)
 {
+    int32_t ret;
     if (input_size != sizeof(struct log_out_handle)) {
-        DRV_LOG_ERR("Log_out_handle_register failed. (input_size=%zu; size_log_out_handle=%zu)", input_size,
-                    sizeof(struct log_out_handle));
+        DRV_LOG_ERR("Log_out_handle_register failed. (input_size=%zu; size_log_out_handle=%zu)\n", input_size,
+                    sizeof(struct log_out_handle)); // lint !e559
         return DRV_ERROR_INVALID_VALUE;
     }
-
     if (handle == NULL) {
-        DRV_LOG_ERR("Log_out_handle_register failed, handle is NULL.");
+        DRV_LOG_ERR("Log_out_handle_register failed, handle is NULL.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
-
     if (handle->DlogInner == NULL) {
-        DRV_LOG_ERR("Log_out_handle_register failed, the member DlogInner in handle is NULL.");
+        DRV_LOG_ERR("Log_out_handle_register failed, the member DlogInner in handle is NULL.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
-
     if (handle->logLevel >= (uint32_t)LOG_TOOL_LEVEL_TYPE_MAX) {
-        DRV_LOG_ERR("Log_out_handle_register failed. (handle->logLevel=%u)", handle->logLevel);
+        DRV_LOG_ERR("Log_out_handle_register failed. (handle->logLevel=%u)\n", handle->logLevel);
         return DRV_ERROR_INVALID_VALUE;
     }
-
+    DRV_LOG_RUN_INFO("Register log handle. (log_level=%u)\n", handle->logLevel);
     g_run_log_status = flag;
     drv_log_tool_console_level = drv_log_level_tool_to_glibc(handle->logLevel);
     g_log_print_info.con_log_level = &drv_log_tool_console_level;
@@ -390,10 +398,41 @@ int32_t drv_log_out_handle_register_inner(struct log_out_handle *handle, size_t 
     g_log_print_info.log_get_print_time = drv_get_tm;
     g_log_print_info.log_level_shift = drv_log_level_glibc_to_tool;
     g_log_print_info.log_print = handle->DlogInner;
-
+    ret = drv_log_urma_register(handle->DlogInner, handle->logLevel);
+    if ((ret != DRV_ERROR_NONE) && (ret != (int)DRV_ERROR_NOT_SUPPORT)) {
+        (void)drv_log_out_handle_unregister_inner();
+        DRV_LOG_ERR("Failed to register urma log. (ret=%d)\n", ret);
+        return ret;
+    }
     return DRV_ERROR_NONE;
 }
 
+int32_t drv_log_set_module_log_level(int32_t level, int32_t *module_ids, int32_t size)
+{
+    int32_t i;
+
+    if ((module_ids == NULL) || (size <= 0) || (level < 0) || (level > DLOG_NULL)) {
+        DRV_LOG_ERR("Invalid param. (module_ids_is_null=%d, size=%d, level=%d)\n", (int)(module_ids == NULL), size,
+                    level);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+    DRV_LOG_INFO("Set level for modules. (level=%d)\n", level);
+    for (i = 0; i < size; i++) {
+        switch (module_ids[i]) {
+            case DRV:
+                drv_log_tool_console_level = drv_log_level_tool_to_glibc((uint32_t)level);
+                break;
+            case UNIFIEDBUS:
+                (void)drv_log_set_urma_log_level((uint32_t)level);
+                break;
+            default:
+                DRV_LOG_DEBUG("Unsupported module id. (module_id=%d)\n", module_ids[i]);
+                break;
+        }
+    }
+
+    return DRV_ERROR_NONE;
+}
 /* compatibility */
 int32_t is_run_log_inner(void)
 {
@@ -407,7 +446,7 @@ int32_t drv_log_out_handle_unregister_inner(void)
     g_log_print_info.log_get_print_time = drv_get_tm_default;
     g_log_print_info.log_level_shift = drv_log_level_shift_default;
     g_log_print_info.log_print = drv_syslog;
-
+    drv_log_urma_unregister();
     return DRV_ERROR_NONE;
 }
 
@@ -454,13 +493,20 @@ static struct err_msg_report_handle g_report_err_msg_info;
 int32_t drv_log_report_err_msg_handle_register_impl(struct err_msg_report_handle *handle, size_t input_size)
 {
     if (input_size != sizeof(struct err_msg_report_handle) || handle == NULL) {
+        DRV_LOG_ERR("Invalid param. (handle_is_null=%d, input_size=%zu, target_size=%zu)\n", (int)(handle == NULL),
+                    input_size, sizeof(struct err_msg_report_handle));
         return DRV_ERROR_INVALID_VALUE;
     }
     if (handle->register_format_func == NULL || handle->predefined_report_func == NULL ||
         handle->inner_report_func == NULL) {
+        DRV_LOG_ERR("Invalid param. (register_func_is_null=%d, predefined_report_func_is_null=%d, "
+                    "inner_report_func_is_null=%d)\n",
+                    (int)(handle->register_format_func == NULL), (int)(handle->predefined_report_func == NULL),
+                    (int)(handle->inner_report_func == NULL));
         return DRV_ERROR_INVALID_VALUE;
     }
     if (g_report_err_msg_info.is_registered == 1) {
+        DRV_LOG_WARN("Msg handle has been registered.\n");
         return DRV_ERROR_REPEATED_INIT;
     }
     g_report_err_msg_info.register_format_func = handle->register_format_func;
@@ -493,4 +539,20 @@ report_predefined_err_msg_func get_predefined_err_msg_report_func_impl(void)
 report_inner_err_msg_func get_inner_err_msg_report_func_impl(void)
 {
     return g_report_err_msg_info.inner_report_func;
+}
+
+__attribute__((weak)) int32_t drv_log_urma_register(alog_print_func log_print, uint32_t log_level)
+{
+    (void)log_print;
+    (void)log_level;
+    return DRV_ERROR_NOT_SUPPORT;
+}
+
+__attribute__((weak)) void drv_log_urma_unregister(void)
+{}
+
+__attribute__((weak)) int32_t drv_log_set_urma_log_level(uint32_t level)
+{
+    (void)level;
+    return DRV_ERROR_NOT_SUPPORT;
 }

@@ -99,8 +99,7 @@ static int svm_urma_register_seg_client_local(u32 user_devid, struct svm_dst_va 
 
     ret = svm_urma_seg_local_get_info(devid, start, seg_flag, &seg_info);
     if (ret != DRV_ERROR_NONE) {
-        svm_err("Get seg info failed. (devid=%u; start=0x%llx; size=%llu bytes; flag=0x%x)\n", devid, start, size,
-                seg_flag);
+        svm_err("Get seg info failed. (devid=%u; start=0x%llx; size=%llu; flag=0x%x)\n", devid, start, size, seg_flag);
         (void)svm_urma_seg_local_unregister(devid, start, size, seg_flag);
         return ret;
     }

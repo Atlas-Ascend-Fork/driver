@@ -27,6 +27,7 @@ void dms_event_adapt_init(void)
     apt.distribute_all_devices_event_to_bar = dms_distribute_all_devices_event_to_bar;
     apt.distribute_to_bar = dms_event_distribute_to_bar;
     apt.get_event_para = dms_get_event_para;
+    apt.get_notify_event_para = dms_get_notify_event_para;
     apt.get_event_code_from_local = dms_get_event_code_from_local;
     apt.get_health_code_from_local = dms_get_health_code_from_local;
     apt.logical_id_to_physical_id = devdrv_manager_container_logical_id_to_physical_id;
@@ -42,4 +43,3 @@ void dms_event_adapt_exit(void)
     dms_event_host_uninit();
     smf_event_adapt_uninit();
 }
-

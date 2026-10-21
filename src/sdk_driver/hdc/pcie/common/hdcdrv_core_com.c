@@ -214,7 +214,7 @@ int hdccom_rx_vpc_cmd_type_check(unsigned int cmd, const struct vmng_rx_msg_proc
     vhdc_ioctl_msg_head = sizeof(struct vhdc_ioctl_msg) - sizeof(union hdcdrv_cmd);
     if (((vhdc_ioctl_msg_head + hdcdrv_cmd_size_table[drv_cmd]) > proc_info->in_data_len) ||
         ((vhdc_ioctl_msg_head + hdcdrv_cmd_size_table[drv_cmd]) > proc_info->out_data_len)) {
-        hdcdrv_err("Parameter cmd is illegal. (drv_cmd=%d)\n", drv_cmd);
+        hdcdrv_err("Parameter cmd is illegal. (drv_cmd=%u)\n", drv_cmd);
         return HDCDRV_PARA_ERR;
     }
 
@@ -313,7 +313,7 @@ int hdcdrv_send_mem_info(struct hdcdrv_fast_mem *mem, int devid, int flag)
     ret = (int)hdcdrv_non_trans_ctrl_msg_send((u32)devid, (void *)msg, msg_size, msg_size, &len);
     if ((ret != HDCDRV_OK) || (len != sizeof(struct hdcdrv_ctrl_msg_sync_mem_info)) || (msg->error_code != HDCDRV_OK)) {
         hdcdrv_limit_exclusive(err, HDCDRV_LIMIT_LOG_0x0B,
-                               "Memory infotmation message send failed. (dev_id=%d; "
+                               "Memory information message send failed. (dev_id=%d; "
                                "ret=%d; len=%d; error_code=%d)\n",
                                devid, ret, len, msg->error_code);
         ret = HDCDRV_SEND_CTRL_MSG_FAIL;
@@ -343,7 +343,7 @@ void hdcdrv_node_status_idle(struct hdcdrv_fast_node *node)
         }
 
         if (cost_time > HDCDRV_NODE_BUSY_WARNING) {
-            hdcdrv_info_limit_spinlock("cost_time is invalid. (cost_time=%ums; max_cost=%ums)\n", cost_time,
+            hdcdrv_info_limit_spinlock("cost_time is invalid. (cost_time=%ums;max_cost=%ums)\n", cost_time,
                                        node->max_cost);
         }
     }
@@ -496,7 +496,7 @@ void hdcdrv_release_free_mem(struct hdcdrv_ctx_fmem *ctx_fmem)
     ka_task_spin_unlock_bh(&ctx_fmem->mem_lock);
 
     /* memory free */
-    hdcdrv_info("Release memory. (task_pid=%llu; count=%llu)\n", hdcdrv_get_pid(), ctx_fmem->mem_count);
+    hdcdrv_info("Release memory. (task_pid=%llu;count=%llu)\n", hdcdrv_get_pid(), ctx_fmem->mem_count);
     ka_system_usleep_range(HDCDRV_USLEEP_RANGE_2000, HDCDRV_USLEEP_RANGE_3000);
 
     while (1) {

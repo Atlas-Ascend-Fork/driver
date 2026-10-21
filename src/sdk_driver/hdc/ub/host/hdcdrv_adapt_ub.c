@@ -16,6 +16,7 @@
 #include "hdcdrv_log.h"
 #include "hdcdrv_cmd_ioctl.h"
 #include "hdcdrv_core_ub.h"
+#include "hdcdrv_ka_memory.h"
 
 void hdcdrv_set_msg_env(int *msg_env, int env)
 {
@@ -112,7 +113,7 @@ long hdcdrv_ub_convert_id_from_vir_to_phy(u32 drv_cmd, union hdcdrv_cmd *cmd_dat
 ka_page_t *hdcdrv_ub_alloc_pages_node(u32 dev_id, gfp_t gfp_mask, u32 order)
 {
     ka_page_t *page = NULL;
-    page = ka_mm_alloc_pages(gfp_mask, order);
+    page = hdcdrv_alloc_pages(gfp_mask, order, KA_SUB_MODULE_TYPE_2);
     if (page != NULL) {
         return page;
     }

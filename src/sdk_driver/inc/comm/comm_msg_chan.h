@@ -36,6 +36,7 @@ enum devdrv_msg_client_type {
     devdrv_msg_client_queue,
     devdrv_msg_client_s2s,
     devdrv_msg_client_tablesync,
+    devdrv_msg_client_esched,
     devdrv_msg_client_max
 };
 
@@ -70,6 +71,7 @@ enum agentdrv_msg_client_type {
     agentdrv_msg_client_queue,
     agentdrv_msg_client_s2s,
     agentdrv_msg_client_tablesync,
+    agentdrv_msg_client_esched,
     agentdrv_msg_client_max
 };
 
@@ -175,6 +177,15 @@ struct devdrv_comm_status_info {
     u32 rsv[COMM_STATUS_STRUCT_RSV];
 };
 int devdrv_get_com_status_inner(u32 devid, struct devdrv_comm_status_info *status);
+
+enum devdrv_dma_copy_support_mode {
+    DEVDRV_DMA_COPY_SUPPORT_MODE_PHY = 0,
+    DEVDRV_DMA_COPY_SUPPORT_MODE_DMA,
+    DEVDRV_DMA_COPY_SUPPORT_MODE_SVA,
+    DEVDRV_DMA_COPY_SUPPORT_MODE_MAX
+};
+int devdrv_get_dma_copy_support_mode(u32 udevid, u32 *support_mode);
+
 #define CONNECT_PROTOCOL_PCIE 0
 #define CONNECT_PROTOCOL_HCCS 1
 #define CONNECT_PROTOCOL_UB 2
@@ -202,6 +213,7 @@ int soc_get_dev_topology(unsigned int dev_id1, unsigned int dev_id2, int *topolo
 int devdrv_p2p_attr_op(struct devdrv_base_comm_p2p_attr *attr);
 int devdrv_get_pfvf_type_by_devid_inner(u32 index_id);
 int devdrv_get_pfvf_type_by_devid(u32 dev_id);
+int devdrv_get_pm_devid_by_vm_devid(u32 udev_id, u32 *pm_devid);
 bool devdrv_is_mdev_vm_boot_mode(u32 dev_id);
 bool devdrv_is_mdev_vm_boot_mode_inner(u32 index_id);
 int devdrv_get_connect_protocol_inner(u32 index_id);
@@ -526,6 +538,27 @@ int devdrv_s2s_msg_send(u32 devid, u32 sdid, enum devdrv_s2s_msg_type msg_type, 
 int devdrv_s2s_npu_link_check(u32 dev_id, u32 sdid);
 int devdrv_s2s_async_msg_recv(u32 devid, u32 sdid, enum devdrv_s2s_msg_type msg_type, struct data_recv_info *data_info);
 
+#define DEVDRV_ASYNC_P2P_PARA_RSV 4
+struct devdrv_async_p2p_para_info {
+    void *priv;
+    void *out_buf;
+    u32 buf_len;
+    u32 out_len;
+    u32 rsv[DEVDRV_ASYNC_P2P_PARA_RSV];
+};
+typedef int (*devdrv_p2p_msg_recv)(u32 local_devid, u32 sdid, struct data_input_info *data_info);
+typedef int (*devdrv_p2p_async_cb)(u32 devid, struct devdrv_async_p2p_para_info *param, int status);
+#define DEVDRV_P2P_MSG_SYNC 0U
+#define DEVDRV_P2P_MSG_ASYNC 1U
+int xcom_register_p2p_msg_proc_func(enum devdrv_msg_client_type msg_type, devdrv_p2p_msg_recv func);
+int xcom_unregister_p2p_msg_proc_func(enum devdrv_msg_client_type msg_type);
+int xcom_p2p_msg_send(u32 local_devid, u32 sdid, enum devdrv_msg_client_type msg_type,
+                      struct data_input_info *data_info);
+int devdrv_register_p2p_msg_proc_func(enum devdrv_msg_client_type msg_type, u32 msg_mode, devdrv_p2p_msg_recv func);
+int devdrv_unregister_p2p_msg_proc_func(enum devdrv_msg_client_type msg_type, u32 msg_mode);
+int devdrv_p2p_msg_send(u32 devid, enum devdrv_msg_client_type msg_type, struct data_input_info *data_info,
+                        struct devdrv_async_p2p_para_info *param, devdrv_p2p_async_cb func);
+
 struct devdrv_trans_msg_chan_info;
 struct devdrv_comm_ops {
     ka_atomic_t ref_cnt;
@@ -588,11 +621,16 @@ struct devdrv_comm_ops {
 #endif
     int (*send_vdm_msg)(u32 dev_id);
     int (*sync_msg_send)(void *msg_chan, void *data, u32 in_data_len, u32 out_data_len, u32 *real_out_len);
+    int (*register_devdrv_p2p_msg)(enum devdrv_msg_client_type msg_type, u32 msg_mode, devdrv_p2p_msg_recv func);
+    int (*unregister_devdrv_p2p_msg)(enum devdrv_msg_client_type msg_type, u32 msg_mode);
+    int (*devdrv_p2p_msg_send)(u32 devid, enum devdrv_msg_client_type msg_type, struct data_input_info *data_input,
+                               struct devdrv_async_p2p_para_info *param, devdrv_p2p_async_cb func);
     int (*set_msg_chan_priv)(void *msg_chan, void *priv);
     void *(*get_msg_chan_priv)(void *msg_chan);
     int (*get_msg_chan_devid)(void *msg_chan);
     int (*get_connect_type)(u32 dev_id);
     int (*get_pfvf_type_by_devid)(u32 dev_id);
+    int (*get_pm_devid_by_vm_devid)(u32 index_id, u32 *pm_index_id);
     bool (*mdev_vm_boot_mode)(u32 dev_id);
     bool (*sriov_support)(u32 dev_id);
     int (*sriov_enable)(u32 dev_id, u32 boot_mode);  /* not must */
@@ -608,11 +646,13 @@ struct devdrv_comm_ops {
     int (*get_token_val)(u32 dev_id, u32 *token_val);
     int (*add_pasid)(u32 dev_id, u64 pasid);
     int (*del_pasid)(u32 dev_id, u64 pasid);
-    int (*get_d2d_eid)(u32 udevid, struct devdrv_pair_info_eid *eid);
+    int (*get_d2d_eid)(u32 local_udevid, u32 d2d_eid_type, struct devdrv_pair_info_eid *eid, u32 *eid_index);
     int (*get_bus_instance_eid)(u32 udevid, struct devdrv_pair_info_eid *eid);
     int (*get_ub_dev_id_info)(u32 dev_id, struct devdrv_dev_id_info *id_info);
     int (*addr_trans_cs_p2p)(u32 udevid, u32 peer_udevid, struct devdrv_addr_desc *addr_desc, u64 *trans_addr);
     int (*addr_trans_p2l)(u32 udevid, struct devdrv_addr_desc *addr_desc, u64 *trans_addr);
+    int (*addr_trans_l2p)(u32 udevid, struct devdrv_addr_desc *addr_desc, u64 *trans_addr);
+    bool (*query_addr_trans_support)(enum devdrv_addr_trans_cap_type cap_type);
     int (*urma_copy)(u32 dev_id, enum devdrv_urma_chan_type type, enum devdrv_urma_copy_dir dir,
                      struct devdrv_urma_copy *local, struct devdrv_urma_copy *peer);
     int (*register_seg)(u32 dev_id, struct devdrv_seg_info *info, void **tseg, size_t *out_len);
@@ -676,6 +716,7 @@ struct devdrv_comm_ops {
                                       ka_dma_data_direction_t dir);
     void (*devdrv_dma_unmap_sg_no_cache)(ka_scatterlist_t *sg, int nents, ka_dma_addr_t dma_handle,
                                          ka_dma_data_direction_t dir);
+    int (*get_dma_copy_support_mode)(u32 udevid, u32 *support_mode);
     void (*set_sq_head)(void *msg_chan, u32 head);
     void *(*get_sq_head)(void *msg_chan, u32 *head);
     void (*move_sq_head)(void *msg_chan);
@@ -686,11 +727,18 @@ struct devdrv_comm_ops {
     void (*move_cq_head)(void *msg_chan);
     void *(*get_cq_tail)(void *msg_chan);
     void (*move_cq_tail)(void *msg_chan);
+    int (*force_linkdown)(u32 udevid);
+    int (*get_non_trans_chan_capacity)(void *msg_chan, u32 *len);
 };
 
 struct devdrv_faultmgr_ops {
     ka_atomic_t ref_cnt;
     int (*devdrv_ubmem_fault_submit)(u32 dev_id, u32 event_type);
+};
+
+struct devdrv_serdes_dump_ops {
+    ka_atomic_t ref_cnt;
+    int (*devdrv_dump_serdes_dfx_reg)(u32 die_id, u32 micro_id, u32 lane_id);
 };
 
 int devdrv_register_communication_ops(struct devdrv_comm_ops *ops);
@@ -727,8 +775,13 @@ void devdrv_move_msg_chan_slave_sq_tail(void *msg_chan);
 bool devdrv_msg_chan_slave_sq_full_check(void *msg_chan);
 void *devdrv_get_msg_chan_slave_cq_tail(void *msg_chan);
 void devdrv_move_msg_chan_slave_cq_tail(void *msg_chan);
+int devdrv_force_linkdown(u32 udevid);
 
 int devdrv_register_faultmgr_ops(struct devdrv_faultmgr_ops *ops);
 void devdrv_unregister_faultmgr_ops(void);
+int devdrv_register_serdes_dump_ops(struct devdrv_serdes_dump_ops *ops);
+void devdrv_unregister_serdes_dump_ops(void);
 int devdrv_soc_misc_submit_ubmem_event(u32 dev_id, u32 event_type);
+int devdrv_soc_misc_dump_serdes_dfx_reg(u32 die_id, u32 micro_id, u32 lane_id);
+int devdrv_get_non_trans_chan_capacity(void *msg_chan, u32 *len);
 #endif /* __COMM_MSG_CHAN_H__ */

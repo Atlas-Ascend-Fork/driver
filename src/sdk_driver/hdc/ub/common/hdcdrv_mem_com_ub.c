@@ -46,13 +46,13 @@ int hdcdrv_check_va(const void *ctx, ka_vm_area_struct_t *vma, unsigned long lon
     }
 
     if ((user_va & (KA_MM_PAGE_SIZE - 1)) != 0) {
-        hdcdrv_err("Input parameter is error. (addr=%pK)\n", (void *)(uintptr_t)user_va);
+        hdcdrv_err("Input parameter is invalid. (user_va=0x%llx;)\n", user_va);
         return HDCDRV_PARA_ERR;
     }
 
     if ((user_va < ka_mm_get_vm_start(vma)) || (user_va > ka_mm_get_vm_end(vma)) || (end > ka_mm_get_vm_end(vma)) ||
         (user_va >= end)) {
-        hdcdrv_err("Input parameter is error. (vma_user_addr=%pK; dev_id=%u)\n", (void *)(uintptr_t)user_va, dev_id);
+        hdcdrv_err("Input parameter is invalid. (user_va=0x%llx;dev_id=%u;)\n", user_va, dev_id);
         return HDCDRV_PARA_ERR;
     }
 

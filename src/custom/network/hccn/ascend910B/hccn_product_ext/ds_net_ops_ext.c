@@ -29,7 +29,7 @@
 int dsmi_get_pfc_storm_info(int logic_id, struct pfc_storm_info *info)
 {
     int ret;
-	struct ds_trans_data trans_data = {0};
+    struct ds_trans_data trans_data = {0};
     unsigned int size_out;
 
     if (logic_id > DS_MAX_LOGIC_ID || logic_id < 0) {
@@ -42,7 +42,7 @@ int dsmi_get_pfc_storm_info(int logic_id, struct pfc_storm_info *info)
     }
 
     size_out = sizeof(struct pfc_storm_info);
-    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PFC_STORM_INFO, NULL, 0, (char*)info, &size_out);
+    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PFC_STORM_INFO, NULL, 0, (char *)info, &size_out);
 
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
@@ -59,7 +59,7 @@ int dsmi_get_pfc_storm_info(int logic_id, struct pfc_storm_info *info)
 
 int dsmi_clear_pfc_storm(int logic_id, int mode)
 {
-	struct ds_trans_data trans_data = {0};
+    struct ds_trans_data trans_data = {0};
     int ret;
     int out_buf = 0;
     int size_out = 0;
@@ -72,7 +72,7 @@ int dsmi_clear_pfc_storm(int logic_id, int mode)
         return -EINVAL;
     }
 
-    DSMI_SET_TRANS_DATA(trans_data, DS_CLEAR_PFC_STORM, (char*) &mode, sizeof(int), NULL, &size_out);
+    DSMI_SET_TRANS_DATA(trans_data, DS_CLEAR_PFC_STORM, (char *)&mode, sizeof(int), NULL, &size_out);
 
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
@@ -104,7 +104,7 @@ int dsmi_set_pfc_storm_watchdog_param(int logic_id, struct pfc_storm_cfg_info *c
         return -EINVAL;
     }
 
-    size_in  = sizeof(struct pfc_storm_cfg_info);
+    size_in = sizeof(struct pfc_storm_cfg_info);
     DSMI_SET_TRANS_DATA(trans_data, DS_SET_PFC_STORM_WATCHDOG, (char *)cfg_info, size_in, NULL, &size_out);
 
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
@@ -136,9 +136,9 @@ int dsmi_get_pfc_storm_watchdog_param(int logic_id, struct pfc_storm_cfg_param *
         return -EINVAL;
     }
 
-    size_out  = sizeof(struct pfc_storm_cfg_param);
-    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PFC_STORM_WATCHDOG, NULL, 0, (char*)cfg_param, &size_out);
-    
+    size_out = sizeof(struct pfc_storm_cfg_param);
+    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PFC_STORM_WATCHDOG, NULL, 0, (char *)cfg_param, &size_out);
+
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
         roce_err("get_pfc_storm_watchdog_param dsmi trans fail. (ret=%d; logic_id=%d)", ret, logic_id);
@@ -161,9 +161,9 @@ int dsmi_dump_optical_info_cmd(int logic_id, int port, struct ds_optical_registe
         roce_err("Logic id or port id is invalid. (logic_id=%d; port_id=%d)", logic_id, port);
         return -EINVAL;
     }
-    DSMI_SET_TRANS_DATA(trans_data, DS_DUMP_OPTICAL_INFO_CMD, (char*)info,
-        sizeof(struct ds_optical_register_info), (char*)info, &size_out);
- 
+    DSMI_SET_TRANS_DATA(trans_data, DS_DUMP_OPTICAL_INFO_CMD, (char *)info, sizeof(struct ds_optical_register_info),
+                        (char *)info, &size_out);
+
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
         roce_err("Dsmi dump optical info fail. (ret=%d; logic_id=%d)", ret, logic_id);
@@ -178,7 +178,7 @@ int dsmi_dump_optical_info_cmd(int logic_id, int port, struct ds_optical_registe
 int dsmi_get_hccs_ping_mesh_info(int logic_id, int task_id, struct ping_mesh_stat *info)
 {
     int ret;
-	struct ds_trans_data trans_data = {0};
+    struct ds_trans_data trans_data = {0};
     unsigned int size_out;
 
     if (logic_id > DS_MAX_LOGIC_ID || logic_id < 0) {
@@ -189,9 +189,9 @@ int dsmi_get_hccs_ping_mesh_info(int logic_id, int task_id, struct ping_mesh_sta
         roce_err("input is null. (logic_id=%d)", logic_id);
         return -EINVAL;
     }
-    
+
     size_out = sizeof(struct ping_mesh_stat);
-    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PING_MESH_INFO, (char*)&task_id, sizeof(int), (char*)info, &size_out);
+    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PING_MESH_INFO, (char *)&task_id, sizeof(int), (char *)info, &size_out);
     trans_data.pid = getpid();
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
@@ -208,7 +208,7 @@ int dsmi_get_hccs_ping_mesh_info(int logic_id, int task_id, struct ping_mesh_sta
 int dsmi_get_hccs_ping_mesh_state(int logic_id, int task_id, unsigned int *state)
 {
     int ret;
-	struct ds_trans_data trans_data = {0};
+    struct ds_trans_data trans_data = {0};
     unsigned int size_out;
 
     if (logic_id > DS_MAX_LOGIC_ID || logic_id < 0) {
@@ -219,9 +219,9 @@ int dsmi_get_hccs_ping_mesh_state(int logic_id, int task_id, unsigned int *state
         roce_err("input is null. (logic_id=%d)", logic_id);
         return -EINVAL;
     }
-    
+
     size_out = sizeof(int);
-    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PING_MESH_STATE, (char*)&task_id, sizeof(int), (char*)state, &size_out);
+    DSMI_SET_TRANS_DATA(trans_data, DS_GET_PING_MESH_STATE, (char *)&task_id, sizeof(int), (char *)state, &size_out);
     trans_data.pid = getpid();
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
@@ -247,7 +247,7 @@ int dsmi_stop_hccs_ping_mesh(int logic_id, int task_id)
     }
 
     size_out = 0;
-    DSMI_SET_TRANS_DATA(trans_data, DS_STOP_HCCS_PING_MESH, (char*)&task_id, sizeof(int), NULL, &size_out);
+    DSMI_SET_TRANS_DATA(trans_data, DS_STOP_HCCS_PING_MESH, (char *)&task_id, sizeof(int), NULL, &size_out);
     trans_data.pid = getpid();
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret != 0) {
@@ -267,7 +267,7 @@ int dsmi_start_hccs_ping_mesh(int logic_id, struct hccs_ping_mesh_operate *opera
     struct ds_trans_data trans_data = {0};
     unsigned int size_in, size_out = 0;
     int ret, ret_disable;
-    
+
     if (logic_id > DS_MAX_LOGIC_ID || logic_id < 0) {
         roce_err("logic id is invalid, expect [0]-[%d]. (logic_id=%d)", DS_MAX_LOGIC_ID, logic_id);
         return -EINVAL;
@@ -279,7 +279,7 @@ int dsmi_start_hccs_ping_mesh(int logic_id, struct hccs_ping_mesh_operate *opera
     }
 
     size_in = sizeof(struct hccs_ping_mesh_operate);
-    DSMI_SET_TRANS_DATA(trans_data, DS_START_PING_MESH_TASK, (char*)operate_info, size_in, NULL, &size_out);
+    DSMI_SET_TRANS_DATA(trans_data, DS_START_PING_MESH_TASK, (char *)operate_info, size_in, NULL, &size_out);
     trans_data.pid = getpid();
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret != 0) {
@@ -298,30 +298,29 @@ int dsmi_handle_scdr_reg(int logic_id, int port_id, struct scdr_reg_info *reg_in
 {
     int ret;
     unsigned int size;
-    struct ds_trans_data trans_data = { 0 };
- 
+    struct ds_trans_data trans_data = {0};
+
     DSMI_CHECK_PTR_VALID_RETURN_VAL(reg_info, -EINVAL);
- 
+
     if ((logic_id > DS_MAX_LOGIC_ID) || (logic_id < 0) || (port_id > MAX_PORT_ID) || (port_id < 0)) {
         roce_err("Logic id or port id is invalid.(logic_id=%d; port_id=%d)", logic_id, port_id);
         return -EINVAL;
     }
- 
+
     size = sizeof(struct scdr_reg_info);
-    DSMI_SET_TRANS_DATA(trans_data, DS_HANDLE_CDR_REG, (char*)(void*)reg_info, size, (char*)(void*)reg_info, &size);
- 
+    DSMI_SET_TRANS_DATA(trans_data, DS_HANDLE_CDR_REG, (char *)(void *)reg_info, size, (char *)(void *)reg_info, &size);
+
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
-        roce_err("Dsmi handle scdr reg failed.(ret=%d; logic_id=%d; port=%d)",
-            ret, logic_id, port_id);
+        roce_err("Dsmi handle scdr reg failed.(ret=%d; logic_id=%d; port=%d)", ret, logic_id, port_id);
         return ret;
     }
- 
+
     if (trans_data.result != 0) {
-        roce_err("Handle scdr reg result failed.(result=%d; logic_id=%d; port=%d)",
-            trans_data.result, logic_id, port_id);
+        roce_err("Handle scdr reg result failed.(result=%d; logic_id=%d; port=%d)", trans_data.result, logic_id,
+                 port_id);
     }
- 
+
     return trans_data.result;
 }
 
@@ -330,7 +329,7 @@ int dsmi_set_optical_mode(int logic_id, struct ds_optical_mode_info *data)
     struct ds_trans_data trans_data = {0};
     unsigned int size_in, size_out = 0;
     int ret;
- 
+
     if ((logic_id > DS_MAX_LOGIC_ID) || (logic_id < 0)) {
         roce_err("Logic id is invalid. (logic_id=%d)", logic_id);
         return -EINVAL;
@@ -342,19 +341,19 @@ int dsmi_set_optical_mode(int logic_id, struct ds_optical_mode_info *data)
     }
 
     size_in = sizeof(struct ds_optical_mode_info);
-    DSMI_SET_TRANS_DATA(trans_data, DS_SET_OPTICAL_MODE, (char*)data, size_in, NULL, &size_out);
-    
+    DSMI_SET_TRANS_DATA(trans_data, DS_SET_OPTICAL_MODE, (char *)data, size_in, NULL, &size_out);
+
     ret = dsmi_network_transmission_channel(logic_id, &trans_data);
     if (ret) {
         roce_err("Dsmi set optical mode failed. (ret=%d; logic_id=%d; mode=%u)", ret, logic_id, data->mode);
         return ret;
     }
-    
+
     if (trans_data.result != 0) {
-        roce_err("Dsmi set optical mode failed. (result=%d; logic_id=%d; mode=%u)",
-            trans_data.result, logic_id, data->mode);
+        roce_err("Dsmi set optical mode failed. (result=%d; logic_id=%d; mode=%u)", trans_data.result, logic_id,
+                 data->mode);
     }
-    
+
     return trans_data.result;
 }
 
@@ -364,9 +363,7 @@ int dsmi_scdr_reset_info_cmd_send(int logic_id, struct ds_scdr_reset_info *info,
     struct ds_trans_data data_info = {0};
 
     DSMI_CHECK_PTR_VALID_RETURN_VAL(info, -EINVAL);
-    DSMI_COMMON_SET_SEND_DATA(data_info, cmd,
-                              info, sizeof(struct ds_scdr_reset_info),
-                              info, &size_out);
+    DSMI_COMMON_SET_SEND_DATA(data_info, cmd, info, sizeof(struct ds_scdr_reset_info), info, &size_out);
 
     return dsmi_network_common_send(logic_id, 0, &data_info);
 }
@@ -384,7 +381,7 @@ int dsmi_set_scdr_reset_info(int logic_id, struct ds_scdr_reset_info *info)
     // 仅HUYANG支持reset info设置
     if (info->retimer_type != DS_CDR_RETIMER_TYPE_HUYANG) {
         roce_err("Dsmi get scdr reset info got unsupported cdr type. (retimer_type=%u; logic_id=%d)",
-            info->retimer_type, logic_id);
+                 info->retimer_type, logic_id);
         return UDA_DSMI_CDR_NOT_SUPPORT_ERROR;
     }
 
@@ -404,7 +401,7 @@ int dsmi_get_scdr_reset_info(int logic_id, struct ds_scdr_reset_info *info)
     // 仅HUYANG读取的reset info有效
     if (info->retimer_type != DS_CDR_RETIMER_TYPE_HUYANG) {
         roce_err("Dsmi get scdr reset info got unsupported cdr type. (retimer_type=%u; logic_id=%d)",
-            info->retimer_type, logic_id);
+                 info->retimer_type, logic_id);
         return UDA_DSMI_CDR_NOT_SUPPORT_ERROR;
     }
     return 0;
@@ -428,17 +425,15 @@ int dsmi_handle_multi_roce_ports(int logic_id, struct ds_roce_port_info *info, i
 
     DSMI_CHECK_PTR_VALID_RETURN_VAL(info, -EINVAL);
     cmd = (cmd_mode == SET_MODE) ? DS_SET_MULTI_ROCE_PORTS : DS_GET_MULTI_ROCE_PORTS;
-    DSMI_COMMON_SET_SEND_DATA(data_info, cmd,
-                              info, sizeof(struct ds_roce_port_info),
-                              info, &size_out);
+    DSMI_COMMON_SET_SEND_DATA(data_info, cmd, info, sizeof(struct ds_roce_port_info), info, &size_out);
 
     ret = dsmi_network_common_send(logic_id, 0, &data_info);
     if (ret) {
-        roce_err("Dsmi %s multi roce ports failed. (ret=%d; logic_id=%d)",
-                 cmd_mode == SET_MODE ? "set" : "get", ret, logic_id);
+        roce_err("Dsmi %s multi roce ports failed. (ret=%d; logic_id=%d)", cmd_mode == SET_MODE ? "set" : "get", ret,
+                 logic_id);
         return ret;
     }
-    
+
     return 0;
 }
 
@@ -471,9 +466,7 @@ int dsmi_operate_diagnostic_mode(int logic_id, struct ds_diag_mode_params *param
     struct ds_trans_data data_info = {0};
 
     DSMI_CHECK_PTR_VALID_RETURN_VAL(params, -EINVAL);
-    DSMI_COMMON_SET_SEND_DATA(data_info, cmd,
-                              params, sizeof(struct ds_diag_mode_params),
-                              params, &size_out);
+    DSMI_COMMON_SET_SEND_DATA(data_info, cmd, params, sizeof(struct ds_diag_mode_params), params, &size_out);
 
     return dsmi_network_common_send(logic_id, 0, &data_info);
 }
@@ -484,9 +477,7 @@ int dsmi_set_diagnostic_i2c_access_cmd(int logic_id, struct i2c_access_params *p
     struct ds_trans_data data_info = {0};
 
     DSMI_CHECK_PTR_VALID_RETURN_VAL(params, -EINVAL);
-    DSMI_COMMON_SET_SEND_DATA(data_info, cmd,
-                              params, sizeof(struct i2c_access_params),
-                              params, &size_out);
+    DSMI_COMMON_SET_SEND_DATA(data_info, cmd, params, sizeof(struct i2c_access_params), params, &size_out);
 
     return dsmi_network_common_send(logic_id, 0, &data_info);
 }
@@ -497,9 +488,7 @@ int dsmi_operate_tc_qos_info(int logic_id, char *params, size_t len, enum ds_net
     struct ds_trans_data data_info = {0};
 
     DSMI_CHECK_PTR_VALID_RETURN_VAL(params, -EINVAL);
-    DSMI_COMMON_SET_SEND_DATA(data_info, cmd,
-                              params, len,
-                              params, &size_out);
+    DSMI_COMMON_SET_SEND_DATA(data_info, cmd, params, len, params, &size_out);
 
     return dsmi_network_common_send(logic_id, 0, &data_info);
 }
@@ -563,7 +552,7 @@ int dsmi_set_mem_reserve(int logic_id, struct reserve_mem_info *info)
     }
 
     roce_info("dsmi_set_mem_reserve success. (logic_id=%d; type=%u; mem_size=%uMB; page_size=%uKB; result=%u)",
-        logic_id, info->type, info->mem_size, info->page_size, info->result);
+              logic_id, info->type, info->mem_size, info->page_size, info->result);
 
     return 0;
 }

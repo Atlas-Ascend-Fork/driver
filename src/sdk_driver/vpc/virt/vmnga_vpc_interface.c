@@ -165,7 +165,7 @@ STATIC int vpc_top_half_init_finish(struct vmnga_vpc_unit *vpc_unit)
     if (mem_size < MIN_MEM_SIZE) {
         mem_size = MIN_MEM_SIZE;
     }
-    vmng_info("Start wait begin. (dev_id=%u; size=%llu)\n", vpc_unit->dev_id, mem_size);
+    vmng_info("Start wait begin. (dev_id=%u; size=%lluGB)\n", vpc_unit->dev_id, mem_size);
     time = (u32)ka_system_msecs_to_jiffies((unsigned int)(VMNGA_START_FB_TIMEOUT_MS * mem_size));
     ret = (int)ka_task_wait_event_interruptible_timeout(
         start_dev->wq, (ka_base_atomic_read(&start_dev->start_flag) == VMNG_TASK_SUCCESS), time);
@@ -175,7 +175,7 @@ STATIC int vpc_top_half_init_finish(struct vmnga_vpc_unit *vpc_unit)
         (void)vmnga_unregister_vpc_irq_func((void *)vpc_unit, start_dev->msix_id, (void *)vpc_unit);
         return -ETIMEDOUT;
     }
-    vmng_info("Wait host start ok, (dev_id=%u;time_remain=%d)\n", vpc_unit->dev_id, ret);
+    vmng_info("Wait host start ok, (dev_id=%u;time_remain=%djiffies)\n", vpc_unit->dev_id, ret);
     return 0;
 }
 
@@ -192,6 +192,11 @@ int vmng_vpc_init(struct vmng_vpc_unit *unit_in, int server_type)
     struct vmng_vpc_unit *unit = (struct vmng_vpc_unit *)unit_in;
     struct vmnga_vpc_unit *vpc_unit;
     int ret;
+
+    if (unit == NULL) {
+        vmng_err("Input unit is NULL.\n");
+        return -EINVAL;
+    }
 
     if (server_type == SERVER_TYPE_VM_PCIE) {
         vpc_unit = vmng_kzalloc(sizeof(struct vmnga_vpc_unit), KA_GFP_KERNEL);

@@ -20,10 +20,10 @@
 #include "drv_type.h"
 #include "dms_msg.h"
 
-#define DMS_TIMEZONE_HEAD_BIT   15
-#define DMS_TIMEZONE_BODY_BIT   14
-#define DMS_TIMEZONE_BODY_DATA  0x03
-#define DMS_TIMEZONE_BODY_BOTH  0x01
+#define DMS_TIMEZONE_HEAD_BIT 15
+#define DMS_TIMEZONE_BODY_BIT 14
+#define DMS_TIMEZONE_BODY_DATA 0x03
+#define DMS_TIMEZONE_BODY_BOTH 0x01
 
 #define DMS_TIME_NEED_UPDATE 1
 #define DMS_TIME_UPDATE_DONE 0
@@ -49,13 +49,13 @@
 #define DMS_TIMEZONE_MAX_COUNT 60
 
 struct dms_time_sync_info {
-    u32 system_state;               /* for system state: prepare to reboot or working */
-    u32 timer_node_id;              /* for timer task id, used at unregister task process */
+    u32 system_state;  /* for system state: prepare to reboot or working */
+    u32 timer_node_id; /* for timer task id, used at unregister task process */
     char *pre_timezone;
     char *new_timezone;
-    ka_mutex_t time_sync_lock;    /* protect for localtime read */
-    u32 timezone_sync_state;        /* for localtime sync state: syncing、stop or idle */
-    u32 time_update_flag;           /* for localtime sync: need to sync or not */
+    ka_mutex_t time_sync_lock; /* protect for localtime read */
+    u32 timezone_sync_state;   /* for localtime sync state: syncing、stop or idle */
+    u32 time_update_flag;      /* for localtime sync: need to sync or not */
     unsigned long pre_walltime;
 };
 
@@ -64,7 +64,7 @@ int dms_is_sync_timezone(void);
 void set_time_need_update(u32 dev_id);
 void clear_time_update_flag(u32 dev_id);
 int get_time_update_flag(u32 dev_id);
-struct dms_time_sync_info* dms_get_time_sync_info(u32 dev_id);
+struct dms_time_sync_info *dms_get_time_sync_info(u32 dev_id);
 int dms_time_sync_event(u64 user_data);
 int dms_time_sync_init(u32 dev_id);
 void dms_time_sync_exit(u32 dev_id);
@@ -76,4 +76,3 @@ void dms_time_sync_info_free(u32 dev_id);
 int dms_heartbeat_is_stop(u32 dev_id);
 
 #endif
-

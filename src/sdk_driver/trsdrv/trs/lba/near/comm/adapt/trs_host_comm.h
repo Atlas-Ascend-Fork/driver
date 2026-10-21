@@ -17,17 +17,23 @@
 #include "trs_pub_def.h"
 #include "trs_msg.h"
 
+#define ALIGN_UP(len, pagesize) (((len) + (pagesize) - 1) & (~((pagesize) - 1)))
+
 struct trs_adapt_irq_attr {
     u32 irq_type;
     u32 irq;
 };
 
+int trs_host_get_sq_mem_handle(struct trs_id_inst *inst, int pid, struct trs_sq_mem_handle *handle);
+void trs_host_put_sq_mem_handle(struct trs_id_inst *inst, int pid, struct trs_sq_mem_handle *handle);
 int trs_host_get_ssid(struct trs_id_inst *inst, int *user_visible_flag, int *ssid);
 int trs_host_ts_adapt_abnormal_proc(u32 devid, struct trs_msg_data *msg);
 int trs_host_set_ts_status(u32 devid, struct trs_msg_data *data);
 int trs_host_flush_id(u32 devid, struct trs_msg_data *data);
 int trs_host_res_is_check_msg_proc(u32 devid, struct trs_msg_data *data);
 int trs_host_res_id_check(struct trs_id_inst *inst, int id_type, u32 res_id);
+int trs_host_res_id_get(struct trs_id_inst *inst, int id_type, u32 res_id, u32 hpid, u32 seq);
+int trs_host_res_id_put(struct trs_id_inst *inst, int id_type, u32 res_id, u32 hpid, u32 seq);
 int trs_host_res_num_query(struct trs_id_inst *inst, struct trs_res_query_para *para);
 int trs_host_request_irq(struct trs_id_inst *inst, struct trs_adapt_irq_attr *attr, void *para, const char *name,
                          ka_irqreturn_t (*handler)(int irq, void *para));

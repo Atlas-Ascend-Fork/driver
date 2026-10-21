@@ -39,17 +39,16 @@
 #include "soma_flag.h"
 #include "mem_pool_uk_msg.h"
 #include "mem_pool_client.h"
+#include "svm_soma.h"
 
 #define SOMA_POOL_PAGE_SHIFT 21
 #define SOMA_POOL_HUGE_PAGE_SIZE (1UL << SOMA_POOL_PAGE_SHIFT) /* 2MB */
-#define SOMA_MEM_ALLOC 0
-#define SOMA_MEM_FREE 1
 
-struct soma_global_va_state {
-    struct svm_share_priv_head head;
-    bool deleted;
-    u64 va;
-};
+typedef enum {
+    SOMA_MEM_ALLOC = 0,   // Reuse && New allocation
+    SOMA_MEM_FREE = 1,    // Free
+    SOMA_MEM_WAITING = 2, // Awaiting reuse
+} SomaFlag;
 
 typedef struct {
     drv_mem_handle_t *handle;
@@ -93,50 +92,39 @@ static int soma_mem_ioctl(u32 devid, u64 *va, u64 size, u32 flag, struct svm_glo
     return 0;
 }
 
-static int soma_global_va_config(u64 start, int flag)
+static int soma_mem_config_get(u32 devid, u64 va, u64 *size)
 {
+    struct svm_global_va src_info = {0};
+    void *va_handle = NULL;
+    void *svmm_inst = NULL;
+    u64 start = va;
+    u64 svm_flag;
     int ret;
-    struct svm_prop src_prop;
-    struct svm_global_va src_info;
-    ret = svm_get_prop(start, &src_prop);
-    if (ret != 0) {
-        svm_soma_err("Get src prop failed. (start=%llx)\n", start);
-        return ret;
+
+    va_handle = svm_handle_get(va);
+    if (va_handle == NULL) {
+        svm_soma_err("Get va handle failed. (va=0x%llx)\n", va);
+        return DRV_ERROR_INVALID_VALUE;
     }
 
-    svm_global_va_pack(0, src_prop.tgid, src_prop.start, src_prop.size, &src_info);
-    ret = uda_get_udevid_by_devid_ex(src_prop.devid, &src_info.udevid);
+    svmm_inst = vmm_get_svmm(va_handle);
+    if (svmm_inst == NULL) { /* vmm map addr first prefetch */
+        svm_soma_err("Get svmm inst failed. (va=0x%llx)\n", va);
+        svm_handle_put(va_handle);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    src_info.udevid = SVM_INVALID_UDEVID;
+    ret = svm_svmm_get_seg(svmm_inst, &devid, &start, &svm_flag, &src_info);
     if (ret != DRV_ERROR_NONE) {
-        svm_soma_err("Get udevid failed. (devid=%u; ret=%d)\n", src_prop.devid, ret);
+        svm_handle_put(va_handle);
+        svm_soma_err("Get seg failed. (devid=%u; va=0x%llx)\n", devid, va);
         return ret;
     }
 
-    ret = soma_mem_ioctl(svm_get_host_devid(), &start, src_prop.size, (u32)flag, &src_info);
-    if (ret != 0) {
-        svm_soma_err("Config global va failed. (devid=%u; va=%llx)\n", svm_get_host_devid(), start);
-    }
-
-    return ret;
-}
-
-static int soma_global_va_release(void *priv, bool force)
-{
-    int ret;
-    struct soma_global_va_state *va_state = (struct soma_global_va_state *)priv;
-    u64 start = va_state->va;
-
-    (void)force;
-    if (!va_state->deleted) {
-        ret = soma_global_va_config(start, SVM_SOMA_GLOBAL_VA_DELETE);
-        if (ret != 0) {
-            svm_soma_err("Config global va failed when destroy pool. (va=%llx)\n", start);
-            return ret;
-        }
-        va_state->deleted = true;
-    }
-
-    svm_ua_free(va_state);
-    return 0;
+    *size = src_info.size;
+    svm_handle_put(va_handle);
+    return DRV_ERROR_NONE;
 }
 
 static int soma_vmm_va_release(void *priv, bool force)
@@ -149,6 +137,9 @@ static int soma_vmm_va_release(void *priv, bool force)
 
     (void)force;
     svmm_inst = vmm_get_svmm_inst(priv);
+    if (svmm_inst == NULL) {
+        return 0;
+    }
 
     while (svm_svmm_get_first_seg(svmm_inst, &devid, &va, &svm_flag, &src_info) == 0) {
         vmm_restore_real_src_va(&src_info);
@@ -167,13 +158,6 @@ static int soma_vmm_va_release(void *priv, bool force)
     svm_vmm_svmm_destroy_priv(priv);
     return 0;
 }
-
-static struct svm_priv_ops soma_global_va_priv_ops = {
-    .release = soma_global_va_release,
-    .get_prop = NULL,
-    .show = NULL,
-    .should_criu_reset = NULL,
-};
 
 static struct svm_priv_ops soma_vmm_va_priv_ops = {
     .release = soma_vmm_va_release,
@@ -204,26 +188,7 @@ static int _free_global_va(u64 start)
 static int free_global_va(drv_mem_handle_t *handle)
 {
     int ret;
-    void *va_handle = NULL;
-    struct soma_global_va_state *va_state;
     u64 start = vmm_get_mem_handle_va(handle);
-
-    va_handle = svm_handle_get(start);
-    if (va_handle == NULL) {
-        svm_soma_err("Get va handle failed. (start=%llx)\n", start);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    va_state = (struct soma_global_va_state *)svm_get_priv(va_handle);
-
-    ret = soma_global_va_config(start, SVM_SOMA_GLOBAL_VA_DELETE);
-    if (ret != 0) {
-        svm_handle_put(va_handle);
-        svm_soma_err("Config global va failed when destroy pool. (va=%llx)\n", start);
-        return ret;
-    }
-    va_state->deleted = true;
-    svm_handle_put(va_handle);
 
     ret = _free_global_va(start);
     if (ret != 0) {
@@ -286,6 +251,27 @@ static soma_mem_handle *soma_mem_get_handle(u64 pool_id)
     return NULL;
 }
 
+static soma_mem_handle *soma_mem_handle_get_by_va(u64 va)
+{
+    soma_mem_handle *soma_handle = NULL;
+    struct list_head *node = NULL, *tmp = NULL;
+
+    pthread_mutex_lock(&soma_mem_handle_lock);
+    list_for_each_safe(node, tmp, &soma_mem_handle_head)
+    {
+        soma_handle = list_entry(node, soma_mem_handle, node);
+        u64 start = soma_handle->pool_va;
+        u64 end = soma_handle->pool_va + soma_handle->pool_size;
+        if (start <= va && va < end) {
+            mem_handle_get(soma_handle);
+            break;
+        }
+        soma_handle = NULL;
+    }
+    pthread_mutex_unlock(&soma_mem_handle_lock);
+    return soma_handle;
+}
+
 static soma_mem_handle *soma_mem_handle_get(u64 pool_id)
 {
     soma_mem_handle *soma_handle = soma_mem_get_handle(pool_id);
@@ -304,7 +290,7 @@ static int _malloc_global_va(u64 *va, u64 size, u32 devid, u32 module_id)
     struct svm_malloc_location location;
 
     svm_flag |= SVM_FLAG_CAP_VMM_VA_FREE | SVM_FLAG_ATTR_VA_ONLY | SVM_FLAG_CAP_VMM_EXPORT | SVM_FLAG_BY_PASS_CACHE |
-                SVM_FLAG_ATTR_PA_HPAGE | SVM_FLAG_CAP_VMM_MAP;
+                SVM_FLAG_ATTR_PA_HPAGE | SVM_FLAG_CAP_VMM_MAP | SVM_FLAG_CAP_GET_ATTR;
     ret = svm_query_page_size_by_svm_flag(devid, svm_flag, &align);
     if (ret != DRV_ERROR_NONE) {
         svm_soma_err("Query page size failed. (ret=%d; devid=%u; flag=0x%llx)\n", ret, devid, svm_flag);
@@ -315,58 +301,10 @@ static int _malloc_global_va(u64 *va, u64 size, u32 devid, u32 module_id)
     svm_flag_set_module_id(&svm_flag, module_id);
     ret = svm_malloc(va, size, align, svm_flag, &location);
     if (ret != 0) {
-        svm_soma_err("Module mem malloc not success. (ret=%d; size=%llu; devid=%u)\n", ret, size, devid);
+        svm_soma_err("Module mem malloc failed. (ret=%d; size=%llu; devid=%u)\n", ret, size, devid);
         return ret;
     }
     (void)svm_mod_va_devid(*va, devid);
-    return ret;
-}
-
-static int global_va_malloc_post_proc(u64 start, u32 devid, const struct drv_mem_prop *prop,
-                                      drv_mem_handle_t **out_handle)
-{
-    int ret = 0;
-    drv_mem_handle_t *handle = NULL;
-    struct soma_global_va_state *va_state = NULL;
-    void *va_handle = NULL;
-
-    ret = soma_global_va_config(start, SVM_SOMA_GLOBAL_VA_ALLOC);
-    if (ret) {
-        svm_soma_err("Get global va cfg failed when create soma pool. (start=%llx)\n", start);
-        return ret;
-    }
-
-    va_handle = svm_handle_get(start);
-    if (va_handle == NULL) {
-        svm_err("Get va handle failed. (start=%llx)\n", start);
-        ret = DRV_ERROR_INVALID_VALUE;
-        goto delete_config;
-    }
-
-    va_state = (struct soma_global_va_state *)svm_ua_calloc(1, sizeof(struct soma_global_va_state));
-    if (va_state == NULL) {
-        (void)svm_set_priv(va_handle, NULL, &soma_global_va_priv_ops);
-        svm_err("Malloc failed. (va=0x%llx)\n", start);
-        svm_handle_put(va_handle);
-        ret = DRV_ERROR_OUT_OF_MEMORY;
-        goto delete_config;
-    }
-    va_state->deleted = false;
-    va_state->va = start;
-    va_state->head.type = SVM_SHARE_TYPE_SOMA;
-    (void)svm_set_priv(va_handle, va_state, &soma_global_va_priv_ops);
-    svm_handle_put(va_handle);
-
-    handle = vmm_normal_handle_create(devid, start, prop);
-    if (handle == NULL) {
-        ret = DRV_ERROR_OUT_OF_MEMORY;
-        goto delete_config;
-    }
-    *out_handle = handle;
-    return ret;
-
-delete_config:
-    soma_global_va_config(start, SVM_SOMA_GLOBAL_VA_DELETE);
     return ret;
 }
 
@@ -383,9 +321,10 @@ static int malloc_global_va(drv_mem_handle_t **out_handle, u64 size, const struc
         return ret;
     }
 
-    ret = global_va_malloc_post_proc(start, devid, prop, out_handle);
-    if (ret) {
-        svm_soma_err("Global va malloc  post process failed. (ret=%d)\n", ret);
+    *out_handle = vmm_normal_handle_create(devid, start, prop);
+    if (*out_handle == NULL) {
+        ret = DRV_ERROR_OUT_OF_MEMORY;
+        svm_soma_err("Mem handle create failed. (ret=%d)\n", ret);
         (void)_free_global_va(start);
         return ret;
     }
@@ -393,7 +332,7 @@ static int malloc_global_va(drv_mem_handle_t **out_handle, u64 size, const struc
     return ret;
 }
 
-static drvError_t mem_pool_create_set_ops(u64 va)
+static drvError_t mem_pool_create_set_ops(u64 va, u32 pool_devid)
 {
     void *va_handle = NULL;
     int ret = 0;
@@ -406,6 +345,11 @@ static drvError_t mem_pool_create_set_ops(u64 va)
     }
     svm_set_priv_ops(va_handle, &soma_vmm_va_priv_ops);
     svm_set_mem_source(va_handle, SVM_POOL_MEM);
+    svm_add_prop_flag(
+        va_handle, SVM_FLAG_CAP_SYNC_COPY | SVM_FLAG_CAP_MEMSET | SVM_FLAG_CAP_LDST | SVM_FLAG_CAP_GET_ATTR |
+                       SVM_FLAG_CAP_GET_D2D_TRANS_WAY | SVM_FLAG_CAP_DMA_DESC_CONVERT | SVM_FLAG_CAP_SYNC_COPY_BATCH |
+                       SVM_FLAG_CAP_ASYNC_COPY_SUBMIT | SVM_FLAG_CAP_ASYNC_COPY_WAIT | SVM_FLAG_ATTR_PA_P2P);
+    svm_mod_prop_devid(va_handle, pool_devid);
     svm_handle_put(va_handle);
     return ret;
 }
@@ -450,6 +394,7 @@ static drvError_t halMemPoolCreateInner(soma_mem_pool_t pool, soma_mem_pool_prop
     mem_handle->pool_size = (u64)prop.maxSize;
     mem_handle->dev_id = pool.devId;
     mem_handle->ref = 1ULL;
+
     pthread_mutex_lock(&soma_mem_handle_lock);
     drv_user_list_add_tail(&mem_handle->node, &soma_mem_handle_head);
     pthread_mutex_unlock(&soma_mem_handle_lock);
@@ -470,6 +415,7 @@ static drvError_t soma_pool_set_mem_source(uint64_t va, memSource mem_source)
         return DRV_ERROR_INVALID_VALUE;
     }
     svm_set_mem_source(va_handle, mem_source);
+    svm_mod_prop_devid(va_handle, SVM_INVALID_DEVID);
     svm_handle_put(va_handle);
     return DRV_ERROR_NONE;
 }
@@ -482,13 +428,13 @@ static int soma_pool_create_para_check(soma_mem_pool_t pool, soma_mem_pool_prop 
 
     ret = svm_share_dst_align_use_hpage_size(prop.va, prop.maxSize, pool.devId, &align);
     if (ret != DRV_ERROR_NONE) {
-        svm_soma_err("va is not aligned when create soma pool. (va=0x%llx)\n", prop.va);
+        svm_soma_err("Va is not aligned when creating soma pool. (va=0x%llx)\n", prop.va);
         return ret;
     }
 
     ret = svm_get_prop(prop.va, &va_prop);
     if (ret != 0) {
-        svm_soma_err("Get prop failed when creating pool. (va=%llx)\n", prop.va);
+        svm_soma_err("Get prop failed when create pool. (va=%llx)\n", prop.va);
         return ret;
     }
 
@@ -520,7 +466,7 @@ static int soma_pool_create_para_check(soma_mem_pool_t pool, soma_mem_pool_prop 
     }
 
     if (pool.devId != prop.mem_prop.devid) {
-        svm_soma_err("Pool devid is not equal to Prop devid. (pool.devId=0x%u; prop.devid=0x%u)\n", pool.devId,
+        svm_soma_err("Pool devid is not equal to prop devid. (pool.devId=0x%u; prop.devid=0x%u)\n", pool.devId,
                      prop.mem_prop.devid);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -528,27 +474,45 @@ static int soma_pool_create_para_check(soma_mem_pool_t pool, soma_mem_pool_prop 
     return ret;
 }
 
-drvError_t halMemPoolCreate(soma_mem_pool_t pool, soma_mem_pool_prop prop)
+drvError_t halMemPoolCreate(soma_mem_pool_t pool, soma_mem_pool_prop *prop)
 {
     int ret;
+    void *va_ptr = NULL;
 
-    ret = soma_pool_create_para_check(pool, prop);
+    if (prop == NULL) {
+        svm_soma_err("Invalid value, prop is NULL. (devid=%u; poolid=%d)\n", pool.devId, pool.poolId);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    ret = halMemAddressReserve(&va_ptr, prop->maxSize, 0, NULL, 0);
     if (ret) {
+        svm_soma_err("Memory reserve failed. (size=%lx; ret=%d)\n", prop->maxSize, ret);
         return ret;
     }
+    prop->va = (uint64_t)(uintptr_t)va_ptr;
 
-    ret = mem_pool_create_set_ops(prop.va);
+    ret = soma_pool_create_para_check(pool, *prop);
     if (ret) {
-        svm_soma_err("Pool create pre proc failed. (devid=%u; poolid=%d; ret=%d)\n", pool.devId, pool.poolId, ret);
-        return ret;
+        goto reserve_rollback;
     }
 
-    ret = halMemPoolCreateInner(pool, prop);
+    ret = mem_pool_create_set_ops(prop->va, pool.devId);
     if (ret) {
         svm_soma_err("Pool create pre proc failed. (devid=%u; poolid=%d; ret=%d)\n", pool.devId, pool.poolId, ret);
-        soma_pool_set_mem_source(prop.va, SVM_NORMAL_MEM);
+        goto reserve_rollback;
     }
 
+    ret = halMemPoolCreateInner(pool, *prop);
+    if (ret) {
+        svm_soma_err("Pool create pre proc failed. (devid=%u; poolid=%d; ret=%d)\n", pool.devId, pool.poolId, ret);
+        soma_pool_set_mem_source(prop->va, SVM_NORMAL_MEM);
+        goto reserve_rollback;
+    }
+
+    return ret;
+
+reserve_rollback:
+    (void)halMemAddressFree((void *)(uintptr_t)prop->va);
     return ret;
 }
 
@@ -579,6 +543,7 @@ static int somaPoolDestroyInner(soma_mem_pool_t pool)
         mem_handle_put(mem_handle);
         return ret;
     }
+
     ret = halMemAddressFree((void *)(uintptr_t)va);
     if (ret != DRV_ERROR_NONE) {
         svm_soma_err("Free reserved va failed. (va=0x%llx; ret=%d)\n", va, ret);
@@ -658,7 +623,7 @@ drvError_t halMemPoolSetAttr(soma_mem_pool_t pool, enum soma_mem_pool_attr attr,
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    soma_handle = soma_mem_get_handle(pool.poolId);
+    soma_handle = soma_mem_handle_get(pool.poolId);
     if (soma_handle == NULL) {
         svm_soma_err("Invalid pool id. (poolId=%d)\n", pool.poolId);
         return DRV_ERROR_INVALID_VALUE;
@@ -668,6 +633,7 @@ drvError_t halMemPoolSetAttr(soma_mem_pool_t pool, enum soma_mem_pool_attr attr,
     ret = soma_pool_check_attr_val(attr, val);
     if (ret != 0) {
         svm_soma_err("SOMA pool check attr val failed. (poolId=%d, attr=%d, val=%d)\n", pool.poolId, (int)attr, val);
+        mem_handle_put(soma_handle);
         return ret;
     }
 
@@ -677,6 +643,7 @@ drvError_t halMemPoolSetAttr(soma_mem_pool_t pool, enum soma_mem_pool_attr attr,
                      val, ret);
     }
 
+    mem_handle_put(soma_handle);
     return ret;
 }
 
@@ -696,7 +663,7 @@ drvError_t halMemPoolGetAttr(soma_mem_pool_t pool, enum soma_mem_pool_attr attr,
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    soma_handle = soma_mem_get_handle(pool.poolId);
+    soma_handle = soma_mem_handle_get(pool.poolId);
     if (soma_handle == NULL) {
         svm_soma_err("Invalid pool id. (poolId=%d)\n", pool.poolId);
         return DRV_ERROR_INVALID_VALUE;
@@ -707,6 +674,7 @@ drvError_t halMemPoolGetAttr(soma_mem_pool_t pool, enum soma_mem_pool_attr attr,
         *(uint64_t *)value = val;
     }
 
+    mem_handle_put(soma_handle);
     return ret;
 }
 
@@ -773,10 +741,11 @@ static int _soma_mem_malloc_cfg(void *va_handle, u64 va, u64 size, struct svm_pr
 
     src_info.va = src_prop->start; /* map use real va */
 
-    svm_dst_va_pack(svm_get_host_devid(), PROCESS_CP1, va, size, &dst_info);
+    svm_dst_va_pack(src_prop->devid, PROCESS_CP1, va, size, &dst_info);
     ret = soma_mem_ioctl(dst_info.devid, &dst_info.va, dst_info.size, smm_flag, &src_info);
     if (ret != 0) {
-        svm_soma_err("SOMA mem malloc cfg failed. (devid=%u; va=%llx; size=%llx)\n", src_prop->devid, va, size);
+        svm_soma_err("SOMA mem malloc cfg to device failed. (devid=%u; va=%llx; size=%llx)\n", src_prop->devid, va,
+                     size);
         (void)svm_svmm_del_seg(svmm_inst, src_prop->devid, va, size, true);
         return ret;
     }
@@ -784,7 +753,7 @@ static int _soma_mem_malloc_cfg(void *va_handle, u64 va, u64 size, struct svm_pr
     return 0;
 }
 
-static int soma_mem_malloc_cfg(u64 va, u64 size, drv_mem_handle_t *handle)
+static int soma_mem_malloc_cfg(u64 va, u64 size, drv_mem_handle_t *handle, u32 flag)
 {
     u64 handle_start = vmm_get_mem_handle_va(handle);
     struct svm_prop src_prop;
@@ -794,6 +763,12 @@ static int soma_mem_malloc_cfg(u64 va, u64 size, drv_mem_handle_t *handle)
     ret = svm_get_prop(handle_start, &src_prop);
     if (ret != 0) {
         svm_soma_err("Get src prop failed. (handle_start=%llx)\n", handle_start);
+        return ret;
+    }
+
+    ret = svm_get_dev_tgid(src_prop.devid, &src_prop.tgid);
+    if (ret != DRV_ERROR_NONE) {
+        svm_soma_err("Get dev tgid failed. (ret=%d; devid=%u)\n", ret, src_prop.devid);
         return ret;
     }
 
@@ -815,7 +790,11 @@ static int soma_mem_malloc_cfg(u64 va, u64 size, drv_mem_handle_t *handle)
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    ret = _soma_mem_malloc_cfg(va_handle, va, size, &src_prop, handle);
+    if (flag == SOMA_MEM_WAITING) {
+        (void)_soma_mem_malloc_cfg(va_handle, va, size, &src_prop, handle);
+    } else {
+        ret = _soma_mem_malloc_cfg(va_handle, va, size, &src_prop, handle);
+    }
     svm_handle_put(va_handle);
 
     return ret;
@@ -836,16 +815,14 @@ static int soma_validate_cfg_params(u64 va, u64 size, const soma_mem_handle *som
     end = va + size;
     pool_end = soma_handle->pool_va + soma_handle->pool_size;
     if ((va < soma_handle->pool_va) || (end > pool_end)) {
-        svm_soma_err(
-            "Pool cfg addr out of range. (pool_id=%llu; va=0x%llx; size=%llu; pool_va=0x%llx; pool_size=%llu)\n",
-            soma_handle->pool_id, va, size, soma_handle->pool_va, soma_handle->pool_size);
+        svm_soma_err("Pool cfg addr out of range. (pool_id=%llu)\n", soma_handle->pool_id);
         return DRV_ERROR_INVALID_VALUE;
     }
 
     return DRV_ERROR_NONE;
 }
 
-static int soma_pool_malloc_cfg(u64 va, u64 size, soma_mem_handle *soma_handle)
+static int soma_pool_malloc_cfg(u64 va, u64 size, soma_mem_handle *soma_handle, u32 flag)
 {
     int ret;
 
@@ -855,7 +832,7 @@ static int soma_pool_malloc_cfg(u64 va, u64 size, soma_mem_handle *soma_handle)
     }
 
     svm_use_pipeline();
-    ret = soma_mem_malloc_cfg(va, size, soma_handle->handle);
+    ret = soma_mem_malloc_cfg(va, size, soma_handle->handle, flag);
     svm_unuse_pipeline();
 
     return ret;
@@ -880,7 +857,7 @@ static int _soma_mem_free_cfg(u32 devid, void *va_handle, u64 va, u64 size)
     src_info.udevid = SVM_INVALID_UDEVID;
     ret = svm_svmm_get_seg(svmm_inst, &devid, &start, &svm_flag, &src_info);
     if (ret != 0) {
-        svm_soma_err("Get seg failed. (devid=%u; va=0x%llx; size=0x%llx bytes)\n", devid, va, size);
+        svm_soma_err("Get seg failed. (devid=%u; va=0x%llx; size=0x%llx)\n", devid, va, size);
         return ret;
     }
 
@@ -892,7 +869,7 @@ static int _soma_mem_free_cfg(u32 devid, void *va_handle, u64 va, u64 size)
         return ret;
     }
 
-    svm_dst_va_pack(svm_get_host_devid(), PROCESS_CP1, start, size, &dst_info);
+    svm_dst_va_pack(devid, PROCESS_CP1, start, size, &dst_info);
     ret = soma_mem_ioctl(dst_info.devid, &dst_info.va, dst_info.size, smm_flag, &src_info);
     if (ret != 0) {
         /* not rollback */
@@ -943,23 +920,14 @@ static int soma_pool_free_cfg(u64 va, u64 size, soma_mem_handle *soma_handle)
     return ret;
 }
 
-static bool soma_mem_flag_is_malloc(uint32_t flag)
-{
-    return flag == SOMA_MEM_ALLOC;
-}
-
-static bool soma_mem_flag_is_free(uint32_t flag)
-{
-    return flag == SOMA_MEM_FREE;
-}
-
 drvError_t halMemPoolAsyncConfig(soma_mem_pool_t pool, uint64_t va, uint64_t size, uint32_t flag)
 {
     int ret = 0;
     soma_mem_handle *soma_handle = soma_mem_handle_get(pool.poolId);
     if (soma_handle == NULL || soma_handle->dev_id != pool.devId) {
         svm_soma_err("Invalid pool id. (poolId=%d)\n", pool.poolId);
-        return DRV_ERROR_INVALID_VALUE;
+        ret = DRV_ERROR_INVALID_VALUE;
+        goto out;
     }
 
     if (soma_handle->handle == NULL) {
@@ -968,14 +936,54 @@ drvError_t halMemPoolAsyncConfig(soma_mem_pool_t pool, uint64_t va, uint64_t siz
         goto out;
     }
 
-    if (soma_mem_flag_is_malloc((u32)flag)) {
-        ret = soma_pool_malloc_cfg((u64)va, (u64)size, soma_handle);
-    } else if (soma_mem_flag_is_free((u32)flag)) {
-        ret = soma_pool_free_cfg((u64)va, (u64)size, soma_handle);
-    } else {
-        svm_soma_err("SOMA mem pool config param flag is invalid. (poolId=%d)\n", flag);
-        ret = DRV_ERROR_NOT_SUPPORT;
+    switch (flag) {
+        case SOMA_MEM_ALLOC:
+            ret = soma_pool_malloc_cfg((u64)va, (u64)size, soma_handle, flag);
+            break;
+        case SOMA_MEM_FREE:
+            ret = soma_pool_free_cfg((u64)va, (u64)size, soma_handle);
+            break;
+        case SOMA_MEM_WAITING:
+            ret = soma_pool_malloc_cfg((u64)va, (u64)size, soma_handle, flag);
+            break;
+        default:
+            ret = DRV_ERROR_NOT_SUPPORT;
     }
+
+out:
+    mem_handle_put(soma_handle);
+    return ret;
+}
+
+drvError_t soma_mem_sync_free(u64 va)
+{
+    int ret = 0;
+    soma_mem_handle *soma_handle = soma_mem_handle_get_by_va(va);
+    if (soma_handle == NULL) {
+        svm_soma_err("Cannot find soma mem handle. (va=0x%llx)\n", va);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    u64 size;
+    ret = soma_mem_config_get(soma_handle->dev_id, va, &size);
+    if (ret != DRV_ERROR_NONE) {
+        svm_soma_err("Get cfg failed. (va=0x%llx)\n", va);
+        goto out;
+    }
+
+    ret = mem_pool_client_mem_free(soma_handle->dev_id, soma_handle->pool_id, size, va);
+    if (ret != DRV_ERROR_NONE) {
+        svm_soma_err("SOMA mem pool sync free failed. (va=0x%llx, size=%llu, pool_id=%llu, dev_id=%u)\n", va, size,
+                     soma_handle->pool_id, soma_handle->dev_id);
+        goto out;
+    }
+
+    ret = soma_mem_free_cfg(va, size);
+    if (ret != DRV_ERROR_NONE) {
+        svm_soma_err("SOMA mem free cfg failed. (va=0x%llx, size=%llu)\n", va, size);
+        goto out;
+    }
+
 out:
     mem_handle_put(soma_handle);
     return ret;

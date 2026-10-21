@@ -13,17 +13,17 @@
 
 #include "prof_common.h"
 #include "prof_core.h"
+#include "prof_adapt.h"
 
 /******************************part1: prof channel list management interfaces******************************/
 STATIC bool prof_is_support_register(uint32_t chan_id)
 {
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-    uint32_t support_chan_list[] = {CHANNEL_NPU_APP_MEM, CHANNEL_NPU_MODULE_MEM, CHANNEL_AICPU, CHANNEL_CUS_AICPU,
-                                    CHANNEL_ADPROF};
-#else
     uint32_t support_chan_list[] = {CHANNEL_NPU_MODULE_MEM, CHANNEL_AICPU, CHANNEL_CUS_AICPU, CHANNEL_ADPROF};
-#endif
     uint64_t i;
+
+    if (prof_is_v4_extra_channel(chan_id)) {
+        return true;
+    }
 
     for (i = 0; i < sizeof(support_chan_list) / sizeof(uint32_t); i++) {
         if (support_chan_list[i] == chan_id) {
@@ -36,7 +36,11 @@ STATIC bool prof_is_support_register(uint32_t chan_id)
 
 STATIC bool prof_is_support_host_sample_register(uint32_t chan_id)
 {
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
+    if (!prof_is_support_host_sample()) {
+        (void)chan_id;
+        return false;
+    }
+
 #ifdef DRV_HOST
     uint32_t support_chan_list[] = {CHANNEL_STARS_SOC_LOG_BUFFER, CHANNEL_FFTS_PROFILE_BUFFER_TASK, CHANNEL_AICPU,
                                     CHANNEL_CUS_AICPU, CHANNEL_ADPROF};
@@ -52,10 +56,6 @@ STATIC bool prof_is_support_host_sample_register(uint32_t chan_id)
         }
     }
     return false;
-#else
-    (void)chan_id;
-    return false;
-#endif
 }
 
 STATIC int prof_sample_register_inner(unsigned int dev_id, unsigned int chan_id, struct prof_sample_register_para *para,

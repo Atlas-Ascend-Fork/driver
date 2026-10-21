@@ -19,8 +19,12 @@
 #include "pbl/pbl_soc_res.h"
 #include "trs_chan_update.h"
 
-static struct trs_sqcq_agent_ops sqcq_agent_ops = {
-    .device_init = NULL, .device_uninit = NULL, .sqe_update = NULL, .cqe_update = NULL, .sqe_update_src_check = NULL};
+static struct trs_sqcq_agent_ops sqcq_agent_ops = {.device_init = NULL,
+                                                   .device_uninit = NULL,
+                                                   .sq_send_mode_update = NULL,
+                                                   .sqe_update = NULL,
+                                                   .cqe_update = NULL,
+                                                   .sqe_update_src_check = NULL};
 static struct trs_res_ops res_ops[TRS_DEV_MAX_NUM] = {{{NULL}}};
 
 void trs_res_ops_register(u32 devid, struct trs_res_ops *ops)
@@ -56,12 +60,23 @@ void trs_sqcq_agent_ops_unregister(void)
 {
     sqcq_agent_ops.device_init = NULL;
     sqcq_agent_ops.device_uninit = NULL;
+    sqcq_agent_ops.sq_send_mode_update = NULL;
     sqcq_agent_ops.sqe_update = NULL;
     sqcq_agent_ops.cqe_update = NULL;
     sqcq_agent_ops.mb_update = NULL;
     sqcq_agent_ops.sqe_update_src_check = NULL;
 }
 KA_EXPORT_SYMBOL_GPL(trs_sqcq_agent_ops_unregister);
+
+int trs_chan_ops_sq_send_mode_update(u32 devid, int mode)
+{
+    if (sqcq_agent_ops.sq_send_mode_update == NULL) {
+        return -EOPNOTSUPP;
+    }
+
+    return sqcq_agent_ops.sq_send_mode_update(devid, mode);
+}
+KA_EXPORT_SYMBOL_GPL(trs_chan_ops_sq_send_mode_update);
 
 int trs_chan_get_ts_sram_addr(struct trs_id_inst *inst, phys_addr_t *paddr, size_t *size)
 {

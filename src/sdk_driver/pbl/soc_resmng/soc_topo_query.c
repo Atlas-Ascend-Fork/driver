@@ -124,7 +124,7 @@ STATIC int topo_check_hccs_sw(unsigned int dev_id1, unsigned int dev_id2, bool *
 
     ret = soc_resmng_dev_get_attr(dev_id1, BOARD_HW_INFO, &soc_res_hw_info, sizeof(soc_res_hw_info));
     if (ret != 0) {
-        soc_err("Get hardware info to soc resmng failed. (dev_id=%u; ret=%d)\n", dev_id1, ret);
+        soc_err("Get hardware info from soc resmng failed. (dev_id=%u; ret=%d)\n", dev_id1, ret);
         return ret;
     }
 
@@ -210,7 +210,7 @@ STATIC void topo_evb_check_hccs(struct topo_id_info *id_info, unsigned int hccs_
 
     for (i = 0; i < evb_device_num; i++) {
         if ((i == id_info->chip_id) || ((id_info->hccs_group_id[id_info->chip_id] == id_info->hccs_group_id[i]) &&
-                                        (hccs_link_status & (0x1 << i)))) {
+                                        (hccs_link_status & (0x1U << i)))) {
             continue;
         } else {
             *result = false;
@@ -229,7 +229,7 @@ STATIC void topo_module_check_hccs(struct topo_id_info *id_info1, struct topo_id
                                 id_info2->host_devid :
                                 (id_info2->host_devid - SOC_MODULE_DEVICE_NUM);
         if ((id_info1->hccs_group_id[id_info1->chip_id] == id_info1->hccs_group_id[id_info2->chip_id]) &&
-            (hccs_link_status & (0x1 << id_info2->chip_id))) {
+            (hccs_link_status & (0x1U << id_info2->chip_id))) {
             *result = true;
         } else {
             *result = false;
@@ -421,8 +421,8 @@ int soc_get_dev_topology(unsigned int dev_id1, unsigned int dev_id2, int *topolo
     int ret, i;
 
     if ((dev_id1 >= ASCEND_PDEV_MAX_NUM) || (dev_id2 >= ASCEND_HOST_PDEV_MAX_NUM) || (topology_type == NULL)) {
-        soc_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; topology_type=%d)\n", dev_id1, dev_id2,
-                (topology_type != NULL));
+        soc_err("Invalid parameter. (dev_id1=%u; dev_id2=%u; topology_type_is_null=%d)\n", dev_id1, dev_id2,
+                topology_type == NULL);
         return -EINVAL;
     }
 

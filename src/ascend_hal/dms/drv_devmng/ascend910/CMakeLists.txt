@@ -35,10 +35,8 @@ target_include_directories(devdrv_obj PRIVATE
     ${DRIVER_USER_DIR}/inc/trs
     ${DRIVER_USER_DIR}/inc/mmpa_sdk
     ${DRIVER_USER_DIR}/tsdrv/
-    $<$<STREQUAL:${PRODUCT},ascend910B>:${DRIVER_USER_DIR}/inc/config/user_config/cloudv2>
     $<$<STREQUAL:${PRODUCT},ascend910B>:${DRIVER_USER_DIR}/tsdrv/ascend910>
     $<$<STREQUAL:${PRODUCT},ascend950>:${DRIVER_USER_DIR}/tsdrv/ascend910>
-    $<$<STREQUAL:${PRODUCT},ascend950>:${DRIVER_USER_DIR}/inc/config/user_config/cloudv4>
     ${DRIVER_USER_DIR}/dms/include
     ${DRIVER_USER_DIR}/dms/common
     ${DRIVER_USER_DIR}/dms/hbm

@@ -108,13 +108,13 @@ int svm_mpl_client_populate(u32 devid, u64 va, u64 size, u32 flag)
 /* host mem not support repair */
 int svm_mpl_client_populate_no_pin(u32 devid, u64 va, u64 size, u32 flag)
 {
-    return svm_mpl_populate_remote(devid, va, size, flag, true);
+    return svm_mpl_populate_remote(devid, va, size, flag | SVM_MPL_FLAG_NO_PIN, true);
 }
 
 static int _svm_mpl_client_depopulate(u32 devid, u64 va, u64 size, u32 flag, bool is_no_unpin)
 {
     if (devid == svm_get_host_devid()) {
-        return svm_mpl_depopulate(devid, va, size);
+        return svm_mpl_depopulate(devid, va, size, flag);
     } else {
         return svm_mpl_depopulate_remote(devid, va, size, flag, is_no_unpin);
     }
@@ -126,7 +126,7 @@ int svm_mpl_client_depopulate(u32 devid, u64 va, u64 size, u32 flag)
 }
 
 /* host mem not support repair */
-int svm_mpl_client_depopulate_no_unpin(u32 devid, u64 va, u64 size)
+int svm_mpl_client_depopulate_no_unpin(u32 devid, u64 va, u64 size, u32 flag)
 {
-    return svm_mpl_depopulate_remote(devid, va, size, 0, true);
+    return svm_mpl_depopulate_remote(devid, va, size, flag | SVM_MPL_FLAG_NO_PIN, true);
 }

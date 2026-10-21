@@ -39,11 +39,11 @@ drvError_t DmsGetAllDeviceList(int device_ids[], int count)
     ioarg.output = (void *)&probe_devinfo;
     ioarg.output_len = sizeof(struct urd_probe_dev_info);
 
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl(DMS_GET_ALL_DEVICE_LIST, &ioarg));
     if (ret == DRV_ERROR_NO_DEVICE) {
         DMS_WARN("IOCTL no dev, please retry. (ret=%d)\n", ret);
         return DRV_ERROR_NO_DEVICE;
-    } else if(ret != 0) {
+    } else if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "IOCTL failed. (ret=%d)\n", ret);
         return (drvError_t)ret;
     }
@@ -52,7 +52,7 @@ drvError_t DmsGetAllDeviceList(int device_ids[], int count)
         return DRV_ERROR_INNER_ERR;
     }
     ret = memcpy_s((void *)device_ids, sizeof(u32) * probe_devinfo.num_dev, probe_devinfo.devids,
-        sizeof(u32) * probe_devinfo.num_dev);
+                   sizeof(u32) * probe_devinfo.num_dev);
     if (ret != 0) {
         DMS_ERR("copy to user failed. (ret=%d)\n", ret);
         return DRV_ERROR_INNER_ERR;

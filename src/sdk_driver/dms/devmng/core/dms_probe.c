@@ -38,10 +38,15 @@ static int dms_create_device(struct devdrv_info *dev_info)
     int dev_id;
     struct dms_system_ctrl_block *cb = dms_get_sys_ctrl_cb();
 
+    if (cb == NULL) {
+        dms_err("system ctrl block is null.\n");
+        return -EINVAL;
+    }
+
     dev_id = dev_info->dev_id;
     ret = dms_check_device_id(dev_id);
     if (ret != 0) {
-        dms_err("dev_id out of range. (ret=%d; dev_id=%d; max=%u)\n", ret, dev_id, ASCEND_DEV_MAX_NUM);
+        dms_err("dev_id out of range. (ret=%d; dev_id=%d)\n", ret, dev_id);
         return ret;
     }
     cb->dev_cb_table[dev_id].state = DMS_IN_USED;
@@ -62,7 +67,7 @@ static int dms_destroy_device(struct devdrv_info *dev_info)
 
     ret = dms_check_device_id(dev_id);
     if (ret != 0) {
-        dms_err("dev_id out of range. (ret=%d; dev_id=%d; max=%u)\n", ret, dev_id, ASCEND_DEV_MAX_NUM);
+        dms_err("dev_id out of range. (ret=%d; dev_id=%d)\n", ret, dev_id);
         return ret;
     }
     cb->dev_cb_table[dev_id].state = DMS_NOT_USED;
@@ -139,7 +144,7 @@ int dms_device_register(struct devdrv_info *dev)
     dev_id = dev->dev_id;
     ret = dms_check_device_id(dev_id);
     if (ret != 0) {
-        dms_err("dev_id out of range. (ret=%d; dev_id=%d; max=%u)\n", ret, dev_id, ASCEND_DEV_MAX_NUM);
+        dms_err("dev_id out of range. (ret=%d; dev_id=%d)\n", ret, dev_id);
         return ret;
     }
 
@@ -152,6 +157,7 @@ int dms_device_register(struct devdrv_info *dev)
     ret = dms_notify_device_up(dev);
     if (ret != 0) {
         dms_err("notify call failed.  (ret=%d; dev_id=%d)\n", ret, dev_id);
+        (void)dms_destroy_device(dev);
         return ret;
     }
     return 0;
@@ -169,7 +175,7 @@ void dms_device_unregister(struct devdrv_info *dev)
     dev_id = dev->dev_id;
     ret = dms_check_device_id(dev_id);
     if (ret != 0) {
-        dms_err("dev_id out of range. (ret=%d; dev_id=%d; max=%u)\n", ret, dev_id, ASCEND_DEV_MAX_NUM);
+        dms_err("dev_id out of range. (ret=%d; dev_id=%d)\n", ret, dev_id);
         return;
     }
 

@@ -64,7 +64,8 @@ int apm_master_ctx_create(struct task_ctx_domain *domain, int master_tgid, int m
 void apm_master_ctx_destroy(struct task_ctx_domain *domain, int master_tgid);
 int apm_master_add_slave(struct task_ctx_domain *domain, int master_tgid, int slave_tgid, int local_flag,
                          struct apm_cmd_bind *para);
-int apm_master_del_slave(struct task_ctx_domain *domain, int master_tgid, int slave_tgid, struct apm_cmd_bind *para);
+int apm_master_del_slave(struct task_ctx_domain *domain, int master_tgid, int slave_tgid, int local_flag,
+                         struct apm_cmd_bind *para);
 int apm_master_query_slave_pid(struct task_ctx_domain *domain, int master_tgid, struct apm_cmd_query_slave_pid *para);
 int apm_master_get_slave_ssid(struct task_ctx_domain *domain, int master_tgid, struct apm_cmd_slave_ssid *para);
 int apm_master_set_slave_ssid(struct task_ctx_domain *domain, int master_tgid, struct apm_cmd_slave_ssid *para);
@@ -72,10 +73,10 @@ int apm_master_tgid_to_pid(struct task_ctx_domain *domain, int master_tgid, int 
 int apm_master_set_exit_stage(struct task_ctx_domain *domain, int master_tgid, struct task_start_time *time, int stage);
 int apm_master_get_exit_stage(struct task_ctx_domain *domain, int master_tgid, int *stage);
 int apm_master_set_slave_exit_stage(struct task_ctx_domain *domain, int master_tgid, u32 udevid, int slave_tgid,
-                                    int stage);
+                                    int stage, int local_flag);
 int apm_master_get_all_slave_exit_stage(struct task_ctx_domain *domain, int master_tgid, int *stage);
 int apm_master_set_slave_oom_status(struct task_ctx_domain *domain, int master_tgid, u32 udevid, int slave_tgid,
-                                    int oom_status);
+                                    int oom_status, int local_flag);
 int apm_master_get_slave_oom_status(struct task_ctx_domain *domain, int master_tgid, u32 udevid, int proc_type,
                                     int *oom_status);
 void apm_master_ctx_show(struct task_ctx_domain *domain, int master_tgid, ka_seq_file_t *seq);
@@ -83,5 +84,6 @@ int apm_master_para_check(u32 udevid, int proc_type);
 int apm_master_inc_ref(struct task_ctx_domain *domain, int master_tgid, u32 udevid);
 int apm_master_dec_ref(struct task_ctx_domain *domain, int master_tgid, u32 udevid);
 int apm_master_pre_unbind(struct task_ctx_domain *domain, int master_tgid, struct apm_cmd_bind *para);
+int apm_master_check_all_master_is_bind_slave(struct task_ctx_domain *domain, u32 udevid);
 
 #endif

@@ -15,12 +15,13 @@
 
 #include "ascend_hal.h"
 
+#define UBMM_INVALID_SERVER_ID 0x3FFU
+
 drvError_t ubmemRepairFault(uint32_t devid, halRepairFaultInfo *info);
 
 /*
  * map_route: define in ascend_hal_define.h MEM_MAP_UB_ONE_PORT_PATH...
  * if map route not exist, will return DRV_ERROR_NOT_EXIST.
  */
-drvError_t ubmemMapRouteCheck(uint32_t devid, uint32_t peer_sdid, uint32_t mem_id, uint32_t map_route);
-
+drvError_t ubmemMapRouteCheck(uint32_t dst_devid, uint32_t src_server_id, uint32_t src_mem_id, uint32_t map_route);
 #endif

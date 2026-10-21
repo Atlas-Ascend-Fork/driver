@@ -147,20 +147,20 @@ static int mwl_add_task_list(struct mwl_mem_node *mem_node, u32 server_id, int t
         }
 
         if ((entry->tgid == SVM_ANY_TASK_ID) && (tgid != SVM_ANY_TASK_ID)) {
-            svm_err("A task has been enabled, adding task not permitted.\n");
+            svm_err("A task has been enabled; adding a task is not permitted.\n");
             return -EPERM;
         }
 
         if ((entry->tgid != SVM_ANY_TASK_ID) && (tgid == SVM_ANY_TASK_ID)) {
-            svm_err("Had set pid not allowed to enable any task.\n");
+            svm_err("Had set pid; not allowed to enable any task.\n");
             return -EPERM;
         }
     }
 
     if (mem_node->node_num >= MWL_MAX_TASK_NODE_NUM) {
-        svm_err("Task node num out of range. (tgid=%d; va=%llx; size=%llx; node_num=%u; max_num=%u)\n", tgid,
+        svm_err("Task node num out of range. (tgid=%d; va=%llx; size=%llx; node_num=%u; max=%u)\n", tgid,
                 mwl_mem_get_key_start(mem_node), mwl_mem_get_key_size(mem_node), mem_node->node_num,
-                MWL_MAX_TASK_NODE_NUM);
+                (u32)MWL_MAX_TASK_NODE_NUM);
         return -EINVAL;
     }
 
@@ -345,7 +345,7 @@ static int svm_mwl_op_trusted_task(u32 udevid, int tgid, u64 id, u32 trusted_ser
     int ret;
 
     if (ka_unlikely(ka_task_get_current_tgid() != tgid)) {
-        svm_err("Only the creator has permission to operate the wlist. (udevid=%u; tgid=%d)\n", udevid, tgid);
+        svm_err("Non-creator has no permission to operate the wlist. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -EPERM;
     }
 

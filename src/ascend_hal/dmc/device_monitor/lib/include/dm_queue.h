@@ -28,21 +28,19 @@
 #define DEV_MON_MAIN_QUE_SIZE 0x100
 #define DM_ERROR_WAIT_TIMEOUT 16
 
-
 typedef struct st_dm_queue_msg_type {
     signed long mtype; /* type of message */
     void *mtext;       /* message text */
 } ST_DM_QUEUE_MSG_TYPE;
 
 unsigned long dm_queue_read(unsigned long ul_queue_id, unsigned long ul_time_out, void *p_buffer_addr,
-    unsigned long ul_buffer_size);
+                            unsigned long ul_buffer_size);
 
 int dm_queue_asy_write(unsigned long ul_queue_id, const void *p_buffer_addr, unsigned long ul_buffer_size);
 
 int dm_queue_delete(unsigned long ul_queue_id);
 
 unsigned long dm_private_queue_create(const char *pch_name, mmKey_t msgkey, unsigned long ul_length,
-    unsigned long *pul_queue_id, unsigned long ul_max_msg_size);
+                                      unsigned long *pul_queue_id, unsigned long ul_max_msg_size);
 
 #endif
-

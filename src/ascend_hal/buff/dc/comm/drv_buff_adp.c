@@ -139,7 +139,7 @@ int halBuffGetInfo(enum BuffGetCmdType cmd, void *inBuff, unsigned int inLen, vo
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if ((cmd >= BUFF_GET_MAX) || (g_buff_get_info[cmd].get_info_handle == NULL)) {
+    if ((cmd < 0) || (cmd >= BUFF_GET_MAX) || (g_buff_get_info[cmd].get_info_handle == NULL)) {
         return DRV_ERROR_NOT_SUPPORT;
     }
 

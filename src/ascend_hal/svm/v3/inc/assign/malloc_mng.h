@@ -45,6 +45,8 @@ static inline void svm_malloc_location_pack(u32 devid, u32 numa_id, struct svm_m
     location->numa_id = numa_id;
 }
 
+int svm_get_dev_tgid(u32 devid, int *tgid);
+
 int svm_malloc(u64 *start, u64 size, u64 align, u64 flag, struct svm_malloc_location *location);
 /*
  * 1. If mem ref is occupied by other task, free method will return DRV_ERROR_BUSY,
@@ -79,6 +81,7 @@ void *svm_get_priv(void *handle);
 void svm_set_priv_ops(void *handle, struct svm_priv_ops *priv_ops);
 void svm_mod_prop_flag(void *handle, u64 flag);
 void svm_mod_prop_devid(void *handle, u32 devid);
+void svm_add_prop_flag(void *handle, u64 flag);
 
 static inline void svm_mod_va_devid(u64 va, u32 devid)
 {

@@ -42,7 +42,7 @@
 #define DM_REP_FAN_INFO_RSP 0
 #define DM_REP_CHIP_ALL_TEMP_DATA_LEN 20
 
-#define DDMP_CMD_HEAD_LEN 12
+#define DDMP_CMD_HEAD_LEN 12U
 #define DDMP_CMD_RESP_HEAD_LEN 12
 
 #define DFT_CTRL_REP_MSG_LEN 4
@@ -65,15 +65,15 @@ typedef unsigned char *byte_pointer;
     DEV_MP_MSG_ST *tmp = NULL;                                     \
     ob = (DM_REP_MSG *)malloc(sizeof(DM_REP_MSG));                 \
     if (ob == NULL) {                                              \
-        DEV_MON_ERR("ob malloc failed.");                          \
-        return - ENOMEM;                                            \
+        DEV_MON_ERR("ob malloc failed.\n");                        \
+        return -ENOMEM;                                            \
     }                                                              \
     ret = memset_s(ob, sizeof(DM_REP_MSG), 0, sizeof(DM_REP_MSG)); \
     if (ret != 0) {                                                \
         free(ob);                                                  \
         ob = NULL;                                                 \
-        DEV_MON_ERR("ob memset_s failed.");                        \
-        return - EINVAL;                                            \
+        DEV_MON_ERR("ob memset_s failed.\n");                      \
+        return -EINVAL;                                            \
     }                                                              \
     tmp = (DEV_MP_MSG_ST *)(pdata)->msg.data;                      \
     ob->op_fun = tmp->op_fun;                                      \
@@ -93,17 +93,17 @@ typedef unsigned char *byte_pointer;
     ob = (DM_REP_MSG *)malloc(sizeof(DM_REP_MSG));                 \
     if (ob == NULL) {                                              \
         DEV_MON_ERR("ob malloc failed.");                          \
-        return - ENOMEM;                                            \
+        return -ENOMEM;                                            \
     }                                                              \
     ret = memset_s(ob, sizeof(DM_REP_MSG), 0, sizeof(DM_REP_MSG)); \
     if (ret != 0) {                                                \
         free(ob);                                                  \
         ob = NULL;                                                 \
         DEV_MON_ERR("ob memset_s failed.");                        \
-        return - EINVAL;                                            \
+        return -EINVAL;                                            \
     }                                                              \
     tmp = (DEV_MP_MSG_ST *)(pdata)->msg.data;                      \
-    ob->err_code = (short)(errorcode);                               \
+    ob->err_code = (short)(errorcode);                             \
     ob->op_fun = tmp->op_fun;                                      \
     ob->op_cmd = tmp->op_cmd;                                      \
     ob->total_length = 0;                                          \
@@ -111,27 +111,27 @@ typedef unsigned char *byte_pointer;
     (void)res;
 
 #ifdef _USE_BIG_ENDIAN
-#define ON_COMMAND_DATA_INT(p_data)          \
-    for (i = 0; i < sizeof(int); i++) {      \
-        *(p++) = ((byte_pointer)&p_data)[i]; \
-    }                                        \
+#define ON_COMMAND_DATA_INT(p_data)            \
+    for (i = 0; i < sizeof(int); i++) {        \
+        *(p++) = ((byte_pointer) & p_data)[i]; \
+    }                                          \
     ob->data_length += sizeof(int);
 
-#define ON_COMMAND_DATA_SHORT(p_data)        \
-    for (i = 0; i < sizeof(short); i++) {    \
-        *(p++) = ((byte_pointer)&p_data)[i]; \
-    }                                        \
+#define ON_COMMAND_DATA_SHORT(p_data)          \
+    for (i = 0; i < sizeof(short); i++) {      \
+        *(p++) = ((byte_pointer) & p_data)[i]; \
+    }                                          \
     ob->data_length += sizeof(short);
 #else
 #define ON_COMMAND_DATA_INT(p_data)              \
     for (i = 0; i < sizeof(int); i++) {          \
-        *(p++) = ((byte_pointer) &(p_data))[i]; \
+        *(p++) = ((byte_pointer) & (p_data))[i]; \
     }                                            \
     ob->data_length += sizeof(int);
 
 #define ON_COMMAND_DATA_SHORT(p_data)            \
     for (i = 0; i < sizeof(short); i++) {        \
-        *(p++) = ((byte_pointer) &(p_data))[i]; \
+        *(p++) = ((byte_pointer) & (p_data))[i]; \
     }                                            \
     ob->data_length += sizeof(short);
 
@@ -141,31 +141,31 @@ typedef unsigned char *byte_pointer;
     *(p++) = (unsigned char)(p_data); \
     ob->data_length += sizeof(unsigned char);
 
-#define ON_COMMAND_DATA_BIN(data_bin, len)          \
-    if (((len) + ob->data_length) > P_MAX_LENGTH) { \
-        free(ob);                                   \
-        ob = NULL;                                  \
-        return - EINVAL;                             \
-    }                                               \
-    ret = memmove_s(p, P_MAX_LENGTH - ob->data_length, data_bin, len);         \
-    if (ret != 0) {                                 \
-        free(ob);                                   \
-        ob = NULL;                                  \
-        return - EINVAL;                             \
-    }                                               \
-    p += (len);                                     \
+#define ON_COMMAND_DATA_BIN(data_bin, len)                             \
+    if (((len) + ob->data_length) > P_MAX_LENGTH) {                    \
+        free(ob);                                                      \
+        ob = NULL;                                                     \
+        return -EINVAL;                                                \
+    }                                                                  \
+    ret = memmove_s(p, P_MAX_LENGTH - ob->data_length, data_bin, len); \
+    if (ret != 0) {                                                    \
+        free(ob);                                                      \
+        ob = NULL;                                                     \
+        return -EINVAL;                                                \
+    }                                                                  \
+    p += (len);                                                        \
     ob->data_length += (len);
 
-#define ON_COMMAND_DATA_STRING(data_str)                          \
+#define ON_COMMAND_DATA_STRING(data_str)                                    \
     unsigned int data_str_len = (unsigned int)(strlen((char *)(data_str))); \
     ON_COMMAND_DATA_BIN(data_str, data_str_len)
 
-#define END_DM_COMMAND_SEND()                                                                   \
-    res.data = (unsigned char *)ob;                                                             \
-    res.data_len = ob->data_length + DDMP_CMD_HEAD_LEN;                                         \
+#define END_DM_COMMAND_SEND()                                                             \
+    res.data = (unsigned char *)ob;                                                       \
+    res.data_len = ob->data_length + DDMP_CMD_HEAD_LEN;                                   \
     ret = dm_send_rsp(intf, (DM_ADDR_ST *)data->addr, data->addr_len, &res, data->msgid); \
-    free(ob);                                                                                   \
-    ob = NULL;                                                                                  \
+    free(ob);                                                                             \
+    ob = NULL;                                                                            \
     return ret;
 
 #define END_DM_COMMAND()                                \

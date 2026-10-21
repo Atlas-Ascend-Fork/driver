@@ -18,11 +18,11 @@
 
 #define EVENT_DFX_BUF_SIZE_MAX (1024 * 4)
 #define EVENT_DFX_CHECK_DO_SOMETHING(condition, something) \
-do {                                                       \
-    if (condition) {                                       \
-        something;                                         \
-    }                                                      \
-} while (0)
+    do {                                                   \
+        if (condition) {                                   \
+            something;                                     \
+        }                                                  \
+    } while (0)
 
 extern int sscanf_s(const char *buffer, const char *format, ...);
 

@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -708,3 +708,23 @@ void hal_kernel_devdrv_dma_unmap_sg_no_cache(ka_scatterlist_t *sg, int nents, dm
     devdrv_sub_ops_ref(dev_ops);
 }
 KA_EXPORT_SYMBOL(hal_kernel_devdrv_dma_unmap_sg_no_cache);
+
+int devdrv_get_dma_copy_support_mode(u32 udevid, u32 *support_mode)
+{
+    struct devdrv_comm_dev_ops *dev_ops = NULL;
+    int ret = -EOPNOTSUPP;
+
+    dev_ops = devdrv_add_ops_ref();
+    if (dev_ops == NULL) {
+        devdrv_err("Get dev_ops fail.\n");
+        return -ENODEV;
+    }
+
+    if (dev_ops->ops.get_dma_copy_support_mode != NULL) {
+        ret = dev_ops->ops.get_dma_copy_support_mode(udevid, support_mode);
+    }
+    devdrv_sub_ops_ref(dev_ops);
+
+    return ret;
+}
+KA_EXPORT_SYMBOL(devdrv_get_dma_copy_support_mode);

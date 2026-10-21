@@ -17,6 +17,7 @@ struct svm_va_reserve_msg {
     u32 flag;
     u64 va;
     u64 size;
+    u64 gap_size;
     int status;
 };
 

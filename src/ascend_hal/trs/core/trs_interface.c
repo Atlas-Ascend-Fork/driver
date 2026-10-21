@@ -14,6 +14,8 @@
 #include "trs_ioctl.h"
 #include "trs_res.h"
 #include "trs_sqcq.h"
+#include "trs_dev_drv.h"
+#include "trs_user_interface.h"
 #include "trs_master_urma.h"
 #include "trs_master_async.h"
 #include "trs_master_event.h"
@@ -343,14 +345,18 @@ drvError_t halSqCqQuery(uint32_t devId, struct halSqCqQueryInfo *info)
             case TRS_CONNECT_PROTOCOL_PCIE:
             case TRS_CONNECT_PROTOCOL_HCCS:
             case TRS_CONNECT_PROTOCOL_RC:
-                if ((info->type == DRV_NORMAL_TYPE) && ((info->prop == DRV_SQCQ_PROP_H2D_ASYNC_JETTY_INFO) ||
-                                                        (info->prop == DRV_SQCQ_PROP_D2D_ASYNC_JETTY_INFO))) {
+                if ((info->type == DRV_NORMAL_TYPE) &&
+                    ((info->prop == DRV_SQCQ_PROP_H2D_ASYNC_JETTY_INFO) ||
+                     (info->prop == DRV_SQCQ_PROP_D2D_ASYNC_JETTY_INFO) ||
+                     (info->prop == DRV_SQCQ_PROP_D2D_CROSS_BOARD_ASYNC_JETTY_INFO))) {
                     return DRV_ERROR_NOT_SUPPORT;
                 }
                 return trs_sq_cq_query(devId, info);
             case TRS_CONNECT_PROTOCOL_UB:
-                if ((info->type == DRV_NORMAL_TYPE) && ((info->prop == DRV_SQCQ_PROP_H2D_ASYNC_JETTY_INFO) ||
-                                                        (info->prop == DRV_SQCQ_PROP_D2D_ASYNC_JETTY_INFO))) {
+                if ((info->type == DRV_NORMAL_TYPE) &&
+                    ((info->prop == DRV_SQCQ_PROP_H2D_ASYNC_JETTY_INFO) ||
+                     (info->prop == DRV_SQCQ_PROP_D2D_ASYNC_JETTY_INFO) ||
+                     (info->prop == DRV_SQCQ_PROP_D2D_CROSS_BOARD_ASYNC_JETTY_INFO))) {
                     return trs_sq_jetty_info_query(devId, info);
                 }
                 if ((info->type == DRV_NORMAL_TYPE) &&
@@ -471,7 +477,6 @@ drvError_t halSqCqConfig(uint32_t devId, struct halSqCqConfigInfo *info)
 
 drvError_t halSqTaskArgsAsyncCopy(uint32_t devId, struct halSqTaskArgsInfo *info)
 {
-#ifndef EMU_ST
     struct sqcq_usr_info *sq_info = NULL;
     drvError_t ret;
 
@@ -503,7 +508,6 @@ drvError_t halSqTaskArgsAsyncCopy(uint32_t devId, struct halSqTaskArgsInfo *info
         return ret;
     }
     return DRV_ERROR_NONE;
-#endif
 }
 
 static drvError_t trs_async_para_check(uint32_t dev_id, struct halAsyncDmaInputPara *in,
@@ -531,6 +535,24 @@ static drvError_t trs_async_para_check(uint32_t dev_id, struct halAsyncDmaInputP
     }
 
     return 0;
+}
+
+bool trs_feature_is_support(uint32_t dev_id, drvFeature_t type)
+{
+    if ((dev_id >= TRS_DEV_NUM) || (type >= FEATURE_MAX)) {
+        trs_run_info("Para check completed. (dev_id=%u; type=%u; dev_max=%u; feature_max=%u)\n", dev_id, (uint32_t)type,
+                     (uint32_t)TRS_DEV_NUM, (uint32_t)FEATURE_MAX);
+        return false;
+    }
+
+    if (!trs_feature_is_inited(dev_id)) {
+        if (trs_dev_feature_init_locked(dev_id) != 0) {
+            trs_run_info("Trs feature uninit record. (dev_id=%u)\n", dev_id);
+            return false;
+        }
+    }
+
+    return _trs_feature_is_support(dev_id, type);
 }
 
 drvError_t halAsyncDmaCreate(uint32_t devId, struct halAsyncDmaInputPara *in, struct halAsyncDmaOutputPara *out)
@@ -600,7 +622,6 @@ drvError_t halAsyncDmaWqeDestory(uint32_t devId, struct halAsyncDmaDestoryPara *
     return halAsyncDmaDestory(devId, para);
 }
 
-#define TRS_2D_HEIGHT_MAX (5ULL * 1024 * 1024)
 static int _trs_async_2d_para_check(struct drv2dWqeInputPara *para)
 {
     if ((para->src == NULL) || (para->dst == NULL) || (para->width == 0) || (para->height == 0) ||
@@ -640,7 +661,8 @@ static int trs_async_2d_para_check(uint32_t devId, struct halAsyncDmaInput2DPara
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if ((in->dir != TRS_ASYNC_HOST_TO_DEVICE) && (in->dir != TRS_ASYNC_DEVICE_TO_HOST)) {
+    if ((in->dir != TRS_ASYNC_HOST_TO_DEVICE) && (in->dir != TRS_ASYNC_DEVICE_TO_HOST) &&
+        (in->dir != TRS_ASYNC_DEVICE_TO_DEVICE)) {
         return DRV_ERROR_NOT_SUPPORT;
     }
 
@@ -689,8 +711,8 @@ drvError_t halAsyncDmaDestroy2D(uint32_t devId, struct halAsyncDmaDestroy2DPara 
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if (devId >= TRS_DEV_NUM || para->tsId >= TRS_TS_NUM) {
-        trs_err("Invalid para. (dev_id=%u; ts_id=%u)\n", devId, para->tsId);
+    if ((devId >= TRS_DEV_NUM) || (para->tsId >= TRS_TS_NUM) || (para->type != DRV_NORMAL_TYPE)) {
+        trs_err("Invalid para. (dev_id=%u; ts_id=%u; type=%d)\n", devId, para->tsId, para->type);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -707,7 +729,6 @@ drvError_t halAsyncDmaDestroy2D(uint32_t devId, struct halAsyncDmaDestroy2DPara 
     }
 }
 
-#define TRS_CPY_BATCH_MAX_COUNT 2048ULL
 static int _trs_async_batch_para_check(unsigned long long *src, unsigned long long *dst, unsigned long long *len,
                                        unsigned long long count)
 {
@@ -781,8 +802,8 @@ drvError_t halAsyncDmaDestroyBatch(uint32_t devId, struct halAsyncDmaDestroyBatc
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if (devId >= TRS_DEV_NUM || para->tsId >= TRS_TS_NUM) {
-        trs_err("Invalid para. (dev_id=%u; ts_id=%u)\n", devId, para->tsId);
+    if ((devId >= TRS_DEV_NUM) || (para->tsId >= TRS_TS_NUM) || (para->type != DRV_NORMAL_TYPE)) {
+        trs_err("Invalid para. (dev_id=%u; ts_id=%u; type=%d)\n", devId, para->tsId, para->type);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -826,7 +847,7 @@ static int trs_async_jetty_create_para_check(uint32_t devId, struct halAsyncDmaJ
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if ((in->dir != TRS_ASYNC_JETTY_HOST_DEVICE) && (in->dir != TRS_ASYNC_JETTY_DEVICE_TO_DEVICE)) {
+    if ((in->dir < TRS_ASYNC_JETTY_HOST_DEVICE) || (in->dir >= TRS_ASYNC_JETTY_MAX_DIR)) {
         return DRV_ERROR_NOT_SUPPORT;
     }
 
@@ -1038,7 +1059,7 @@ drvError_t halSqTaskSend(uint32_t devId, struct halTaskSendInfo *info)
     }
 
     if ((!trs_is_sq_support_send(sq_info)) || (trs_is_sq_init_without_sq_mem(sq_info->flag))) {
-        trs_warn("Sq is only id type, does not support task send. (dev_id=%u; ts_id=%u; sq_id=%u; flag=%u)\n", devId,
+        trs_warn("Sq is only id type, not support task send. (dev_id=%u; ts_id=%u; sq_id=%u; flag=%u)\n", devId,
                  info->tsId, info->sqId, sq_info->flag);
         return DRV_ERROR_NOT_SUPPORT;
     }

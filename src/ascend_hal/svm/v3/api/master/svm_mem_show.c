@@ -36,7 +36,7 @@ static void svm_show_mem_info(u32 devid, char *buf, u32 buf_len)
     struct MemInfo info = {0};
     DVresult ret;
 
-    if (devid == SVM_INVALID_DEVID) {
+    if ((devid == SVM_INVALID_DEVID) || (buf_len == 0)) {
         return;
     }
 

@@ -45,3 +45,8 @@ int vmngh_res_init_cloud_v4(u32 devid, struct vmngh_ctrl_ops *ops)
 
     return VMNG_OK;
 }
+
+vmng_feature_bitmap_t vmngh_feature_init_cloud_v4(void)
+{
+    return 0;
+}

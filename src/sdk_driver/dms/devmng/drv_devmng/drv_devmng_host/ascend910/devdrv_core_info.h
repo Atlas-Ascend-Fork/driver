@@ -22,13 +22,12 @@
 #include "dms_hotreset.h"
 #include "devdrv_manager_container.h"
 
-
 int devdrv_manager_get_core_utilization(unsigned long arg);
 int devdrv_manager_get_core(ka_file_t *filep, unsigned int cmd, unsigned long arg);
 int devdrv_manager_host_get_group_info(struct devdrv_manager_msg_info *dev_manager_msg_info,
-    struct get_ts_group_para *group_para, struct devdrv_info *info);
+                                       struct get_ts_group_para *group_para, struct devdrv_info *info);
 int devdrv_manager_get_group_para(struct devdrv_ioctl_info *ioctl_buf, struct get_ts_group_para *group_para,
-                                         unsigned long arg);
+                                  unsigned long arg);
 int devdrv_manager_get_ts_group_info(ka_file_t *filep, unsigned int cmd, unsigned long arg);
 int devdrv_manager_get_tsdrv_dev_com_info(ka_file_t *filep, unsigned int cmd, unsigned long arg);
 #ifdef CFG_FEATURE_DEVMNG_IOCTL

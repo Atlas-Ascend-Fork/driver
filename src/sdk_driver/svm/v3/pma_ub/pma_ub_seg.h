@@ -29,6 +29,7 @@ struct pma_ub_seg_mng {
 
 void pma_ub_seg_mng_init(struct pma_ub_seg_mng *seg_mng, u32 udevid, int tgid);
 void pma_ub_seg_mng_uninit(struct pma_ub_seg_mng *seg_mng);
+void pma_ub_seg_recycle(struct pma_ub_seg_mng *seg_mng, u64 start, u64 size);
 
 void pma_ub_seg_mng_show(struct pma_ub_seg_mng *seg_mng, ka_seq_file_t *seq);
 

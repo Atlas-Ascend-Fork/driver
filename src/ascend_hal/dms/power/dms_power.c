@@ -30,7 +30,7 @@ drvError_t DmsSetPowerState(unsigned int dev_id, struct dsmi_power_state_info_st
 
     info.dev_id = dev_id;
     ret = memcpy_s(&(info.power_info), sizeof(struct dsmi_power_state_info_stru), power_info,
-        sizeof(struct dsmi_power_state_info_stru));
+                   sizeof(struct dsmi_power_state_info_stru));
     if (ret != 0) {
         DMS_ERR("memcpy_s failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return DRV_ERROR_PARA_ERROR;
@@ -44,13 +44,13 @@ drvError_t DmsSetPowerState(unsigned int dev_id, struct dsmi_power_state_info_st
     ioarg.output = NULL;
     ioarg.output_len = 0;
 
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl(URD_CONFIG_IOCTL_CMD, &ioarg));
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Set power state failed. (devid=%u; type=%u; mode=%u; value=%u; ret=%d)\n",
-            dev_id, power_info->type, power_info->mode, power_info->value, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Set power state failed. (devid=%u; type=%u; mode=%u; value=%u; ret=%d)\n", dev_id,
+                              power_info->type, power_info->mode, power_info->value, ret);
         return ret;
     }
-    DMS_DEBUG("Set power state success. (devid=%u; type=%u; mode=%u; value=%u; ret=%d)\n",
-            dev_id, power_info->type, power_info->mode, power_info->value, ret);
+    DMS_DEBUG("Set power state success. (devid=%u; type=%u; mode=%u; value=%u; ret=%d)\n", dev_id, power_info->type,
+              power_info->mode, power_info->value, ret);
     return DRV_ERROR_NONE;
 }

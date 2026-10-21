@@ -24,14 +24,25 @@ $(MODULE_NAME)-objs += msg_chan/dc/host/msg_chan_urd.o
 $(MODULE_NAME)-objs += msg_chan/dc/host/msg_chan_s2s.o
 $(MODULE_NAME)-objs += msg_chan/dc/host/msg_chan_rao.o
 
+ifeq ($(ENABLE_UBE),true)
+	$(MODULE_NAME)-objs += ub_adapt/adapt_ops.o
+	$(MODULE_NAME)-objs += ub_adapt/ummu_core_adapt.o
+	$(MODULE_NAME)-objs += ub_adapt/ubcore_adapt.o
+endif
+
 EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/inc
+EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/inc/uba
 EXTRA_CFLAGS += -I$(DRIVER_HAL_INC_DIR)
 EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/inc/pbl
 EXTRA_CFLAGS += -I${C_SEC_INCLUDE}
 EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/pbl/dev_urd
 EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/pbl/msg_chan/inc
 EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/pbl/msg_chan/host
+EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/pbl/ub_adapt
+
 EXTRA_CFLAGS += -Iinclude/linux
+EXTRA_CFLAGS += -Iinclude/ub/urma
+EXTRA_CFLAGS += -Iinclude/ub/urma/udma
 EXTRA_CFLAGS += -isystem $(shell $(CC) -print-file-name=include)
 
 EXTRA_CFLAGS += -DDRV_HOST

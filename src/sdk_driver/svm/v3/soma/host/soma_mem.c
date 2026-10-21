@@ -135,18 +135,30 @@ static int svm_soma_global_va_delete_config(u32 udevid, u32 cmd, struct svm_soma
 static bool svm_soma_mem_flag_is_valid(u32 flag)
 {
     return (flag == SVM_SOMA_GLOBAL_VA_ALLOC) || (flag == SVM_SOMA_GLOBAL_VA_DELETE) || (flag == SVM_SOMA_MEM_ALLOC) ||
-           (flag == SVM_SOMA_MEM_FREE);
+           (flag == SVM_SOMA_MEM_FREE) || (flag == SVM_SOMA_GET_CFG);
 }
 
 static int svm_soma_src_info_check(u32 udevid, const struct svm_soma_mem_cfg_para *para)
 {
     int current_tgid = ka_task_get_current_tgid();
 
-    if ((para->src_info.va == 0) || (para->src_info.size == 0) || (para->src_info.size != para->size)) {
-        svm_err(SOMA_LOG_TAG "src_info invalid. (src_va=0x%llx; src_size=%llu; size=%llu; src_tgid=%d; "
-                             "current_tgid=%d)\n",
-                para->src_info.va, para->src_info.size, para->size, para->src_info.tgid, current_tgid);
+    if (!svm_soma_mem_flag_is_valid(para->flag)) {
+        svm_err(SOMA_LOG_TAG "ioctl flag not support. (flag=%u)\n", para->flag);
         return -EINVAL;
+    }
+
+    if (para->flag == SVM_SOMA_GET_CFG && para->va == 0) {
+        svm_err(SOMA_LOG_TAG "src_info invalid. (para_va=0x%llx; current_tgid=%d)\n", para->va, current_tgid);
+        return -EINVAL;
+    }
+
+    if (para->flag != SVM_SOMA_GET_CFG) {
+        if ((para->src_info.va == 0) || (para->src_info.size == 0) || (para->src_info.size != para->size)) {
+            svm_err(SOMA_LOG_TAG "src_info invalid. (src_va=0x%llx; src_size=%llu; size=%llu; src_tgid=%d; "
+                                 "current_tgid=%d)\n",
+                    para->src_info.va, para->src_info.size, para->size, para->src_info.tgid, current_tgid);
+            return -EINVAL;
+        }
     }
 
     return 0;
@@ -172,6 +184,21 @@ static int svm_soma_ioctl_para_check(u32 cmd, unsigned long arg)
     return 0;
 }
 
+static int svm_soma_ioctl_get_config(u32 udevid, u32 cmd, struct svm_soma_mem_cfg_para *para)
+{
+    int ret;
+    u64 start;
+
+    ret = ksvmm_get_seg(udevid, ka_task_get_current_tgid(), para->va, &start, &para->src_info);
+    if (ret != 0) {
+        svm_err(SOMA_LOG_TAG "mem get seg failed in soma sync free config. (udevid=%u; dst_va=0x%llx)\n", udevid,
+                para->va);
+        return ret;
+    }
+
+    return ret;
+}
+
 static int svm_soma_ioctl_comm(u32 udevid, u32 cmd, unsigned long arg)
 {
     struct svm_soma_mem_cfg_para para;
@@ -186,11 +213,6 @@ static int svm_soma_ioctl_comm(u32 udevid, u32 cmd, unsigned long arg)
     ret = ka_base_copy_from_user(&para, (void __ka_user *)(uintptr_t)arg, sizeof(struct svm_soma_mem_cfg_para));
     if (ret != 0) {
         svm_err(SOMA_LOG_TAG "copy arg from user failed. (ret=%d; arg=0x%lx)\n", ret, arg);
-        return -EINVAL;
-    }
-
-    if (!svm_soma_mem_flag_is_valid(para.flag)) {
-        svm_err(SOMA_LOG_TAG "ioctl flag invalid. (flag=%u)\n", para.flag);
         return -EINVAL;
     }
 
@@ -213,6 +235,16 @@ static int svm_soma_ioctl_comm(u32 udevid, u32 cmd, unsigned long arg)
         case SVM_SOMA_MEM_FREE:
             ret = svm_soma_mem_free_config(udevid, cmd, &para);
             break;
+        case SVM_SOMA_GET_CFG:
+            ret = svm_soma_ioctl_get_config(udevid, cmd, &para);
+            if (ret == 0) {
+                unsigned long retCpy = ka_base_copy_to_user((void __ka_user *)(uintptr_t)arg, &para, sizeof(para));
+                if (retCpy != 0) {
+                    svm_err(SOMA_LOG_TAG "copy arg to user failed. (ret=%lu; arg=0x%lx)\n", retCpy, arg);
+                    return -EINVAL;
+                }
+            }
+            break;
         default:
             return -EINVAL;
     }
@@ -227,7 +259,6 @@ static int svm_soma_ioctl_comm(u32 udevid, u32 cmd, unsigned long arg)
 static int svm_soma_feature_init(void)
 {
     svm_register_ioctl_cmd_handle(_KA_IOC_NR(SVM_SOMA_MEM_CFG), svm_soma_ioctl_comm);
-
     return 0;
 }
 

@@ -20,6 +20,8 @@ set(DRIVER_TARGETS
     asdrv_vnic
     asdrv_vmng
     drv_pcie_hdc_host
+    asdrv_vvpc
+    asdrv_vvmng
     asdrv_fms
     asdrv_dms
     asdrv_trsbase
@@ -57,6 +59,7 @@ set(DRIVER_CUSTOM_TARGETS
     dsmi_network
     npu-smi
     hccn_tool
+    parse_type131
 )
 
 set(DRIVER_COMPAT_TARGETS

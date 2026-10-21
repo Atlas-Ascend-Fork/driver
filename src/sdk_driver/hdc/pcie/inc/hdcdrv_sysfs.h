@@ -26,11 +26,11 @@ struct hdcdrv_cmd_get_stat {
     int dev_id; /* input, -1 not care */
     int fid;
     int pid;
-    int service_type; /* input, -1 not care */
-    int session;      /* input, -1 not care */
-    int chan_id;      /* input, -1 not care */
-    int vf_flag;      /* input, 0 is dev_stat, 1 is vdev_stat */
-    void *outbuf;     /* output */
+    int service_type;       /* input, -1 not care */
+    int session;            /* input, -1 not care */
+    int chan_id;            /* input, -1 not care */
+    int vf_flag;            /* input, 0 is dev_stat, 1 is vdev_stat */
+    void __ka_user *outbuf; /* output */
 };
 
 struct hdcdrv_cmd_stat_session_brief {

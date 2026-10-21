@@ -19,6 +19,7 @@
 #include "comm_kernel_interface.h"
 
 #include "trs_pub_def.h"
+#include "trs_adapt.h"
 #include "trs_core.h"
 #include "soc_adapt.h"
 #include "trs_chip_def_comm.h"
@@ -36,6 +37,9 @@ static KA_TASK_DECLARE_RWSEM(trs_mode_lock);
 static int g_trs_sq_send_mode[TRS_HOST_PHY_DEV_MAX] = {
     TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY,
 };
+static int g_trs_sqe_validation_mode[TRS_HOST_PHY_DEV_MAX] = {
+    TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY,
+};
 static bool g_trs_sq_send_mode_user_set_flag[TRS_HOST_PHY_DEV_MAX] = {
     false,
 };
@@ -46,7 +50,8 @@ static bool g_trs_mode_is_sia_flag[TRS_HOST_PHY_DEV_MAX] = {
 static void trs_sq_send_mode_to_xia(u32 chip_id, int mode)
 {
     if ((devdrv_get_connect_protocol(chip_id) != CONNECT_PROTOCOL_PCIE) ||
-        (trs_soc_get_chip_type(chip_id) != TRS_CHIP_TYPE_CLOUD_V4)) {
+        ((trs_soc_get_chip_type(chip_id) != TRS_CHIP_TYPE_CLOUD_V4) &&
+         (trs_soc_get_chip_type(chip_id) != TRS_CHIP_TYPE_CLOUD_V5))) {
         return;
     }
 
@@ -58,7 +63,7 @@ static void trs_sq_send_mode_to_xia(u32 chip_id, int mode)
 
     g_trs_sq_send_mode[chip_id] = mode;
     ka_task_up_write(&trs_mode_lock);
-    trs_info("Set tsdrv sq send mode success (chip_id=%u; mode=%d)\n", chip_id, mode);
+    trs_info("Tsdrv sq send mode to xia, set sq send mode success. (chip_id=%u; mode=%d)\n", chip_id, mode);
 }
 
 int trs_mode_config_to_sia(u32 chip_id)
@@ -93,37 +98,73 @@ static int trs_mode_config_check_scene(u32 chip_id)
     return 0;
 }
 
-static int trs_sq_send_mode_config_by_urd(struct trsModeInfo *info)
+static int trs_sqe_validation_mode_config(u32 udevid, int mode)
 {
     int ret = 0;
 
-    if ((info->mode < 0) || (info->mode >= TRS_MODE_TYPE_SQ_SEND_MAX) || (info->devId >= TRS_HOST_PHY_DEV_MAX)) {
-        trs_err("The sq send mode or devid is invalid. (mode=%d; max=%d; devid=%u; max=%u)\n", info->mode,
-                TRS_MODE_TYPE_SQ_SEND_MAX, info->devId, TRS_HOST_PHY_DEV_MAX);
-        return -EINVAL;
-    }
-
-    if ((uda_is_phy_dev(info->devId) == false) || (uda_is_udevid_exist(info->devId) == false)) {
-        trs_err("Not a valid phy dev. (devid=%u)\n", info->devId);
-        return -ENODEV;
-    }
-
-    if ((devdrv_get_connect_protocol(info->devId) != CONNECT_PROTOCOL_PCIE) ||
-        ((trs_soc_get_chip_type(info->devId) != TRS_CHIP_TYPE_CLOUD_V4) &&
-         (trs_soc_get_chip_type(info->devId) != TRS_CHIP_TYPE_CLOUD_V5))) {
-        return -EOPNOTSUPP;
-    }
-
-    ret = trs_mode_config_check_scene(info->devId);
+    ret = trs_mode_config_check_scene(udevid);
     if (ret != 0) {
         return ret;
     }
 
     ka_task_down_write(&trs_mode_lock);
-    g_trs_sq_send_mode[info->devId] = info->mode;
-    g_trs_sq_send_mode_user_set_flag[info->devId] = true;
+    ret = trs_chan_ops_sq_send_mode_update(udevid, mode);
+    if (ret != 0) {
+        ka_task_up_write(&trs_mode_lock);
+        trs_err("set sq send mode failed. (devid=%u; mode=%d; ret=%d)\n", udevid, mode, ret);
+        return ret;
+    }
+
+    g_trs_sqe_validation_mode[udevid] = mode;
+    g_trs_sq_send_mode_user_set_flag[udevid] = true;
     ka_task_up_write(&trs_mode_lock);
-    trs_info("Set sq send mode success. (chip_id=%u; mode=%d)\n", info->devId, info->mode);
+    trs_info("Set sq send mode success. (chip_id=%u; mode=%d)\n", udevid, mode);
+    return 0;
+}
+
+static int trs_sq_send_mode_config_by_urd(struct trsModeInfo *info)
+{
+    int chip_type;
+    int ret = 0;
+    u32 udevid = 0;
+
+    ret = uda_devid_to_udevid(info->devId, &udevid);
+    if (ret != 0) {
+        return -ENODEV;
+    }
+
+    if ((info->mode < 0) || (info->mode >= TRS_MODE_TYPE_SQ_SEND_MAX) || (udevid >= TRS_HOST_PHY_DEV_MAX)) {
+        trs_err("The sq send mode or devid is invalid. (mode=%d; max=%d; devid=%u; max=%u)\n", info->mode,
+                TRS_MODE_TYPE_SQ_SEND_MAX, udevid, TRS_HOST_PHY_DEV_MAX);
+        return -EINVAL;
+    }
+
+    if ((uda_is_phy_dev(udevid) == false) || (uda_is_udevid_exist(udevid) == false)) {
+        trs_err("Not a valid phy dev. (devid=%u)\n", udevid);
+        return -ENODEV;
+    }
+
+    chip_type = trs_soc_get_chip_type(udevid);
+
+    if (chip_type == TRS_CHIP_TYPE_CLOUD_V2) {
+        return trs_sqe_validation_mode_config(udevid, info->mode);
+    }
+
+    if ((devdrv_get_connect_protocol(udevid) != CONNECT_PROTOCOL_PCIE) ||
+        ((chip_type != TRS_CHIP_TYPE_CLOUD_V4) && (chip_type != TRS_CHIP_TYPE_CLOUD_V5))) {
+        return -EOPNOTSUPP;
+    }
+
+    ret = trs_mode_config_check_scene(udevid);
+    if (ret != 0) {
+        return ret;
+    }
+
+    ka_task_down_write(&trs_mode_lock);
+    g_trs_sq_send_mode[udevid] = info->mode;
+    g_trs_sq_send_mode_user_set_flag[udevid] = true;
+    ka_task_up_write(&trs_mode_lock);
+    trs_info("Set sq send mode success. (chip_id=%u; mode=%d)\n", udevid, info->mode);
     return 0;
 }
 
@@ -139,7 +180,8 @@ int trs_mode_config_by_urd(void *feature, char *in, u32 in_len, char *out, u32 o
 
     info = (struct trsModeInfo *)in;
     if (info->mode_type >= TRS_MODE_TYPE_MAX) {
-        trs_err("The mode_type is invalid. (mode_type=%d; max=%d)\n", info->mode_type, TRS_MODE_TYPE_MAX);
+        trs_err("The mode_type is invalid when configuring by devid. (mode_type=%d; max=%d)\n", info->mode_type,
+                TRS_MODE_TYPE_MAX);
         return -EINVAL;
     }
 
@@ -170,6 +212,7 @@ int trs_get_sq_send_mode(u32 udevid)
 
 static int trs_sq_send_mode_query_by_urd(u32 devid, int *mode)
 {
+    struct uda_mia_dev_para mia_para = {0};
     u32 udevid = 0;
     int ret = 0;
 
@@ -178,7 +221,18 @@ static int trs_sq_send_mode_query_by_urd(u32 devid, int *mode)
         return -ENODEV;
     }
 
-    *mode = trs_get_sq_send_mode(udevid);
+    if (uda_is_phy_dev(udevid) == false) {
+        (void)uda_udevid_to_mia_devid(udevid, &mia_para);
+    } else {
+        mia_para.phy_devid = udevid;
+    }
+
+    if (trs_soc_get_chip_type(mia_para.phy_devid) == TRS_CHIP_TYPE_CLOUD_V2) {
+        *mode = g_trs_sqe_validation_mode[mia_para.phy_devid];
+    } else {
+        *mode = g_trs_sq_send_mode[mia_para.phy_devid];
+    }
+
     return 0;
 }
 
@@ -196,7 +250,8 @@ int trs_mode_query_by_urd(void *feature, char *in, u32 in_len, char *out, u32 ou
 
     in_info = (struct trsModeInfo *)in;
     if (in_info->mode_type >= TRS_MODE_TYPE_MAX) {
-        trs_err("The mode_type is invalid. (mode_type=%d; max=%d)\n", in_info->mode_type, TRS_MODE_TYPE_MAX);
+        trs_err("The mode_type is invalid when querying by devid. (mode_type=%d; max=%d)\n", in_info->mode_type,
+                TRS_MODE_TYPE_MAX);
         return -EINVAL;
     }
 
@@ -211,8 +266,7 @@ BEGIN_DMS_MODULE_DECLARATION(TRS_URD_CMD_NAME)
 BEGIN_FEATURE_COMMAND()
 
 ADD_FEATURE_COMMAND(TRS_URD_CMD_NAME, URD_TRS_MODE_CONFIG_CMD, ZERO_CMD, NULL, NULL,
-                    DMS_ACC_ROOT | DMS_ENV_PHYSICAL | DMS_ENV_ADMIN_DOCKER | DMS_VDEV_NOTSUPPORT,
-                    trs_mode_config_by_urd)
+                    DMS_ACC_ROOT | DMS_ENV_ALL | DMS_VDEV_NOTSUPPORT, trs_mode_config_by_urd)
 
 ADD_FEATURE_COMMAND(TRS_URD_CMD_NAME, URD_TRS_MODE_QUERY_CMD, ZERO_CMD, NULL, NULL, DMS_SUPPORT_ALL,
                     trs_mode_query_by_urd)
@@ -235,7 +289,11 @@ int trs_host_mode_config_init_dev(u32 ts_inst_id)
     }
 
     chip_type = trs_soc_get_chip_type(inst.devid);
-    if ((chip_type == TRS_CHIP_TYPE_CLOUD_V4) || (chip_type == TRS_CHIP_TYPE_CLOUD_V5)) {
+    if (chip_type == TRS_CHIP_TYPE_CLOUD_V2) {
+        g_trs_sqe_validation_mode[inst.devid] = TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY;
+        g_trs_sq_send_mode[inst.devid] = TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY;
+        (void)trs_chan_ops_sq_send_mode_update(inst.devid, TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY);
+    } else if ((chip_type == TRS_CHIP_TYPE_CLOUD_V4) || (chip_type == TRS_CHIP_TYPE_CLOUD_V5)) {
         g_trs_sq_send_mode[inst.devid] = TRS_MODE_TYPE_SQ_SEND_HIGH_PERFORMANCE;
     } else {
         g_trs_sq_send_mode[inst.devid] = TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY;
@@ -250,6 +308,7 @@ DECLAER_FEATURE_AUTO_INIT_DEV(trs_host_mode_config_init_dev, FEATURE_LOADER_STAG
 void trs_host_mode_config_uninit_dev(u32 ts_inst_id)
 {
     struct trs_id_inst inst;
+    int chip_type;
 
     trs_ts_inst_to_id_inst(ts_inst_id, &inst);
     if ((inst.tsid > 0) || (inst.devid >= TRS_HOST_PHY_DEV_MAX)) {
@@ -260,10 +319,17 @@ void trs_host_mode_config_uninit_dev(u32 ts_inst_id)
         return;
     }
 
+    chip_type = trs_soc_get_chip_type(inst.devid);
+    if (chip_type == TRS_CHIP_TYPE_CLOUD_V2) {
+        g_trs_sqe_validation_mode[inst.devid] = TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY;
+        (void)trs_chan_ops_sq_send_mode_update(inst.devid, TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY);
+    }
+
     g_trs_sq_send_mode[inst.devid] = TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY;
     g_trs_sq_send_mode_user_set_flag[inst.devid] = false;
     g_trs_mode_is_sia_flag[inst.devid] = true;
 }
+
 DECLAER_FEATURE_AUTO_UNINIT_DEV(trs_host_mode_config_uninit_dev, FEATURE_LOADER_STAGE_0);
 
 int trs_host_mode_config_init(void)

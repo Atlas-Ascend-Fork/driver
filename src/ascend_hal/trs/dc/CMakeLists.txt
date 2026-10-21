@@ -52,6 +52,7 @@ target_include_directories(trs_drv_obj PRIVATE
     ${DRIVER_USER_DIR}/inc
     ${DRIVER_USER_DIR}/inc/pbl
     ${DRIVER_USER_DIR}/inc/trs
+    ${DRIVER_USER_DIR}/pbl/commlib
     ${DRIVER_USER_DIR}/buff/dc/comm/lib
     ${DRIVER_USER_DIR}/msnpureport/inc/slog/
     ${C_SEC_INCLUDE}/

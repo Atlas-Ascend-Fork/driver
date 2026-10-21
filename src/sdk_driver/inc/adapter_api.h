@@ -55,7 +55,7 @@
 
 #define adap_get_host_type devdrv_get_host_type
 
-#define adap_get_master_devid_in_the_same_os  devdrv_get_master_devid_in_the_same_os
+#define adap_get_master_devid_in_the_same_os devdrv_get_master_devid_in_the_same_os
 
 #define adap_pcie_reinit devdrv_pcie_reinit
 
@@ -74,11 +74,11 @@ int adap_get_p2p_access_status(u32 devid, u32 peer_devid, int *status);
 
 /* pcie */
 int adap_get_pci_dev_info(u32 devid, struct devdrv_pci_dev_info *dev_info);
-int adap_get_pcie_id_info(u32 devid, struct devdrv_pcie_id_info  *pcie_id_info);
+int adap_get_pcie_id_info(u32 devid, struct devdrv_pcie_id_info *pcie_id_info);
 int adap_pcie_read_proc(u32 dev_id, enum devdrv_addr_type type, u32 offset, unsigned char *value, u32 len);
 int adap_get_addr_info(u32 devid, enum devdrv_addr_type type, u32 index, u64 *addr, size_t *size);
-int adap_get_bbox_reservd_mem(unsigned int devid, unsigned long long *dma_addr,
-    struct page **dma_pages, unsigned int *len);
+int adap_get_bbox_reservd_mem(unsigned int devid, unsigned long long *dma_addr, struct page **dma_pages,
+                              unsigned int *len);
 int adap_get_hccs_link_status_and_group_id(u32 devid, u32 *hccs_status, u32 hccs_group_id[], u32 group_id_num);
 int adap_register_black_callback(struct devdrv_black_callback *black_callback);
 void adap_unregister_black_callback(const struct devdrv_black_callback *black_callback);
@@ -91,4 +91,3 @@ int adap_get_pci_enabled_vf_num(u32 dev_id, int *vf_num);
 #endif
 
 #endif
-

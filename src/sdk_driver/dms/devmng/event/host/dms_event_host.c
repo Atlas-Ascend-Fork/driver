@@ -71,7 +71,7 @@ int dms_event_subscribe_from_device(u32 phyid)
 
     no_trans_chan = devdrv_manager_get_no_trans_chan(phyid);
     if (no_trans_chan == NULL) {
-        dms_err("Failed to get trans chan. (phy_id=%u)\n", phyid);
+        dms_err("Failed to get no_trans_chan. (phy_id=%u)\n", phyid);
         return DRV_ERROR_NOT_EXIST;
     }
 
@@ -251,8 +251,9 @@ int dms_get_event_code_from_local(u32 devid, u32 *health_code, struct shm_event_
 
 int dms_get_health_code_from_bar(u32 devid, u32 *health_code, u32 health_len)
 {
-    if (devmng_dms_get_health_code(devid, health_code, health_len)) {
-        dms_err("Get event code from bar zone.\n");
+    int ret = devmng_dms_get_health_code(devid, health_code, health_len);
+    if (ret != 0) {
+        dms_err("Get health code from bar zone failed. (ret=%d)\n", ret);
         return DRV_ERROR_INNER_ERR;
     }
 
@@ -275,15 +276,14 @@ int dms_get_health_code_from_local(u32 devid, u32 *health_code)
     return 0;
 }
 
-int dms_get_event_para(int dev_id, struct dms_event_para *dms_event, unsigned int in_cnt, unsigned int *event_num)
+STATIC int dms_get_list_event_para(int dev_id, struct dms_device_event *device_event, struct dms_event_para *dms_event,
+                                   unsigned int in_cnt, unsigned int *event_num)
 {
     int ret;
     unsigned int num = 0;
-    struct dms_device_event *device_event = NULL;
     DMS_EVENT_NODE_STRU *pos = NULL;
     DMS_EVENT_NODE_STRU *n = NULL;
 
-    device_event = dms_get_device_event(dev_id);
     if (device_event == NULL) {
         dms_err("device_event is NULL. (dev_id=%u)\n", dev_id);
         return DRV_ERROR_INNER_ERR;
@@ -309,6 +309,17 @@ OUT:
     ka_task_mutex_unlock(&device_event->lock);
     *event_num = num;
     return DRV_ERROR_NONE;
+}
+
+int dms_get_event_para(int dev_id, struct dms_event_para *dms_event, unsigned int in_cnt, unsigned int *event_num)
+{
+    return dms_get_list_event_para(dev_id, dms_get_device_event(dev_id), dms_event, in_cnt, event_num);
+}
+
+int dms_get_notify_event_para(int dev_id, struct dms_event_para *dms_event, unsigned int in_cnt,
+                              unsigned int *event_num)
+{
+    return dms_get_list_event_para(dev_id, dms_get_device_notify_event(dev_id), dms_event, in_cnt, event_num);
 }
 
 STATIC bool is_fault_event_node_same(struct dms_event_para *event1, struct dms_event_para *event2)
@@ -358,18 +369,39 @@ STATIC void update_event_highest_severity(struct dms_device_event *event_ctrl, s
     }
 }
 
-int dms_add_event_in_local(struct dms_event_para *fault_event)
+STATIC int del_event_in_full_device_event(unsigned int dev_id, struct dms_device_event *device_event)
 {
-    int ret;
-    unsigned int dev_id;
-    struct dms_device_event *device_fault_event = NULL;
     DMS_EVENT_NODE_STRU *event_node = NULL;
 
-    dev_id = fault_event->deviceid;
-    if (dev_id >= ASCEND_PDEV_MAX_NUM) {
-        dms_err("Invalid device id. (dev_id=%u; event_id=0x%x)\n", dev_id, fault_event->event_id);
-        return DRV_ERROR_PARA_ERROR;
+    if (device_event->event_num < DMANAGE_ERROR_ARRAY_NUM) {
+        return 0;
     }
+    if (ka_list_empty(&device_event->head)) {
+        dms_err("The device_event list is empty. (dev_id=%u; event_num=%d)\n", dev_id, device_event->event_num);
+        return DRV_ERROR_INNER_ERR;
+    }
+
+    event_node = ka_list_last_entry(&device_event->head, DMS_EVENT_NODE_STRU, node);
+    if (event_node == NULL) {
+        dms_err("The list_last_entry event_node is NULL. (dev_id=%u)\n", dev_id);
+        return DRV_ERROR_INNER_ERR;
+    }
+
+    ka_list_del(&event_node->node);
+    device_event->event_num--;
+    update_event_highest_severity(device_event, &event_node->event);
+    dbl_kfree(event_node);
+    event_node = NULL;
+
+    return 0;
+}
+
+STATIC int dms_add_event_in_local(struct dms_event_para *fault_event)
+{
+    int ret;
+    unsigned int dev_id = fault_event->deviceid;
+    struct dms_device_event *device_fault_event = NULL;
+    DMS_EVENT_NODE_STRU *event_node = NULL;
 
     device_fault_event = dms_get_device_event(dev_id);
     if (device_fault_event == NULL) {
@@ -383,6 +415,11 @@ int dms_add_event_in_local(struct dms_event_para *fault_event)
         ka_task_mutex_unlock(&device_fault_event->lock);
         /* the same event already exists in the chain; there is no need to add it again */
         return 0;
+    }
+    ret = del_event_in_full_device_event(dev_id, device_fault_event);
+    if (ret != 0) {
+        ka_task_mutex_unlock(&device_fault_event->lock);
+        return ret;
     }
 
     event_node = (DMS_EVENT_NODE_STRU *)dbl_kzalloc(sizeof(DMS_EVENT_NODE_STRU), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
@@ -405,7 +442,8 @@ int dms_add_event_in_local(struct dms_event_para *fault_event)
     device_fault_event->event_num++;
     ka_task_mutex_unlock(&device_fault_event->lock);
 
-    dms_info("save an event succ. (event_id=0x%x, dev_id=%u)\n", fault_event->event_id, fault_event->deviceid);
+    dms_info("Save fault event. (dev_id=%u; event_id=0x%x; node_id=%u; alarm_raised_time=%llu ms)\n", dev_id,
+             fault_event->event_id, fault_event->node_id, fault_event->alarm_raised_time);
     return 0;
 
 FREE:
@@ -449,9 +487,89 @@ int dms_del_event_in_local(struct dms_event_para *fault_event)
     ka_task_mutex_unlock(&device_fault_event->lock);
     dbl_kfree(event_node);
     event_node = NULL;
-
-    dms_info("delete an event succ. (event_id=0x%x, dev_id=%u)\n", fault_event->event_id, fault_event->deviceid);
+    dms_info("Delete fault event. (dev_id=%u; event_id=0x%x; node_id=%u; alarm_raised_time=%llu ms)\n", dev_id,
+             fault_event->event_id, fault_event->node_id, fault_event->alarm_raised_time);
     return 0;
+}
+
+STATIC bool is_same_notify_event_node(struct dms_event_para *event1, struct dms_event_para *event2)
+{
+    return event1->deviceid == event2->deviceid && event1->event_id == event2->event_id;
+}
+
+STATIC DMS_EVENT_NODE_STRU *get_notify_event_node_from_list(struct dms_device_event *device_notify_event,
+                                                            struct dms_event_para *notify_event)
+{
+    DMS_EVENT_NODE_STRU *pos = NULL;
+    DMS_EVENT_NODE_STRU *n = NULL;
+
+    ka_list_for_each_entry_safe(pos, n, &device_notify_event->head, node)
+    {
+        if (is_same_notify_event_node(&pos->event, notify_event)) {
+            return pos;
+        }
+    }
+
+    return NULL;
+}
+
+STATIC int dms_add_notify_event_in_local(struct dms_event_para *notify_event)
+{
+    int ret;
+    unsigned int dev_id = notify_event->deviceid;
+    struct dms_device_event *device_notify_event = NULL;
+    DMS_EVENT_NODE_STRU *event_node = NULL;
+
+    device_notify_event = dms_get_device_notify_event(dev_id);
+    if (device_notify_event == NULL) {
+        dms_err("device_fault_info is NULL. (dev_id=%u)\n", dev_id);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ka_task_mutex_lock(&device_notify_event->lock);
+    event_node = get_notify_event_node_from_list(device_notify_event, notify_event);
+    if (event_node != NULL) { /* the same event already exists in the list */
+        ka_list_del(&event_node->node);
+        device_notify_event->event_num--;
+        update_event_highest_severity(device_notify_event, notify_event);
+        dbl_kfree(event_node);
+        event_node = NULL;
+    }
+    ret = del_event_in_full_device_event(dev_id, device_notify_event);
+    if (ret != 0) {
+        ka_task_mutex_unlock(&device_notify_event->lock);
+        return ret;
+    }
+
+    event_node = (DMS_EVENT_NODE_STRU *)dbl_kzalloc(sizeof(DMS_EVENT_NODE_STRU), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    if (event_node == NULL) {
+        ka_task_mutex_unlock(&device_notify_event->lock);
+        dms_err("Malloc memory failed!\n");
+        return DRV_ERROR_OUT_OF_MEMORY;
+    }
+
+    ret = memcpy_s(&event_node->event, sizeof(struct dms_event_para), notify_event, sizeof(struct dms_event_para));
+    if (ret != 0) {
+        dms_err("Call memcpy_s failed. (dev_id=%u, event_id=0x%x, ret=%d)\n", dev_id, notify_event->event_id, ret);
+        goto FREE;
+    }
+    device_notify_event->highest_severity = (notify_event->severity > device_notify_event->highest_severity) ?
+                                                notify_event->severity :
+                                                device_notify_event->highest_severity;
+
+    ka_list_add(&event_node->node, &device_notify_event->head);
+    device_notify_event->event_num++;
+    ka_task_mutex_unlock(&device_notify_event->lock);
+
+    dms_info("Save notify event. (dev_id=%u; event_id=0x%x; node_id=%u; alarm_raised_time=%llu ms)\n", dev_id,
+             notify_event->event_id, notify_event->node_id, notify_event->alarm_raised_time);
+    return 0;
+
+FREE:
+    ka_task_mutex_unlock(&device_notify_event->lock);
+    dbl_kfree(event_node);
+    event_node = NULL;
+    return ret;
 }
 
 int dms_save_remote_event_in_local(struct dms_event_para *fault_event)
@@ -460,11 +578,11 @@ int dms_save_remote_event_in_local(struct dms_event_para *fault_event)
 
     assertion = fault_event->assertion;
     switch (assertion) {
-        case DMS_EVENT_TYPE_ONE_TIME:
-            return 0;
-        case DMS_EVENT_TYPE_OCCUR:
+        case DMS_EVENT_TYPE_ONE_TIME: /* notify event occur */
+            return dms_add_notify_event_in_local(fault_event);
+        case DMS_EVENT_TYPE_OCCUR: /* fault event occur */
             return dms_add_event_in_local(fault_event);
-        case DMS_EVENT_TYPE_RESUME:
+        case DMS_EVENT_TYPE_RESUME: /* fault event resume */
             return dms_del_event_in_local(fault_event);
         default:
             return 0;

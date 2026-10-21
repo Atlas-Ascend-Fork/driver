@@ -31,8 +31,8 @@
 
 #define EMMC_MANUFACTORY_INFO_LEN 512
 
-STATIC int dms_get_emmc_standard_info(unsigned int dev_id, unsigned int vfid, unsigned int subcmd,
-                                  void *buf, unsigned int *size)
+STATIC int dms_get_emmc_standard_info(unsigned int dev_id, unsigned int vfid, unsigned int subcmd, void *buf,
+                                      unsigned int *size)
 {
     int ret;
     struct dms_ioctl_arg ioarg = {0};
@@ -42,7 +42,8 @@ STATIC int dms_get_emmc_standard_info(unsigned int dev_id, unsigned int vfid, un
     (void)vfid;
 
     if (*size < sizeof(struct dsmi_emmc_standard_info_stru)) {
-        DMS_ERR("Get emmc info failed. input size err\n");
+        DMS_ERR("Get emmc info failed. input size err. (size=%u; min=%lu)\n", *size,
+                sizeof(struct dsmi_emmc_standard_info_stru));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -72,8 +73,8 @@ STATIC int dms_get_emmc_standard_info(unsigned int dev_id, unsigned int vfid, un
     return DRV_ERROR_NONE;
 }
 
-STATIC int DmsGetEmmcManufacturerInfo(unsigned int dev_id, unsigned int vfid, unsigned int subcmd,
-                                      void *buf, unsigned int *size)
+STATIC int DmsGetEmmcManufacturerInfo(unsigned int dev_id, unsigned int vfid, unsigned int subcmd, void *buf,
+                                      unsigned int *size)
 {
     int ret;
     struct dms_ioctl_arg ioarg = {0};
@@ -84,7 +85,7 @@ STATIC int DmsGetEmmcManufacturerInfo(unsigned int dev_id, unsigned int vfid, un
     struct devdrv_emmc_info_para ioarg_in = {0};
 
     if (*size < EMMC_MANUFACTORY_INFO_LEN) {
-        DMS_ERR("Get emmc info failed. input size err\n");
+        DMS_ERR("Get emmc info failed. input size err. (size=%u; min=%u)\n", *size, EMMC_MANUFACTORY_INFO_LEN);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -113,8 +114,7 @@ STATIC int DmsGetEmmcManufacturerInfo(unsigned int dev_id, unsigned int vfid, un
     return DRV_ERROR_NONE;
 }
 
-int dms_get_emmc_info(unsigned int dev_id, unsigned int vfid, unsigned int subcmd,
-                   void *buf, unsigned int *size)
+int dms_get_emmc_info(unsigned int dev_id, unsigned int vfid, unsigned int subcmd, void *buf, unsigned int *size)
 {
     int ret;
 

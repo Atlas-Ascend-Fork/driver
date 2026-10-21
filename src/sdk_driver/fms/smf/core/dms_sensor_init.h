@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef DMS_SENSOR_INIT_H
 #define DMS_SENSOR_INIT_H
 

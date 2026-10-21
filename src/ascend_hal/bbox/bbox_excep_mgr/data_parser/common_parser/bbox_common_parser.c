@@ -489,7 +489,7 @@ bbox_status bbox_plaintext_out_data(const file_hdl_t *file_hdl, const model_elem
         CHECK_TABLE_FIELD_LEN_ACT(table->offset, table->size, length, return BBOX_FAILURE);
         ret = bbox_plaintext_int_data(file_hdl->path, file_hdl->name, table->name, data + table->offset, table->size);
     } else if (table->type == ELEM_OUTPUT_CHAR) {
-        len = RDR_MIN(length, table->size);
+        len = RDR_MIN(length - table->offset, table->size);
         ret = bbox_plaintext_char_data(file_hdl->path, file_hdl->name, table->name, data + table->offset, len);
     } else if (table->type == ELEM_OUTPUT_NL) {
         ret = bbox_plaintext_nl(file_hdl->path, file_hdl->name);
@@ -581,6 +581,7 @@ STATIC s32 bbox_plaintext_loop_block(const file_hdl_t *file_hdl, const model_ele
                                      u32 length)
 {
     u32 i;
+    u64 block_total = 0;
     const s32 block_step = 0;       // ELEM_CTRL_LOOP_BLOCK
     const s32 block_value_step = 1; // ELEM_CTRL_BLOCK_VALUE
     const s32 block_table_step = 2; // ELEM_CTRL_BLOCK_TABLE
@@ -595,7 +596,8 @@ STATIC s32 bbox_plaintext_loop_block(const file_hdl_t *file_hdl, const model_ele
     }
 
     // check block config
-    if ((table[block_value_step].num * table[block_value_step].size) < table[block_step].size) {
+    block_total = (u64)table[block_value_step].num * (u64)table[block_value_step].size;
+    if (block_total < (u64)table[block_step].size) {
         BBOX_ERR("invalid ctrl item, block[%u * %u], but block size[%u].", table[block_value_step].num,
                  table[block_value_step].size, table[block_step].size);
         return BBOX_FAILURE;
@@ -604,9 +606,14 @@ STATIC s32 bbox_plaintext_loop_block(const file_hdl_t *file_hdl, const model_ele
     // process block data
     for (i = 0; i < table[block_value_step].num; i++) {
         const u32 size = table[block_value_step].size;
-        bool check = bbox_plaintext_check_data_offset(table[block_step].offset, (size * i), length);
+        u64 offset_in_block = (u64)size * i;
+        if (offset_in_block > UINT32_MAX) {
+            BBOX_ERR("offset_in_block overflow. (size=%u; i=%u)", size, i);
+            return BBOX_FAILURE;
+        }
+        bool check = bbox_plaintext_check_data_offset(table[block_step].offset, (u32)offset_in_block, length);
         BBOX_CHK_EXPR_ACTION(check == false, return BBOX_FAILURE, "check item[ELEM_CTRL_LOOP_BLOCK] failed.");
-        const char *block = (const char *)data + table[block_step].offset + ((u64)size * i);
+        const char *block = (const char *)data + table[block_step].offset + offset_in_block;
         s32 ret = bbox_plaintext_data(file_hdl->path, table[block_table_step].table_enum_type, block, size);
         if (ret == BBOX_FAILURE) {
             return BBOX_FAILURE;

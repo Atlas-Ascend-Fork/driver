@@ -27,37 +27,22 @@ struct pcivnic_netdev *g_vnic_dev = NULL;
 unsigned char g_pcivnic_mac[KA_ETH_ALEN] = {0};
 struct pcivnic_ctrl_msg_get_stat pcivnic_stat = {{0}};
 
+struct pcivnic_netdev *pcivnic_get_vnic_dev(void)
+{
+    return g_vnic_dev;
+}
+unsigned char *pcivnic_get_vnic_mac(void)
+{
+    return g_pcivnic_mac;
+}
 struct pcivnic_pcidev *pcivnic_get_pcidev(void *msg_chan)
 {
     return (struct pcivnic_pcidev *)devdrv_get_msg_chan_priv(msg_chan);
 }
 
-struct pcivnic_sq_desc *pcivnic_get_w_sq_desc(void *msg_chan, u32 *tail)
-{
-    void *sq_desc = NULL;
-
-    sq_desc = devdrv_get_msg_chan_slave_sq_tail(msg_chan, tail);
-
-    return (struct pcivnic_sq_desc *)sq_desc;
-}
-
 void pcivnic_set_w_sq_desc_head(void *msg_chan, u32 head)
 {
     devdrv_set_msg_chan_slave_sq_head(msg_chan, head);
-}
-
-void pcivnic_copy_sq_desc_to_remote(struct pcivnic_pcidev *pcidev, const struct pcivnic_sq_desc *sq_desc)
-{
-    void *msg_chan = pcidev->msg_chan;
-
-    (void)sq_desc;
-    devdrv_move_msg_chan_slave_sq_tail(msg_chan);
-
-    /* shared memory without copying */
-    ka_wmb();
-
-    /* trigger doorbell irq */
-    devdrv_msg_ring_doorbell(msg_chan);
 }
 
 bool pcivnic_w_sq_full_check(void *msg_chan)
@@ -92,29 +77,6 @@ int pcivnic_dma_copy(const struct pcivnic_pcidev *pcidev, u64 src, u64 dst, u32 
     }
 
     return ret;
-}
-
-struct pcivnic_cq_desc *pcivnic_get_w_cq_desc(void *msg_chan)
-{
-    void *cq_desc = NULL;
-
-    cq_desc = devdrv_get_msg_chan_slave_cq_tail(msg_chan);
-
-    return (struct pcivnic_cq_desc *)cq_desc;
-}
-
-void pcivnic_copy_cq_desc_to_remote(struct pcivnic_pcidev *pcidev, const struct pcivnic_cq_desc *cq_desc)
-{
-    void *msg_chan = pcidev->msg_chan;
-
-    (void)cq_desc;
-    devdrv_move_msg_chan_slave_cq_tail(msg_chan);
-
-    /* shared memory without copying */
-    ka_wmb();
-
-    /* trigger doorbell irq */
-    devdrv_msg_ring_cq_doorbell(msg_chan);
 }
 
 struct pcivnic_cq_desc *pcivnic_get_r_cq_desc(void *msg_chan)
@@ -157,25 +119,6 @@ bool pcivnic_is_p2p_enabled(u32 dev_id, u32 peer_dev_id)
     return devdrv_is_p2p_enabled(dev_id, peer_dev_id);
 }
 
-int pcivnic_up_get_next_hop(const unsigned char *dmac)
-{
-    if (*(u32 *)g_pcivnic_mac != *(u32 *)dmac) {
-        return PCIVNIC_NEXT_HOP_BROADCAST;
-    }
-
-    if (dmac[PCIVNIC_MAC_5] == HOST_MAC_LAST_BYTE) {
-        return PCIVNIC_NEXT_HOP_LOCAL_NETDEV;
-    } else if (dmac[PCIVNIC_MAC_5] < NETDEV_PF_PCIDEV_NUM) {
-        if ((uda_get_chip_type(dmac[PCIVNIC_MAC_5]) != HISI_CLOUD_V2) &&
-            (g_pcivnic_mac[PCIVNIC_MAC_4] != dmac[PCIVNIC_MAC_4])) {
-            return PCIVNIC_NEXT_HOP_BROADCAST;
-        }
-        return dmac[PCIVNIC_MAC_5];
-    } else {
-        return PCIVNIC_NEXT_HOP_BROADCAST;
-    }
-}
-
 int pcivnic_down_get_next_hop(const unsigned char *dmac)
 {
     if (*(u32 *)g_pcivnic_mac != *(u32 *)dmac) {
@@ -183,10 +126,12 @@ int pcivnic_down_get_next_hop(const unsigned char *dmac)
     }
 
     if (dmac[PCIVNIC_MAC_5] < NETDEV_PF_PCIDEV_NUM) {
+#ifndef CFG_FEATURE_OVER_XCOM
         if ((uda_get_chip_type(dmac[PCIVNIC_MAC_5]) != HISI_CLOUD_V2) &&
             (g_pcivnic_mac[PCIVNIC_MAC_4] != dmac[PCIVNIC_MAC_4])) {
             return PCIVNIC_NEXT_HOP_BROADCAST;
         }
+#endif
         return dmac[PCIVNIC_MAC_5];
     }
 
@@ -202,7 +147,7 @@ ssize_t pcivnic_get_dev_stat(ka_device_t *dev, ka_device_attribute_t *attr, char
     (void)attr;
 
     if (pcidev == NULL) {
-        devdrv_err("not find pcidev\n");
+        devdrv_err("cannot find pcidev\n");
         return offset;
     }
 
@@ -236,7 +181,7 @@ ssize_t pcivnic_get_dev_stat(ka_device_t *dev, ka_device_attribute_t *attr, char
 
 STATIC int pcivnic_exchange_net_info(u32 dev_id)
 {
-    struct pcivnic_ctrl_msg_net_info msg;
+    struct pcivnic_ctrl_msg_net_info msg = {{0}};
     u32 out_len = 0;
     int ret, i;
 
@@ -276,14 +221,14 @@ int pcivnic_device_status_abnormal(const void *msg_chan)
     return devdrv_device_status_abnormal_check(msg_chan);
 }
 
-STATIC int pcivnic_init_msg_chan(struct pcivnic_pcidev *pcidev)
+int pcivnic_init_msg_chan(struct pcivnic_pcidev *pcidev)
 {
     u32 devid = pcidev->dev_id;
     void *msg_chan = NULL;
 
     msg_chan = devdrv_pcimsg_alloc_trans_queue(devid, &g_msg_chan_info);
     if (msg_chan == NULL) {
-        devdrv_info("dev %d init host msg chan abnormal!\n", devid);
+        devdrv_err("dev %d init host msg chan abnormal!\n", devid);
         return -EINVAL;
     }
 
@@ -294,7 +239,7 @@ STATIC int pcivnic_init_msg_chan(struct pcivnic_pcidev *pcidev)
     return 0;
 }
 
-STATIC void pcivnic_uninit_msg_chan(struct pcivnic_pcidev *pcidev)
+void pcivnic_uninit_msg_chan(struct pcivnic_pcidev *pcidev)
 {
     if (pcidev->msg_chan == NULL) {
         return;
@@ -304,10 +249,10 @@ STATIC void pcivnic_uninit_msg_chan(struct pcivnic_pcidev *pcidev)
     pcidev->msg_chan = NULL;
 }
 
-STATIC int pcivnic_init_msg_instance(struct pcivnic_pcidev *pcidev)
+int pcivnic_init_msg_instance(struct pcivnic_pcidev *pcidev)
 {
     struct pcivnic_netdev *vnic_dev = (struct pcivnic_netdev *)pcidev->netdev;
-    struct pcivnic_ctrl_msg_register_netdev register_msg;
+    struct pcivnic_ctrl_msg_register_netdev register_msg = {{0}};
     u32 len = 0;
     int ret;
 
@@ -346,18 +291,6 @@ STATIC int pcivnic_init_msg_instance(struct pcivnic_pcidev *pcidev)
 
     return 0;
 }
-
-STATIC int pcivnic_ctrl_msg_recv(u32 devid, void *data, u32 in_data_len, u32 out_data_len, u32 *real_out_len)
-{
-    *real_out_len = 0;
-
-    return 0;
-}
-
-struct devdrv_common_msg_client g_pcivnic_host_comm_msg_client = {
-    .type = DEVDRV_COMMON_MSG_PCIVNIC,
-    .common_msg_recv = pcivnic_ctrl_msg_recv,
-};
 
 u64 pcivnic_dma_map_single(struct pcivnic_pcidev *pcidev, ka_sk_buff_t *skb, u32 buff_type, u32 index, u32 data_len)
 {
@@ -511,7 +444,7 @@ STATIC bool pcivnic_init_instance_check(u32 dev_id)
 
 STATIC int pcivnic_init_npu_instance(u32 dev_id)
 {
-    struct pcivnic_ctrl_msg_dev_instance instance_msg;
+    struct pcivnic_ctrl_msg_dev_instance instance_msg = {{0}};
     u32 len = 0;
     int ret;
 
@@ -530,11 +463,15 @@ STATIC int pcivnic_init_npu_instance(u32 dev_id)
     return 0;
 }
 
-STATIC int pcivnic_init_instance(u32 dev_id, ka_device_t *dev)
+int pcivnic_init_instance(u32 dev_id, ka_device_t *dev)
 {
     struct pcivnic_netdev *vnic_dev = g_vnic_dev;
     struct pcivnic_pcidev *pcidev = NULL;
     int ret;
+
+    if (devdrv_get_pfvf_type_by_devid(dev_id) == DEVDRV_SRIOV_TYPE_VF) {
+        return 0;
+    }
 
     if (dev_id >= NETDEV_PCIDEV_NUM) {
         devdrv_err("dev_id is invalid, dev_id=%d\n", dev_id);
@@ -557,7 +494,7 @@ STATIC int pcivnic_init_instance(u32 dev_id, ka_device_t *dev)
         return -ENOMEM;
     }
 
-    ret = devdrv_register_common_msg_client(&g_pcivnic_host_comm_msg_client);
+    ret = pcivnic_register_common_client();
     if (ret != 0) {
         pcivnic_del_dev(vnic_dev, (int)dev_id);
         devdrv_err("dev_id %u register_common_msg failed ret %d", dev_id, ret);
@@ -567,7 +504,7 @@ STATIC int pcivnic_init_instance(u32 dev_id, ka_device_t *dev)
     ret = pcivnic_init_msg_instance(pcidev);
     if (ret != 0) {
 #ifndef DRV_UT
-        (void)devdrv_unregister_common_msg_client(dev_id, &g_pcivnic_host_comm_msg_client);
+        (void)pcivnic_unregister_common_client(dev_id);
         pcivnic_del_dev(vnic_dev, (int)dev_id);
         return ret;
 #endif
@@ -580,9 +517,13 @@ STATIC int pcivnic_init_instance(u32 dev_id, ka_device_t *dev)
     return 0;
 }
 
-STATIC int pcivnic_uninit_instance(u32 dev_id)
+int pcivnic_uninit_instance(u32 dev_id)
 {
     struct pcivnic_pcidev *pcidev = NULL;
+
+    if (devdrv_get_pfvf_type_by_devid(dev_id) == DEVDRV_SRIOV_TYPE_VF) {
+        return 0;
+    }
 
     if (dev_id >= NETDEV_PCIDEV_NUM) {
         devdrv_err("dev_id is invalid, dev_id=%d\n", dev_id);
@@ -593,60 +534,23 @@ STATIC int pcivnic_uninit_instance(u32 dev_id)
         return 0;
     }
 
+    if (g_vnic_dev == NULL) {
+        devdrv_err("g_vnic_dev is null. (dev_id=%u)\n", dev_id);
+        return 0;
+    }
+
     pcidev = g_vnic_dev->pcidev[dev_id];
     if (pcidev == NULL) {
         return 0;
     }
     pcivnic_guard_work_uninit(pcidev);
-    (void)devdrv_unregister_common_msg_client(pcidev->dev_id, &g_pcivnic_host_comm_msg_client);
+    (void)pcivnic_unregister_common_client(pcidev->dev_id);
     devdrv_set_msg_chan_priv(pcidev->msg_chan, NULL);
 
     pcivnic_del_dev(g_vnic_dev, (int)pcidev->dev_id);
     pcivnic_uninit_msg_chan(pcidev);
     devdrv_info("Pcivnic_uninit_instance finish.(dev_id=%d)\n", pcidev->dev_id);
     return 0;
-}
-
-bool pcivnic_get_sysfs_creat_group_capbility(ka_device_t *dev, int dev_id)
-{
-    ka_pci_dev_t *pdev = NULL;
-    int devnum_by_pdev;
-
-    pdev = ka_pci_to_pci_dev(dev);
-    devnum_by_pdev = devdrv_get_davinci_dev_num_by_pdev(pdev);
-    if (devnum_by_pdev <= 0) {
-        return false;
-    }
-
-    if (dev_id % devnum_by_pdev == 0) {
-        return true;
-    }
-
-    return false;
-}
-
-#define PCIVNIC_HOST_NOTIFIER "vnic_host"
-STATIC int pcivnic_host_notifier_func(u32 udevid, enum uda_notified_action action)
-{
-    int ret = 0;
-
-    if (udevid >= NETDEV_PCIDEV_NUM) {
-        return 0;
-    }
-
-    if (action == UDA_INIT) {
-        ret = pcivnic_init_instance(udevid, uda_get_device(udevid));
-    } else if (action == UDA_UNINIT) {
-        ret = pcivnic_uninit_instance(udevid);
-    } else {
-#ifndef DRV_UT
-        return 0;
-#endif
-    }
-
-    devdrv_info("notifier action. (udevid=%u; action=%d; ret=%d)\n", udevid, action, ret);
-
-    return ret;
 }
 
 struct pcivnic_netdev *pcivnic_alloc_vnic_dev(void)
@@ -676,70 +580,7 @@ void pcivnic_free_vnic_dev(void)
     if (vnic_dev != NULL) {
         devdrv_info("destroy pcivnic device <%s>.\n", ka_net_netdev_get_name(vnic_dev->ndev));
         pcivnic_free_netdev(vnic_dev);
+        g_vnic_dev = NULL;
     }
     return;
-}
-
-int pcivnic_register_client(void)
-{
-    struct uda_dev_type type;
-    struct pcivnic_netdev *vnic_dev = g_vnic_dev;
-    int ret;
-
-    uda_davinci_near_real_entity_type_pack(&type);
-    ret = uda_notifier_register(PCIVNIC_HOST_NOTIFIER, &type, UDA_PRI1, pcivnic_host_notifier_func);
-    if (ret != 0) {
-        pcivnic_free_netdev(vnic_dev);
-        devdrv_err("uda_notifier_register fail ret = %d\n", ret);
-        return ret;
-    }
-    return 0;
-}
-
-int pcivnic_init_netdev(struct pcivnic_netdev *vnic_dev)
-{
-    u32 chip_type = HISI_CHIP_NUM;
-    int cycle_times = 0;
-    int retry_times = 0;
-    int dev_num;
-    int ret;
-    u32 i;
-
-    dev_num = devdrv_get_dev_num();
-
-retry:
-    for (i = 0; i < NETDEV_PCIDEV_NUM; i++) {
-        if (cycle_times == dev_num) {
-            break;
-        }
-
-        chip_type = devdrv_get_dev_chip_type_by_addid(i);
-        if (chip_type == HISI_CHIP_UNKNOWN) {
-            continue;
-        }
-
-        cycle_times++;
-        if (pcivnic_is_register_netdev(i) == true) {
-            ret = pcivnic_register_netdev(vnic_dev);
-            if (ret != 0) {
-                devdrv_err("register netdev fail ret = %d\n", ret);
-            }
-            return ret;
-        }
-    }
-    if ((cycle_times != dev_num) && (retry_times <= PCIVNIC_INIT_NETDEV_RETRY_TIMES)) {
-        cycle_times = 0;
-        retry_times++;
-        ka_system_msleep(1000); // 1000 milliseconds
-        goto retry;
-    }
-
-    return 0;
-}
-
-int pcivnic_unregister_client(void)
-{
-    struct uda_dev_type type;
-    uda_davinci_near_real_entity_type_pack(&type);
-    return uda_notifier_unregister(PCIVNIC_HOST_NOTIFIER, &type);
 }

@@ -87,7 +87,7 @@ static int um_va_reserve_host_post_handle(u32 udevid, int master_tgid, int slave
 /* for ut test, cannot add static */
 int linear_mem_get_access_va(u32 udevid, struct svm_global_va *src_va, struct casm_src_ex *src_ex, u64 *ex_info)
 {
-    u32 mem_id;
+    u32 mem_id = 0;
     u64 offset;
 
     svm_ub_va_to_mem_id_and_offset(src_ex->updated_va, &mem_id, &offset);

@@ -60,7 +60,7 @@ static void svm_dev_release_check_feature(struct svm_dev_ctx *d_ctx)
     for (i = 0; i < dev_feature_num; i++) {
         struct svm_dev_feature *feature = &d_ctx->feature[i];
         if (feature->name != NULL) {
-            svm_err("Feature does not exist. (udevid=%u; name=%s)\n", d_ctx->udevid, feature->name);
+            svm_err("Feature not exist. (udevid=%u; name=%s)\n", d_ctx->udevid, feature->name);
         }
     }
 }

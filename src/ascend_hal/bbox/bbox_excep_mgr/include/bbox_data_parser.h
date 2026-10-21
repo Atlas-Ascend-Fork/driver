@@ -90,6 +90,7 @@ enum plain_text_table_type {
     PLAINTEXT_TABLE_CDR_MIN,
     PLAINTEXT_TABLE_CDR_SRAM_MIN,
     PLAINTEXT_TABLE_CDR_SRAM,
+    PLAINTEXT_TABLE_CDR_CLINK,
     PLAINTEXT_TABLE_CDR_SRAM_LOOSE,
     PLAINTEXT_TABLE_CDR_LOOSE,
     PLAINTEXT_TABLE_REG_DUMP,
@@ -145,7 +146,6 @@ bbox_status bbox_hdr_dump(const buff *buffer, u32 len, const char *log_path);
  * @param [in]  log_path:    path to write file
  */
 bbox_status bbox_slog_dump(enum plain_text_table_type type, const buff *buffer, u32 len, const char *log_path);
-
 
 /**
  * @brief       dump cdr ddr data in given buffer to specified log path
@@ -227,7 +227,8 @@ bbox_status bbox_savetext_data(const char *log_path, enum plain_text_table_type 
  * @param [in]  length:     data buffer length
  * @return      0: success, other: failed
  */
-bbox_status bbox_bbox_plaintext_data(const char *log_path, enum plain_text_table_type type, const void *data, u32 length);
+bbox_status bbox_bbox_plaintext_data(const char *log_path, enum plain_text_table_type type, const void *data,
+                                     u32 length);
 
 /**
  * @brief       write data to file under bbox dir
@@ -237,7 +238,8 @@ bbox_status bbox_bbox_plaintext_data(const char *log_path, enum plain_text_table
  * @param [in]  length:     data buffer length
  * @return      0: success, other: failed
  */
-bbox_status bbox_bbox_savetext_data(const char *log_path, enum plain_text_table_type type, const void *data, u32 length);
+bbox_status bbox_bbox_savetext_data(const char *log_path, enum plain_text_table_type type, const void *data,
+                                    u32 length);
 
 /**
  * @brief       parse given data and write data to file under log dir
@@ -247,7 +249,8 @@ bbox_status bbox_bbox_savetext_data(const char *log_path, enum plain_text_table_
  * @param [in]  length:     data buffer length
  * @return      0: success, other: failed
  */
-bbox_status bbox_log_plaintext_data(const char *log_path, enum plain_text_table_type type, const void *data, u32 length);
+bbox_status bbox_log_plaintext_data(const char *log_path, enum plain_text_table_type type, const void *data,
+                                    u32 length);
 
 /**
  * @brief       parse given data and write data to file under mntn dir
@@ -257,6 +260,8 @@ bbox_status bbox_log_plaintext_data(const char *log_path, enum plain_text_table_
  * @param [in]  length:     data buffer length
  * @return      0: success, other: failed
  */
-bbox_status bbox_mntn_plaintext_data(const char *log_path, enum plain_text_table_type type, const void *data, u32 length);
+bbox_status bbox_mntn_plaintext_data(const char *log_path, enum plain_text_table_type type, const void *data,
+                                     u32 length);
+bbox_status bbox_cdr_clink_dump(enum plain_text_table_type type, const buff *buffer, u32 len, const char *log_path);
 
 #endif /* BBOX_DATA_PARSER_H */

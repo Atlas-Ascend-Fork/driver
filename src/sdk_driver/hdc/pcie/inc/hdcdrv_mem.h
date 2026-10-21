@@ -21,17 +21,6 @@
 
 struct hdcdrv_mem_pool *find_mem_pool(int pool_type, int dev_id, int len);
 int alloc_mem(struct hdcdrv_mem_pool *pool, void **buf, ka_dma_addr_t *addr, u32 *offset, ka_list_head_t *wait_head);
-#ifdef CFG_FEATURE_MIRROR
-struct mirror_alloc_para {
-    int dev_id;
-    int len;
-    ka_list_head_t *wait_head;
-    int service_type;
-};
-extern int alloc_mem_page(int pool_type, struct mirror_alloc_para para, void **buf, ka_dma_addr_t *addr, int *mem_id);
-extern int get_pool_type(int data_len);
-extern void free_mem_page(void *buf, int mem_id);
-#endif
 extern void free_mem(void *buf);
 extern int alloc_mem_pool(int pool_type, int dev_id, u32 segment, u32 num);
 extern void free_mem_pool(int pool_type, int dev_id, u32 segment);
@@ -53,4 +42,21 @@ int hdcdrv_init_reserve_mem_pool(u32 dev_id, u32 small_packet_num, u32 huge_pack
 void hdcdrv_uninit_reserve_mem_pool(u32 dev_id);
 int hdcdrv_list_node_mem_alloc(struct hdcdrv_ctx *ctx, struct hdcdrv_mem_fd_list **new_node);
 void hdcdrv_list_node_mem_free(void *ctx, struct hdcdrv_mem_fd_list *new_node);
+long hdcdrv_fast_alloc_mem(struct hdcdrv_ctx *ctx, struct hdcdrv_cmd_alloc_mem *cmd);
+struct hdcdrv_dev_fmem *hdcdrv_get_dev_fmem_sep(int devid);
+int hdcdrv_iova_fmem_map(u32 dev_id, u32 fid, struct hdcdrv_fast_mem *f_mem);
+void hdcdrv_iova_fmem_unmap(u32 dev_id, u32 fid, struct hdcdrv_fast_mem *f_mem, u32 num);
+
+#define HDCDRV_MEMPOOL_FREE_IN_PM 0
+#define HDCDRV_MEMPOOL_FREE_IN_VM 1
+
+/* hdc mempool level */
+enum {
+    HDC_MEM_POOL_LEVEL_0 = 0,
+    HDC_MEM_POOL_LEVEL_1,
+    HDC_MEM_POOL_LEVEL_2,
+    HDC_MEM_POOL_LEVEL_3,
+    HDC_MEM_POOL_LEVEL_4,
+    HDC_MEM_POOL_LEVEL_INVALID
+};
 #endif

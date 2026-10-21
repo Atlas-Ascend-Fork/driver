@@ -13,24 +13,24 @@
 #include "dms_user_interface.h"
 
 #ifdef CFG_SOC_PLATFORM_CLOUD
-#define DM_DEVICE_NUM_MAX  4
+#define DM_DEVICE_NUM_MAX 4
 #else
 #ifdef CFG_SOC_PLATFORM_MINIV2
-    #define DM_DEVICE_NUM_MAX 2
+#define DM_DEVICE_NUM_MAX 2
 #else
-    #define DM_DEVICE_NUM_MAX 1
+#define DM_DEVICE_NUM_MAX 1
 #endif
 #endif
 
-#define DM_MAX_INTERNEL_TIME        60000
+#define DM_MAX_INTERNEL_TIME 60000
 
 #define DEV_SB_SLAVE "/dev/i2c0_slave"
 
 #define BOARD_ID_MASK 0xfff0
 #define EVB_PLATFORM 0x3000
-#define SCAN_VALUE_CHAR_INVALID     0xff
-#define SCAN_VALUE_SHORT_INVALID   0XFFFF
-#define SCAN_VALUE_INT_INVALID     (0xFFFFFFFFU)
+#define SCAN_VALUE_CHAR_INVALID 0xff
+#define SCAN_VALUE_SHORT_INVALID 0XFFFF
+#define SCAN_VALUE_INT_INVALID (0xFFFFFFFFU)
 #define SCAN_VALUE_TEMP_INVALID 32767
 
 #define ERROR_CODE_MAX_NUM 128
@@ -178,12 +178,12 @@ struct davinci_freq_ret {
 
 typedef struct d_info_st {
     unsigned int mem_freq;
-    unsigned int CPU_freq;  // CTRL_CPU_freq
+    unsigned int CPU_freq; // CTRL_CPU_freq
     unsigned int HBM_freq;
     unsigned int AICORE0_freq;
     unsigned int AICORE1_freq;
-    unsigned int MEM_rate;  // DDR_rate
-    unsigned int CPU_rate;  // AICORE_rate
+    unsigned int MEM_rate; // DDR_rate
+    unsigned int CPU_rate; // AICORE_rate
     unsigned int AI_CPU_rate;
     unsigned int CTRL_CPU_rate;
     unsigned int MEM_BANDWIDTH_rate;
@@ -242,43 +242,13 @@ typedef struct mcu2mini_query_block {
     MCU_QUERY_DATA_FORMAT item_info[MAX_ITEM_LEN];
 } MCU2MINI_QUERY_BLOCK;
 
-typedef struct dmp_scan_st {
-    char i2c_flag;
-    int i2c_fd;
-    MCU2MINI_QUERY_BLOCK *map_addr;
-} DMP_SCAN_ST;
-
-#define DMP_SCAN_SET_STABLE_VALUE(area, fun, cmd, typelen, in_arg, total_len, len, in_offset) do { \
-    g_dmp_scan_st.map_addr->item_info[area].op_fun = fun;                                     \
-    g_dmp_scan_st.map_addr->item_info[area].op_cmd = cmd;                                     \
-    g_dmp_scan_st.map_addr->item_info[area].type_len = typelen;                               \
-    *(unsigned int *)g_dmp_scan_st.map_addr->item_info[area].arg = *(unsigned int *)(in_arg); \
-    g_dmp_scan_st.map_addr->item_info[area].total_length = total_len;                         \
-    g_dmp_scan_st.map_addr->item_info[area].length = len;                                     \
-    g_dmp_scan_st.map_addr->item_info[area].offset = in_offset;                               \
-} while (0)
-
-#define DMP_SCAN_SET_VALUE(area, in_valid, in_data) do { \
-    if (g_dmp_scan_st.i2c_flag != I2C_VALID) {                                                     \
-        break;                                                                                     \
-    }                                                                                              \
-    ret = memmove_s(g_dmp_scan_st.map_addr->item_info[area].data, DEV_MON_QUERY_DATA_LEN, (char *)(in_data), \
-                    g_dmp_scan_st.map_addr->item_info[area].length);                               \
-    if (ret != 0) {                                                                                \
-        g_dmp_scan_st.map_addr->item_info[area].valid = INVALID;                                   \
-        DEV_MON_ERR("memmove_s failed ret=%d\n", ret);                                             \
-        break;                                                                                     \
-    }                                                                                              \
-    g_dmp_scan_st.map_addr->item_info[area].valid = in_valid;                                      \
-} while (0)
-
 int dev_mon_get_temperature(unsigned int id, int *temp);
 int dev_mon_get_voltage(unsigned int id, unsigned int *voltage);
 int dev_mon_get_power(unsigned int id, unsigned int *power);
 int dev_mon_get_freq(unsigned int id, unsigned char type, unsigned int *freq);
 int dev_mon_get_sensor(unsigned int id, unsigned int type, TAG_SENSOR_INFO *sensor);
 int dev_mon_get_ai_core_utilization(unsigned int id, unsigned int *util);
-void dev_mon_get_xsfp_info(unsigned int id, struct xsfp_info_str *xsfp_info);
+int dev_mon_get_xsfp_info(unsigned int id, struct xsfp_info_str *xsfp_info);
 
 int dev_mon_get_d_info_static(unsigned int id, D_INFO_ST *d_info);
 int dev_mon_get_pcie_id_info_static(unsigned int id, struct dmanage_pcie_id_info *p_info);
@@ -286,19 +256,5 @@ int dev_mon_get_health_static(unsigned int id, unsigned int *phealth);
 unsigned int dev_mon_get_result_len(unsigned int core_id);
 
 void dev_mon_scan_proc(void);
-
-int dmp_scan_init(void);
-int dmp_scan_exit(void);
-void set_single_request_data(void);
-void init_scan_stable_data(void);
-
-int dev_mon_voltage_scan(unsigned int id, D_INFO_ST *p_d_info);
-int dev_mon_temp_scan(unsigned int id, D_INFO_ST *p_d_info);
-int dev_mon_power_scan(unsigned int id, D_INFO_ST *p_d_info);
-int get_d_mem_info_scan(unsigned int id, D_INFO_ST *p_d_info);
-int get_d_cpu_info_scan(unsigned int id, D_INFO_ST *p_d_info);
-int get_d_aicpu_info_scan(unsigned int id, D_INFO_ST *p_d_info);
-int get_d_vector_core_info_scan(unsigned int id, D_INFO_ST *p_d_info);
-int get_d_sensor_info_scan(unsigned int id, D_INFO_ST *p_d_info);
 
 #endif

@@ -208,7 +208,7 @@ STATIC drvError_t drv_hdc_ub_epoll_ctrl_data_in(struct hdc_epoll_head *epoll_hea
     fd = session->recv_eventfd;
     if (ep_op == EPOLL_CTL_ADD) {
         if (fd != -1) {
-            HDC_LOG_ERR("eventfd for session data in add repeated.\n");
+            HDC_LOG_ERR("eventfd for session data in has been added repeatedly.\n");
             return 0;
         }
         fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -264,7 +264,7 @@ STATIC drvError_t drv_hdc_ub_epoll_ctrl_session_close(struct hdc_epoll_head *epo
     fd = session_head->close_eventfd;
     if (ep_op == EPOLL_CTL_ADD) {
         if (fd != -1) {
-            HDC_LOG_ERR("eventfd for closing session add repeated.\n");
+            HDC_LOG_ERR("eventfd for closing session has been added repeatedly.\n");
             return 0;
         }
         fd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
@@ -406,6 +406,38 @@ mmMutex_t g_thread_epoll_lock = PTHREAD_MUTEX_INITIALIZER;
 pthread_t g_epoll_thread;
 bool g_epoll_thread_create = false;
 int g_epoll_ref = 0;
+// dfx: abnormal count of hdc_recv_data_in_event_handle in epoll thread, single writer so no lock needed
+STATIC unsigned long long g_epoll_recv_abnormal_cnt = 0;
+
+bool hdc_ub_is_epoll_thread_created(void)
+{
+    bool created;
+
+    (void)mmMutexLock(&g_thread_epoll_lock);
+    created = g_epoll_thread_create;
+    (void)mmMutexUnLock(&g_thread_epoll_lock);
+    return created;
+}
+
+signed int hdc_ub_get_epoll_thread_epfd(void)
+{
+    struct hdc_epoll_head *epoll_head;
+    signed int epfd = -1;
+
+    // lock protects the lifetime of g_thread_epoll, not the value itself
+    (void)mmMutexLock(&g_thread_epoll_lock);
+    epoll_head = (struct hdc_epoll_head *)g_thread_epoll;
+    if (epoll_head != NULL) {
+        epfd = (signed int)epoll_head->epfd;
+    }
+    (void)mmMutexUnLock(&g_thread_epoll_lock);
+    return epfd;
+}
+
+unsigned long long hdc_ub_get_epoll_recv_abnormal_cnt(void)
+{
+    return g_epoll_recv_abnormal_cnt;
+}
 
 STATIC void *hdc_ub_epoll_thread_handle(void *arg)
 {
@@ -424,7 +456,9 @@ STATIC void *hdc_ub_epoll_thread_handle(void *arg)
         if ((eventnum < 0) || (eventnum > HDCDRV_EPOLL_FD_EVENT_NUM)) {
             HDC_LOG_ERR("Call epoll_wait error. (epfd=%d; strerror=\"%s\"; errno=%d)\n", epfd, strerror(errno), errno);
         } else if (eventnum != 0) {
-            hdc_recv_data_in_event_handle((struct hdc_ub_epoll_node *)epoll_head->epoll_events[0].data.ptr);
+            if (hdc_recv_data_in_event_handle((struct hdc_ub_epoll_node *)epoll_head->epoll_events[0].data.ptr) != 0) {
+                g_epoll_recv_abnormal_cnt++;
+            }
         }
         (void)mmMutexLock(&g_thread_epoll_lock);
     }

@@ -33,8 +33,8 @@ static int32_t dvpp_tlv_init_decoder(void *decoder)
     dec->version = NULL;
     dec->head = NULL;
 
-    ret = memset_s(dec->tlv_type_struct, dec->tlv_type_struct_size, (int32_t)DVPP_TLV_STRUCT_PTR_DEFAULT_VAL,
-                   dec->tlv_type_struct_size);
+    ret = memset_s(dec->tlv_type_struct, dec->tlv_type_struct_size,
+                   (int32_t)(uintptr_t)(DVPP_TLV_STRUCT_PTR_DEFAULT_VAL), dec->tlv_type_struct_size);
     if (ret != EOK) {
         DVPP_CMDLIST_LOG_ERROR("memset tlv type struct ptr array fail, size:%u", dec->tlv_type_struct_size);
         return -1;
@@ -81,7 +81,7 @@ static void *dvpp_tlv_get_vpu_mod_val(void *decoder, uint32_t node_idx, uint32_t
     }
 
     data_addr = (uint64_t)((uintptr_t)(dec->tlv_type_struct->val[node_idx][type]) + sizeof(tlv_data_len));
-    if (data_addr + stru_len - 1 >= dec->pbuf + dec->size) {
+    if (data_addr + stru_len - 1 >= (uint64_t)(uintptr_t)(dec->pbuf + dec->size)) {
         return NULL;
     }
 
@@ -138,7 +138,7 @@ static int32_t dvpp_tlv_decode_args(void *decoder)
     // 解析version
     ret = tlv_pop_data(dec, &data);
     if (ret != 0) {
-        DVPP_CMDLIST_LOG_ERROR("parse tlv data fail.\n");
+        DVPP_CMDLIST_LOG_ERROR("parse tlv version data fail.\n");
         return ret;
     }
     if (data.type != DVPP_TLV_TYPE_ARGS_VERSION) {
@@ -147,7 +147,7 @@ static int32_t dvpp_tlv_decode_args(void *decoder)
     }
     dec->version = (dvpp_tlv_version_param *)((uint64_t)(uintptr_t)data.val + sizeof(tlv_data_len));
     CHECK_ARGS_PPOS_AND_FAIL_RET((uint64_t)(uintptr_t)dec->version + sizeof(dvpp_tlv_version_param) - 1,
-                                 dec->pbuf + dec->size);
+                                 (uint64_t)(uintptr_t)(dec->pbuf + dec->size));
     // 打印版本号
 #ifdef BUILD_DEBUG
     DVPP_CMDLIST_LOG_DEBUG("major_num=%u\n", dec->version->major_num);
@@ -157,7 +157,7 @@ static int32_t dvpp_tlv_decode_args(void *decoder)
     // 解析头
     ret = tlv_pop_data(dec, &data);
     if (ret != 0) {
-        DVPP_CMDLIST_LOG_ERROR("parse tlv data fail.\n");
+        DVPP_CMDLIST_LOG_ERROR("parse tlv head data fail.\n");
         return ret;
     }
     if (data.type != DVPP_TLV_TYPE_ARGS_HEAD) {
@@ -166,7 +166,7 @@ static int32_t dvpp_tlv_decode_args(void *decoder)
     }
     dec->head = (dvpp_tlv_head_param *)((uintptr_t)data.val + sizeof(tlv_data_len));
     CHECK_ARGS_PPOS_AND_FAIL_RET((uint64_t)(uintptr_t)dec->head + sizeof(dvpp_tlv_head_param) - 1,
-                                 dec->pbuf + dec->size);
+                                 (uint64_t)(uintptr_t)(dec->pbuf + dec->size));
     if (dec->head->mod >= DVPP_CMDLIST_ENGINE_TYPE_BUTT) {
         DVPP_CMDLIST_LOG_ERROR("mod(%u) must be between [0, %d)\n", dec->head->mod,
                                (int32_t)DVPP_CMDLIST_ENGINE_TYPE_BUTT);
@@ -212,7 +212,7 @@ static int32_t dvpp_tlv_decode_args(void *decoder)
         do {
             ret = tlv_pop_data(dec, &data);
             if (ret != 0) {
-                DVPP_CMDLIST_LOG_ERROR("parse tlv data fail.\n");
+                DVPP_CMDLIST_LOG_ERROR("parse tlv node data fail.\n");
                 return ret;
             }
             ret = dvpp_tlv_handle(dec, &data, i);

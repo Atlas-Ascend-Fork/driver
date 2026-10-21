@@ -14,5 +14,6 @@
 #define _VM_QUERY_H
 
 bool run_in_virtual_mach(void);
+bool run_in_confidential_virtual_mach(void);
 
 #endif

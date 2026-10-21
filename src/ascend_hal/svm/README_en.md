@@ -262,7 +262,7 @@ SOMA (Stream-Oriented Memory Allocator) is a stream-based asynchronous memory ma
 - The SOMA feature cannot be enabled by calling HAL interfaces from the host side. It can only be enabled through Runtime ACL interfaces. For usage examples, refer to [SOMA Runtime example](https://gitcode.com/cann/runtime/blob/master/example/3_memory_advanced/memory_pool).
 - Currently only Ascend950 PCIE hardware form is supported.
 
-## Memory Pool Creation and Destruction
+## SOMA Memory Pool Creation and Destruction
 
 SOMA Interfaces: `halMemPoolCreate` / `halMemPoolDestroy`
 
@@ -278,6 +278,21 @@ SOMA Interfaces: `halMemPoolMalloc` / `halMemPoolFree`
 
 `halMemPoolFree` returns a segment of device memory to the memory pool. When calling this interface, specify the target memory pool, virtual address, release size, and release strategy. The released memory is not immediately returned to the operating system. Instead, it remains in the memory pool for subsequent reuse, which improves memory utilization and allocation efficiency.
 
+## SOMA Memory Address Synchronous Release
+
+Memory Address Synchronous Release Interface: `halMemFree`
+
+<br/>
+
+The synchronous release of SOMA memory addresses reuses the SVM `halMemFree` interface. When `halMemFree` is called to release a virtual address asynchronously allocated from a SOMA memory pool, the driver determines that the memory source of that address is a SOMA memory pool (`SVM_POOL_MEM`) via `svm_va_is_soma`, and then enters the `soma_mem_sync_free` path to complete the synchronous release.
+
+Unlike regular memory release, the synchronous release of a SOMA memory address proceeds as follows:
+1. Resolve the corresponding SOMA memory pool handle from the address, and obtain the memory size configured for that address.
+2. Send a synchronous release event to the Device side (AI CPU) via `mem_pool_client_mem_free`, clearing the used/PA bitmap records of the block in the memory pool and unmapping the physical pages (depopulate).
+3. Call `soma_mem_free_cfg` to unregister the KSVMM mapping of that address in kernel mode, completing resource reclamation.
+
+Through the above synchronous release mechanism, business can release SOMA memory through the unified `halMemFree` interface without distinguishing the source of the address, thereby simplifying memory management and avoiding memory leaks.
+
 ## Memory Pool Attribute Setting and Querying
 
 SOMA Interfaces: `halMemPoolSetAttr` / `halMemPoolGetAttr`
@@ -285,6 +300,52 @@ SOMA Interfaces: `halMemPoolSetAttr` / `halMemPoolGetAttr`
 Call `halMemPoolSetAttr` to set memory pool attributes, such as the memory pool watermark value. When calling this interface, specify the target memory pool and attribute key-value pairs.
 
 Call `halMemPoolGetAttr` to query the current attribute values of the memory pool. When calling this interface, specify the target memory pool and attribute key, and the corresponding attribute value is returned.
+
+## SOMA Memory Reuse (Single-stream, Cross-stream Event, Opportunistic, Implicit Dependency)
+
+SOMA Interfaces: `halMemPoolAsyncConfig` / `halMemPoolMalloc`
+
+<br/>
+
+To improve memory reuse efficiency, SOMA adds multiple memory reuse strategies such as single-stream, cross-stream event, opportunistic, and implicit dependency on top of asynchronous memory allocation, enabling the same device memory to be reused across different operators and streams, reducing physical memory allocation overhead and fragmentation.
+
+Memory reuse is performed in two steps:
+- **Configuration stage** (`halMemPoolAsyncConfig`): Preprocess allocation/release of a specified virtual address before operator dispatch, binding the virtual address to the memory pool. The newly added `SOMA_MEM_WAITING` flag is logically identical to `SOMA_MEM_ALLOC` at the configuration stage; both register the mapping of the virtual address to the memory pool. The actual reuse/waiting semantics are determined by the Device-side policy during the allocation stage.
+- **Allocation stage** (`halMemPoolMalloc`): Requires specifying a memory allocation strategy. The newly added memory reuse strategies include:
+    - `SOMA_MEM_ALLOC_REUSE_POLICY` (Reuse): Opportunistic reuse. Reuses quickly only when the target memory block already meets the reusable condition (fail_fast), suitable for single-stream scenarios where the memory has been released and can be directly reused.
+    - `SOMA_MEM_ALLOC_WAITING_POLICY` (Awaiting reuse): Reuse with waiting. When the target memory block is in use (not yet released), the allocation task waits for it to be released before reusing (retry) according to a certain backoff strategy, used in cross-stream event and implicit dependency scenarios, waiting for the established dependency (such as a cross-stream event or the end of the previous operator) to release the memory.
+
+    With the above strategies, SOMA supports memory reuse capabilities such as single-stream (directly reusing after the previous operator in the same stream releases), cross-stream event (synchronizing dependencies via cross-stream events, waiting for the peer stream to release memory), opportunistic (use if available, fail fast otherwise), and implicit dependency (implicitly waiting for the memory to be reusable based on execution dependencies), thereby significantly improving memory utilization and reducing the overhead of frequently requesting physical pages from the system.
+
+The release side also supports explicit and implicit release strategies (`SOMA_MEM_FREE_EXP_POLICY`/`SOMA_MEM_FREE_IMP_POLICY`), which work with the above reuse strategies. Business chooses the appropriate combination of allocation/release strategies based on execution semantics.
+
+## Synchronous Copy and Assignment of SOMA Asynchronously Allocated Memory
+
+SOMA Interfaces: `drvMemcpy` / `drvMemsetD8`
+
+<br/>
+
+After mapping is established, the virtual address allocated asynchronously by SOMA can be directly used as ordinary device memory, supporting synchronous copy and assignment operations:
+
+- **Synchronous copy** (`drvMemcpy`): Synchronously copies specified memory data from a source address to SOMA device memory (H2D/D2D), or back from SOMA device memory to the host (D2H). This synchronous copy operation is blocking; the caller waits until the copy completes.
+- **Synchronous assignment** (`drvMemsetD8`): Sets a specified region of SOMA device memory to a given 8-bit value, used for memory initialization or clearing.
+
+Because the SOMA memory virtual address carries synchronous copy (`SVM_FLAG_CAP_SYNC_COPY_EX`) and assignment (`SVM_FLAG_CAP_MEMSET`) capabilities at allocation time, business can perform synchronous copy and assignment on SOMA asynchronously allocated memory without extra steps, achieving flexible "asynchronous allocation, synchronous usage" memory operations.
+
+**Supported SOMA memory synchronous copy scenarios**: Based on the location of the source/target memory, SOMA synchronous copy covers non-cross-card (same card) and cross-card scenarios.
+
+- **Non-cross-card (within same card) copy scenarios**
+  - Between Host pinned memory and SOMA memory (H2D/D2H): Synchronously transfers data between Host pinned memory and SOMA device memory, suitable for pinned buffers that require stable mapping and DMA direct transfer.
+  - Between Host pageable memory and SOMA memory (H2D/D2H): Synchronously transfers data between Host pageable memory and SOMA device memory, suitable for ordinary user-space buffers.
+  - Between Device memory and SOMA memory (D2D): Synchronously copies between ordinary device memory and SOMA memory on the same device.
+  - From SOMA memory to SOMA memory (D2D): Synchronously copies between two SOMA memory regions on the same device, for example moving an operator's output to the next operator's input.
+
+- **Cross-card copy scenarios**
+  - Between SVM memory and SOMA memory (D2D): Synchronously copies between ordinary SVM device memory and SOMA memory on different devices.
+  - From SOMA memory to SOMA memory (D2D): Synchronously copies between two SOMA memory regions on different devices, used for cross-card data exchange and pipeline parallelism.
+  - (SOMA-involved cross-card copy covers synchronous data transfer between different devices; the specifically supported directions depend on the D2D copy capability provided by the platform.)
+
+The synchronous copy operations in the above scenarios are all blocking; the caller waits until the copy completes before returning. The `drvMemsetD8` assignment operation sets a specified region of SOMA device memory to a given value for initialization or clearing.
 
 ## SOMA Usage Process in Business
 
@@ -305,3 +366,48 @@ During AI model training or inference, multiple operators execute in parallel ac
 <center>
     <img src="../../../docs/en/figures/SOMA_malloc_and_free_process.png" alt="SOMA Module Reuse Strategy Process" width=100% />
 </center>
+
+#### SOMA Synchronous Release Function Business Usage Process
+
+- **Application Scenario**
+
+<br/>
+
+When operator execution completes and SOMA device memory needs to be reclaimed, business can directly release the SOMA asynchronously allocated memory address through the unified `halMemFree` interface. The driver automatically identifies the SOMA source and performs synchronous release, simplifying the release process.
+
+- **Business Calling SOMA Interface Process**
+
+1. Call `halMemPoolCreate` to create the memory pool management structure.
+2. Call `halMemPoolMalloc` to asynchronously allocate device memory and obtain the virtual address.
+3. After the operator completes computation, call `halMemFree` to directly release the SOMA memory virtual address. The driver identifies the SOMA source and performs synchronous release to reclaim memory.
+
+#### SOMA Memory Reuse Function Business Usage Process
+
+- **Application Scenario**
+
+<br/>
+
+In an AI inference pipeline, the same device memory can be reused across different operators through single-stream, cross-stream event, opportunistic, and implicit dependency mechanisms, thereby reducing physical memory allocation overhead and improving memory utilization and pipeline efficiency.
+
+- **Business Calling SOMA Interface Process**
+
+1. Call `halMemPoolCreate` to create the memory pool management structure.
+2. Before operator dispatch, call `halMemPoolAsyncConfig` to perform allocation configuration (`SOMA_MEM_ALLOC`/`SOMA_MEM_WAITING`) on the virtual address to be allocated, registering it to the memory pool.
+3. Before operator execution, call `halMemPoolMalloc` and specify the reuse strategy (`SOMA_MEM_ALLOC_REUSE_POLICY`/`SOMA_MEM_ALLOC_WAITING_POLICY`) to asynchronously allocate device memory; choose the appropriate strategy for single-stream, cross-stream event, opportunistic, or implicit dependency scenarios, reusing memory that has been released or will be released once the dependency is satisfied.
+4. After the operator completes computation, select explicit release (`SOMA_MEM_FREE_EXP_POLICY`) or implicit release (`SOMA_MEM_FREE_IMP_POLICY`) based on semantics to return the device memory to the memory pool for subsequent reuse.
+
+#### SOMA Memory Synchronous Copy and Assignment Function Business Usage Process
+
+- **Application Scenario**
+
+<br/>
+
+The memory address allocated asynchronously by SOMA can be directly used for data transfer and initialization: synchronously copy the data to be computed from the Host side into SOMA device memory, or initialize/clear the SOMA memory through synchronous assignment.
+
+- **Business Calling SOMA Interface Process**
+
+1. Call `halMemPoolCreate` to create the memory pool management structure.
+2. Call `halMemPoolMalloc` to asynchronously allocate device memory and obtain the virtual address.
+3. Call `drvMemcpy` to synchronously copy data from Host memory into SOMA device memory, or copy SOMA device memory data back to the Host.
+4. Call `drvMemsetD8` to set a specified region of SOMA device memory to a given value, completing memory initialization or clearing.
+5. After the operator completes computation, call `halMemFree` or `halMemPoolFree` to release the SOMA memory.

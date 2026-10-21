@@ -41,8 +41,7 @@ void devdrv_set_ts_down(struct devdrv_info *dev_info, u32 tsid);
 void devdrv_set_ts_initing(struct devdrv_info *dev_info, u32 tsid);
 void devdrv_set_ts_booting(struct devdrv_info *dev_info, u32 tsid);
 int devdrv_set_ts_status(struct devdrv_info *dev_info, u32 tsid, enum devdrv_ts_status status);
-void devdrv_driver_hardware_exception(struct devdrv_info *info,
-    uint32_t tsid);
+void devdrv_driver_hardware_exception(struct devdrv_info *info, uint32_t tsid);
 int devdrv_is_ts_ready(int devid);
 #endif
 

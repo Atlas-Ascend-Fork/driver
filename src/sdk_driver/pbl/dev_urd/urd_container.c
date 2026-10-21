@@ -18,11 +18,11 @@
 #include "kernel_version_adapt.h"
 
 #ifdef CFG_FEATURE_SRIOV
-#  include "comm_kernel_interface.h"
+#include "comm_kernel_interface.h"
 #endif
 
 #ifdef CFG_FEATURE_RC_MODE
-#  include "devdrv_user_common.h"
+#include "devdrv_user_common.h"
 #endif
 #include "urd_container.h"
 #include "pbl/pbl_uda.h"
@@ -61,9 +61,10 @@ STATIC int urd_get_current_mnt_ns(u64 *current_mnt_ns)
 STATIC int urd_container_check_current(void)
 {
     /* current->nsproxy is NULL when the release function is called */
-    if (ka_task_get_current() == NULL || ka_task_get_current_nsproxy() == NULL || ka_task_get_current_mnt_ns() == NULL) {
+    if (ka_task_get_current() == NULL || ka_task_get_current_nsproxy() == NULL ||
+        ka_task_get_current_mnt_ns() == NULL) {
         dms_err("(current == NULL) is %d, (current->nsproxy == NULL) is %d\n", (ka_task_get_current() == NULL),
-        ((ka_task_get_current() == NULL) ? (-EINVAL) : (ka_task_get_current_nsproxy() == NULL)));
+                ((ka_task_get_current() == NULL) ? (-EINVAL) : (ka_task_get_current_nsproxy() == NULL)));
         return -EINVAL;
     }
 
@@ -72,6 +73,10 @@ STATIC int urd_container_check_current(void)
 
 static inline ka_mnt_namespace_t *urd_get_host_mnt_ns(void)
 {
+    if (urd_container_task_struct_check(ka_task_get_init_task()) != 0) {
+        return NULL;
+    }
+
     return ka_task_get_init_task()->nsproxy->mnt_ns;
 }
 
@@ -162,8 +167,8 @@ int urd_container_logical_id_to_physical_id(u32 logical_dev_id, u32 *physical_de
     static dms_container_logical_id_to_physical_id_t handler = NULL;
 
     if (handler == NULL) {
-        handler = (dms_container_logical_id_to_physical_id_t)(uintptr_t)
-            __kallsyms_lookup_name("devdrv_manager_container_logical_id_to_physical_id");
+        handler = (dms_container_logical_id_to_physical_id_t)(uintptr_t)__kallsyms_lookup_name(
+            "devdrv_manager_container_logical_id_to_physical_id");
     }
 
     if (handler != NULL) {
@@ -177,4 +182,3 @@ int urd_container_logical_id_to_physical_id(u32 logical_dev_id, u32 *physical_de
     return 0;
 #endif
 }
-

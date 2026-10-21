@@ -97,7 +97,7 @@ STATIC int devmm_svm_vm_fault_host_proc(struct devmm_svm_process *svm_proc, stru
 
     page_bitmap = devmm_get_page_bitmap_with_heap(heap, start);
     if (page_bitmap == NULL) {
-        devmm_drv_err("Heap is invalid. (start=0x%llx; heap_idx=%u)\n", start, heap->heap_idx);
+        devmm_drv_err("Heap is error. (start=0x%llx; heap_idx=%u)\n", start, heap->heap_idx);
         return -EINVAL;
     }
 
@@ -218,14 +218,8 @@ static int devmm_mremap(ka_vm_area_struct_t *area)
 #ifndef EMU_ST
 static int devmm_mk_write(ka_vm_area_struct_t *vma, ka_vm_fault_struct_t *vmf)
 {
-    u64 start = 0;
+    u64 start = ka_mm_get_vm_start(vma) + (vmf->pgoff << KA_MM_PAGE_SHIFT);
 
-    /* KERNEL VERSION >= 4.11.0, vma is NULL */
-    if (vma == NULL) {
-        start = ka_mm_get_vm_fault_address(vmf);
-    } else {
-        start = ka_mm_get_vm_start(vma) + (vmf->pgoff << KA_MM_PAGE_SHIFT);
-    }
     devmm_drv_debug("Host mem enter devmm_mk_write. (start=0x%llx)\n", start);
 
     return KA_VM_FAULT_SIGSEGV;

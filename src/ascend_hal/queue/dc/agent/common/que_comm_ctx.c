@@ -109,6 +109,7 @@ static int que_uma_recv_create_pool(unsigned int devid, struct que_jfr_pool_info
         jfr_pool[idx].recv_para = que_uma_recv_create(devid, jfr_pool[idx].qjfr, &recv_attr, d2d_flag);
         if (que_unlikely(jfr_pool[idx].recv_para == NULL)) {
             que_uma_recv_destroy_pool(idx, jfr_pool);
+            return DRV_ERROR_INNER_ERR;
         }
     }
     return DRV_ERROR_NONE;
@@ -585,7 +586,7 @@ void que_ctx_chan_recycle(unsigned int devid, struct que_query_alive_msg *qid_li
         }
         ret = que_ctx_chan_destroy(devid, qid);
         if (que_unlikely(ret != DRV_ERROR_NONE)) {
-            QUEUE_RUN_LOG_INFO("que destroy chan not success. (ret=%d; devid=%u; qid=%u)\n", ret, devid, qid);
+            QUEUE_LOG_ERR("Failed to destroy queue channel. (ret=%d; devid=%u; qid=%u)\n", ret, devid, qid);
         }
     }
     return;
@@ -616,7 +617,7 @@ int que_ctx_async_ini(unsigned int devid, unsigned int qid, void *mbuf)
     }
 
     ret = que_chan_async_pre_proc(devid, qid, mbuf);
-    if (que_unlikely(ret != DRV_ERROR_NONE)) {
+    if ((que_unlikely(ret != DRV_ERROR_NONE)) && (que_unlikely(ret != DRV_ERROR_QUEUE_FULL))) {
         que_ctx_put(ctx);
         return ret;
     }

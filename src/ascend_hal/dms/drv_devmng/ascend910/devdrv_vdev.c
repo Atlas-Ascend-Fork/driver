@@ -25,20 +25,21 @@ struct compute_group_conf {
     unsigned int aic;
 };
 
-#define VDEV_AICORE_NUM_ONE     1
-#define VDEV_AICORE_NUM_TWO     2
-#define VDEV_AICORE_NUM_FOUR    4
-#define VDEV_AICORE_NUM_EIGHT   8
+#define VDEV_AICORE_NUM_ONE 1
+#define VDEV_AICORE_NUM_TWO 2
+#define VDEV_AICORE_NUM_FOUR 4
+#define VDEV_AICORE_NUM_EIGHT 8
 #define VDEV_AICORE_NUM_SIXTEEN 16
 #define VDEV_FLOAT_DEFAULT_VAL (-1.0f)
-#define VDEV_RATIO_EXPAND   10000
+#define VDEV_RATIO_EXPAND 10000
 
 #ifdef CFG_FEATURE_VF_SINGLE_AICORE
 #define VDEV_TOKEN_TIME_1MS 0xFFFFFULL
 #define VDEV_TOKEN_TIME_2MS 0x1FFFFFULL
-#define VDEV_GROUP_TYPE     2 /* Current RC VFIO only 1/4 and 1/2 are supported.  */
+#define VDEV_GROUP_TYPE 2 /* Current RC VFIO only 1/4 and 1/2 are supported.  */
 
-STATIC unsigned long long compute_group_token_map[VDEV_GROUP_TYPE][2] = { /* 2 is for token and ratio map. */
+STATIC unsigned long long compute_group_token_map[VDEV_GROUP_TYPE][2] = {
+    /* 2 is for token and ratio map. */
     {VDEV_TOKEN_TIME_1MS, 2500}, /* 2500 = 25.00% */
     {VDEV_TOKEN_TIME_2MS, 5000}, /* 5000 = 50.00% */
 };
@@ -46,22 +47,22 @@ STATIC unsigned long long compute_group_token_map[VDEV_GROUP_TYPE][2] = { /* 2 i
 
 STATIC struct compute_group_conf name_to_aic[] = {
 #ifdef CFG_SOC_PLATFORM_MINIV2
-        {"vir01", VDEV_AICORE_NUM_ONE},
-        {"vir02", VDEV_AICORE_NUM_TWO},
-        {"vir04", VDEV_AICORE_NUM_FOUR},
+    {"vir01", VDEV_AICORE_NUM_ONE},
+    {"vir02", VDEV_AICORE_NUM_TWO},
+    {"vir04", VDEV_AICORE_NUM_FOUR},
 #elif defined CFG_SOC_PLATFORM_CLOUD_V2
-        /* asic total 24 aicore */
-        {"vir01", 1},   /* 1 aicore for 1/24 */
-        {"vir02", 2},   /* 2 aicore for 1/12 */
-        {"vir04", 4},   /* 4 aicore for 1/6 */
-        {"vir06", 6},   /* 6 aicore for 1/4 */
-        {"vir12", 12},  /* 12 aicore for 1/2 */
-        {"vir24", 24},  /* 24 aicore for 1 */
+    /* asic total 24 aicore */
+    {"vir01", 1},  /* 1 aicore for 1/24 */
+    {"vir02", 2},  /* 2 aicore for 1/12 */
+    {"vir04", 4},  /* 4 aicore for 1/6 */
+    {"vir06", 6},  /* 6 aicore for 1/4 */
+    {"vir12", 12}, /* 12 aicore for 1/2 */
+    {"vir24", 24}, /* 24 aicore for 1 */
 #else
-        {"vir02", VDEV_AICORE_NUM_TWO},
-        {"vir04", VDEV_AICORE_NUM_FOUR},
-        {"vir08", VDEV_AICORE_NUM_EIGHT},
-        {"vir16", VDEV_AICORE_NUM_SIXTEEN},
+    {"vir02", VDEV_AICORE_NUM_TWO},
+    {"vir04", VDEV_AICORE_NUM_FOUR},
+    {"vir08", VDEV_AICORE_NUM_EIGHT},
+    {"vir16", VDEV_AICORE_NUM_SIXTEEN},
 #endif
 };
 
@@ -89,8 +90,8 @@ STATIC int template_name_check(struct dsmi_create_vdev_res_stru *in)
 }
 #endif
 
-static drvError_t drv_set_ioctl_create_info(u32 devid, u32 vdev_id,
-    struct vdev_create_info *cinfo, const struct dsmi_create_vdev_res_stru *vdev_res)
+static drvError_t drv_set_ioctl_create_info(u32 devid, u32 vdev_id, struct vdev_create_info *cinfo,
+                                            const struct dsmi_create_vdev_res_stru *vdev_res)
 {
     int ret;
 
@@ -126,8 +127,8 @@ static drvError_t drv_set_ioctl_create_info(u32 devid, u32 vdev_id,
     return 0;
 }
 
-drvError_t drvCreateVdevice(u32 devid, u32 vdev_id,
-    struct dsmi_create_vdev_res_stru *vdev_res, struct dsmi_create_vdev_result *vdev_result)
+drvError_t drvCreateVdevice(u32 devid, u32 vdev_id, struct dsmi_create_vdev_res_stru *vdev_res,
+                            struct dsmi_create_vdev_result *vdev_result)
 {
     char name_buf[DEVDRV_DEVICE_NAME_BUF_SIZE] = {0};
     struct vdev_create_info cinfo = {0};
@@ -135,8 +136,8 @@ drvError_t drvCreateVdevice(u32 devid, u32 vdev_id,
     int ret;
 
     if (devid >= ASCEND_DEV_MAX_NUM || vdev_res == NULL || vdev_result == NULL) {
-        DEVDRV_DRV_ERR("Invalid parameter. (devid=%u; in_is_null=%d; out_is_null=%d)\n",
-                       devid, vdev_res == NULL, vdev_result == NULL);
+        DEVDRV_DRV_ERR("Invalid parameter. (devid=%u; in_is_null=%d; out_is_null=%d)\n", devid, vdev_res == NULL,
+                       vdev_result == NULL);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -158,8 +159,8 @@ drvError_t drvCreateVdevice(u32 devid, u32 vdev_id,
         return ret;
     }
 
-    (void)memset_s((void *)vdev_result, sizeof(struct dsmi_create_vdev_result),
-        0xff, sizeof(struct dsmi_create_vdev_result));
+    (void)memset_s((void *)vdev_result, sizeof(struct dsmi_create_vdev_result), 0xff,
+                   sizeof(struct dsmi_create_vdev_result));
     vdev_result->vdev_id = cinfo.vdevid;
     vdev_result->vfg_id = cinfo.vdev_info.base.vfg_id;
     vdev_result->vf_id = cinfo.vfid;
@@ -167,7 +168,7 @@ drvError_t drvCreateVdevice(u32 devid, u32 vdev_id,
      * It is used to clear the queue for creating VF devices in user-space.
      * It is hard-coding here and it will invoke waitpid in 'system' implementation.
      * Even if it fails to be invoked, there is no effect (privileged-docker).
-    */
+     */
     (void)system("udevadm settle > /dev/null 2>&1");
 #ifdef CFG_FEATURE_VFIO_SOC
     ret = stat("/dev/davinci0", &st);
@@ -181,20 +182,26 @@ drvError_t drvCreateVdevice(u32 devid, u32 vdev_id,
 
     /* change vdevice mode and owner */
 #ifdef CFG_FEATURE_VFIO_SOC
-    if (sprintf_s(name_buf, DEVDRV_DEVICE_NAME_BUF_SIZE,
-        DEVDRV_DEVICE_PATH DEVDRV_DEVICE_NAME "%u", vdev_result->vdev_id) > 0) {
+    if (sprintf_s(name_buf, DEVDRV_DEVICE_NAME_BUF_SIZE, DEVDRV_DEVICE_PATH DEVDRV_DEVICE_NAME "%u",
+                  vdev_result->vdev_id) > 0) {
 #else
-    if (sprintf_s(name_buf, DEVDRV_DEVICE_NAME_BUF_SIZE,
-        DEVDRV_DEVICE_PATH DEVDRV_VDEVICE_NAME "%u", vdev_result->vdev_id) > 0) {
+    if (sprintf_s(name_buf, DEVDRV_DEVICE_NAME_BUF_SIZE, DEVDRV_DEVICE_PATH DEVDRV_VDEVICE_NAME "%u",
+                  vdev_result->vdev_id) > 0) {
 #endif
         ret = chown(name_buf, st.st_uid, st.st_gid);
         if (ret != 0) {
-            DEVDRV_DRV_INFO("The file does not exist. (file=\"%s\"; vdevid=%d; ret=%d)\n",
-                name_buf, vdev_result->vdev_id, ret);
+            DEVDRV_DRV_INFO("The file does not exist. (file=\"%s\"; vdevid=%d; ret=%d)\n", name_buf,
+                            vdev_result->vdev_id, ret);
         }
     }
 
     return DRV_ERROR_NONE;
+}
+
+drvError_t halDrvCreateVdevice(unsigned int devid, unsigned int vdev_id, void *vdev_res, void *vdev_result)
+{
+    return drvCreateVdevice((u32)devid, (u32)vdev_id, (struct dsmi_create_vdev_res_stru *)vdev_res,
+                            (struct dsmi_create_vdev_result *)vdev_result);
 }
 
 /*
@@ -233,8 +240,7 @@ STATIC int get_name_by_aic(unsigned int aicore, char *template_name, int len)
         if (name_to_aic[i].aic == aicore) {
             ret = strcpy_s(template_name, len, name_to_aic[i].name);
             if (ret != 0) {
-                DEVDRV_DRV_ERR("strcpy_s failed. (aicore=%u; template_name=\"%s\")\n",
-                               aicore, name_to_aic[i].name);
+                DEVDRV_DRV_ERR("strcpy_s failed. (aicore=%u; template_name=\"%s\")\n", aicore, name_to_aic[i].name);
                 return DRV_ERROR_OUT_OF_MEMORY;
             }
 
@@ -246,8 +252,7 @@ STATIC int get_name_by_aic(unsigned int aicore, char *template_name, int len)
 }
 
 #ifndef CFG_FEATURE_VFG
-STATIC void drvSetVdevFloatDefaultValue(struct dsmi_computing_resource *computing,
-                                        struct dsmi_media_resource *media)
+STATIC void drvSetVdevFloatDefaultValue(struct dsmi_computing_resource *computing, struct dsmi_media_resource *media)
 {
     computing->aiv = VDEV_FLOAT_DEFAULT_VAL;
     media->jpegd = VDEV_FLOAT_DEFAULT_VAL;
@@ -260,8 +265,7 @@ STATIC void drvSetVdevFloatDefaultValue(struct dsmi_computing_resource *computin
 #endif
 
 static void drv_get_computing_and_media_info(struct dsmi_computing_resource *computing,
-                                             struct dsmi_media_resource *media,
-                                             struct vdev_query_info *vinfo)
+                                             struct dsmi_media_resource *media, struct vdev_query_info *vinfo)
 {
 #ifdef CFG_FEATURE_VFG
     computing->device_aicpu = vinfo->computing.device_aicpu;
@@ -310,8 +314,8 @@ STATIC int get_info_by_vdev_id(struct dsmi_vdev_query_stru *single_query, struct
             single_query->query_info.base.token_max = vinfo->base.token_max;
             single_query->query_info.base.task_timeout = vinfo->base.task_timeout;
 #endif
-            drv_get_computing_and_media_info(&single_query->query_info.computing,
-                                             &single_query->query_info.media, vinfo);
+            drv_get_computing_and_media_info(&single_query->query_info.computing, &single_query->query_info.media,
+                                             vinfo);
             return DRV_ERROR_NONE;
         }
     }
@@ -430,6 +434,11 @@ drvError_t drvGetVdevActivityInfo(u32 devid, u32 main_cmd, u32 sub_cmd, void *vd
         return DRV_ERROR_PARA_ERROR;
     }
 
+    if (*size < sizeof(struct dsmi_vdev_query_stru)) {
+        DEVDRV_DRV_ERR("Invalid parameter. (devid=%u; size=%u)\n", devid, *size);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
     vinfo.devid = devid;
     single_query = (struct dsmi_vdev_query_stru *)vdev_res;
     vinfo.vdev_id_single = single_query->vdev_id;
@@ -440,8 +449,8 @@ drvError_t drvGetVdevActivityInfo(u32 devid, u32 main_cmd, u32 sub_cmd, void *vd
         return ret;
     }
 
-    (void)memset_s((void *)&single_query->query_info, sizeof(struct dsmi_vdev_query_info),
-        0xff, sizeof(struct dsmi_vdev_query_info));
+    (void)memset_s((void *)&single_query->query_info, sizeof(struct dsmi_vdev_query_info), 0xff,
+                   sizeof(struct dsmi_vdev_query_info));
 
     single_query->query_info.computing.vdev_aicore_utilization = vinfo.computing.vdev_aicore_utilization;
 
@@ -461,7 +470,8 @@ drvError_t drvGetSingleVdevInfo(u32 devid, u32 main_cmd, u32 sub_cmd, void *vdev
     }
 
     if (*size < sizeof(struct dsmi_vdev_query_stru)) {
-        DEVDRV_DRV_ERR("invalid parameter. (devid=%u; size=%u)\n", devid, *size);
+        DEVDRV_DRV_ERR("invalid parameter. (devid=%u; size=%u; expected_size=[%lu,))\n", devid, *size,
+                       sizeof(struct dsmi_vdev_query_stru));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -475,12 +485,12 @@ drvError_t drvGetSingleVdevInfo(u32 devid, u32 main_cmd, u32 sub_cmd, void *vdev
         return ret;
     }
 
-    (void)memset_s((void *)&single_query->query_info, sizeof(struct dsmi_vdev_query_info),
-        0xff, sizeof(struct dsmi_vdev_query_info));
+    (void)memset_s((void *)&single_query->query_info, sizeof(struct dsmi_vdev_query_info), 0xff,
+                   sizeof(struct dsmi_vdev_query_info));
     ret = get_info_by_vdev_id(single_query, &vinfo);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("Failed to invoke get_info_by_vdev_id. (devid=%u; vdevid=%u; ret=%d)\n",
-                       devid, single_query->vdev_id, ret);
+        DEVDRV_DRV_ERR("Failed to invoke get_info_by_vdev_id. (devid=%u; vdevid=%u; ret=%d)\n", devid,
+                       single_query->vdev_id, ret);
         return ret;
     }
 
@@ -500,7 +510,8 @@ drvError_t drvGetVdevTopsPercentage(u32 devid, u32 main_cmd, u32 sub_cmd, void *
     }
 
     if (*size < sizeof(struct dsmi_soc_vdev_ratio)) {
-        DEVDRV_DRV_ERR("invalid parameter. (devid=%u; size=%u)\n", devid, *size);
+        DEVDRV_DRV_ERR("invalid parameter. (devid=%u; size=%u; expected_size=[%lu,))\n", devid, *size,
+                       sizeof(struct dsmi_soc_vdev_ratio));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -516,17 +527,15 @@ drvError_t drvGetVdevTopsPercentage(u32 devid, u32 main_cmd, u32 sub_cmd, void *
 
     ret = get_ratio_by_vinfo(vinfo.vdev_id_single, &in_vinfo->ratio, vinfo);
     if (ret != 0) {
-        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret,
-            "Failed to invoke get_ratio_by_vinfo. (devid=%u; vdevid=%u; ret=%d)\n",
-            devid, vinfo.vdev_id_single, ret);
+        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to invoke get_ratio_by_vinfo. (devid=%u; vdevid=%u; ret=%d)\n", devid,
+                                     vinfo.vdev_id_single, ret);
         return ret;
     }
 
     return DRV_ERROR_NONE;
 }
 
-drvError_t drvSetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd,
-    const void *buf, unsigned int buf_size)
+drvError_t drvSetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd, const void *buf, unsigned int buf_size)
 {
     struct devdrv_svm_vdev_info vinfo = {0};
     int ret;
@@ -554,8 +563,7 @@ drvError_t drvSetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd,
     return DRV_ERROR_NONE;
 }
 
-drvError_t drvGetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd,
-    void *buf, unsigned int *buf_size)
+drvError_t drvGetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd, void *buf, unsigned int *buf_size)
 {
     struct devdrv_svm_vdev_info vinfo = {0};
     int ret;

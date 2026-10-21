@@ -126,6 +126,7 @@ STATIC int vmngh_container_client_offline_cloud_v1(u32 dev_id, u32 vfid)
 
 STATIC int vmngh_enquire_soc_resource_cloud_v1(u32 dev_id, u32 vfid, struct vmng_soc_resource_enquire *info)
 {
+    ka_mutex_t *ctrl_mutex = vmngh_get_ctrl_mutex();
     struct vmngh_vdev_ctrl *ctrl = vmngh_get_ctrl(dev_id, vfid);
     int ret;
 
@@ -151,7 +152,9 @@ STATIC int vmngh_enquire_soc_resource_cloud_v1(u32 dev_id, u32 vfid, struct vmng
         return VMNG_ERR;
     }
 
+    ka_task_mutex_lock(ctrl_mutex);
     info->each.stars_static.aic = ctrl->vdev_ctrl.core_num;
+    ka_task_mutex_unlock(ctrl_mutex);
 
     return VMNG_OK;
 }
@@ -171,4 +174,9 @@ int vmngh_res_init_cloud_v1(u32 devid, struct vmngh_ctrl_ops *ops)
     ops->valid = VMNG_VALID;
 
     return VMNG_OK;
+}
+
+vmng_feature_bitmap_t vmngh_feature_init_cloud_v1(void)
+{
+    return (1ULL << VMNG_FEATURE_BW_CTRL) | (1ULL << VMNG_FEATURE_MIA_RES) | (1ULL << VMNG_FEATURE_SMP);
 }

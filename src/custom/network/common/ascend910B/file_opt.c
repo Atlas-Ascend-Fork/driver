@@ -20,8 +20,8 @@
 static int read_file_to_buf_check_param(const char *path, const char *content, unsigned int *content_len)
 {
     if (path == NULL || content == NULL || content_len == NULL) {
-        roce_err("path[%d] or conf_path[%d] or content_len[%d]is NULL, invalid",
-                 (path == NULL), (content == NULL), (content_len == NULL));
+        roce_err("path[%d] or conf_path[%d] or content_len[%d]is NULL, invalid", (path == NULL), (content == NULL),
+                 (content_len == NULL));
         return -EINVAL;
     }
 
@@ -38,7 +38,7 @@ int ReadFileToBuf(const char *path, char *content, unsigned int *content_len)
     int ret, ret_val;
     int len;
     FILE *read_file = NULL;
-    char real_conf_path[PATH_MAX + 1] = {0};//lint !e813
+    char real_conf_path[PATH_MAX + 1] = {0}; // lint !e813
 
     ret = read_file_to_buf_check_param(path, content, content_len);
     if (ret) {
@@ -157,7 +157,7 @@ void RemoveFile(const char *file)
 int check_file_path(const char *path, mode_t mode)
 {
     int ret;
-    char real_conf_path[PATH_MAX + 1] = {0};//lint !e813
+    char real_conf_path[PATH_MAX + 1] = {0}; // lint !e813
 
     if (path == NULL) {
         roce_err("path is NULL");

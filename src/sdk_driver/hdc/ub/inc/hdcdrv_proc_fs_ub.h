@@ -27,6 +27,7 @@ struct hdcdrv_procfs_entry {
     ka_proc_dir_entry_t *dev_id;
     ka_proc_dir_entry_t *hdcdrv_dev_stat;
 };
+
 struct hdcdrv_session_list_stat {
     int active_num;
     int *active_list;

@@ -21,11 +21,13 @@
 static int svm_smm_remote_map(struct svm_dst_va *dst_info, struct svm_global_va *src_info, u32 flag)
 {
     struct svm_umc_msg_head head;
-    struct svm_smm_map_msg mmap_msg = {.dst_task_type = dst_info->task_type,
+    struct svm_smm_map_msg mmap_msg = {.head = {0},
+                                       .dst_task_type = dst_info->task_type,
                                        .dst_size = dst_info->size,
                                        .dst_va = dst_info->va,
                                        .src_info = *src_info,
-                                       .flag = flag};
+                                       .flag = flag,
+                                       .src_va = src_info->va};
     struct svm_umc_msg msg = {.msg_in = (char *)(uintptr_t)&mmap_msg,
                               .msg_in_len = sizeof(struct svm_smm_map_msg),
                               .msg_out = (char *)(uintptr_t)&mmap_msg,
@@ -56,7 +58,8 @@ static int svm_smm_remote_map(struct svm_dst_va *dst_info, struct svm_global_va 
 static int svm_smm_remote_unmap(struct svm_dst_va *dst_info, struct svm_global_va *src_info, u32 flag)
 {
     struct svm_umc_msg_head head;
-    struct svm_smm_unmap_msg munmap_msg = {.dst_task_type = dst_info->task_type,
+    struct svm_smm_unmap_msg munmap_msg = {.head = {0},
+                                           .dst_task_type = dst_info->task_type,
                                            .dst_size = dst_info->size,
                                            .dst_va = dst_info->va,
                                            .src_info = *src_info,

@@ -14,7 +14,6 @@
 #ifndef _DEVMNG_SHM_INFO_H_
 #define _DEVMNG_SHM_INFO_H_
 
-
 #define DEVMNG_SHM_INFO_HEAD_LEN 32
 #define DEVMNG_SHM_INFO_ERROR_CODE_LEN 32
 #define DEVMNG_SHM_INFO_EVENT_CODE_LEN 128
@@ -23,11 +22,11 @@
 #define DEVMNG_SHM_INFO_DIE_ID_NUM 5
 #define VMNG_VDEV_MAX_PER_PDEV 17
 
-#define DEVDRV_SHM_TOTAL_SIZE_PF 0x40000       /* 256KB */
-#define DEVDRV_SHM_TOTAL_SIZE_VF 0x8000        /* 32KB */
+#define DEVDRV_SHM_TOTAL_SIZE_PF 0x40000 /* 256KB */
+#define DEVDRV_SHM_TOTAL_SIZE_VF 0x8000  /* 32KB */
 #define DEVDRV_SHM_TOTAL_VF_OFFSET DEVDRV_SHM_TOTAL_SIZE_PF
 
-#define DEVDRV_SHM_GEGISTER_RAO_SIZE 0x4000    /* 16KB */
+#define DEVDRV_SHM_GEGISTER_RAO_SIZE 0x4000 /* 16KB */
 
 /*
  * version of share memory:
@@ -36,10 +35,7 @@
  * bit32~47: substantial version of board_info;
  * bit48~64: substantial version of status_info;
  */
-#define DEVMNG_SHM_INFO_HEAD_VERSION (0x1ULL << 0 |  \
-                                      0x1ULL << 16 | \
-                                      0x1ULL << 32 | \
-                                      0x2ULL << 48)
+#define DEVMNG_SHM_INFO_HEAD_VERSION (0x1ULL << 0 | 0x1ULL << 16 | 0x1ULL << 32 | 0x2ULL << 48)
 
 struct shm_event_code {
     u32 event_code;
@@ -90,9 +86,9 @@ typedef struct shm_info_status {
     struct shm_event_code event_code[DEVMNG_SHM_INFO_EVENT_CODE_LEN];
 } U_SHM_INFO_STATUS;
 
-#define DEVMNG_HEART_BEAT_MAGIC    0x5a5a5a5a 
-#define DEVMNG_HEART_BEAT_NO_LOST  0x0
-#define DEVMNG_HEART_BEAT_LOST     0x1
+#define DEVMNG_HEART_BEAT_MAGIC 0x5a5a5a5a
+#define DEVMNG_HEART_BEAT_NO_LOST 0x0
+#define DEVMNG_HEART_BEAT_LOST 0x1
 typedef struct shm_info_heartbeat {
     u32 magic;
     u32 heartbeat_lost_flag;

@@ -72,7 +72,7 @@ drvError_t drvGetProcessSign(struct process_sign *sign)
 
     ret = ioctl(fd, DEVDRV_MANAGER_GET_PROCESS_SIGN, &dev_sign);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("ioctl failed, ret(%d).\n", ret);
+        DEVDRV_DRV_ERR("ioctl failed, (ret=%d; errno=%d).\n", ret, errno);
         return DRV_ERROR_IOCRL_FAIL;
     }
     DEVDRV_DRV_INFO("Process sign list add success.(tgid=%d)\n", dev_sign.tgid);
@@ -98,8 +98,8 @@ static struct tsdrv_shrid_remote_ops *tsDrvGetShridRemoteOps(void)
     return &g_shrid_remote_ops;
 }
 
-static drvError_t tsDrvShridRemoteConfig(uint32_t local_devid, uint32_t remote_devId, uint32_t tsId,
-    uint32_t IdType, uint32_t Id)
+static drvError_t tsDrvShridRemoteConfig(uint32_t local_devid, uint32_t remote_devId, uint32_t tsId, uint32_t IdType,
+                                         uint32_t Id)
 {
     struct drvShrIdInfo info = {0};
     info.devid = remote_devId;
@@ -115,8 +115,8 @@ static drvError_t tsDrvShridRemoteConfig(uint32_t local_devid, uint32_t remote_d
     return DRV_ERROR_NONE;
 }
 
-static drvError_t tsDrvShridRemoteDeconfig(uint32_t local_devid, uint32_t remote_devId,
-    uint32_t tsId, uint32_t IdType, uint32_t Id)
+static drvError_t tsDrvShridRemoteDeconfig(uint32_t local_devid, uint32_t remote_devId, uint32_t tsId, uint32_t IdType,
+                                           uint32_t Id)
 {
     struct drvShrIdInfo info = {0};
     info.devid = remote_devId;
@@ -148,7 +148,8 @@ static int tsDrvShridRemoteOps(uint32_t local_devid, struct devdrv_notify_ioctl_
     if ((info->flag & DEVDRV_SHRID_OP_DECONFIG) != 0) {
         ret = tsDrvShridRemoteDeconfig(local_devid, info->dev_id, info->tsid, SHR_ID_NOTIFY_TYPE, res_id);
         if (ret != 0) {
-            DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret,
+            DEVDRV_DRV_EX_NOTSUPPORT_ERR(
+                ret,
                 "Failed to tsDrvShridRemoteDeconfig. (local_devid=%u; remote_devid=%u; tsid=%u; id_type=%u; id=%u)\n",
                 local_devid, info->dev_id, info->tsid, info->id_type, info->notify_id);
             return ret;
@@ -159,9 +160,9 @@ static int tsDrvShridRemoteOps(uint32_t local_devid, struct devdrv_notify_ioctl_
 }
 
 STATIC drvError_t __drvIpcNotifyProc(int32_t cmd, const char *name, uint32_t devId, uint32_t notifyId,
-                              struct devdrv_notify_ioctl_info *notify_ioc)
+                                     struct devdrv_notify_ioctl_info *notify_ioc)
 {
-    struct devdrv_notify_ioctl_info tmp_notify_ioc = { 0 };
+    struct devdrv_notify_ioctl_info tmp_notify_ioc = {0};
     struct drvIpcNotifyInfo info = {0};
     uint32_t local_devid = devId;
     int fd = -1;
@@ -170,8 +171,8 @@ STATIC drvError_t __drvIpcNotifyProc(int32_t cmd, const char *name, uint32_t dev
     int err;
 
     if (name == NULL || devId >= ASCEND_DEV_MAX_NUM || notifyId >= DEVDRV_MAX_NOTIFY_ID) {
-        DEVDRV_DRV_ERR("invalid parameter. (name_is_null=%d; devId=%u; notifyId=%u)\n",
-            (name == NULL), devId, notifyId);
+        DEVDRV_DRV_ERR("invalid parameter. (name_is_null=%d; devId=%u; notifyId=%u)\n", (name == NULL), devId,
+                       notifyId);
         return DRV_ERROR_INVALID_VALUE;
     }
     fd = devdrv_open_device_manager();
@@ -218,9 +219,9 @@ STATIC drvError_t __drvIpcNotifyProc(int32_t cmd, const char *name, uint32_t dev
         }
     }
     (void)memset_s(tmp_notify_ioc.name, DEVDRV_IPC_NAME_SIZE, 0, DEVDRV_IPC_NAME_SIZE);
-    DEVDRV_DRV_DEBUG("devid=%u; remote_devid=%u; open_devid=%u; tsid=%u; notify_id=%u; id_type=%u; flag=%u\n",
-        devId, tmp_notify_ioc.dev_id, tmp_notify_ioc.open_devid, tmp_notify_ioc.tsid,
-        tmp_notify_ioc.notify_id, tmp_notify_ioc.id_type, tmp_notify_ioc.flag);
+    DEVDRV_DRV_DEBUG("devid=%u; remote_devid=%u; open_devid=%u; tsid=%u; notify_id=%u; id_type=%u; flag=%u\n", devId,
+                     tmp_notify_ioc.dev_id, tmp_notify_ioc.open_devid, tmp_notify_ioc.tsid, tmp_notify_ioc.notify_id,
+                     tmp_notify_ioc.id_type, tmp_notify_ioc.flag);
 
     if ((tmp_notify_ioc.flag & DEVDRV_SHRID_OP_DECONFIG) != 0) {
         local_devid = tmp_notify_ioc.open_devid;
@@ -231,9 +232,8 @@ STATIC drvError_t __drvIpcNotifyProc(int32_t cmd, const char *name, uint32_t dev
             info.notifyId = tmp_notify_ioc.notify_id;
             (void)drvCloseIpcNotify(name, &info);
         }
-        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret,
-            "Failed to tsDrvShridRemoteOps. (local_devid=%u; cmd=%d; flag=%u; ret=%d).\n",
-            local_devid, cmd, tmp_notify_ioc.flag, ret);
+        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret, "Failed to tsDrvShridRemoteOps. (local_devid=%u; cmd=%d; flag=%u; ret=%d).\n",
+                                     local_devid, cmd, tmp_notify_ioc.flag, ret);
         return ret;
     }
 
@@ -256,11 +256,11 @@ STATIC drvError_t __drvIpcNotifyCreat(char *name, struct drvShrIdInfo *info)
     notify_ioc.tsid = info->tsid;
     notify_ioc.id_type = info->id_type;
     notify_ioc.flag = info->flag;
-    DEVDRV_DRV_DEBUG("devid=%u; tsid=%u; notify_id=%u; id_type=%u; flag=%u\n",
-        notify_ioc.dev_id, notify_ioc.tsid, notify_ioc.notify_id, notify_ioc.id_type, notify_ioc.flag);
+    DEVDRV_DRV_DEBUG("devid=%u; tsid=%u; notify_id=%u; id_type=%u; flag=%u\n", notify_ioc.dev_id, notify_ioc.tsid,
+                     notify_ioc.notify_id, notify_ioc.id_type, notify_ioc.flag);
     if (ioctl(fd, DEVDRV_MANAGER_IPC_NOTIFY_CREATE, &notify_ioc) != 0) {
         (void)memset_s(notify_ioc.name, DEVDRV_IPC_NAME_SIZE, 0, DEVDRV_IPC_NAME_SIZE);
-        DEVDRV_DRV_ERR("ioctl failed, devid(%u), notifyid(%u)\n", info->devid, info->shrid);
+        DEVDRV_DRV_ERR("ioctl failed, devid(%u), notifyid(%u), errno(%d).\n", info->devid, info->shrid, errno);
         return DRV_ERROR_IOCRL_FAIL;
     }
     ret = strcpy_s(name, DEVDRV_IPC_NAME_SIZE, notify_ioc.name);
@@ -302,8 +302,8 @@ drvError_t drvCreateIpcNotify(struct drvIpcNotifyInfo *info, char *name, unsigne
     shr_info.id_type = NOTIFY_ID_TYPE;
     if ((shr_info.tsid >= DEVDRV_MAX_TS_NUM) || (shr_info.devid >= ASCEND_DEV_MAX_NUM) ||
         (shr_info.shrid >= DEVDRV_MAX_NOTIFY_ID)) {
-        DEVDRV_DRV_ERR("invalid parameter, devId(%u) tsId(%u) notifyId(%u).\n",
-            shr_info.devid, shr_info.tsid, shr_info.shrid);
+        DEVDRV_DRV_ERR("invalid parameter, devId(%u) tsId(%u) notifyId(%u).\n", shr_info.devid, shr_info.tsid,
+                       shr_info.shrid);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -353,7 +353,7 @@ drvError_t drvDestroyIpcNotify(const char *name, struct drvIpcNotifyInfo *info)
 
 static drvError_t _drvOpenIpcNotify(const char *name, struct drvIpcNotifyInfo *info, uint32_t flag)
 {
-    struct devdrv_notify_ioctl_info notify_ioc = { 0 };
+    struct devdrv_notify_ioctl_info notify_ioc = {0};
     drvError_t err;
 
     if (info == NULL) {
@@ -422,8 +422,8 @@ drvError_t drvSetIpcNotifyPid(const char *name, pid_t pid[], int num)
 
     /* pass in only one parameter at a time in the current scene */
     if (name == NULL || pid == NULL || num != 1) {
-        DEVDRV_DRV_ERR("invalid parameter. (name_is_null=%d, pid_is_null=%d, num=%d)\n",
-            (name == NULL), (pid == NULL), num);
+        DEVDRV_DRV_ERR("invalid parameter. (name_is_null=%d, pid_is_null=%d, num=%d)\n", (name == NULL), (pid == NULL),
+                       num);
         return DRV_ERROR_INVALID_VALUE;
     }
     fd = devdrv_open_device_manager();
@@ -449,7 +449,7 @@ drvError_t drvSetIpcNotifyPid(const char *name, pid_t pid[], int num)
         DEVDRV_DRV_DEBUG("PID[%d] = %d\n", i, pid[i]);
     }
 
-    ret = ioctl(fd, DEVDRV_MANAGER_IPC_NOTIFY_SET_PID, &tmp_notify_ioc); 
+    ret = ioctl(fd, DEVDRV_MANAGER_IPC_NOTIFY_SET_PID, &tmp_notify_ioc);
     err = errno;
     if (ret != 0) {
         (void)memset_s(tmp_notify_ioc.name, DEVDRV_IPC_NAME_SIZE, 0, DEVDRV_IPC_NAME_SIZE);
@@ -467,12 +467,12 @@ drvError_t drvSetIpcNotifyPid(const char *name, pid_t pid[], int num)
 drvError_t halShrIdSetAttribute(const char *name, enum shrIdAttrType type, struct shrIdAttr attr)
 {
     drvError_t err;
- 
+
     if (name == NULL) {
         DEVDRV_DRV_ERR("Invalid name when setting ipc notify attribute.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
- 
+
     if ((type < 0) || (type >= SHR_ID_ATTR_TYPE_MAX) || (attr.enableFlag != SHRID_NO_WLIST_ENABLE)) {
         DEVDRV_DRV_DEBUG("Access denied when setting ipc notify attribute.\n");
         return DRV_ERROR_NOT_SUPPORT;
@@ -486,14 +486,14 @@ drvError_t halShrIdSetAttribute(const char *name, enum shrIdAttrType type, struc
 
 drvError_t halShrIdGetAttribute(const char *name, enum shrIdAttrType type, struct shrIdAttr *attr)
 {
-    struct devdrv_notify_ioctl_info notify_ioc = { 0 };
+    struct devdrv_notify_ioctl_info notify_ioc = {0};
     drvError_t err;
- 
+
     if ((name == NULL) || (attr == NULL)) {
         DEVDRV_DRV_ERR("Invalid arguments when getting ipc notify info.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
- 
+
     if ((type < 0) || (type >= SHR_ID_ATTR_TYPE_MAX)) {
         DEVDRV_DRV_DEBUG("Shr node type not support.\n");
         return DRV_ERROR_NOT_SUPPORT;
@@ -508,14 +508,14 @@ drvError_t halShrIdGetAttribute(const char *name, enum shrIdAttrType type, struc
 
 drvError_t halShrIdInfoGet(const char *name, struct shrIdGetInfo *info)
 {
-    struct devdrv_notify_ioctl_info notify_ioc = { 0 };
+    struct devdrv_notify_ioctl_info notify_ioc = {0};
     drvError_t err;
- 
+
     if ((name == NULL) || (info == NULL)) {
         DEVDRV_DRV_ERR("Invalid arguments when getting ipc notify info.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
- 
+
     err = __drvIpcNotifyProc(DEVDRV_MANAGER_IPC_NOTIFY_GET_INFO, name, 0, 0, &notify_ioc);
     if (err == DRV_ERROR_NONE) {
         info->phyDevid = notify_ioc.dev_id;

@@ -16,6 +16,7 @@
 
 #include "ka_dfx_pub.h"
 #include "ka_common_pub.h"
+#include "ka_memory_pub.h"
 
 #include "dpa_pids_map.h"
 #include "pbl/pbl_task_ctx.h"
@@ -190,6 +191,15 @@ struct apm_res_map_ops {
 
 int hal_kernel_apm_res_map_ops_register(enum res_addr_type res_type, struct apm_res_map_ops *ops);
 void hal_kernel_apm_res_map_ops_unregister(enum res_addr_type res_type);
+
+enum drv_module_type {
+    SVM_MODULE,
+    MAX_DRV_MODULE_TYPE
+};
+
+typedef bool (*vma_check_handle)(ka_vm_area_struct_t *vma);
+int hal_kernel_apm_vma_check_register(enum drv_module_type type, vma_check_handle func);
+void hal_kernel_apm_vma_check_unregister(enum drv_module_type type);
 
 int apm_master_use(int master_tgid, u32 udevid);
 int apm_master_unuse(int master_tgid, u32 udevid);

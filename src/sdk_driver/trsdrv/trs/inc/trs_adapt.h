@@ -25,12 +25,16 @@ struct trs_sqcq_agent_para {
 
 struct trs_sqe_update_info {
     int pid;
-    void *sq_base;
+    union {
+        void *sq_base; /* contiguous kva base (pa_num == 1), ts_agent uses sq_base + sqeid */
+        void *dst_sqe; /* pre-computed destination sqe addr (pa_num > 1), host driver calculates */
+    };
     u32 sqid;
     u32 sqeid;
     void *sqe;
     u32 size;
     u32 *long_sqe_cnt;
+    bool addr_non_continuous;
 };
 
 struct trs_sqcq_agent_ops {
@@ -40,10 +44,12 @@ struct trs_sqcq_agent_ops {
     int (*cqe_update)(u32 devid, u32 tsid, int pid, u32 cqid, void *cqe);
     int (*mb_update)(u32 devid, u32 tsid, int pid, void *data, u32 size);
     int (*sqe_update_src_check)(u32 devid, u32 tsid, struct trs_sqe_update_info *update_info);
+    int (*sq_send_mode_update)(u32 devid, int mode);
 };
 
 void trs_sqcq_agent_ops_register(struct trs_sqcq_agent_ops *ops);
 void trs_sqcq_agent_ops_unregister(void);
+int trs_chan_ops_sq_send_mode_update(u32 devid, int mode);
 
 bool trs_is_proc_has_res(u32 devid, u32 tsid, int pid, int res_type, int res_id);
 int trs_res_trans_v2p(u32 devid, u32 tsid, int res_type, int res_id, int *trans_res_id);

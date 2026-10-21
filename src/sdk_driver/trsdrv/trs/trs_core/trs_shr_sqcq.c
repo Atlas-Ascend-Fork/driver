@@ -333,7 +333,7 @@ int trs_shr_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_
     shr_sq_ctx = &shr_ctx->sq_ctx[sqid];
     if (shr_sq_ctx->map_flag == 1) {
         trs_put_shr_ctx(shr_ctx);
-        trs_err("Current shared sq have mapped. (devid=%u; sqid=%u)\n", inst->devid, sqid);
+        trs_err("Current shared sq has been mapped. (devid=%u; sqid=%u)\n", inst->devid, sqid);
         return -EINVAL;
     }
 
@@ -342,7 +342,7 @@ int trs_shr_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_
         return 0;
     }
 
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, uio_info->sq_ctrl_addr[TRS_UIO_SHR_INFO],
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, false, uio_info->sq_ctrl_addr[TRS_UIO_SHR_INFO],
                         ka_mm_virt_to_phys(sq_ctx->shr_info.kva), KA_MM_PAGE_SIZE);
     ret = trs_shr_remap_sq(proc_ctx, ts_inst, &map_para);
     if (ret != 0) {
@@ -351,14 +351,15 @@ int trs_shr_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_
     trs_fill_map_addr_info(&shr_sq_ctx->shr_info, &map_para);
 
     que_mem_len = KA_MM_PAGE_ALIGN(sq_info->sq_para.sq_depth * sq_info->sq_para.sqe_size);
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, uio_info->sq_que_addr, sq_info->sq_phy_addr, que_mem_len);
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_MEM, sq_ctx->mode != SEND_MODE_UIO_T, uio_info->sq_que_addr,
+                        sq_info->sq_phy_addr, que_mem_len);
     ret = trs_shr_remap_sq(proc_ctx, ts_inst, &map_para);
     if (ret != 0) {
         goto out;
     }
     trs_fill_map_addr_info(&shr_sq_ctx->que_mem, &map_para);
 
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_REG, uio_info->sq_ctrl_addr[TRS_UIO_HEAD],
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_REG, true, uio_info->sq_ctrl_addr[TRS_UIO_HEAD],
                         KA_DRIVER_ALIGN_DOWN(sq_info->head_addr, KA_MM_PAGE_SIZE), KA_MM_PAGE_SIZE);
     uio_info->sq_ctrl_addr[TRS_UIO_HEAD] += sq_info->head_addr % KA_MM_PAGE_SIZE;
     ret = trs_shr_remap_sq(proc_ctx, ts_inst, &map_para);
@@ -368,7 +369,7 @@ int trs_shr_sq_remap(struct trs_proc_ctx *proc_ctx, struct trs_core_ts_inst *ts_
     }
     trs_fill_map_addr_info(&shr_sq_ctx->head, &map_para);
 
-    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_REG, uio_info->sq_ctrl_addr[TRS_UIO_DB],
+    trs_remap_fill_para(&map_para, TRS_MAP_TYPE_REG, true, uio_info->sq_ctrl_addr[TRS_UIO_DB],
                         KA_DRIVER_ALIGN_DOWN(sq_info->db_addr, KA_MM_PAGE_SIZE), KA_MM_PAGE_SIZE);
     uio_info->sq_ctrl_addr[TRS_UIO_DB] += sq_info->db_addr % KA_MM_PAGE_SIZE;
     ret = trs_shr_remap_sq(proc_ctx, ts_inst, &map_para);

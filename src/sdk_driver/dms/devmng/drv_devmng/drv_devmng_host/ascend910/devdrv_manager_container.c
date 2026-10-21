@@ -153,7 +153,7 @@ STATIC void devdrv_manager_get_container_id(unsigned long long *container_id)
     size_t container_id_len = 12;
 
     if (container_id == NULL) {
-        devdrv_drv_err("input container id is NULL\n");
+        devdrv_drv_debug("Input container id is NULL\n");
         return;
     }
 
@@ -167,33 +167,33 @@ STATIC void devdrv_manager_get_container_id(unsigned long long *container_id)
      */
     fp = ka_fs_filp_open("/proc/self/cpuset", KA_O_RDONLY, 0);
     if (KA_IS_ERR(fp)) {
-        devdrv_drv_err("open cpuset file failed, err = %ld.\n", KA_PTR_ERR(fp));
+        devdrv_drv_debug("Cannot open cpuset file, ret = %ld.\n", KA_PTR_ERR(fp));
         return;
     }
 
     ret = ka_task_kernel_read(fp, cpuset_file_text, DEVMNG_MAX_TEXT_LENGTH);
     (void)ka_fs_filp_close(fp, NULL);
     if ((ret <= 0) || (ret > DEVMNG_MAX_TEXT_LENGTH)) {
-        devdrv_drv_err("get cpuset file context failed, ret = %d.\n", ret);
+        devdrv_drv_debug("Cannot read cpuset file context, ret = %d.\n", ret);
         return;
     }
 
     cpuset_file_text[DEVMNG_MAX_TEXT_LENGTH - 1] = '\0';
     res = ka_base_strstr(cpuset_file_text, "docker");
     if (res == NULL) {
-        devdrv_drv_debug("cannot find docker in /proc/self/cpuset.\n");
+        devdrv_drv_debug("Cannot find docker in /proc/self/cpuset.\n");
         return;
     }
 
     ret = strncpy_s(container_id_string, DEVMNG_MAX_TEXT_LENGTH, res + ka_base_strlen("docker") + 1, container_id_len);
     if (ret != 0) {
-        devdrv_drv_err("strncpy_s container id failed. (ret=%d)\n", ret);
+        devdrv_drv_debug("Cannot strncpy_s container id. (ret=%d)\n", ret);
         return;
     }
 
     ret = ka_base_kstrtoull(container_id_string, HEXADECIMAL, container_id);
     if (ret < 0) {
-        devdrv_drv_err("kstrtoul failed. (ret=%d)\n", ret);
+        devdrv_drv_debug("Cannot kstrtoul container id. (ret=%d)\n", ret);
         return;
     }
 
@@ -393,8 +393,13 @@ int devdrv_manager_container_check_devid_in_container(u32 devid, ka_pid_t hostpi
 KA_EXPORT_SYMBOL(devdrv_manager_container_check_devid_in_container);
 int devdrv_manager_container_check_devid_in_container_ns(u32 devid, ka_task_struct_t *task)
 {
-    bool ret = (task == ka_task_get_current()) ? uda_can_access_udevid(devid) :
-                                                 uda_proc_can_access_udevid(task->tgid, devid);
+    bool ret = false;
+    if (task == NULL) {
+        devdrv_drv_err("task is NULL\n");
+        return -EINVAL;
+    }
+    ret = (task == ka_task_get_current()) ? uda_can_access_udevid(devid) :
+                                            uda_proc_can_access_udevid(task->tgid, devid);
     return ret ? 0 : -EINVAL;
 }
 KA_EXPORT_SYMBOL(devdrv_manager_container_check_devid_in_container_ns);

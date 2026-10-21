@@ -66,7 +66,7 @@ int dms_heartbeat_is_stop(u32 dev_id)
 
     ret = ascend_intf_get_status(para, &status);
     if (ret != 0) {
-        dms_warn("Get device status warn. (dev_id=%u; ret=%d))\n", dev_id, ret);
+        dms_warn("Get device status warn. (dev_id=%u; ret=%d)\n", dev_id, ret);
     }
 
     return 0x1 & (status >> 1); /* #define DAVINCI_INTF_DEVICE_STATUS_HEARTBIT_LOST (1<<1) */
@@ -77,14 +77,14 @@ int dms_time_sync_info_init(u32 dev_id)
     g_dms_time_sync_info[dev_id].pre_timezone = (char *)dbl_kzalloc(DMS_LOCALTIME_FILE_SIZE,
                                                                     KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (g_dms_time_sync_info[dev_id].pre_timezone == NULL) {
-        dms_err("Kzalloc return NULL, failed to alloc mem for old localtime.\n");
+        dms_err("Kzalloc returned NULL, failed to alloc mem for old localtime.\n");
         return -ENOMEM;
     }
 
     g_dms_time_sync_info[dev_id].new_timezone = (char *)dbl_kzalloc(DMS_LOCALTIME_FILE_SIZE,
                                                                     KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (g_dms_time_sync_info[dev_id].new_timezone == NULL) {
-        dms_err("Kzalloc return NULL, failed to alloc mem for new localtime.\n");
+        dms_err("Kzalloc returned NULL, failed to alloc mem for new localtime.\n");
         dbl_kfree(g_dms_time_sync_info[dev_id].pre_timezone);
         g_dms_time_sync_info[dev_id].pre_timezone = NULL;
         return -ENOMEM;
@@ -192,7 +192,8 @@ STATIC int dms_send_timezone(u32 dev_id, const char *new_timezone, u16 read_size
     per_size = (u16)sizeof(time_msg.payload);
     send_times = (read_size % per_size) ? (read_size / per_size + 1) : (read_size / per_size);
     for (i = 0; i < send_times; i++) {
-        ret = memcpy_s(time_msg.payload, per_size, &new_timezone[i * per_size], per_size);
+        u16 copy_size = (i == send_times - 1) ? (read_size - i * per_size) : per_size;
+        ret = memcpy_s(time_msg.payload, per_size, &new_timezone[i * per_size], copy_size);
         if (ret) {
             dms_err("Memcpy_s error. (devid=%u; ret=%d; i=%u)\n", dev_id, ret, i);
             return ret;
@@ -300,7 +301,7 @@ STATIC int dms_wall_time_sync(u32 dev_id)
     ka_timespec_t send_wall_time;
     ka_timespec_t check_wall_time;
     unsigned long new_time = 0;
-    struct dms_h2d_msg time_msg;
+    struct dms_h2d_msg time_msg = {{0}, {0}};
     struct dms_walltime_info *send_time_info = NULL;
 
     send_time_info = dbl_kzalloc(sizeof(struct dms_walltime_info), KA_GFP_ATOMIC | __KA_GFP_ACCOUNT);
@@ -436,7 +437,7 @@ void dms_time_sync_exit(u32 dev_id)
 
     g_dms_time_sync_info[dev_id].timer_node_id = INVALID_TIMER_NODE_ID;
 
-    dms_info("Time sync event unregister from timer. (dev_id=%u)\n", dev_id);
+    dms_info("Time sync event unregister from timer. (dev_id=%u) \n", dev_id);
 }
 
 int dms_time_sync_reboot_handle(void)

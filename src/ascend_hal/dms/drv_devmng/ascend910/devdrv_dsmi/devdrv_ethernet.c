@@ -65,10 +65,10 @@ int drvDeviceGetEthIdByIndex(uint32_t dev_id, uint32_t port_id, uint32_t *eth_id
     return DRV_ERROR_NONE;
 }
 
-#define IPV6_IP_LOCAL_INDEX_ZERO        (0)
-#define IPV6_IP_LOCAL_INDEX_ONE         (1)
-#define IPV6_IP_LOCAL_INDEX_ZERO_VAL    (0xFE)
-#define IPV6_IP_LOCAL_INDEX_ONE_VAL     (0x80)
+#define IPV6_IP_LOCAL_INDEX_ZERO (0)
+#define IPV6_IP_LOCAL_INDEX_ONE (1)
+#define IPV6_IP_LOCAL_INDEX_ZERO_VAL (0xFE)
+#define IPV6_IP_LOCAL_INDEX_ONE_VAL (0x80)
 bool devdrv_ipv6_ip_is_local(const ipaddr_t *ip_addr)
 {
     if (ip_addr->addr_v6[IPV6_IP_LOCAL_INDEX_ZERO] == IPV6_IP_LOCAL_INDEX_ZERO_VAL &&
@@ -275,10 +275,10 @@ STATIC int devdrv_set_maskaddr(const char *ethname, struct dmanager_ip_info conf
  * IPV6_PREFIX_LEN: prefix_len = 2
  **/
 #define IPV6_PREFIX_DETAIL_FILE "/proc/net/if_inet6"
-#define IPV6_PREFIX_OFFSET      (36)
-#define IPV6_PREFIX_LEN         (2)
-#define IPV6_STANDARD_CHAR_LEN  (32)
-#define IPV6_DETAIL_LINE_LEN    (256)
+#define IPV6_PREFIX_OFFSET (36)
+#define IPV6_PREFIX_LEN (2)
+#define IPV6_STANDARD_CHAR_LEN (32)
+#define IPV6_DETAIL_LINE_LEN (256)
 STATIC int devdrv_get_ipv6_prefix(const char *ethname, const ipaddr_t *ip_addr, u8 *prefix)
 {
     int ret;
@@ -361,10 +361,10 @@ STATIC int devdrv_get_ip_by_ipvx(int ipvx, const char *ethname, ipaddr_t *ip_add
             ip_addr->addr_v4 = ((struct sockaddr_in *)ifAddrStruct1->ifa_addr)->sin_addr.s_addr;
             mask_addr->addr_v4 = ((struct sockaddr_in *)ifAddrStruct1->ifa_netmask)->sin_addr.s_addr;
             goto OUT;
-        /* ipv6 */
+            /* ipv6 */
         } else if ((((*ifAddrStruct1).ifa_addr)->sa_family) == ipvx && ipvx == AF_INET6) {
-            ret = memcpy_s(ip_addr, sizeof(ipaddr_t),
-                &((struct sockaddr_in6 *)ifAddrStruct1->ifa_addr)->sin6_addr, sizeof(struct in6_addr));
+            ret = memcpy_s(ip_addr, sizeof(ipaddr_t), &((struct sockaddr_in6 *)ifAddrStruct1->ifa_addr)->sin6_addr,
+                           sizeof(struct in6_addr));
             if (ret != 0) {
                 ret = DRV_ERROR_MEMORY_OPT_FAIL;
                 DEVDRV_DRV_ERR("memcpy_s failed. (ipvx=%d; ethx=\"%s\")\n", AF_INET6, ethname);
@@ -390,12 +390,12 @@ OUT:
     return ret;
 }
 
-#define IPV6_HEX_GW_OFFSET      72
-#define IPV6_ROUTE_DETAIL_FILE  "/proc/net/ipv6_route"
-#define IPV6_GW_DEFAULT_ADDR    "00000000000000000000000000000000"
-#define IPV6_GW_NOT_SET_FLAG    0
-#define IPV6_GW_ALL_ZERO_FLAG   1
-#define IPV6_GW_WAS_SET_FLAG    2
+#define IPV6_HEX_GW_OFFSET 72
+#define IPV6_ROUTE_DETAIL_FILE "/proc/net/ipv6_route"
+#define IPV6_GW_DEFAULT_ADDR "00000000000000000000000000000000"
+#define IPV6_GW_NOT_SET_FLAG 0
+#define IPV6_GW_ALL_ZERO_FLAG 1
+#define IPV6_GW_WAS_SET_FLAG 2
 STATIC int devdrv_get_ipv6_gw_by_ethx(const char *ethname, char *gateway)
 {
     int ret;
@@ -451,7 +451,7 @@ STATIC int devdrv_get_ipv6_gw_by_ethx(const char *ethname, char *gateway)
 
 STATIC int devdrv_get_ipv4_gw_by_ethx(const char *ethname, unsigned int *gateway)
 {
-    char buf[DEVDRV_MAX_LINE_LEN];
+    char buf[DEVDRV_MAX_LINE_LEN] = {0};
     unsigned int gtw_addr;
     char *tmp = NULL;
     FILE *fp = NULL;
@@ -548,7 +548,7 @@ int devdrv_get_gateway_address(const char *ethname, struct dmanager_gtw_info *ac
             return ret;
         }
         ack_msg->gtw_addr.addr_v4 = ipv4_gtw_addr;
-    /* ipv6 */
+        /* ipv6 */
     } else {
         ret = devdrv_get_ipv6_gw_by_ethx(ethname, ipv6_gtw_addr);
         if (ret != 0) {

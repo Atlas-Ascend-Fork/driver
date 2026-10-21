@@ -49,6 +49,7 @@ enum {
     AIVECTOR_MODULE_ID = 56,
     TBE_MODULE_ID = 57,
     FV_MODULE_ID = 58,
+    PYPTO_MODULE_ID = 59,
     TUNE_MODULE_ID = 60,
     HSS_MODULE_ID = 61, /* helper */
     FFTS_MODULE_ID = 62,
@@ -105,6 +106,7 @@ enum {
         [AIVECTOR_MODULE_ID] = "AIVECTOR",           \
         [TBE_MODULE_ID] = "TBE",                     \
         [FV_MODULE_ID] = "FV",                       \
+        [PYPTO_MODULE_ID] = "PYPTO",                 \
         [TUNE_MODULE_ID] = "TUNE",                   \
         [HSS_MODULE_ID] = "HSS",                     \
         [FFTS_MODULE_ID] = "FFTS",                   \

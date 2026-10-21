@@ -48,8 +48,11 @@
 #define DEVDRV_DIE_NUM_OF_ONE_CHIP 2
 
 void devdrv_pdev_sid_init(struct devdrv_pci_ctrl *pci_ctrl);
+void devdrv_pdev_sid_no_init(struct devdrv_pci_ctrl *pci_ctrl);
 void devdrv_pdev_sid_uninit(struct devdrv_pci_ctrl *pci_ctrl);
+void devdrv_pdev_sid_no_uninit(struct devdrv_pci_ctrl *pci_ctrl);
 int devdrv_smmu_init_msg_chan(struct devdrv_pci_ctrl *pci_ctrl);
 void devdrv_smmu_uninit_msg_chan(struct devdrv_pci_ctrl *pci_ctrl);
 int devdrv_smmu_iova_to_phys_proc(struct devdrv_pci_ctrl *pci_ctrl, ka_dma_addr_t *va, u32 va_cnt, phys_addr_t *pa);
+int devdrv_peh_smmu_iova_to_phys(struct devdrv_pci_ctrl *pci_ctrl, ka_dma_addr_t *va, u32 va_cnt, phys_addr_t *pa);
 #endif

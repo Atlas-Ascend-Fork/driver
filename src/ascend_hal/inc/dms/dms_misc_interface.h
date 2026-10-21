@@ -17,7 +17,7 @@
 #include "dms_lpm_interface.h"
 #include "dsmi_common_interface.h"
 
-#define DMS_FAULT_INJECT_RESERVED_LEN     32
+#define DMS_FAULT_INJECT_RESERVED_LEN 32
 typedef struct dms_fault_inject_stru {
     int node_type;
     int node_id;
@@ -25,7 +25,7 @@ typedef struct dms_fault_inject_stru {
     int sub_node_id;
     int fault_type;
     int sub_fault_type;
-    int times;              /* inject times */
+    int times;                                             /* inject times */
     unsigned char reserved[DMS_FAULT_INJECT_RESERVED_LEN]; /* reserved data must be set to 0 */
 } DMS_FAULT_INJECT_STRU;
 
@@ -56,7 +56,7 @@ struct dms_ub_dev_info {
 int DmsGetTsInfo(unsigned int dev_id, unsigned int vfid, unsigned int core_id, void *result, unsigned int result_size);
 int dms_get_average_util_from_ts(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, unsigned int *value);
 int dms_get_single_util_from_ts(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *size);
+                                unsigned int *size);
 int dms_get_ts_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf, unsigned int *size);
 int dms_set_ts_info(unsigned int dev_id, unsigned int sub_cmd, void *buf, unsigned int size);
 
@@ -67,17 +67,16 @@ drvError_t dms_set_sriov_switch(unsigned int dev_id, unsigned int sub_cmd, const
 int DmsGetHccsInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 int DmsGetSioInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 int dms_get_last_boot_state(unsigned int dev_id, BOOT_TYPE boot_type, unsigned int *state);
-int dms_fault_inject(unsigned int dev_id, unsigned int vfid, unsigned int main_cmd,
-    unsigned int sub_cmd, DMS_FAULT_INJECT_STRU *para);
+int dms_fault_inject(unsigned int dev_id, unsigned int vfid, unsigned int main_cmd, unsigned int sub_cmd,
+                     DMS_FAULT_INJECT_STRU *para);
 drvError_t DmsSetHostAicpuInfo(unsigned int dev_id, unsigned int sub_cmd, const void *buf, unsigned int size);
-drvError_t DmsGetHostAicpuInfo(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size);
+drvError_t DmsGetHostAicpuInfo(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                               unsigned int *size);
 #define DMS_URMA_NAME_MAX_LEN 64
 int dms_get_urma_name_by_devid(unsigned int dev_id, char *name, unsigned int len);
-drvError_t DmsGetAllDeviceList(int device_ids[], int count);
 
-drvError_t __attribute__((weak))dms_get_spod_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t __attribute__((weak)) dms_get_spod_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
+                                                   void *buf, unsigned int *size)
 {
     (void)dev_id;
     (void)main_cmd;
@@ -86,21 +85,21 @@ drvError_t __attribute__((weak))dms_get_spod_info(unsigned int dev_id, unsigned 
     (void)size;
     return DRV_ERROR_NOT_SUPPORT;
 }
-drvError_t __attribute__((weak))dms_get_spod_item(uint32_t devId, int32_t infoType, int64_t *value)
+drvError_t __attribute__((weak)) dms_get_spod_item(uint32_t devId, int32_t infoType, int64_t *value)
 {
     (void)devId;
     (void)infoType;
     (void)value;
     return DRV_ERROR_NOT_SUPPORT;
 }
-drvError_t __attribute__((weak))dms_parse_sdid(uint32_t sdid, struct halSDIDParseInfo *sdid_parse)
+drvError_t __attribute__((weak)) dms_parse_sdid(uint32_t sdid, struct halSDIDParseInfo *sdid_parse)
 {
     (void)sdid;
     (void)sdid_parse;
     return DRV_ERROR_NOT_SUPPORT;
 }
-drvError_t __attribute__((weak))dms_get_spod_ping_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t __attribute__((weak)) dms_get_spod_ping_info(unsigned int dev_id, unsigned int main_cmd,
+                                                        unsigned int sub_cmd, void *buf, unsigned int *size)
 {
     (void)dev_id;
     (void)main_cmd;
@@ -119,8 +118,8 @@ drvError_t dms_set_cc_info(unsigned int device_id, void *buf, unsigned int buf_s
 drvError_t dms_get_cc_info(unsigned int device_id, void *buf, unsigned int *buf_size);
 drvError_t dms_get_connect_type(int64_t *type);
 
-drvError_t __attribute__((weak))dms_get_spod_node_status(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t __attribute__((weak)) dms_get_spod_node_status(unsigned int dev_id, unsigned int main_cmd,
+                                                          unsigned int sub_cmd, void *buf, unsigned int *size)
 {
     (void)dev_id;
     (void)main_cmd;
@@ -130,8 +129,8 @@ drvError_t __attribute__((weak))dms_get_spod_node_status(unsigned int dev_id, un
     return DRV_ERROR_NOT_SUPPORT;
 }
 
-drvError_t __attribute__((weak))dms_set_spod_node_status(unsigned int dev_id, unsigned int sub_cmd,
-    const void *buf, unsigned int size)
+drvError_t __attribute__((weak)) dms_set_spod_node_status(unsigned int dev_id, unsigned int sub_cmd, const void *buf,
+                                                          unsigned int size)
 {
     (void)dev_id;
     (void)sub_cmd;
@@ -143,7 +142,7 @@ drvError_t __attribute__((weak))dms_set_spod_node_status(unsigned int dev_id, un
 drvError_t dms_get_ub_dev_info(unsigned int dev_id, struct dms_ub_dev_info *eid_info, int *num);
 
 enum devdrv_token_val_type {
-    SHARED_TOKEN_VAL = 0,   // Shared within the process scope
+    SHARED_TOKEN_VAL = 0, // Shared within the process scope
     UNIQUE_TOKEN_VAL,
     TOKEN_VAL_TYPE_MAX
 };
@@ -154,6 +153,16 @@ struct dms_ub_d2d_eid {
     unsigned char d2d_eid[D2D_EID_LENGTH];
 };
 drvError_t dms_get_ub_d2d_eid(unsigned int dev_id, struct dms_ub_d2d_eid *d2d_eid);
+drvError_t dms_get_ub_d2d_eid_v2(unsigned int devid, unsigned int peer_udevid, struct dms_ub_d2d_eid *d2d_eid,
+                                 uint32_t *eid_index);
+
+enum devdrv_d2d_eid_type {
+    D2D_EID_IN_BOARD = 0, // Shared within the process scope
+    D2D_EID_CROSS_BOARD,
+    D2D_EID_TYPE_MAX
+};
+drvError_t dms_get_ub_d2d_eid_by_type(unsigned int devid, unsigned int d2d_eid_type, struct dms_ub_d2d_eid *d2d_eid,
+                                      uint32_t *eid_index);
 
 #define BUS_INST_EID_LENGTH 16
 struct dms_ub_bus_inst_eid {

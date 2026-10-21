@@ -21,4 +21,3 @@
 #include "devdrv_ioctl.h"
 
 #endif
-

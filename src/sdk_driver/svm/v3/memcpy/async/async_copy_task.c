@@ -79,7 +79,6 @@ static int async_copy_subtask_submit(struct svm_copy_task *copy_task, struct cop
             (void)svm_copy_task_wait(copy_task);
             return -EINVAL;
         }
-
         ret = svm_copy_subtask_submit(subtask);
         if (ret != 0) {
             svm_err("Submit subtask failed. (ret=%d)\n", ret);
@@ -116,7 +115,7 @@ struct svm_copy_task *async_copy_task_create_2d(struct async_copy_ctx *ctx, stru
 {
     struct svm_copy_task *copy_task = NULL;
     struct copy_va_info sub_info = {0};
-    u32 i;
+    u64 i;
     int ret;
 
     copy_task = svm_copy_task_create(ctx->udevid);

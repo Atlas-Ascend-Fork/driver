@@ -34,7 +34,7 @@ typedef struct tag_feature_statistic {
     u64 time_min;
     u64 time_last;
     s32 last_ret;
-}FEATURE_STATISTIC_S;
+} FEATURE_STATISTIC_S;
 
 typedef struct tag_dms_feature_node {
     struct tag_dms_feature *feature;
@@ -46,11 +46,10 @@ typedef struct tag_dms_feature_node {
     FEATURE_STATISTIC_S s;
 } DMS_FEATURE_NODE_S;
 
-
 /* max time 60s */
-#define FEATURE_WAIT_MAX_TIME    (6000)
+#define FEATURE_WAIT_MAX_TIME (6000)
 
-#define FEATURE_WAIT_EACH_TIME    (10)
+#define FEATURE_WAIT_EACH_TIME (10)
 
 #define FEATURE_CONFIRM_WARN_MASK (1000)
 #ifdef STATIC_SKIP
@@ -77,6 +76,6 @@ static inline unsigned long long dms_get_cur_cpu_tick(void)
 
 int dms_feature_process(DMS_FEATURE_ARG_S *arg);
 int dms_feature_make_key(u32 main_cmd, u32 sub_cmd, const char *filter, char *key, u32 len);
-int feature_inc_work(DMS_FEATURE_NODE_S* node);
+int feature_inc_work(DMS_FEATURE_NODE_S *node);
 
 #endif

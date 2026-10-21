@@ -235,6 +235,11 @@ STATIC int devdrv_manager_get_devinfo(unsigned long arg)
     hccl_devinfo->hardware_version = dev_info->hardware_version;
 #ifndef CFG_FEATURE_REFACTOR
     pdata = dev_info->pdata;
+    if (pdata == NULL) {
+        devdrv_drv_err("dev_info pdata is NULL\n");
+        ret = -EINVAL;
+        goto HOT_RESET_CNT_EXIT;
+    }
     hccl_devinfo->ts_cpu_core_num = pdata->ts_pdata[0].ts_cpu_core_num;
     hccl_devinfo->ts_num = devdrv_manager_get_ts_num(dev_info);
 #else
@@ -249,6 +254,8 @@ STATIC int devdrv_manager_get_devinfo(unsigned long arg)
     hccl_devinfo->vector_core_num = dev_info->vector_core_num;
 #endif
     hccl_devinfo->vector_core_freq = dev_info->vector_core_freq;
+    hccl_devinfo->l2_num = dev_info->l2_num;
+    hccl_devinfo->hbm_num = dev_info->hbm_num;
     devdrv_drv_debug("ctrl_cpu_ip(0x%x), ts_cpu_core_num(%d), dev_id(%u)\n", dev_info->ctrl_cpu_ip,
                      hccl_devinfo->ts_cpu_core_num, phys_id);
     hccl_devinfo->addr_mode = dev_info->addr_mode;
@@ -443,15 +450,24 @@ STATIC int devdrv_get_error_code(ka_file_t *filep, unsigned int cmd, unsigned lo
     }
 
     dev_info = devdrv_manager_get_devdrv_info(phys_id);
+
+    ret = dms_hotreset_task_cnt_increase(phys_id);
+    if (ret != 0) {
+        devdrv_drv_err("Hotreset task cnt increase failed. (dev_id=%u; ret=%d)\n", phys_id, ret);
+        return ret;
+    }
+
     ret = devdrv_try_get_dev_info_occupy(dev_info);
     if (ret != 0) {
         devdrv_drv_err("Get dev_info occupy failed. (ret=%d; devid=%u)\n", ret, phys_id);
+        dms_hotreset_task_cnt_decrease(phys_id);
         return ret;
     }
 
     if (devdrv_manager_shm_info_check(dev_info)) {
         devdrv_drv_err("Share memory info check fail. (dev_id=%u)\n", phys_id);
         devdrv_put_dev_info_occupy(dev_info);
+        dms_hotreset_task_cnt_decrease(phys_id);
         return -EFAULT;
     }
 
@@ -464,9 +480,11 @@ STATIC int devdrv_get_error_code(ka_file_t *filep, unsigned int cmd, unsigned lo
     ret = copy_to_user_safe((void *)((uintptr_t)arg), &user_arg, sizeof(struct devdrv_error_code_para));
     if (ret != 0) {
         devdrv_drv_err("copy_to_user_safe failed.\n");
+        dms_hotreset_task_cnt_decrease(phys_id);
         return ret;
     }
 
+    dms_hotreset_task_cnt_decrease(phys_id);
     return 0;
 }
 
@@ -486,15 +504,24 @@ int devmng_dms_get_event_code(u32 devid, u32 *health_code, u32 health_len, struc
     }
 
     dev_info = devdrv_manager_get_devdrv_info(devid);
+
+    ret = dms_hotreset_task_cnt_increase(devid);
+    if (ret != 0) {
+        devdrv_drv_err("Hotreset task cnt increase failed. (devid=%u; ret=%d)\n", devid, ret);
+        return ret;
+    }
+
     ret = devdrv_try_get_dev_info_occupy(dev_info);
     if (ret != 0) {
         devdrv_drv_err("Get dev_info occupy failed. (ret=%d; devid=%u)\n", ret, devid);
+        dms_hotreset_task_cnt_decrease(devid);
         return ret;
     }
 
     if (devdrv_manager_shm_info_check(dev_info)) {
         devdrv_drv_err("The dev_info is invalid. (devid=%u)\n", devid);
         devdrv_put_dev_info_occupy(dev_info);
+        dms_hotreset_task_cnt_decrease(devid);
         return -EFAULT;
     }
 
@@ -509,6 +536,7 @@ int devmng_dms_get_event_code(u32 devid, u32 *health_code, u32 health_len, struc
     }
     devdrv_put_dev_info_occupy(dev_info);
 
+    dms_hotreset_task_cnt_decrease(devid);
     return 0;
 }
 
@@ -690,7 +718,7 @@ STATIC int devdrv_host_query_process_by_host_pid(struct devdrv_ioctl_para_query_
         return ret;
     }
     if (out_len != (sizeof(struct devdrv_ioctl_para_query_pid) + sizeof(struct devdrv_manager_msg_head))) {
-        devdrv_drv_warn("receive response len %d is not equal = %ld.\n", out_len,
+        devdrv_drv_warn("receive response len is not equal to expected. (len=%d; expected=%ld)\n", out_len,
                         (sizeof(struct devdrv_ioctl_para_query_pid) + sizeof(struct devdrv_manager_msg_head)));
         return -EINVAL;
     }
@@ -797,7 +825,7 @@ int devdrv_manager_ioctl_get_chip_count(ka_file_t *filep, unsigned int cmd, unsi
     } else {
         ret = devdrv_manager_get_chip_count(&count);
         if (ret != 0) {
-            devdrv_drv_err("Get chip count fail. (ret=%d).\n", ret);
+            devdrv_drv_err("Get chip count failed. (ret=%d).\n", ret);
             return ret;
         }
     }

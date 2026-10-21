@@ -17,14 +17,14 @@
 #include "svm_heap_mng.h"
 #include "devmm_proc_info.h"
 
-int devmm_uvm_chan_page_fault_d2h_process(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, void *msg,
+int devmm_uvm_chan_page_fault_d2h_process(struct devmm_svm_process *svm_proc, struct devmm_svm_heap *heap, void *msg,
                                           u32 *ack_len);
-int devmm_uvm_chan_free_mem_d2h_process(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, void *msg,
+int devmm_uvm_chan_free_mem_d2h_process(struct devmm_svm_process *svm_proc, struct devmm_svm_heap *heap, void *msg,
                                         u32 *ack_len);
-int devmm_uvm_chan_prefetch_ack_process(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, void *msg,
+int devmm_uvm_chan_prefetch_ack_process(struct devmm_svm_process *svm_proc, struct devmm_svm_heap *heap, void *msg,
                                         u32 *ack_len);
-int devmm_uvm_chan_swap_d2h_process(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, void *msg,
+int devmm_uvm_chan_swap_d2h_process(struct devmm_svm_process *svm_proc, struct devmm_svm_heap *heap, void *msg,
                                     u32 *ack_len);
-int devmm_uvm_chan_release_d2h_process(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, void *msg,
+int devmm_uvm_chan_release_d2h_process(struct devmm_svm_process *svm_proc, struct devmm_svm_heap *heap, void *msg,
                                        u32 *ack_len);
 #endif /* UVM_CHANNEL_H */

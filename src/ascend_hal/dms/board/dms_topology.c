@@ -40,8 +40,8 @@ drvError_t dms_get_device_topology(unsigned int dev_id1, unsigned int dev_id2, i
 
     ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Get device topology failed. (dev_id1=%u; dev_id2=%u; ret=%d)\n",
-            dev_id1, dev_id2, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Get device topology failed. (dev_id1=%u; dev_id2=%u; ret=%d)\n", dev_id1, dev_id2,
+                              ret);
         return ret;
     }
 
@@ -80,12 +80,11 @@ drvError_t dms_get_phy_devices_topology(unsigned int dev_id1, unsigned int dev_i
     ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
     if (ret != 0) {
         if (ret == DRV_ERROR_NOT_SUPPORT) {
-            hal_report_not_support("halGetPairPhyDevicesInfo",
-                "This API cannot be called in the split scenario");
+            hal_report_not_support("halGetPairPhyDevicesInfo", "This API cannot be called in the split scenario");
         }
         DMS_EX_NOTSUPPORT_ERR(ret,
-            "Get physical devices topology failed from kernel. (dev_id1=%u; dev_id2=%u; ret=%d)\n",
-            dev_id1, dev_id2, ret);
+                              "Get physical devices topology failed from kernel. (dev_id1=%u; dev_id2=%u; ret=%d)\n",
+                              dev_id1, dev_id2, ret);
         return ret;
     }
 

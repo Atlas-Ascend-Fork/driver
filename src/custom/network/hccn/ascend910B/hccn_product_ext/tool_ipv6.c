@@ -63,7 +63,7 @@ STATIC int tool_check_route_cmd_argv_ipv6(char **argv, struct ds_ipv6_route_tabl
     int ret;
 
     ret = tool_check_single_route_cmd_argv(argv + ARGC_ID_1, argv + ARGC_ID_2, "ipv6_address", route_char->address,
-        sizeof(route_char->address));
+                                           sizeof(route_char->address));
     if (ret) {
         roce_err("tool_check_single_route_cmd_argv ipv6_address fail! ret [%d]", ret);
         return ret;
@@ -78,7 +78,7 @@ STATIC int tool_check_route_cmd_argv_ipv6(char **argv, struct ds_ipv6_route_tabl
 
     if (is_add) {
         ret = tool_check_single_route_cmd_argv(argv + ARGC_ID_5, argv + ARGC_ID_6, "next_address",
-            route_char->next_address, sizeof(route_char->next_address));
+                                               route_char->next_address, sizeof(route_char->next_address));
         if (ret) {
             roce_err("tool_check_single_route_cmd_argv next_address fail! ret [%d]", ret);
             return ret;
@@ -99,7 +99,7 @@ STATIC bool is_default_ipv6_address(struct in6_addr addr)
 }
 
 STATIC int tool_inet_pton_check(struct ds_ipv6_route_table_value *route_param,
-    struct ds_ipv6_route_table_character *route_char, bool use_gateway)
+                                struct ds_ipv6_route_table_character *route_char, bool use_gateway)
 {
     int ret;
 
@@ -132,7 +132,7 @@ STATIC int tool_inet_pton_check(struct ds_ipv6_route_table_value *route_param,
 }
 
 STATIC int tool_standardize_ipv6(struct ds_ipv6_route_table_value *route_param,
-    struct ds_ipv6_route_table_character *route_char, bool is_add)
+                                 struct ds_ipv6_route_table_character *route_char, bool is_add)
 {
     if (inet_ntop(AF_INET6, (void *)&route_param->address, route_char->address, INET6_ADDRSTRLEN) == NULL) {
         roce_err("inet_ntop address fail!");
@@ -140,8 +140,8 @@ STATIC int tool_standardize_ipv6(struct ds_ipv6_route_table_value *route_param,
     }
 
     if (is_add) {
-        if (inet_ntop(
-            AF_INET6, (void *)&route_param->next_address, route_char->next_address, INET6_ADDRSTRLEN) == NULL) {
+        if (inet_ntop(AF_INET6, (void *)&route_param->next_address, route_char->next_address, INET6_ADDRSTRLEN) ==
+            NULL) {
             roce_err("inet_ntop next_address fail");
             return UDA_TOOL_INNER_PARAM_ERR;
         }
@@ -171,7 +171,7 @@ STATIC int get_ipv6_prefix(struct in6_addr *addr, int prefix_len, struct in6_add
 }
 
 STATIC int tool_route_param_trans_ipv6(char **argv, int logic_id, struct ds_ipv6_route_table_value *route_param,
-    struct ds_ipv6_route_table_character *route_char, bool is_add)
+                                       struct ds_ipv6_route_table_character *route_char, bool is_add)
 {
     int ret;
     struct in6_addr address_prefix = {0};
@@ -185,21 +185,21 @@ STATIC int tool_route_param_trans_ipv6(char **argv, int logic_id, struct ds_ipv6
     ret = tool_inet_pton_check(route_param, route_char, is_add);
     if (ret) {
         roce_err("tool_route_table_inet_pton fail logic_id[%d] address[%s] prefix_length[%u] next_address[%s] ret[%d]",
-            logic_id, route_char->address, route_char->prefix_length, route_char->next_address, ret);
+                 logic_id, route_char->address, route_char->prefix_length, route_char->next_address, ret);
         return ret;
     }
 
     // ipv6 route工具没有限制目的地址有效位数是否超过前缀长度
     ret = get_ipv6_prefix(&route_param->address, route_param->prefix_length, &address_prefix);
     if (ret) {
-        roce_err("get_ipv6_prefix fail. (address=[%s]; prefix_length=[%d]; ret=[%d])",
-                 route_char->address, route_char->prefix_length, ret);
+        roce_err("get_ipv6_prefix fail. (address=[%s]; prefix_length=[%d]; ret=[%d])", route_char->address,
+                 route_char->prefix_length, ret);
         return UDA_TOOL_INNER_PARAM_ERR;
     }
 
     if (memcmp(route_param->address.s6_addr, address_prefix.s6_addr, IP_SPLIT_BIT_16)) {
-        roce_err("address prefix_length check fail. (address=[%s]; prefix_length=[%d])",
-            route_char->address, route_char->prefix_length);
+        roce_err("address prefix_length check fail. (address=[%s]; prefix_length=[%d])", route_char->address,
+                 route_char->prefix_length);
         TOOL_PRINT_ERR("ipv6_address and prefix_length conflict!");
         return UDA_PARAM_IP_INVALID_ERR;
     }
@@ -214,12 +214,12 @@ STATIC int tool_route_param_trans_ipv6(char **argv, int logic_id, struct ds_ipv6
 }
 
 STATIC int tool_route_trans_conf_ipv6(struct ds_ipv6_route_table_character route_char, char *route_cfg,
-    unsigned int route_cfg_len, char *next_address, unsigned int next_address_len)
+                                      unsigned int route_cfg_len, char *next_address, unsigned int next_address_len)
 {
     int ret;
     // inet6_address_0=2001:db8::/32
-    ret = snprintf_s(route_cfg, route_cfg_len, route_cfg_len - 1, "IPv6route_address_%s/%u",
-        route_char.address, route_char.prefix_length);
+    ret = snprintf_s(route_cfg, route_cfg_len, route_cfg_len - 1, "IPv6route_address_%s/%u", route_char.address,
+                     route_char.prefix_length);
     if (ret <= 0) {
         roce_err("snprintf_s route config fail! ret : %d.", ret);
         return -EINVAL;
@@ -297,8 +297,8 @@ STATIC int is_network_segment_ipv6(const struct in6_addr address, unsigned int p
     }
 }
 
-STATIC bool is_address_gateway_same_segment_ipv6(const struct in6_addr address,
-    unsigned int prefix_length, const struct in6_addr gateway)
+STATIC bool is_address_gateway_same_segment_ipv6(const struct in6_addr address, unsigned int prefix_length,
+                                                 const struct in6_addr gateway)
 {
     struct in6_addr mask;
     struct in6_addr addr_network;
@@ -322,33 +322,33 @@ STATIC bool is_address_gateway_same_segment_ipv6(const struct in6_addr address,
 }
 
 STATIC int tool_check_route_ipv6(struct tool_param *param, struct ds_ipv6_route_table_value route_param,
-    struct ds_ipv6_route_table_character route_char, const char *route_cfg,
-    unsigned int route_cfg_len, ip_addr_t ip_address, ip_addr_t mask_address)
+                                 struct ds_ipv6_route_table_character route_char, const char *route_cfg,
+                                 unsigned int route_cfg_len, ip_addr_t ip_address, ip_addr_t mask_address)
 {
     int ret;
     char nxtaddr[INET6_ADDRSTRLEN] = {0};
     char conf_nxtaddr[CONLINE_LENGTH] = {0};
     struct in6_addr address;
     unsigned int prefix_length;
-    
+
     if (is_default_ipv6_address(route_param.address)) {
         roce_err("Address cannot be default segment");
         return UDA_TOOL_COFNIG_DEFAULT_ROUTE_ERR;
     }
-    
+
     if (!is_network_segment_ipv6(route_param.address, route_param.prefix_length)) {
         roce_err("Address is not network segment");
         return UDA_TOOL_IP_MISMATCH_MASK_ERR;
     }
-    
+
     ret = memcpy_s(&address, sizeof(struct in6_addr), ip_address.u_addr.ip6, sizeof(struct in6_addr));
     if (ret) {
-        roce_err("memcpy_s ipv6 address fail[%d], dlen[%d], slen[%d]",
-            ret, sizeof(struct in6_addr), sizeof(ip_address.u_addr.ip6));
+        roce_err("memcpy_s ipv6 address fail[%d], dlen[%d], slen[%d]", ret, sizeof(struct in6_addr),
+                 sizeof(ip_address.u_addr.ip6));
         return UDA_TOOL_NO_MEM_ERR;
     }
     prefix_length = mask_address.u_addr.ip6[0];
-    
+
     if (!is_address_gateway_same_segment_ipv6(address, prefix_length, route_param.next_address)) {
         roce_err("Address and gateway are not in the same network segment");
         return UDA_PARAM_DIFF_SEGMT_GTWY_ERR;
@@ -391,13 +391,12 @@ STATIC int tool_add_route_table_ipv6(char **argv, struct tool_param *param, bool
         return ret;
     }
 
-    ret = tool_route_trans_conf_ipv6(route_char, route_cfg, sizeof(route_cfg),
-        next_address, sizeof(next_address));
+    ret = tool_route_trans_conf_ipv6(route_char, route_cfg, sizeof(route_cfg), next_address, sizeof(next_address));
     if (ret) {
         roce_err("tool_route_trans_conf failed! ret is %d", ret);
         return ret;
     }
-    
+
     ip_address.ip_type = IPADDR_TYPE_V6;
     mask_address.ip_type = IPADDR_TYPE_V6;
     ret = dsmi_get_device_ip_address(param->logic_id, port_type, port_id, &ip_address, &mask_address);
@@ -413,13 +412,13 @@ STATIC int tool_add_route_table_ipv6(char **argv, struct tool_param *param, bool
         return UDA_DSMI_ROUTE_ROW_REACH_MAX_ERR;
     }
     if (ret) {
-        temp_ret = tool_check_route_ipv6(param, route_param, route_char, route_cfg,
-            sizeof(route_cfg), ip_address, mask_address);
+        temp_ret = tool_check_route_ipv6(param, route_param, route_char, route_cfg, sizeof(route_cfg), ip_address,
+                                         mask_address);
         if (temp_ret) {
             return temp_ret;
         }
-        roce_err("dsmi add route table fail! ret[%d] logic_id[%d] address[%s] prefix_length[%d] next_address[%s]",
-            ret, param->logic_id, route_char.address, route_char.prefix_length, route_char.next_address);
+        roce_err("dsmi add route table fail! ret[%d] logic_id[%d] address[%s] prefix_length[%d] next_address[%s]", ret,
+                 param->logic_id, route_char.address, route_char.prefix_length, route_char.next_address);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 
@@ -439,7 +438,7 @@ STATIC int tool_del_route_ipv6_get_next_address_from_conf(struct ds_ipv6_route_t
 {
     char next_address[MAX_IPV6_LEN] = {0};
     int ret;
- 
+
     ret = tool_get_next_address_from_conf(conf_nxtaddr, next_address, MAX_IPV6_LEN);
     if (ret) {
         roce_err("Func tool_get_next_address_from_conf err! (ret=%d)", ret);
@@ -451,20 +450,20 @@ STATIC int tool_del_route_ipv6_get_next_address_from_conf(struct ds_ipv6_route_t
         roce_err("Tool_del_route_ipv6 call inet_pton next_address fail! (ret=%d; next_address=%s)", ret, next_address);
         return UDA_PARAM_IP_INVALID_ERR;
     }
- 
+
     return 0;
 }
 
 STATIC int tool_del_route_ipv6(struct ds_ipv6_route_table_character route_char,
-                               struct ds_ipv6_route_table_value route_param,
-                               struct tool_param *param, char *info, unsigned int len)
+                               struct ds_ipv6_route_table_value route_param, struct tool_param *param, char *info,
+                               unsigned int len)
 {
     int ret;
     char route_cfg[CONLINE_LENGTH] = {0};
     char conf_nxtaddr[CONLINE_LENGTH] = {0};
 
-    ret = snprintf_s(route_cfg, CONLINE_LENGTH, CONLINE_LENGTH - 1, "IPv6route_address_%s/%u",
-        route_char.address, route_char.prefix_length);
+    ret = snprintf_s(route_cfg, CONLINE_LENGTH, CONLINE_LENGTH - 1, "IPv6route_address_%s/%u", route_char.address,
+                     route_char.prefix_length);
     if (ret <= 0) {
         roce_err("snprintf_s route config fail! ret : %d.", ret);
         return -EINVAL;
@@ -489,7 +488,7 @@ STATIC int tool_del_route_ipv6(struct ds_ipv6_route_table_character route_char,
     ret = tool_inet_pton_check(&route_param, &route_char, false);
     if (ret) {
         roce_err("tool_route_table_inet_pton fail phy_id[%d] address[%s] prefix_length[%u] next_address[%s] ret[%d]",
-            param->phy_id, route_char.address, route_char.prefix_length, route_char.next_address, ret);
+                 param->phy_id, route_char.address, route_char.prefix_length, route_char.next_address, ret);
         return ret;
     }
 
@@ -521,7 +520,7 @@ STATIC int tool_del_route_table_ipv6(char **argv, struct tool_param *param, bool
         roce_err("tool_route_param_trans failed! ret is: %d", ret);
         return ret;
     }
-    
+
     ret = tool_del_route_ipv6(route_char, route_param, param, info, MAX_CMD_PAYLOAD_LEN);
     if (ret) {
         roce_err("tool_del_route failed! ret is: %d", ret);
@@ -531,31 +530,31 @@ STATIC int tool_del_route_table_ipv6(char **argv, struct tool_param *param, bool
 }
 
 STATIC int tool_get_route_from_conf_ipv6(char *line_buf, unsigned int *conf_id,
-    struct ds_ipv6_route_table_character *route_char)
+                                         struct ds_ipv6_route_table_character *route_char)
 {
     int ret;
 
     roce_info("tool_get_route_from_conf_ipv6. line is[%s]", line_buf);
 
     // IPv6route_address_2001:db8::/32_0=next_address_fe80::121b:54ff:fe96:200
-    char* address_ptr = strstr(line_buf, "IPv6route_address_");
+    char *address_ptr = strstr(line_buf, "IPv6route_address_");
     if (address_ptr == NULL) {
         roce_err("strstr find route IPv6route_address_ failed. line is[%s]", line_buf);
         return UDA_TOOL_INNER_PARAM_ERR;
     }
-    char* prefix_ptr = strstr(address_ptr, "/");
+    char *prefix_ptr = strstr(address_ptr, "/");
     if (prefix_ptr == NULL) {
         roce_err("strstr find route prefix failed. line is[%s]", line_buf);
         return UDA_TOOL_INNER_PARAM_ERR;
     }
-    char* nxtaddr_ptr = strstr(prefix_ptr, "next_address_");
+    char *nxtaddr_ptr = strstr(prefix_ptr, "next_address_");
     if (nxtaddr_ptr == NULL) {
         roce_err("strstr find route next_address_ failed. line is[%s]", line_buf);
         return UDA_TOOL_INNER_PARAM_ERR;
     }
 
     ret = strncpy_s(route_char->address, sizeof(route_char->address), address_ptr + strlen("IPv6route_address_"),
-        prefix_ptr - (address_ptr + strlen("IPv6route_address_")));
+                    prefix_ptr - (address_ptr + strlen("IPv6route_address_")));
     if (ret) {
         roce_err("get address from conf failed. ret[%d]", ret);
         return UDA_TOOL_NO_MEM_ERR;
@@ -566,7 +565,7 @@ STATIC int tool_get_route_from_conf_ipv6(char *line_buf, unsigned int *conf_id,
         return UDA_TOOL_INNER_PARAM_ERR;
     }
     ret = strncpy_s(route_char->next_address, sizeof(route_char->next_address), nxtaddr_ptr + strlen("next_address_"),
-        strlen(nxtaddr_ptr + strlen("next_address_")));
+                    strlen(nxtaddr_ptr + strlen("next_address_")));
     if (ret) {
         roce_err("get next_address from conf failed. ret[%d]", ret);
         return UDA_TOOL_NO_MEM_ERR;
@@ -575,13 +574,13 @@ STATIC int tool_get_route_from_conf_ipv6(char *line_buf, unsigned int *conf_id,
     return 0;
 }
 
-
 STATIC int tool_del_route_config_ipv6(char *route_cfg, unsigned int route_cfg_len,
-    struct ds_ipv6_route_table_character *route_char, struct tool_param *param, FILE *fp)
+                                      struct ds_ipv6_route_table_character *route_char, struct tool_param *param,
+                                      FILE *fp)
 {
     int ret;
-    ret = snprintf_s(route_cfg, CONLINE_LENGTH, CONLINE_LENGTH - 1, "IPv6route_address_%s/%u_%d=",
-        route_char->address, route_char->prefix_length, param->phy_id);
+    ret = snprintf_s(route_cfg, CONLINE_LENGTH, CONLINE_LENGTH - 1, "IPv6route_address_%s/%u_%d=", route_char->address,
+                     route_char->prefix_length, param->phy_id);
     if (ret <= 0) {
         roce_err("snprintf_s route config fail! ret : %d. route config length is %u", ret, route_cfg_len);
         return -EINVAL;
@@ -617,7 +616,7 @@ STATIC int tool_recover_single_route_ipv6(struct ds_ipv6_route_table_character *
     ret = tool_inet_pton_check(&route_param, route_char, true);
     if (ret) {
         roce_err("tool_route_table_inet_pton fail logic_id[%d] address[%s] prefix_length[%u] next_address[%s] ret[%d]",
-            param->logic_id, route_char->address, route_char->prefix_length, route_char->next_address, ret);
+                 param->logic_id, route_char->address, route_char->prefix_length, route_char->next_address, ret);
         return ret;
     }
 
@@ -628,15 +627,15 @@ STATIC int tool_recover_single_route_ipv6(struct ds_ipv6_route_table_character *
     }
 
     if (ret) {
-        roce_err("dsmi add route table fail! ret[%d] logic_id[%d] address[%s] prefix_length[%u] next_address[%s]",
-            ret, param->logic_id, route_char->address, route_char->prefix_length, route_char->next_address);
+        roce_err("dsmi add route table fail! ret[%d] logic_id[%d] address[%s] prefix_length[%u] next_address[%s]", ret,
+                 param->logic_id, route_char->address, route_char->prefix_length, route_char->next_address);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 
     return 0;
 }
 STATIC int tool_del_route_by_fd_ipv6(FILE *fp, struct ds_ipv6_route_table_character *route_char,
-    struct tool_param *param)
+                                     struct tool_param *param)
 {
     int ret;
     char info[MAX_CMD_PAYLOAD_LEN] = {0};
@@ -646,14 +645,14 @@ STATIC int tool_del_route_by_fd_ipv6(FILE *fp, struct ds_ipv6_route_table_charac
     ret = tool_inet_pton_check(&route_param, route_char, true);
     if (ret) {
         roce_err("tool_route_table_inet_pton fail logic_id[%d] address[%s] prefix_length[%u] next_address[%s] ret[%d]",
-            param->logic_id, route_char->address, route_char->prefix_length, route_char->next_address, ret);
+                 param->logic_id, route_char->address, route_char->prefix_length, route_char->next_address, ret);
         return ret;
     }
 
     ret = dsmi_del_route_table_ipv6(param->logic_id, 0, &route_param, info, MAX_CMD_PAYLOAD_LEN);
     if (ret) {
-        roce_err("dsmi del route table fail! ret[%d] logic_id[%d] address[0x%x] netmask[0x%x]",
-            ret, param->logic_id, route_char->address, route_char->prefix_length);
+        roce_err("dsmi del route table fail! ret[%d] logic_id[%d] address[0x%x] netmask[0x%x]", ret, param->logic_id,
+                 route_char->address, route_char->prefix_length);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 
@@ -684,8 +683,8 @@ STATIC int tool_del_not_segment_route_by_fd_ipv6(FILE *fp, struct ds_ipv6_route_
     }
     ret = get_ipv6_prefix(&next_address, ip_param.prefix_length, &route_param_prefix);
     if (ret) {
-        roce_err("get_ipv6_prefix fail. (next_address=[%s]; prefix_length=[%d]; ret=[%d])",
-                 route_char->next_address, ip_param.prefix_length, ret);
+        roce_err("get_ipv6_prefix fail. (next_address=[%s]; prefix_length=[%d]; ret=[%d])", route_char->next_address,
+                 ip_param.prefix_length, ret);
         return UDA_TOOL_INNER_PARAM_ERR;
     }
     ret = get_ipv6_prefix(&ip_param.address, ip_param.prefix_length, &ip_param_prefix);
@@ -705,14 +704,14 @@ STATIC int tool_del_not_segment_route_by_fd_ipv6(FILE *fp, struct ds_ipv6_route_
         ret = tool_inet_pton_check(&route_param, route_char, false);
         if (ret) {
             roce_err("tool_route_table_inet_pton fail logic_id[%d] address[%s] prefix_length[%u] ret[%d]",
-                param->logic_id, route_char->address, route_char->prefix_length, ret);
+                     param->logic_id, route_char->address, route_char->prefix_length, ret);
             return ret;
         }
 
         ret = dsmi_del_route_table_ipv6(param->logic_id, 0, &route_param, info, MAX_CMD_PAYLOAD_LEN);
         if (ret) {
-            roce_err("dsmi del route table fail! ret[%d] logic_id[%d] address[0x%x] netmask[0x%x]",
-                ret, param->logic_id, route_char->address, route_char->prefix_length);
+            roce_err("dsmi del route table fail! ret[%d] logic_id[%d] address[0x%x] netmask[0x%x]", ret,
+                     param->logic_id, route_char->address, route_char->prefix_length);
             return dsmi_analysis_dsmi_ret_to_uda(ret);
         }
     }
@@ -720,7 +719,8 @@ STATIC int tool_del_not_segment_route_by_fd_ipv6(FILE *fp, struct ds_ipv6_route_
 }
 
 STATIC int tool_select_action_for_route_ipv6(enum read_route_operation route_op, struct tool_param *param, FILE *fp,
-    struct ds_ipv6_route_table_character *route_char, struct ds_ipv6_route_table_value ip_param)
+                                             struct ds_ipv6_route_table_character *route_char,
+                                             struct ds_ipv6_route_table_value ip_param)
 {
     int ret;
 
@@ -743,7 +743,7 @@ STATIC int tool_select_action_for_route_ipv6(enum read_route_operation route_op,
             ret = tool_del_not_segment_route_by_fd_ipv6(fp, route_char, param, ip_param);
             if (ret) {
                 roce_err("tool_select_action_for_route_ipv6: tool_del_not_segment_route_by_fd_ipv6 failed! ret is [%d]",
-                    ret);
+                         ret);
                 return ret;
             }
             break;
@@ -754,7 +754,7 @@ STATIC int tool_select_action_for_route_ipv6(enum read_route_operation route_op,
 }
 
 STATIC int tool_trans_config_to_route_ipv6(FILE *fp, struct tool_param *param, enum read_route_operation route_op,
-    struct ds_ipv6_route_table_value ip_param)
+                                           struct ds_ipv6_route_table_value ip_param)
 {
     int ret, route_count = 0;
     unsigned int conf_id = 0;
@@ -773,7 +773,7 @@ STATIC int tool_trans_config_to_route_ipv6(FILE *fp, struct tool_param *param, e
 
         len_buf = strlen(line_buf) - 1;
         if ((len_buf < CONLINE_LENGTH) && (line_buf[len_buf] == '\n')) {
-                line_buf[len_buf] = '\0';
+            line_buf[len_buf] = '\0';
         }
         ret = tool_get_route_from_conf_ipv6(line_buf, &conf_id, &route_char);
         if (ret) {
@@ -804,7 +804,7 @@ STATIC int tool_trans_config_to_route_ipv6(FILE *fp, struct tool_param *param, e
 }
 
 int tool_read_hccn_conf_handle_action_ipv6(struct tool_param *param, enum read_route_operation route_op,
-    struct ds_ipv6_route_table_value ip_param)
+                                           struct ds_ipv6_route_table_value ip_param)
 {
     FILE *fp = NULL;
     int ret, ret_val;
@@ -1229,7 +1229,7 @@ int tool_neigh_table_cmd_execute(int argc, char **argv, struct tool_param *param
         roce_err("tool_neigh_table_cmd_execute err argc[%d]", argc);
         return UDA_PARAM_CMD_COUNT_ERR;
     }
-    
+
     if (is_ipv6_cmd(&argc, &argv)) {
         if (is_atlas_9000_a3(param)) {
             roce_err("Ipv6 atlas_9000_a3 command is not supported.");
@@ -1319,16 +1319,16 @@ int tool_ip_set_address_ipv6(struct tool_param *param, const char *address, cons
 
     ret = memcpy_s(ip_address.u_addr.ip6, sizeof(ip_address.u_addr.ip6), addr6.address_ip, sizeof(addr6.address_ip));
     if (ret) {
-        roce_err("memcpy_s ipv6 address fail[%d], dlen[%d], slen[%d]",
-            ret, sizeof(ip_address.u_addr.ip6), sizeof(addr6.address_ip));
+        roce_err("memcpy_s ipv6 address fail[%d], dlen[%d], slen[%d]", ret, sizeof(ip_address.u_addr.ip6),
+                 sizeof(addr6.address_ip));
         return UDA_TOOL_NO_MEM_ERR;
     }
 
     ret = memcpy_s(mask_address.u_addr.ip6, sizeof(mask_address.u_addr.ip6), addr6.netmask_ip,
-     sizeof(addr6.netmask_ip));
+                   sizeof(addr6.netmask_ip));
     if (ret) {
-        roce_err("memcpy_s ipv6 mask fail[%d], dlen[%d], slen[%d]",
-            ret, sizeof(mask_address.u_addr.ip6), sizeof(addr6.netmask_ip));
+        roce_err("memcpy_s ipv6 mask fail[%d], dlen[%d], slen[%d]", ret, sizeof(mask_address.u_addr.ip6),
+                 sizeof(addr6.netmask_ip));
         return UDA_TOOL_NO_MEM_ERR;
     }
     ret = dsmi_set_device_ip_address(param->logic_id, 0x1, 0, ip_address, mask_address);
@@ -1393,8 +1393,8 @@ int is_dev_ipaddr_conflict_ipv6(int logic_id, int port_type, int port_id, unsign
 
     ret = memcpy_s(addr_ip6, MAX_IPV6_NUM, ip_address.u_addr.ip6, sizeof(ip_address.u_addr.ip6));
     if (ret) {
-        roce_err("memcpy_s dsmi ipv6 address fail. (ret=%d; dlen=%d; slen=%d)",
-            ret, MAX_IPV6_NUM, sizeof(ip_address.u_addr.ip6));
+        roce_err("memcpy_s dsmi ipv6 address fail. (ret=%d; dlen=%d; slen=%d)", ret, MAX_IPV6_NUM,
+                 sizeof(ip_address.u_addr.ip6));
         return UDA_TOOL_NO_MEM_ERR;
     }
 
@@ -1404,8 +1404,8 @@ int is_dev_ipaddr_conflict_ipv6(int logic_id, int port_type, int port_id, unsign
     return 0;
 }
 
-static bool is_total_dev_ipaddr_conflict_ipv6(int logic_id, int device_start, int device_end,
-                                              unsigned char *address_ip, unsigned char *netmask_ip)
+static bool is_total_dev_ipaddr_conflict_ipv6(int logic_id, int device_start, int device_end, unsigned char *address_ip,
+                                              unsigned char *netmask_ip)
 {
     int node_id;
     int ret;
@@ -1552,8 +1552,8 @@ int tool_cfg_gateway_recovery_ipv6(struct tool_param *param)
 
         ret = dsmi_set_ipv6_gateway_address(param->logic_id, gw_v6_ip);
         if (ret) {
-            roce_err("[IPv6]Dsmi set ipv6 default gateway fail! ret[%d] logic_id[%d] gateway_ip[0x%x]",
-                ret, param->logic_id, gateway_ip);
+            roce_err("[IPv6]Dsmi set ipv6 default gateway fail! ret[%d] logic_id[%d] gateway_ip[0x%x]", ret,
+                     param->logic_id, gateway_ip);
             return UDA_DSMI_EXE_ERR;
         }
     }
@@ -1641,18 +1641,18 @@ int tool_check_mtu_ipv6(int logic_id)
 {
     int ret;
     unsigned int mtu = 0;
- 
+
     ret = dsmi_get_mtu(logic_id, 0, &mtu);
     if (ret) {
         roce_err("dsmi get mtu fail. (ret=%d; logic_id=%d)", ret, logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
- 
+
     if (mtu < TOOL_MIN_MTU_SIZE_IPV6) {
-        LOG_CONFIG("Config ipv6 address failed because mtu[%u] of logic_id[%d] is less than %u",
-            mtu, logic_id, TOOL_MIN_MTU_SIZE_IPV6);
+        LOG_CONFIG("Config ipv6 address failed because mtu[%u] of logic_id[%d] is less than %u", mtu, logic_id,
+                   TOOL_MIN_MTU_SIZE_IPV6);
         roce_err("config ipv6 address failed because mtu is less than %u. (mtu=%u; logic_id=%d)",
-            TOOL_MIN_MTU_SIZE_IPV6, mtu, logic_id);
+                 TOOL_MIN_MTU_SIZE_IPV6, mtu, logic_id);
         return UDA_TOOL_MTU_TOO_SMALL_FOR_IPV6_ERR;
     }
     return UDA_EXE_SUCCESS;
@@ -1675,7 +1675,7 @@ int tool_del_ip_conf_ipv6(int phy_id)
 }
 
 static int tool_set_ipaddr_recovery_ipv6(struct tool_param *param, const char *address, const char *netmask,
-    char *gateway, int length)
+                                         char *gateway, int length)
 {
     int ret;
     ret = cfg_read_conf(param->phy_id, "IPv6gateway", gateway, length);
@@ -1746,20 +1746,20 @@ int tool_get_device_ipaddr_ipv6(struct tool_param *param)
     int ret;
     char address[MAX_IPV6_LEN] = {0};
     unsigned char prefix_length = 0;
- 
+
     ret = tool_get_ipaddr_ipv6_from_device(param, address, &prefix_length, sizeof(address));
     if (ret) {
         roce_err("Tool get ipaddr ipv6 from device fail ret=%d, logic_id[%d]", ret, param->logic_id);
         return ret;
     }
- 
+
     DSMI_PRINT_INFO("ipv6_address:%s", address);
     DSMI_PRINT_INFO("prefix_length:%u", prefix_length);
     return UDA_EXE_SUCCESS;
 }
 
 int tool_get_ipaddr_ipv6_from_device(struct tool_param *param, char *address, unsigned char *prefix_length,
-    int ipv6_len)
+                                     int ipv6_len)
 {
     int ret;
     int port_type = DSMI_ROCE_PORT;
@@ -1858,8 +1858,8 @@ STATIC bool is_dev_conf_gateway_ipv6(int phy_id, int logic_id, struct default_ga
     } else {
         ret = memcpy_s(default_gtw->gateway, MAX_IPV6_LEN, gateway_inner, sizeof(gateway_inner));
         if (ret) {
-            roce_err("memcpy_s dsmi ipv6 address fail[%d], dlen[%d], slen[%d]",
-                ret, sizeof(default_gtw->gateway), sizeof(gateway_inner));
+            roce_err("memcpy_s dsmi ipv6 address fail[%d], dlen[%d], slen[%d]", ret, sizeof(default_gtw->gateway),
+                     sizeof(gateway_inner));
             return false;
         }
         default_gtw->logic_id = logic_id;
@@ -1869,7 +1869,7 @@ STATIC bool is_dev_conf_gateway_ipv6(int phy_id, int logic_id, struct default_ga
 }
 
 STATIC bool is_total_dev_exist_gateway_ipv6(int phy_id, int logic_id, int device_start, int device_end,
-    struct default_gateway_info *default_gtw)
+                                            struct default_gateway_info *default_gtw)
 {
     int node_id;
     for (node_id = device_start; node_id < device_end; node_id++) {
@@ -1949,8 +1949,7 @@ int tool_clean_default(int logic_id, int port_type, int port_id, const char *gat
     unsigned char gateway_ip[MAX_IPV6_NUM] = {0};
     gtw_address.ip_type = IPADDR_TYPE_V6;
     if (tool_exist_default_gateway(logic_id, &default_gtw)) {
-        if (!memcmp(gateway, default_gtw.gateway, MAX_IPV6_NUM) &&
-            (logic_id == default_gtw.logic_id)) {
+        if (!memcmp(gateway, default_gtw.gateway, MAX_IPV6_NUM) && (logic_id == default_gtw.logic_id)) {
             ret = tool_transfer_check_ipaddr_ipv6(default_gtw.gateway, gateway_ip, MAX_IPV6_NUM);
             if (ret) {
                 roce_err("Tool set device gateway is invalid.");
@@ -1999,8 +1998,8 @@ int tool_ip_set_gateway_ipv6(struct tool_param *param, int logic_id, const char 
     }
     ret = memcpy_s(gateway_address.u_addr.ip6, sizeof(gateway_address.u_addr.ip6), gateway_ip, MAX_IPV6_NUM);
     if (ret) {
-        roce_err("memcpy_s dsmi ipv6 address fail[%d], dlen[%d], slen[%d]",
-            ret, sizeof(gateway_address.u_addr.ip6), sizeof(gateway_ip));
+        roce_err("memcpy_s dsmi ipv6 address fail[%d], dlen[%d], slen[%d]", ret, sizeof(gateway_address.u_addr.ip6),
+                 sizeof(gateway_ip));
         return UDA_TOOL_NO_MEM_ERR;
     }
     ret = tool_clean_default(logic_id, 0x1, 0, gateway);
@@ -2018,7 +2017,7 @@ int tool_ip_set_gateway_ipv6(struct tool_param *param, int logic_id, const char 
     ret = dsmi_set_ipv6_gateway_address(logic_id, gw_v6_ip);
     if (ret) {
         roce_err("dsmi set default gw fail! ret[%d] logic_id[%d] gateway_ip[%s]", ret, logic_id,
-            gateway_address.u_addr.ip6);
+                 gateway_address.u_addr.ip6);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
     if (!check_udhcpc_write_hccn_conf(param, 1)) {
@@ -2089,8 +2088,7 @@ int tool_inet_pton_gateway_address(const char *str, unsigned char *ipv6, int len
     }
     ret = memcpy_s(ipv6, length, addr.address_ip, MAX_IPV6_NUM);
     if (ret) {
-        roce_err("memcpy_s dsmi ipv6 address fail[%d], dlen[%d], slen[%d]",
-            ret, length, sizeof(addr.address_ip));
+        roce_err("memcpy_s dsmi ipv6 address fail[%d], dlen[%d], slen[%d]", ret, length, sizeof(addr.address_ip));
         return UDA_TOOL_NO_MEM_ERR;
     }
     return UDA_EXE_SUCCESS;

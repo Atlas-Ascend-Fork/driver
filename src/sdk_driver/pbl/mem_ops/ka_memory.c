@@ -38,7 +38,7 @@ KA_EXPORT_SYMBOL_GPL(ka_kzalloc);
 void *ka_kcalloc(unsigned long n, size_t size, ka_gfp_t flags, unsigned int module_id)
 {
     void *va = ka_mm_kcalloc(n, size, flags);
-    ka_mem_alloc_stat_add(module_id, size, (unsigned long)(uintptr_t)va);
+    ka_mem_alloc_stat_add(module_id, n * size, (unsigned long)(uintptr_t)va);
     return va;
 }
 KA_EXPORT_SYMBOL_GPL(ka_kcalloc);

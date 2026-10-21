@@ -51,11 +51,10 @@
 #define SCHED_MAX_RESOURCE_PACKET_NUM 16
 #endif
 
-#define HVDEVMNG_DTYPE_TO_AICORE_NUM(dtype) (0x01 << (dtype))
-#define HVDEVMNG_DTYPE_TO_AICPU_NUM(dtype, aicore_total)                        \
-    (((dtype) == VMNG_TYPE_C1) ?                                                \
-    (0x01 << (dtype)) :                                                         \
-    (SCHED_MAX_RESOURCE_PACKET_NUM * (0x01 << (dtype)) / (aicore_total)))       \
+#define HVDEVMNG_DTYPE_TO_AICORE_NUM(dtype) (0x01U << (dtype))
+#define HVDEVMNG_DTYPE_TO_AICPU_NUM(dtype, aicore_total) \
+    (((dtype) == VMNG_TYPE_C1) ? (0x01U << (dtype)) :    \
+                                 (SCHED_MAX_RESOURCE_PACKET_NUM * (0x01U << (dtype)) / (aicore_total)))
 
 #define HVDEVMNG_AICPU_BITMAP_CALCULATE 15
 
@@ -88,14 +87,15 @@ STATIC int hvdevmng_mem_alloc(void)
 {
     unsigned int dev_id;
 
-    g_hvdevmng_resource = dbl_kzalloc(sizeof(struct dev_resource *) * ASCEND_DEV_MAX_NUM, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    g_hvdevmng_resource = dbl_kzalloc(sizeof(struct dev_resource *) * ASCEND_DEV_MAX_NUM,
+                                      KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (g_hvdevmng_resource == NULL) {
         devdrv_drv_err("Memory alloc for g_hvdevmng_resource failed.\n");
         return -ENOMEM;
     }
     for (dev_id = 0; dev_id < ASCEND_DEV_MAX_NUM; dev_id++) {
         g_hvdevmng_resource[dev_id] = dbl_kzalloc(sizeof(struct dev_resource) * VMNG_VDEV_MAX_PER_PDEV,
-            KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+                                                  KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
         if (g_hvdevmng_resource[dev_id] == NULL) {
             devdrv_drv_err("Memory alloc for g_hvdevmng_resource[dev_id] failed. (dev_id=%u)\n", dev_id);
             hvdevmng_mem_free();
@@ -108,7 +108,7 @@ STATIC int hvdevmng_mem_alloc(void)
 
 STATIC inline int hvdevmng_dtype_to_vector_core_num(u32 dtype)
 {
-    return dtype == VMNG_TYPE_C1 ? (0x01 << dtype) : ((0x01 << dtype) - 1);
+    return dtype == VMNG_TYPE_C1 ? (0x01U << dtype) : ((0x01U << dtype) - 1);
 }
 
 STATIC inline struct dev_resource *hvdevmng_get_dev_res_instance(u32 devid, u32 fid)
@@ -118,8 +118,7 @@ STATIC inline struct dev_resource *hvdevmng_get_dev_res_instance(u32 devid, u32 
 
 int hvdevmng_get_aicore_num(u32 devid, u32 fid, u32 *aicore_num)
 {
-    if ((devid >= ASCEND_DEV_MAX_NUM) || (aicore_num == NULL) ||
-        (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
+    if ((devid >= ASCEND_DEV_MAX_NUM) || (aicore_num == NULL) || (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
         devdrv_drv_err("invalid para, devid(%u) fid(%u) aicore_num(%pK)\n", devid, fid, aicore_num);
         return -EINVAL;
     }
@@ -163,10 +162,9 @@ int hvdevmng_get_aicpu_num(u32 devid, u32 fid, u32 *aicpu_num, u32 *aicpu_bitmap
     u32 bitmap = 0;
     u32 i;
 
-    if ((devid >= ASCEND_DEV_MAX_NUM) || (aicpu_num == NULL) ||
-        (aicpu_bitmap == NULL) || (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
-        devdrv_drv_err("invalid para, devid(%u) fid(%u) aicore_num(%pK)\n",
-                       devid, fid, aicpu_num);
+    if ((devid >= ASCEND_DEV_MAX_NUM) || (aicpu_num == NULL) || (aicpu_bitmap == NULL) ||
+        (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
+        devdrv_drv_err("invalid para, devid(%u) fid(%u) aicore_num(%pK)\n", devid, fid, aicpu_num);
         return -EINVAL;
     }
 
@@ -174,7 +172,7 @@ int hvdevmng_get_aicpu_num(u32 devid, u32 fid, u32 *aicpu_num, u32 *aicpu_bitmap
 
     for (i = 0; i < *aicpu_num; i++) {
         if (HVDEVMNG_AICPU_BITMAP_CALCULATE >= i) {
-            bitmap |= (0x01 << (HVDEVMNG_AICPU_BITMAP_CALCULATE - i));
+            bitmap |= (0x01U << (HVDEVMNG_AICPU_BITMAP_CALCULATE - i));
         }
     }
     *aicpu_bitmap = bitmap;
@@ -190,10 +188,9 @@ int hvdevmng_get_aicpu_num(u32 devid, u32 fid, u32 *aicpu_num, u32 *aicpu_bitmap
     unsigned long aicpu_bitmap_tmp = 0;
     struct vmng_soc_resource_enquire info;
 
-    if ((devid >= ASCEND_DEV_MAX_NUM) || (aicpu_num == NULL) ||
-        (aicpu_bitmap == NULL) || (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
-        devdrv_drv_err("invalid para, devid(%u) fid(%u) aicore_num(%pK)\n",
-                       devid, fid, aicpu_num);
+    if ((devid >= ASCEND_DEV_MAX_NUM) || (aicpu_num == NULL) || (aicpu_bitmap == NULL) ||
+        (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
+        devdrv_drv_err("invalid para, devid(%u) fid(%u) aicore_num(%pK)\n", devid, fid, aicpu_num);
         return -EINVAL;
     }
 
@@ -202,7 +199,7 @@ int hvdevmng_get_aicpu_num(u32 devid, u32 fid, u32 *aicpu_num, u32 *aicpu_bitmap
 
         for (i = 0; i < *aicpu_num; i++) {
             if (HVDEVMNG_AICPU_BITMAP_CALCULATE >= i) {
-                bitmap |= (0x01 << (HVDEVMNG_AICPU_BITMAP_CALCULATE - i));
+                bitmap |= (0x01U << (HVDEVMNG_AICPU_BITMAP_CALCULATE - i));
             }
         }
         *aicpu_bitmap = bitmap;
@@ -210,8 +207,7 @@ int hvdevmng_get_aicpu_num(u32 devid, u32 fid, u32 *aicpu_num, u32 *aicpu_bitmap
         (void)memset_s(&info, sizeof(struct vmng_soc_resource_enquire), 0, sizeof(struct vmng_soc_resource_enquire));
         ret = vmngh_enquire_soc_resource(devid, fid, &info);
         if (ret) {
-            devdrv_drv_err("Failed to invoke vmngh_enquire_soc_resource. (devid=%u; fid=%u)",
-                           devid, fid);
+            devdrv_drv_err("Failed to invoke vmngh_enquire_soc_resource. (devid=%u; fid=%u)", devid, fid);
             return -EINVAL;
         }
         *aicpu_bitmap = info.each.stars_refresh.device_aicpu;
@@ -226,8 +222,7 @@ int hvdevmng_get_aicpu_num(u32 devid, u32 fid, u32 *aicpu_num, u32 *aicpu_bitmap
 
 int hvdevmng_get_vector_core_num(u32 devid, u32 fid, u32 *vector_core_num)
 {
-    if ((devid >= ASCEND_DEV_MAX_NUM) || (vector_core_num == NULL) ||
-        (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
+    if ((devid >= ASCEND_DEV_MAX_NUM) || (vector_core_num == NULL) || (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
         devdrv_drv_err("invalid para, devid(%u) fid(%u) vector_core_num(%pK)\n", devid, fid, vector_core_num);
         return -EINVAL;
     }
@@ -241,8 +236,7 @@ int hvdevmng_set_core_num(u32 devid, u32 fid, u32 dtype)
     struct devdrv_info *dev_info = NULL;
     u32 aicore_total;
 
-    if ((devid >= ASCEND_DEV_MAX_NUM) ||
-        (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
+    if ((devid >= ASCEND_DEV_MAX_NUM) || (fid >= VMNG_VDEV_MAX_PER_PDEV)) {
         devdrv_drv_err("invalid para, devid(%u) fid(%u) dtype(%u).\n", devid, fid, dtype);
         return -EINVAL;
     }
@@ -257,9 +251,9 @@ int hvdevmng_set_core_num(u32 devid, u32 fid, u32 dtype)
         g_hvdevmng_resource[devid][fid].aicore_num = dev_info->ai_core_num;
         g_hvdevmng_resource[devid][fid].aicpu_num = dev_info->ai_cpu_core_num;
         g_hvdevmng_resource[devid][fid].vector_core_num = dev_info->vector_core_num;
-        devdrv_drv_info("hvdevmng_set_aicpu_num succ: dev(%u) fid(%u) aicore(%u) aicpu(%u) vector_core(%u).\n",
-                        devid, fid, g_hvdevmng_resource[devid][fid].aicore_num,
-                        g_hvdevmng_resource[devid][fid].aicpu_num, g_hvdevmng_resource[devid][fid].vector_core_num);
+        devdrv_drv_info("hvdevmng_set_aicpu_num succ: dev(%u) fid(%u) aicore(%u) aicpu(%u) vector_core(%u).\n", devid,
+                        fid, g_hvdevmng_resource[devid][fid].aicore_num, g_hvdevmng_resource[devid][fid].aicpu_num,
+                        g_hvdevmng_resource[devid][fid].vector_core_num);
         return 0;
     }
 
@@ -272,17 +266,16 @@ int hvdevmng_set_core_num(u32 devid, u32 fid, u32 dtype)
     g_hvdevmng_resource[devid][fid].aicore_num = HVDEVMNG_DTYPE_TO_AICORE_NUM(dtype);
     g_hvdevmng_resource[devid][fid].aicpu_num = HVDEVMNG_DTYPE_TO_AICPU_NUM(dtype, aicore_total);
     g_hvdevmng_resource[devid][fid].vector_core_num = g_hvdevmng_resource[devid][fid].aicpu_num;
-    devdrv_drv_info("hvdevmng_set_aicpu_num succ: dev(%u) fid(%u) aicore(%u) aicpu(%u) vector_core(%u).\n",
-                    devid, fid, g_hvdevmng_resource[devid][fid].aicore_num,
-                    g_hvdevmng_resource[devid][fid].aicpu_num, g_hvdevmng_resource[devid][fid].vector_core_num);
+    devdrv_drv_info("hvdevmng_set_aicpu_num succ: dev(%u) fid(%u) aicore(%u) aicpu(%u) vector_core(%u).\n", devid, fid,
+                    g_hvdevmng_resource[devid][fid].aicore_num, g_hvdevmng_resource[devid][fid].aicpu_num,
+                    g_hvdevmng_resource[devid][fid].vector_core_num);
     return 0;
 }
 
 int hvdevmng_get_chip_type(u32 devid, u32 *chip_type)
 {
     if ((devid >= ASCEND_DEV_MAX_NUM) || (chip_type == NULL)) {
-        devdrv_drv_err("invalid para, devid(%u) chip_type(%pK).\n",
-                       devid, chip_type);
+        devdrv_drv_err("invalid para, devid(%u) chip_type(%pK).\n", devid, chip_type);
         return -EINVAL;
     }
 
@@ -360,8 +353,8 @@ int hvdevmng_get_dev_resource(u32 devid, u32 tsid, struct devdrv_manager_msg_res
 
     if ((devid >= ASCEND_DEV_MAX_NUM) || (resource_info->vfid >= VMNG_VDEV_MAX_PER_PDEV) ||
         (tsid >= DEVDRV_MAX_TS_NUM) || (resource_info->info_type >= DEVDRV_DEV_INFO_TYPE_MAX)) {
-        devdrv_drv_err("Invalid para. (devid=%u; fid=%u; info_type=%u).\n",
-            devid, resource_info->vfid, resource_info->info_type);
+        devdrv_drv_err("Invalid para. (devid=%u; fid=%u; info_type=%u).\n", devid, resource_info->vfid,
+                       resource_info->info_type);
         return -EINVAL;
     }
 
@@ -372,10 +365,10 @@ int hvdevmng_get_dev_resource(u32 devid, u32 tsid, struct devdrv_manager_msg_res
     }
 
     if (resource_info->info_type <= DEVDRV_MAX_TS_INFO_TYPE) {
-        ret = hvdevmng_get_dev_tsdrv_resource(devid, resource_info->vfid, tsid,
-            resource_info->info_type, &resource_info->value);
+        ret = hvdevmng_get_dev_tsdrv_resource(devid, resource_info->vfid, tsid, resource_info->info_type,
+                                              &resource_info->value);
     } else if (resource_info->info_type <= DEVDRV_MAX_MEM_INFO_TYPE ||
-                   resource_info->info_type == DEVDRV_DEV_PROCESS_MEM) {
+               resource_info->info_type == DEVDRV_DEV_PROCESS_MEM) {
         ret = devdrv_manager_h2d_query_resource_info(devid, resource_info);
     } else {
         return -EINVAL;
@@ -389,10 +382,9 @@ void hvdevmng_set_dev_ts_resource(u32 devid, u32 fid, u32 tsid, void *data)
     struct tsdrv_id_capacity *ts_res_info = NULL;
     struct dev_resource *dev_resource = NULL;
 
-    if ((devid >= ASCEND_DEV_MAX_NUM) || (fid >= VMNG_VDEV_MAX_PER_PDEV) ||
-        (tsid >= DEVDRV_MAX_TS_NUM) || (data == NULL)) {
-        devdrv_drv_err("invalid para, devid(%u) fid(%u) tsid(%u) or input data is NULL.\n",
-            devid, fid, tsid);
+    if ((devid >= ASCEND_DEV_MAX_NUM) || (fid >= VMNG_VDEV_MAX_PER_PDEV) || (tsid >= DEVDRV_MAX_TS_NUM) ||
+        (data == NULL)) {
+        devdrv_drv_err("invalid para, devid(%u) fid(%u) tsid(%u) or input data is NULL.\n", devid, fid, tsid);
         return;
     }
 
@@ -411,104 +403,103 @@ KA_EXPORT_SYMBOL(hvdevmng_set_dev_ts_resource);
 
 #if defined CFG_FEATURE_VFIO && !defined CFG_FEATURE_SRIOV
 
-STATIC int (*const hvdevmng_ioctl_handlers[DEVDRV_MANAGER_CMD_MAX_NR])(u32 dev_id,
-    u32 fid, struct vdevmng_ioctl_msg *iomsg) = {
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_PCIINFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVNUM)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_PLATINFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_DEVICE_STATUS)] = hvdevmng_get_device_status,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CORE_SPEC)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CORE_INUSE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVIDS)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CONTAINER_DEVIDS)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVINFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVID_BY_LOCALDEVID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEV_INFO_BY_PHYID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_PCIE_ID_INFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_VOLTAGE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_TEMPERATURE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_TSENSOR)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_AI_USE_RATE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_FREQUENCY)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_POWER)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_HEALTH_CODE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_ERROR_CODE)] = hvdevmng_get_error_code,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DDR_CAPACITY)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_LPM3_SMOKE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_BLACK_BOX_GET_EXCEPTION)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_DEVICE_MEMORY_DUMP)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_DEVICE_RESET_INFORM)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_MODULE_STATUS)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_MINI_BOARD_ID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_PRE_RESET)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_RESCAN)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_HOT_RESET)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_P2P_ATTR)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_ALLOC_HOST_DMA_ADDR)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_READ)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_SRAM_WRITE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_EMMC_VOLTAGE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVICE_BOOT_STATUS)] = hvdevmng_get_device_boot_status,
-        [_KA_IOC_NR(DEVDRV_MANAGER_ENABLE_EFUSE_LDO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_DISABLE_EFUSE_LDO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_CONTAINER_CMD)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_HOST_PHY_MACH_FLAG)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_LOCAL_DEVICEIDS)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_IMU_SMOKE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_SET_NEW_TIME)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_CREATE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_OPEN)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_CLOSE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_DESTROY)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_SET_PID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CPU_INFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_SEND_TO_IMU)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_RECV_FROM_IMU)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_IMU_INFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_CONFIG_ECC_ENABLE)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_PROBE_NUM)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_PROBE_LIST)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_DEBUG_INFORM)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_COMPUTE_POWER)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_SYNC_MATRIX_DAEMON_READY)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_BBOX_ERRSTR)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_IMU_DDR_READ)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_SLOT_ID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_APPMON_BBOX_EXCEPTION_CMD)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CONTAINER_FLAG)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_PROCESS_SIGN)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_MASTER_DEV_IN_THE_SAME_OS)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_LOCAL_DEV_ID_BY_HOST_DEV_ID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_BOOT_DEV_ID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_TSDRV_DEV_COM_INFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CAPABILITY_GROUP_INFO)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_PASSTHRU_MCU)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_P2P_CAPABILITY)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_ETH_ID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_BIND_PID_ID)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_H2D_DEVINFO)] = hvdevmng_get_h2d_devinfo,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CONSOLE_LOG_LEVEL)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_UPDATE_STARTUP_STATUS)] = NULL,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_STARTUP_STATUS)] = hvdevmng_get_device_startup_status,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVICE_HEALTH_STATUS)] = hvdevmng_get_device_health_status,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEV_RESOURCE_INFO)] = hvdevmng_vpc_get_dev_resource_info,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_OSC_FREQ)] = hvdevmng_get_osc_freq,
-        [_KA_IOC_NR(DEVDRV_MANAGER_GET_CURRENT_AIC_FREQ)] = hvdevmng_get_current_aic_freq,
+STATIC int (*const hvdevmng_ioctl_handlers[DEVDRV_MANAGER_CMD_MAX_NR])(u32 dev_id, u32 fid,
+                                                                       struct vdevmng_ioctl_msg *iomsg) = {
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_PCIINFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVNUM)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_PLATINFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_DEVICE_STATUS)] = hvdevmng_get_device_status,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CORE_SPEC)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CORE_INUSE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVIDS)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CONTAINER_DEVIDS)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVINFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVID_BY_LOCALDEVID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEV_INFO_BY_PHYID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_PCIE_ID_INFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_VOLTAGE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_TEMPERATURE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_TSENSOR)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_AI_USE_RATE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_FREQUENCY)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_POWER)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_HEALTH_CODE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_ERROR_CODE)] = hvdevmng_get_error_code,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DDR_CAPACITY)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_LPM3_SMOKE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_BLACK_BOX_GET_EXCEPTION)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_DEVICE_MEMORY_DUMP)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_DEVICE_RESET_INFORM)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_MODULE_STATUS)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_MINI_BOARD_ID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_PRE_RESET)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_RESCAN)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_HOT_RESET)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_P2P_ATTR)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_ALLOC_HOST_DMA_ADDR)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_READ)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_SRAM_WRITE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_EMMC_VOLTAGE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVICE_BOOT_STATUS)] = hvdevmng_get_device_boot_status,
+    [_KA_IOC_NR(DEVDRV_MANAGER_ENABLE_EFUSE_LDO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_DISABLE_EFUSE_LDO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_CONTAINER_CMD)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_HOST_PHY_MACH_FLAG)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_LOCAL_DEVICEIDS)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_IMU_SMOKE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_SET_NEW_TIME)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_CREATE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_OPEN)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_CLOSE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_DESTROY)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_IPC_NOTIFY_SET_PID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CPU_INFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_SEND_TO_IMU)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_RECV_FROM_IMU)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_IMU_INFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_CONFIG_ECC_ENABLE)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_PROBE_NUM)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_PROBE_LIST)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_DEBUG_INFORM)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_COMPUTE_POWER)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_SYNC_MATRIX_DAEMON_READY)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_BBOX_ERRSTR)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_PCIE_IMU_DDR_READ)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_SLOT_ID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_APPMON_BBOX_EXCEPTION_CMD)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CONTAINER_FLAG)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_PROCESS_SIGN)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_MASTER_DEV_IN_THE_SAME_OS)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_LOCAL_DEV_ID_BY_HOST_DEV_ID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_BOOT_DEV_ID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_TSDRV_DEV_COM_INFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CAPABILITY_GROUP_INFO)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_PASSTHRU_MCU)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_P2P_CAPABILITY)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_ETH_ID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_BIND_PID_ID)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_H2D_DEVINFO)] = hvdevmng_get_h2d_devinfo,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CONSOLE_LOG_LEVEL)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_UPDATE_STARTUP_STATUS)] = NULL,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_STARTUP_STATUS)] = hvdevmng_get_device_startup_status,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEVICE_HEALTH_STATUS)] = hvdevmng_get_device_health_status,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_DEV_RESOURCE_INFO)] = hvdevmng_vpc_get_dev_resource_info,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_OSC_FREQ)] = hvdevmng_get_osc_freq,
+    [_KA_IOC_NR(DEVDRV_MANAGER_GET_CURRENT_AIC_FREQ)] = hvdevmng_get_current_aic_freq,
 };
 
 STATIC int hvdevmng_rx_vpc_msg_para_check(u32 dev_id, u32 fid, struct vmng_rx_msg_proc_info *proc_info)
 {
-    if ((proc_info == NULL) || (proc_info->data == NULL) ||
-        (dev_id >= VMNG_PDEV_MAX) || (fid >= VMNG_VDEV_MAX_PER_PDEV) ||
-        (proc_info->real_out_len == NULL)) {
+    if ((proc_info == NULL) || (proc_info->data == NULL) || (dev_id >= VMNG_PDEV_MAX) ||
+        (fid >= VMNG_VDEV_MAX_PER_PDEV) || (proc_info->real_out_len == NULL)) {
         devdrv_drv_err("para error. dev_id %u, fid %u\n", dev_id, fid);
         return -EINVAL;
     }
 
     if ((proc_info->in_data_len != sizeof(struct vdevmng_ioctl_msg)) ||
         (proc_info->out_data_len != sizeof(struct vdevmng_ioctl_msg))) {
-        devdrv_drv_err("in_data_len %u or out_data_len %u error, vdevmng_ioctl_msg %lu\n",
-            proc_info->in_data_len, proc_info->out_data_len, sizeof(struct vdevmng_ioctl_msg));
+        devdrv_drv_err("in_data_len %u or out_data_len %u error, vdevmng_ioctl_msg %lu\n", proc_info->in_data_len,
+                       proc_info->out_data_len, sizeof(struct vdevmng_ioctl_msg));
         return -EINVAL;
     }
 
@@ -531,15 +522,14 @@ int hvdevmng_vpc_msg_recv(u32 dev_id, u32 fid, struct vmng_rx_msg_proc_info *pro
     cmd = iomsg->sub_cmd;
 
     if (cmd >= DEVDRV_MANAGER_CMD_MAX_NR) {
-        devdrv_drv_err("cmd out of range:cmd(%u) max value(%u) dev(%u) fid(%u).\n",
-                       cmd, DEVDRV_MANAGER_CMD_MAX_NR, dev_id, fid);
+        devdrv_drv_err("cmd out of range:cmd(%u) max value(%u) dev(%u) fid(%u).\n", cmd, DEVDRV_MANAGER_CMD_MAX_NR,
+                       dev_id, fid);
         ret = -EINVAL;
         goto VPC_OUT;
     }
 
     if (hvdevmng_ioctl_handlers[cmd] == NULL) {
-        devdrv_drv_err("not support cmd:cmd(%u) dev(%u) fid(%u).\n",
-                       cmd, dev_id, fid);
+        devdrv_drv_err("does not support cmd. (cmd=%u; dev=%u; fid=%u)\n", cmd, dev_id, fid);
         ret = -EINVAL;
         goto VPC_OUT;
     }
@@ -562,17 +552,16 @@ struct vmng_vpc_client hvdevmng_vpc_client = {
 
 STATIC int hvdevmng_rx_comm_msg_para_check(u32 dev_id, u32 fid, struct vmng_rx_msg_proc_info *proc_info)
 {
-    if ((proc_info == NULL) || (proc_info->data == NULL) ||
-        (dev_id >= VMNG_PDEV_MAX) || (fid >= VMNG_VDEV_MAX_PER_PDEV) ||
-        (proc_info->real_out_len == NULL)) {
+    if ((proc_info == NULL) || (proc_info->data == NULL) || (dev_id >= VMNG_PDEV_MAX) ||
+        (fid >= VMNG_VDEV_MAX_PER_PDEV) || (proc_info->real_out_len == NULL)) {
         devdrv_drv_err("para error. dev_id %u, fid %u\n", dev_id, fid);
         return -EINVAL;
     }
 
     if ((proc_info->in_data_len != sizeof(struct vdevmng_ctrl_msg)) ||
         (proc_info->out_data_len != sizeof(struct vdevmng_ctrl_msg))) {
-        devdrv_drv_err("in_data_len %u or out_data_len %u error, vdevmng_ctrl_msg %lu\n",
-            proc_info->in_data_len, proc_info->out_data_len, sizeof(struct vdevmng_ctrl_msg));
+        devdrv_drv_err("in_data_len %u or out_data_len %u error, vdevmng_ctrl_msg %lu\n", proc_info->in_data_len,
+                       proc_info->out_data_len, sizeof(struct vdevmng_ctrl_msg));
         return -EINVAL;
     }
 
@@ -649,9 +638,8 @@ STATIC int hvdevmng_init_instance(u32 dev_id, u32 fid)
         goto create_vdevice_fail;
     }
 
-    devdrv_drv_info("hvdevmng dev-%u fid-%u aicorenum-%u aicpunum-%u init success.\n",
-                    dev_id, fid, g_hvdevmng_resource[dev_id][fid].aicore_num,
-                    g_hvdevmng_resource[dev_id][fid].aicpu_num);
+    devdrv_drv_info("hvdevmng dev-%u fid-%u aicorenum-%u aicpunum-%u init success.\n", dev_id, fid,
+                    g_hvdevmng_resource[dev_id][fid].aicore_num, g_hvdevmng_resource[dev_id][fid].aicpu_num);
     return 0;
 
 create_vdevice_fail:
@@ -827,7 +815,7 @@ int hvdevmng_init(void)
         return -ENODEV;
     }
 
-    ret =  hvdevmng_mem_alloc();
+    ret = hvdevmng_mem_alloc();
     if (ret != 0) {
         devdrv_drv_err("Alloc memory failed. (ret=%d)\n", ret);
         hvdevmng_notifier_unregister();
@@ -849,7 +837,7 @@ int hvdevmng_init(void)
 {
     int ret;
 
-    ret =  hvdevmng_mem_alloc();
+    ret = hvdevmng_mem_alloc();
     if (ret != 0) {
         devdrv_drv_err("Alloc memory failed. (ret=%d)\n", ret);
         return -ENOMEM;

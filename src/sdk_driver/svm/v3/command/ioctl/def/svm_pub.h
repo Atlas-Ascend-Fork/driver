@@ -52,6 +52,10 @@ static inline u64 svm_align_up(u64 value, u64 align)
         return value;
     }
 
+    if (value > (~0ULL - (align - 1ULL))) {
+        return ~0ULL;
+    }
+
     return (value + (align - 1ull)) & ~(align - 1ull);
 }
 
@@ -64,10 +68,18 @@ static inline u64 svm_align_down(u64 value, u64 align)
     return value & ~(align - 1ull);
 }
 
+static inline u64 svm_get_align_up_size(u64 start, u64 size, u64 align)
+{
+    if (align == 0) {
+        return size;
+    }
+
+    return (size == 0ULL) ? 0ULL : svm_align_up(size + start % align, align);
+}
+
 static inline u64 svm_get_align_up_num(u64 start, u64 size, u64 align)
 {
-    u64 fixed_size = size + start % align;
-    return (size == 0ULL) ? 0ULL : (svm_align_up(fixed_size, align) / align);
+    return svm_get_align_up_size(start, size, align) / align;
 }
 
 static inline int svm_check_power_of_2(u64 n)

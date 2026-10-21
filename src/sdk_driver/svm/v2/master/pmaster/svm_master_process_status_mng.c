@@ -16,15 +16,24 @@
 #include "svm_msg_client.h"
 #include "svm_mem_stats.h"
 #include "svm_proc_mng.h"
+#include "devmm_pagefault_info.h"
 
 int devmm_chan_report_process_status_d2h(struct devmm_svm_process *svm_process, struct devmm_svm_heap *heap, void *msg,
                                          u32 *ack_len)
 {
     struct devmm_chan_process_status *process_status = (struct devmm_chan_process_status *)msg;
-
-    devmm_drv_debug("rev process_status  (devid=%u, vfid=%u,status=%u, dev_pid=%u, dev_tid=%u)\n",
+    devmm_drv_debug("Recv process_status. (devid=%u, vifd=%u,status=%u, dev_pid=%u, dev_tid=%u)\n",
                     process_status->head.dev_id, process_status->head.vfid, process_status->pid_status,
                     process_status->pid, process_status->tid);
+    /* Record pagefault failure info when device reports SVM page fault error.
+     * extend_data carries fault VA: extend_data[0]=high32, extend_data[1]=low32.
+     * Only present when head.extend_num >= 2. Old devices send extend_num=0 -- skip. */
+    if ((process_status->pid_status == STATUS_SVM_PAGE_FALUT_ERR_CNT) && (process_status->head.extend_num >= 2)) {
+        u64 fault_va = ((u64)process_status->extend_data[0] << 32) | (u64)process_status->extend_data[1];
+        if (fault_va != 0) {
+            devmm_pagefault_info_record_access(svm_process, process_status->head.dev_id, fault_va);
+        }
+    }
 
     devmm_modify_process_status(svm_process, process_status->head.dev_id, process_status->head.vfid,
                                 process_status->pid_status, true);
@@ -46,7 +55,7 @@ STATIC int devmm_query_process_status(struct devmm_svm_process *svm_proc,
     ret = devmm_chan_msg_send(process_status, sizeof(struct devmm_chan_process_status),
                               sizeof(struct devmm_chan_process_status));
 
-    devmm_drv_debug("query process_status. (devid=%u, vfid=%u,status=%u, occur=%d)\n", process_status->head.dev_id,
+    devmm_drv_debug("Query process_status. (devid=%u, vfid=%u,status=%u, occur=%d)\n", process_status->head.dev_id,
                     process_status->head.vfid, process_status->pid_status, process_status->status_occur);
 
     return ret;

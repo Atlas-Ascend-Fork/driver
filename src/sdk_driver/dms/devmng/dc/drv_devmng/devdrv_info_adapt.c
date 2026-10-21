@@ -60,7 +60,7 @@ int devdrv_fresh_event_code_to_shm(u32 devid, u32 *health_code, u32 health_len, 
 int devdrv_check_ts_id(int ts_id)
 {
     if (ts_id < 0) {
-        devdrv_drv_err("ts id is invalid, must be greater than 0. (ts_id=%d)\n", ts_id);
+        devdrv_drv_err("ts id %d is invalid, ts id must be greater than 0\n", ts_id);
         return -EINVAL;
     }
 

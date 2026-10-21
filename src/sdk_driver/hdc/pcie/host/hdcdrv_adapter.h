@@ -48,4 +48,32 @@ int vhdch_uninit(void);
 
 typedef int (*get_aicore_num)(u32, u32, u32 *);
 
+#define HDCDRV_VDEV_MEM_POOL_TYPE_RX_SMALL 0
+#define HDCDRV_VDEV_MEM_POOL_TYPE_RX_HUGE 1
+#define HDCDRV_VDEV_MEM_POOL_TYPE_TX_SMALL 2
+#define HDCDRV_VDEV_MEM_POOL_TYPE_TX_HUGE 3
+#define HDCDRV_VDEV_MEM_POOL_TYPE_MAX 4
+#define HDCDRV_VDEV_RX_MEM_POOL_TYPE_MAX 2
+
+struct hdccom_alloc_mem_para;
+struct hdcdrv_buf_desc;
+struct hdcdrv_session_work;
+struct hdcdrv_service;
+
+#ifdef CFG_FEATURE_VFIO
+int vhdch_alloc_mem_vm(struct hdccom_alloc_mem_para *para, struct hdcdrv_buf_desc *desc);
+void vhdch_free_mem_vm(u32 dev_id, u32 fid, void *buf);
+int vhdch_alloc_mem_container(struct hdccom_alloc_mem_para *para, struct hdcdrv_buf_desc *desc);
+void vhdch_free_mem_container(u32 dev_id, u32 fid, u32 chan_id, void *buf);
+int vhdch_session_pre_alloc(u32 dev_id, u32 fid, int service_type);
+void vhdch_session_free(u32 dev_id, u32 fid, int service_type);
+u32 vdhch_alloc_normal_msg_chan(u32 dev_id, u32 fid, int service_type);
+u32 vdhch_alloc_fast_msg_chan(u32 dev_id, u32 fid, int service_type);
+void hdcdrv_session_work_free(struct hdcdrv_session_work *s_work);
+int hdcdrv_dma_map_guest_page(u32 dev_id, u32 fid, unsigned long in_addr, unsigned long size,
+                              struct hdcdrv_buf_desc *desc);
+void hdcdrv_dma_unmap_guest_page(u32 dev_id, u32 fid, ka_sg_table_t *dma_sgt);
+struct hdcdrv_service *vhdch_alloc_service(u32 devid, u32 fid, int service_type, u64 host_pid);
+struct hdcdrv_service *vhdch_search_service(u32 devid, u32 fid, int service_type, u64 host_pid);
+#endif
 #endif /* _VHDC_ADAPTER_H_ */

@@ -16,9 +16,9 @@
 #include "ossl_user_linux.h"
 
 typedef unsigned long long u64;
-typedef unsigned int    u32;
-typedef unsigned short     u16;
-typedef unsigned char      u8;
+typedef unsigned int u32;
+typedef unsigned short u16;
+typedef unsigned char u8;
 
 #ifndef CONFIG_LLT
 #define STATIC static
@@ -64,5 +64,5 @@ int major_command_option(major_cmd_t *cmd, char *little, char *large, int have_p
 int command_parse(major_cmd_t *cmd, int argc, char **argv);
 int str_to_off_t(const char *str, off_t *data);
 int dfx_parse_uinteger_param(int argc, char **argv, int *argc_index, unsigned int *value,
-    const struct dfx_u32_parse *dfx);
+                             const struct dfx_u32_parse *dfx);
 #endif

@@ -91,6 +91,7 @@ ifeq ($(ENABLE_OPEN_SRC), y)
                     -I${C_SEC_INCLUDE}
 
     EXTRA_CFLAGS += -Iinclude/linux
+
     EXTRA_CFLAGS += -DSUPPORT_VIR_MACH
     drv_dvpp_cmdlist-objs += cmdlist/vpc/architecture/arch_v1xx/v100/drv_vpc_mlv1r1.o
     drv_dvpp_cmdlist-objs += vmng/dvpp_vcm_host.o

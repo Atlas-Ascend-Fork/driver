@@ -16,8 +16,8 @@
 #include "devdrv_ioctl.h"
 #include "dms/dms_devdrv_info_comm.h"
 #include "ascend_dev_num.h"
-#include "dms_soc.h"
 #include "dms_device_info.h"
+#include "dms_soc.h"
 
 drvError_t DmsGetBoardId(unsigned int dev_id, unsigned int *board_id)
 {
@@ -29,15 +29,15 @@ drvError_t DmsGetBoardId(unsigned int dev_id, unsigned int *board_id)
         return DRV_ERROR_PARA_ERROR;
     }
 
-    ioarg.main_cmd = DMS_GET_BOARD_ID_CMD;
-    ioarg.sub_cmd = ZERO_CMD;
+    ioarg.main_cmd = DMS_MAIN_CMD_SOC;
+    ioarg.sub_cmd = DMS_SUBCMD_GET_BOARD_ID;
     ioarg.filter_len = 0;
     ioarg.input = (void *)&dev_id;
     ioarg.input_len = sizeof(unsigned int);
     ioarg.output = (void *)board_id;
     ioarg.output_len = sizeof(unsigned int);
 
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl(DMS_GET_BOARD_ID, &ioarg));
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Get board id failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return ret;
@@ -121,7 +121,7 @@ drvError_t DmsGetSlotId(unsigned int dev_id, unsigned int *slot_id)
     ioarg.output = (void *)slot_id;
     ioarg.output_len = sizeof(unsigned int);
 
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl(DMS_GET_SLOT_ID, &ioarg));
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Get slot id failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return ret;
@@ -185,6 +185,57 @@ drvError_t DmsGetPcieIdInfo(unsigned int dev_id, dms_pcie_id_info_t *pcie_idinfo
     return DRV_ERROR_NONE;
 }
 
+static drvError_t DmsGetPcieIdInfoV2(unsigned int dev_id, void *buf, int size)
+{
+    int ret;
+    HAL_PCIE_INFO *pcie_info = NULL;
+    dms_pcie_id_info_t pcie_idinfo = {0};
+
+    if (size != sizeof(HAL_PCIE_INFO)) {
+        DMS_ERR("Invalid size. (size=%d)\n", size);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    ret = DmsGetPcieIdInfo(dev_id, &pcie_idinfo);
+    if (ret) {
+        DMS_EX_NOTSUPPORT_ERR(ret, "Dms get pcie info failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
+        return ret;
+    }
+
+    pcie_info = (HAL_PCIE_INFO *)buf;
+    pcie_info->domain = pcie_idinfo.domain;
+    pcie_info->bus = pcie_idinfo.bus;
+    pcie_info->device = pcie_idinfo.device;
+    pcie_info->function = pcie_idinfo.fn;
+    return DRV_ERROR_NONE;
+}
+
+drvError_t dms_get_pcie_info(unsigned int dev_id, unsigned int info_type, void *buf, int *size)
+{
+    int ret;
+
+    if (dev_id >= ASCEND_DEV_MAX_NUM || buf == NULL || size == NULL) {
+        DMS_ERR("Invalid dev_id or buf is null or size is NULL. (dev_id=%u)\n", dev_id);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    switch (info_type) {
+        case INFO_TYPE_PCIE_ID_INFO:
+            ret = DmsGetPcieIdInfoV2(dev_id, buf, *size);
+            break;
+
+        default:
+            ret = DRV_ERROR_NOT_SUPPORT;
+    }
+
+    if (ret != 0) {
+        DMS_EX_NOTSUPPORT_ERR(ret, "Dms get pcie info failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
+        return ret;
+    }
+
+    return ret;
+}
+
 drvError_t DmsGetCpuInfo(unsigned int dev_id, drvCpuInfo_t *cpu_info)
 {
     struct dms_ioctl_arg ioarg = {0};
@@ -232,8 +283,7 @@ drvError_t DmsGetSocDieId(dms_soc_die_id_t *soc_die_id)
 
     ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Dms get soc die id failed. (dev_id=%u; ret=%d)\n",
-            soc_die_id->dev_id, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Dms get soc die id failed. (dev_id=%u; ret=%d)\n", soc_die_id->dev_id, ret);
         return ret;
     }
 
@@ -261,8 +311,7 @@ drvError_t DmsGetSocDieIdV2(dms_soc_die_id_v2_t *soc_die_id)
 
     ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Dms get soc die id failed. (dev_id=%u; ret=%d)\n",
-            soc_die_id->dev_id, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Dms get soc die id failed. (dev_id=%u; ret=%d)\n", soc_die_id->dev_id, ret);
         return ret;
     }
 
@@ -322,7 +371,7 @@ drvError_t DmsGetChipInfo(dms_query_chip_info_t *chip_info)
     }
 
     if (chip_info->dev_id >= ASCEND_DEV_MAX_NUM) {
-        DMS_ERR("Device id is invalid. (dev_id=%u)\n", chip_info->dev_id);
+        DMS_ERR("Device id is invalid. (dev_id=%u; max=%u)\n", chip_info->dev_id, ASCEND_DEV_MAX_NUM);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -347,8 +396,7 @@ drvError_t DmsGetChipInfo(dms_query_chip_info_t *chip_info)
 
     ret = errno_to_user_errno(DmsIoctl(DMS_GET_CHIP_INFO, &ioarg));
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Get chip info failed. (dev_id=%u; ret=%d)\n",
-            chip_info->dev_id, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Get chip info failed. (dev_id=%u; ret=%d)\n", chip_info->dev_id, ret);
         return ret;
     }
     return DRV_ERROR_NONE;
@@ -409,7 +457,7 @@ drvError_t halGetDeviceSplitMode(unsigned int dev_id, unsigned int *mode)
     ioarg.output = (void *)mode;
     ioarg.output_len = sizeof(unsigned int);
 
-    ret = errno_to_user_errno(DmsIoctl(DMS_GET_DEV_SPLIT_MODE, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl((int)DMS_GET_DEV_SPLIT_MODE, &ioarg));
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "IOCTL failed. (ret=%d)\n", ret);
         return ret;
@@ -454,7 +502,7 @@ drvError_t DmsSetBistInfo(unsigned int dev_id, unsigned int cmd, unsigned char *
 drvError_t DmsGetBistInfo(unsigned int dev_id, unsigned int cmd, unsigned char *buf, unsigned int *len)
 {
     int ret;
-    struct dms_get_bist_info_in  bist_info_in;
+    struct dms_get_bist_info_in bist_info_in;
     struct dms_get_bist_info_out bist_info_out;
     struct dms_ioctl_arg ioarg = {0};
 
@@ -483,34 +531,8 @@ drvError_t DmsGetBistInfo(unsigned int dev_id, unsigned int cmd, unsigned char *
     return DRV_ERROR_NONE;
 }
 
-#ifdef CFG_FEATURE_BIST
-drvError_t DmsSetBistInfoMultiCmd(unsigned int dev_id, unsigned int cmd, unsigned char *in_buf, unsigned int buf_len)
-{
-    int ret;
-    struct urd_cmd urd_cmd_data = {0};
-    struct urd_cmd_para urd_cmd_para_data = {0};
-    struct dms_set_bist_info_multi_cmd_in bist_info;
-
-    bist_info.sub_cmd = cmd;
-    bist_info.dev_id = dev_id;
-    bist_info.buff = in_buf;
-    bist_info.buff_size = buf_len;
-
-    urd_usr_cmd_fill(&urd_cmd_data, DMS_SET_BIST_INFO_CMD, ZERO_CMD, NULL, 0);
-    urd_usr_cmd_para_fill(&urd_cmd_para_data, (void *)&bist_info, sizeof(struct dms_set_bist_info_multi_cmd_in), NULL, 0);
-    ret = urd_dev_usr_cmd(dev_id, &urd_cmd_data, &urd_cmd_para_data);
-    if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Ioctl failed. (ret=%d; dev_id=%u)\n", ret, dev_id);
-        return ret;
-    }
-
-    DMS_INFO("Set bist info success. (dev_id=0x%x, cmd=0x%x)\n", dev_id, cmd);
-    return DRV_ERROR_NONE;
-}
-#endif
-
-drvError_t DmsCtrlDeviceNode(unsigned int dev_id, struct dsmi_dtm_node_s dtm_node,
-    DSMI_DTM_OPCODE opcode, IN_OUT_BUF buf)
+drvError_t DmsCtrlDeviceNode(unsigned int dev_id, struct dsmi_dtm_node_s dtm_node, DSMI_DTM_OPCODE opcode,
+                             IN_OUT_BUF buf)
 {
     int ret;
     struct dms_ioctl_arg ioarg = {0};
@@ -540,8 +562,8 @@ drvError_t DmsCtrlDeviceNode(unsigned int dev_id, struct dsmi_dtm_node_s dtm_nod
     return DRV_ERROR_NONE;
 }
 
-drvError_t DmsGetAllDeviceNode(unsigned int dev_id, DEV_DTM_CAP capability,
-    struct dsmi_dtm_node_s node_info[], unsigned int *size)
+drvError_t DmsGetAllDeviceNode(unsigned int dev_id, DEV_DTM_CAP capability, struct dsmi_dtm_node_s node_info[],
+                               unsigned int *size)
 {
     int ret;
     struct dms_ioctl_arg ioarg = {0};
@@ -572,12 +594,12 @@ drvError_t DmsGetAllDeviceNode(unsigned int dev_id, DEV_DTM_CAP capability,
 }
 
 #ifdef CFG_FEATURE_GET_DEV_INDEX_IN_GROUP
-drvError_t DmsGetIndexInGroup(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t DmsGetIndexInGroup(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                              unsigned int *size)
 {
     int ret = 0;
 
-    ret = DmsGetDeviceInfoEx(dev_id, main_cmd, sub_cmd, buf, size);
+    ret = DmsGetDeviceInfoExV2(dev_id, main_cmd, sub_cmd, buf, size);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Failed to obtain the device information. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return ret;

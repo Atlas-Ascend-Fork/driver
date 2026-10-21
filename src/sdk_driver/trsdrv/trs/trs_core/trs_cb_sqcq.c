@@ -75,6 +75,7 @@ static void trs_cb_cq_recv_proc(struct trs_core_ts_inst *ts_inst, u32 cqid, void
     struct trs_cb_ctx *cb_ctx = &ts_inst->cb_ctx;
     struct trs_id_inst *inst = &ts_inst->inst;
     struct trs_cb_cqe *cb_cqe = (struct trs_cb_cqe *)cqe;
+    u32 cqe_cqid = cb_cqe->cq_id;
     struct sched_published_event event;
 
     if (cb_ctx->phy_sqcq.cqid != cqid) {
@@ -83,15 +84,15 @@ static void trs_cb_cq_recv_proc(struct trs_core_ts_inst *ts_inst, u32 cqid, void
         return;
     }
 
-    if ((cb_cqe->cq_id >= cb_ctx->cq_num) || (cb_ctx->cq[cb_cqe->cq_id].valid == 0)) {
-        trs_err("Invalid cb cqid. (devid=%u; tsid=%u; cq_id=%u)\n", inst->devid, inst->tsid, (u32)cb_cqe->cq_id);
+    if ((cqe_cqid >= cb_ctx->cq_num) || (cb_ctx->cq[cqe_cqid].valid == 0)) {
+        trs_err("Invalid cb cqid. (devid=%u; tsid=%u; cq_id=%u)\n", inst->devid, inst->tsid, cqe_cqid);
         return;
     }
 
     event.event_info.event_id = EVENT_TS_CALLBACK_MSG;
-    event.event_info.pid = cb_ctx->cq[cb_cqe->cq_id].pid;
+    event.event_info.pid = cb_ctx->cq[cqe_cqid].pid;
     event.event_info.gid = TRS_CB_EVENT_GRP_ID;
-    event.event_info.tid = cb_ctx->cq[cb_cqe->cq_id].grpid;
+    event.event_info.tid = cb_ctx->cq[cqe_cqid].grpid;
     event.event_info.subevent_id = TRS_CB_SW_SUBEVENTID;
     event.event_info.dst_engine = CCPU_LOCAL;
 

@@ -21,7 +21,8 @@ int upgrade_all_component(int device_id, const char *file_name, DSMI_COMPONENT_T
 
 int upgrade_single_component(int device_id, const char *file_name, DSMI_COMPONENT_TYPE *component_list,
                              unsigned int component_num, DSMI_COMPONENT_TYPE component_type);
-DLLEXPORT int transmit_file_to_device(int device_id, const char *src_file, char *dst_file, DSMI_COMPONENT_TYPE component_type);
+DLLEXPORT int transmit_file_to_device(int device_id, const char *src_file, char *dst_file,
+                                      DSMI_COMPONENT_TYPE component_type);
 int upgrade_trans_patch(int device_id, const char *file_name);
 int upgrade_trans_mami_patch(int device_id, const char *file_name);
 

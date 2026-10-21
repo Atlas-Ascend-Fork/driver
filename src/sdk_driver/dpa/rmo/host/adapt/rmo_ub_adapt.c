@@ -17,13 +17,13 @@
 #include "comm_kernel_interface.h"
 #include "pbl_kernel_interface.h"
 #include "pbl/pbl_uda.h"
-#include "ubcore_uapi.h"
+#include "uba/ubcore_adapt.h"
 #include "securec.h"
 
 #include "rmo_kern_log.h"
 #include "rmo_mem_sharing.h"
 
-static struct ubcore_device *rmo_get_ubcore_dev(u32 dev_id)
+static uba_ubcore_device *rmo_get_ubcore_dev(u32 dev_id)
 {
     ka_device_t *uda_dev = uda_get_device(dev_id);
 
@@ -32,19 +32,19 @@ static struct ubcore_device *rmo_get_ubcore_dev(u32 dev_id)
         return NULL;
     }
 
-    return ka_container_of(uda_dev, struct ubcore_device, dev);
+    return ka_container_of(uda_dev, uba_ubcore_device, dev);
 }
 
 int rmo_mem_addr_map(u32 devid, u64 paddr, u64 size, struct rmo_mem_map_addr *mapped_addr)
 {
-    struct ubcore_seg_cfg seg_cfg = {0};
-    union ubcore_reg_seg_flag flag = {0};
-    struct ubcore_target_seg *tseg = NULL;
-    struct ubcore_device *ubc_dev = NULL;
+    uba_ubcore_seg_cfg seg_cfg = {0};
+    uba_ubcore_reg_seg_flag flag = {0};
+    uba_ubcore_target_seg *tseg = NULL;
+    uba_ubcore_device *ubc_dev = NULL;
     u32 token_val = 0;
     int ret, ret_tmp;
 
-    if ((sizeof(struct ubcore_seg) + sizeof(u32)) > RMO_MEM_RAW_ADDR_MAX_LEN) {
+    if ((sizeof(uba_ubcore_seg) + sizeof(u32)) > RMO_MEM_RAW_ADDR_MAX_LEN) {
         return -EFAULT;
     }
 
@@ -59,17 +59,17 @@ int rmo_mem_addr_map(u32 devid, u64 paddr, u64 size, struct rmo_mem_map_addr *ma
         return -ENODEV;
     }
 
-    flag.bs.token_policy = UBCORE_TOKEN_PLAIN_TEXT;
-    flag.bs.access = (UBCORE_ACCESS_READ | UBCORE_ACCESS_WRITE | UBCORE_ACCESS_ATOMIC);
+    flag.bs.token_policy = UBA_UBCORE_TOKEN_PLAIN_TEXT;
+    flag.bs.access = (UBA_UBCORE_ACCESS_READ | UBA_UBCORE_ACCESS_WRITE | UBA_UBCORE_ACCESS_ATOMIC);
     flag.bs.non_pin = 1;
     seg_cfg.va = (uint64_t)ka_mm_phys_to_virt(paddr);
     seg_cfg.len = size;
     seg_cfg.flag = flag;
     seg_cfg.token_value.token = token_val;
 
-    tseg = ubcore_register_seg(ubc_dev, &seg_cfg, NULL);
+    tseg = uba_ubcore_register_seg(UBA_MODULE_TYPE_DPA, ubc_dev, &seg_cfg, NULL);
     if (KA_IS_ERR_OR_NULL(tseg)) {
-        rmo_err("ubcore_register_seg fail. (devid=%u)\n", devid);
+        rmo_err("uba_ubcore_register_seg fail. (devid=%u)\n", devid);
         return -ENOMEM;
     }
 
@@ -77,7 +77,7 @@ int rmo_mem_addr_map(u32 devid, u64 paddr, u64 size, struct rmo_mem_map_addr *ma
     ret_tmp = memcpy_s(mapped_addr->raw_addr.raw_addr + sizeof(tseg->seg), RMO_MEM_RAW_ADDR_MAX_LEN - sizeof(tseg->seg),
                        &token_val, sizeof(token_val));
     if ((ret != 0) || (ret_tmp != 0)) {
-        (void)ubcore_unregister_seg(tseg);
+        (void)uba_ubcore_unregister_seg(UBA_MODULE_TYPE_DPA, tseg);
         rmo_err("Memcpy seg failed. (len=0x%lx)\n", sizeof(tseg->seg));
         return -EFAULT;
     }
@@ -90,7 +90,7 @@ int rmo_mem_addr_map(u32 devid, u64 paddr, u64 size, struct rmo_mem_map_addr *ma
 int rmo_mem_addr_unmap(u32 devid, struct rmo_mem_map_addr *mapped_addr, u64 size)
 {
     if (mapped_addr->addr_ptr != NULL) {
-        (void)ubcore_unregister_seg((struct ubcore_target_seg *)mapped_addr->addr_ptr);
+        (void)uba_ubcore_unregister_seg(UBA_MODULE_TYPE_DPA, (uba_ubcore_target_seg *)mapped_addr->addr_ptr);
         mapped_addr->addr_ptr = NULL;
     }
 

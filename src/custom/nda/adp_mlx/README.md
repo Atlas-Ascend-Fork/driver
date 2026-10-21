@@ -2,7 +2,7 @@
 
 ## 概述
 
-`adp_mlx` 是面向Mellanox ConnectX (CX)系列网卡的驱动适配层组件，作为 `ibv_extend` 扩展库的运行时依赖存在。
+`adp_mlx` 是面向 Mellanox ConnectX (CX) 系列网卡的驱动适配层组件，作为 `ibv_extend` 扩展库的运行时依赖存在。
 
 ```
 ┌─────────────────────────────────┐

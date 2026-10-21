@@ -29,5 +29,5 @@ struct pmq_query_pa_msg {
 
 /* dst_udevid: host global view udevid */
 int pmq_msg_send(u32 src_udevid, u32 dst_udevid, void *msg, u32 msg_len, u32 *reply_len);
-
+u32 pmq_get_max_msg_len(void);
 #endif

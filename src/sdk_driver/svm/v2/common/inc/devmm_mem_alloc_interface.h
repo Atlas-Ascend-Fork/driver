@@ -20,8 +20,10 @@
 #include "ascend_hal_define.h"
 /*
  * KA_SUB_MODULE_TYPE_0 : ctrl memory
- * KA_SUB_MODULE_TYPE_1 : ai memory normal page
- * KA_SUB_MODULE_TYPE_2 : ai memory huge page
+ * KA_SUB_MODULE_TYPE_1 : ai memory normal page (business use)
+ * KA_SUB_MODULE_TYPE_2 : ai memory huge page (business use)
+ * KA_SUB_MODULE_TYPE_3 : ai memory normal page (svm self-use)
+ * KA_SUB_MODULE_TYPE_4 : ai memory huge page (svm self-use)
  */
 
 /* KA_SUB_MODULE_TYPE_0 : ctrl memory */
@@ -60,7 +62,7 @@ void *__devmm_vmalloc_ex(size_t size, ka_gfp_t gfp_mask, ka_pgprot_t prot);
     ka_kvmalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_0))
 #define devmm_kvfree_ex(addr) ka_kvfree(addr, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_0))
 
-/* KA_SUB_MODULE_TYPE_1 : ai memory normal page */
+/* KA_SUB_MODULE_TYPE_1 : ai memory normal page (business use) */
 #define devmm_alloc_pages_node_ex(nid, gfp_mask, order) \
     ka_alloc_pages_node(nid, gfp_mask, order, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_1))
 #define __devmm_free_pages_ex(page, order) \
@@ -69,7 +71,7 @@ void *__devmm_vmalloc_ex(size_t size, ka_gfp_t gfp_mask, ka_pgprot_t prot);
     ka_kvmalloc_node(size, flags, node, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_1))
 #define devmm_kvfree_node(addr) ka_kvfree(addr, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_1))
 
-/* KA_SUB_MODULE_TYPE_2 : ai memory huge page */
+/* KA_SUB_MODULE_TYPE_2 : ai memory huge page (business use) */
 #define devmm_hugetlb_alloc_hugepage_ex(nid, flag) \
     ka_hugetlb_alloc_hugepage(nid, flag, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_2))
 #ifdef DAVINCI_DEVICE
@@ -79,6 +81,30 @@ static inline void devmm_hugetlb_free_hugepage_ex(ka_page_t *page)
 }
 #else
 static inline void devmm_hugetlb_free_hugepage_ex(ka_page_t *page)
+{
+    ka_mm_put_page(page);
+}
+#endif
+
+/* KA_SUB_MODULE_TYPE_3 : ai memory normal page (svm self-use) */
+#define devmm_alloc_pages_node_self(nid, gfp_mask, order) \
+    ka_alloc_pages_node(nid, gfp_mask, order, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_3))
+#define devmm_free_pages_self(page, order) \
+    __ka_free_pages(page, order, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_3))
+#define devmm_kvmalloc_node_self(size, flags, node) \
+    ka_kvmalloc_node(size, flags, node, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_3))
+#define devmm_kvfree_node_self(addr) ka_kvfree(addr, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_3))
+
+/* KA_SUB_MODULE_TYPE_4 : ai memory huge page (svm self-use) */
+#define devmm_hugetlb_alloc_hugepage_self(nid, flag) \
+    ka_hugetlb_alloc_hugepage(nid, flag, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_4))
+#ifdef DAVINCI_DEVICE
+static inline void devmm_hugetlb_free_hugepage_self(ka_page_t *page)
+{
+    ka_hugetlb_free_hugepage(page, ka_get_module_id(HAL_MODULE_TYPE_DEVMM, KA_SUB_MODULE_TYPE_4));
+}
+#else
+static inline void devmm_hugetlb_free_hugepage_self(ka_page_t *page)
 {
     ka_mm_put_page(page);
 }

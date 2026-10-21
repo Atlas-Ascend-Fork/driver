@@ -14,6 +14,9 @@
 #ifndef DBI_CORE_H
 #define DBI_CORE_H
 
+#include "dbi_msg.h"
+
+int dbi_query(u32 udevid, struct svm_device_basic_info *dbi);
 int dbi_init_dev(u32 udevid);
 void dbi_uninit_dev(u32 udevid);
 int dbi_feature_init(void);

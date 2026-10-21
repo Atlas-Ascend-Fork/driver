@@ -9,12 +9,14 @@
  */
 
 #include <fcntl.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include "ascend_dev_num.h"
 #include "soc_resmng_ioctl.h"
 #include "davinci_interface.h"
 #include "drv_comm_intf.h"
+#include "drv_current.h"
 
 #ifdef STATIC_SKIP
 #define STATIC
@@ -129,6 +131,8 @@ drvError_t halDeviceClose(uint32_t devid, halDevCloseIn *in)
 {
     int ret;
 
+    DRV_CURRENT_API_SCOPE();
+
     ret = drvdev_check_input_para(in);
     if (ret != 0) {
         DRV_COMM_EX_NOTSUPPORT_ERR(ret, "Parameter input check failed. (ret=%d)\n", ret);
@@ -208,6 +212,8 @@ drvError_t halProcessResRestore(halProcResRestoreInfo *info)
     drvError_t ret;
     int i;
 
+    DRV_CURRENT_API_SCOPE();
+
     DRV_COMM_EVENT("Process resource restore start.\n");
 
     if (info == NULL) {
@@ -251,7 +257,7 @@ u32 soc_res_get_ver(u32 udevid, enum soc_ver_type type, u32 *ver)
 
     fd = open(davinci_intf_get_dev_path(), O_RDWR | O_SYNC | O_CLOEXEC);
     if (fd < 0) {
-        DRV_COMM_ERR("Open device fail. (fd=%d; chardev=%s)\n", fd, davinci_intf_get_dev_path());
+        DRV_COMM_ERR("Open device fail. (fd=%d; chardev=%s; errno=%d).\n", fd, davinci_intf_get_dev_path(), errno);
         return fd;
     }
 
@@ -273,13 +279,13 @@ u32 soc_res_get_ver(u32 udevid, enum soc_ver_type type, u32 *ver)
     if (type == VER_TYPE_DEV) {
         ret = ioctl(fd, SOC_RESMNG_GET_DEV_VER, ver);
         if (ret < 0) {
-            DRV_COMM_ERR("get device version fail, (udevid=%u)\n", udevid);
+            DRV_COMM_ERR("get device version fail, (udevid=%u; errno=%d).\n", udevid, errno);
             goto davinci_close;
         }
     } else if (type == VER_TYPE_HOST) {
         ret = ioctl(fd, SOC_RESMNG_GET_HOST_VER, ver);
         if (ret < 0) {
-            DRV_COMM_ERR("get device version fail, (udevid=%u)\n", udevid);
+            DRV_COMM_ERR("get device version fail, (udevid=%u; errno=%d)\n", udevid, errno);
             goto davinci_close;
         }
     } else {

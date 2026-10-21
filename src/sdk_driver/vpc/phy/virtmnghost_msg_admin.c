@@ -31,7 +31,7 @@ int vmngh_register_admin_rx_func(int opcode, vmngh_admin_func admin_func)
         return -EINVAL;
     }
     if (g_vmngh_msg_admin_func_ops[opcode] != NULL) {
-        vmng_err("opcode has registered. (opcode=%u)\n", opcode);
+        vmng_err("opcode has been registered. (opcode=%u)\n", opcode);
         return -EINVAL;
     }
     g_vmngh_msg_admin_func_ops[opcode] = admin_func;
@@ -111,7 +111,9 @@ void vmngh_init_admin_msg(struct vmng_msg_dev *msg_dev)
     msg_chan_rx->rx_proc = vmngh_admin_rx_msg_proc;
     msg_chan_rx->rx_wq = ka_task_create_singlethread_workqueue("vpc_admin_msg_chan_proc");
     if (msg_chan_rx->rx_wq == NULL) {
+#ifndef DRV_UT
         vmng_err("Create workqueue failed. (dev_id=%u)\n", msg_dev->dev_id);
+#endif
         return;
     }
     KA_TASK_INIT_WORK(&msg_chan_rx->rx_work, vmng_msg_rx_msg_task);

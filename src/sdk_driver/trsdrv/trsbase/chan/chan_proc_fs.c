@@ -17,9 +17,7 @@
 #include "ka_kernel_def_pub.h"
 #include "ka_compiler_pub.h"
 
-#ifdef CFG_FEATURE_TRACE_EVENT_FUNC
 #include "pbl_uda.h"
-#endif
 
 #include "securec.h"
 #include "chan_rxtx.h"
@@ -32,6 +30,10 @@ static ka_proc_dir_entry_t *chan_top_entry = NULL;
 
 ssize_t chan_trace_ops_write(ka_file_t *filp, const char __ka_user *ubuf, size_t count, loff_t *ppos);
 int chan_trace_ops_open(ka_inode_t *inode, ka_file_t *file);
+#ifdef CFG_BUILD_DEBUG
+ssize_t chan_vaddr_ops_write(ka_file_t *filp, const char __ka_user *ubuf, size_t count, loff_t *ppos);
+int chan_vaddr_ops_open(ka_inode_t *inode, ka_file_t *file);
+#endif
 int chan_sum_ops_open(ka_inode_t *inode, ka_file_t *file);
 void chan_proc_fs_add_ts_inst(struct trs_chan_ts_inst *ts_inst);
 void chan_proc_fs_del_ts_inst(struct trs_chan_ts_inst *ts_inst);
@@ -40,21 +42,10 @@ void chan_proc_fs_del_chan(struct trs_chan *chan);
 void chan_proc_fs_init(void);
 void chan_proc_fs_uninit(void);
 
-#ifdef CFG_FEATURE_TRACE_EVENT_FUNC
-static int chan_trace_show(ka_seq_file_t *seq, void *offset)
+static ssize_t _chan_parse_bool_from_user(struct trs_chan_ts_inst *ts_inst, const char __ka_user *ubuf, size_t count,
+                                          loff_t *ppos, long *val)
 {
-    struct trs_chan_ts_inst *ts_inst = (struct trs_chan_ts_inst *)(uintptr_t)ka_fs_get_seq_file_private(seq);
-
-    ka_fs_seq_printf(seq, "%d\n", ts_inst->trace_enable);
-    return 0;
-}
-
-ssize_t chan_trace_ops_write(ka_file_t *filp, const char __ka_user *ubuf, size_t count, loff_t *ppos)
-{
-    ka_inode_t *inode = ka_fs_file_inode(filp);
-    struct trs_chan_ts_inst *ts_inst = (struct trs_chan_ts_inst *)(uintptr_t)ka_base_pde_data(inode);
     char ch[2] = {0}; /* 2 bytes long */
-    long val;
 
     if ((ppos == NULL) || (*ppos != 0) || (count != sizeof(ch)) || (ubuf == NULL)) {
         return -EINVAL;
@@ -69,12 +60,32 @@ ssize_t chan_trace_ops_write(ka_file_t *filp, const char __ka_user *ubuf, size_t
     }
 
     ch[count - 1] = '\0';
-    if (ka_base_kstrtol(ch, 10, &val)) {
+    if (ka_base_kstrtol(ch, 10, val)) {
         return -EFAULT;
     }
-    ts_inst->trace_enable = (val == 0) ? false : true;
 
     return (ssize_t)count;
+}
+
+static int chan_trace_show(ka_seq_file_t *seq, void *offset)
+{
+    struct trs_chan_ts_inst *ts_inst = (struct trs_chan_ts_inst *)(uintptr_t)ka_fs_get_seq_file_private(seq);
+
+    ka_fs_seq_printf(seq, "%d\n", ts_inst->trace_enable);
+    return 0;
+}
+
+ssize_t chan_trace_ops_write(ka_file_t *filp, const char __ka_user *ubuf, size_t count, loff_t *ppos)
+{
+    struct trs_chan_ts_inst *ts_inst = (struct trs_chan_ts_inst *)(uintptr_t)ka_base_pde_data(ka_fs_file_inode(filp));
+    long val;
+    ssize_t ret = _chan_parse_bool_from_user(ts_inst, ubuf, count, ppos, &val);
+
+    if (ret < 0) {
+        return ret;
+    }
+    ts_inst->trace_enable = (val == 0) ? false : true;
+    return ret;
 }
 
 int chan_trace_ops_open(ka_inode_t *inode, ka_file_t *file)
@@ -82,10 +93,54 @@ int chan_trace_ops_open(ka_inode_t *inode, ka_file_t *file)
     return ka_fs_single_open(file, chan_trace_show, ka_base_pde_data(inode));
 }
 
+// clang-format off
 static const ka_procfs_ops_t chan_trace_ops = {
-    ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(chan_trace_ops_open) ka_fs_init_pf_read(ka_fs_seq_read)
-        ka_fs_init_pf_write(chan_trace_ops_write) ka_fs_init_pf_lseek(ka_fs_seq_lseek)
-            ka_fs_init_pf_release(ka_fs_single_release)};
+    ka_fs_init_pf_owner(KA_THIS_MODULE) \
+    ka_fs_init_pf_open(chan_trace_ops_open) \
+    ka_fs_init_pf_read(ka_fs_seq_read) \
+    ka_fs_init_pf_write(chan_trace_ops_write) \
+    ka_fs_init_pf_lseek(ka_fs_seq_lseek) \
+    ka_fs_init_pf_release(ka_fs_single_release) \
+};
+// clang-format on
+
+#ifdef CFG_BUILD_DEBUG
+static int chan_vaddr_show(ka_seq_file_t *seq, void *offset)
+{
+    struct trs_chan_ts_inst *ts_inst = (struct trs_chan_ts_inst *)(uintptr_t)ka_fs_get_seq_file_private(seq);
+
+    ka_fs_seq_printf(seq, "%d\n", ts_inst->vaddr_enable);
+    return 0;
+}
+
+ssize_t chan_vaddr_ops_write(ka_file_t *filp, const char __ka_user *ubuf, size_t count, loff_t *ppos)
+{
+    struct trs_chan_ts_inst *ts_inst = (struct trs_chan_ts_inst *)(uintptr_t)ka_base_pde_data(ka_fs_file_inode(filp));
+    long val;
+    ssize_t ret = _chan_parse_bool_from_user(ts_inst, ubuf, count, ppos, &val);
+
+    if (ret < 0) {
+        return ret;
+    }
+    ts_inst->vaddr_enable = (val == 0) ? false : true;
+    return ret;
+}
+
+int chan_vaddr_ops_open(ka_inode_t *inode, ka_file_t *file)
+{
+    return ka_fs_single_open(file, chan_vaddr_show, ka_base_pde_data(inode));
+}
+
+// clang-format off
+static const ka_procfs_ops_t chan_vaddr_ops = {
+    ka_fs_init_pf_owner(KA_THIS_MODULE) \
+    ka_fs_init_pf_open(chan_vaddr_ops_open) \
+    ka_fs_init_pf_read(ka_fs_seq_read) \
+    ka_fs_init_pf_write(chan_vaddr_ops_write) \
+    ka_fs_init_pf_lseek(ka_fs_seq_lseek) \
+    ka_fs_init_pf_release(ka_fs_single_release) \
+};
+// clang-format on
 #endif
 
 static int chan_sum_show(ka_seq_file_t *seq, void *offset)
@@ -107,9 +162,15 @@ int chan_sum_ops_open(ka_inode_t *inode, ka_file_t *file)
     return ka_fs_single_open(file, chan_sum_show, ka_base_pde_data(inode));
 }
 
-static const ka_procfs_ops_t chan_sum_ops = {ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(chan_sum_ops_open)
-                                                 ka_fs_init_pf_read(ka_fs_seq_read) ka_fs_init_pf_lseek(ka_fs_seq_lseek)
-                                                     ka_fs_init_pf_release(ka_fs_single_release)};
+// clang-format off
+static const ka_procfs_ops_t chan_sum_ops = {
+    ka_fs_init_pf_owner(KA_THIS_MODULE) \
+    ka_fs_init_pf_open(chan_sum_ops_open) \
+    ka_fs_init_pf_read(ka_fs_seq_read) \
+    ka_fs_init_pf_lseek(ka_fs_seq_lseek) \
+    ka_fs_init_pf_release(ka_fs_single_release) \
+};
+// clang-format on
 
 static void proc_fs_format_ts_inst_dir_name(struct trs_chan_ts_inst *ts_inst, char *name, int len)
 {
@@ -146,8 +207,9 @@ void chan_proc_fs_add_ts_inst(struct trs_chan_ts_inst *ts_inst)
         return;
     }
 
-#ifdef CFG_FEATURE_TRACE_EVENT_FUNC
     (void)ka_fs_proc_create_data("trace_enable", PROC_FS_MODE, ts_inst->entry, &chan_trace_ops, ts_inst);
+#ifdef CFG_BUILD_DEBUG
+    (void)ka_fs_proc_create_data("vaddr_enable", PROC_FS_MODE, ts_inst->entry, &chan_vaddr_ops, ts_inst);
 #endif
 }
 

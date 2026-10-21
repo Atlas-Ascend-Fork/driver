@@ -72,8 +72,8 @@ target_include_directories(ascend_urma_adapt_obj PRIVATE
 target_compile_definitions(ascend_urma_adapt_obj PRIVATE
     $<$<STREQUAL:${PRODUCT_SIDE},host>:DRV_HOST>                     # For drv_user_log.h
     ${ASCEND_URMA_ADAPT_COMPILE_DEFINITIONS}
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:SSAPI_USE_MAMI>
-    $<$<AND:$<STREQUAL:${PRODUCT},ascend910_96esl>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:SSAPI_USE_MAMI>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:SSAPI_USE_MAMI>
+    $<$<AND:$<STREQUAL:${PRODUCT},ascend960esl>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:SSAPI_USE_MAMI>
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:SSAPI_USE_MAMI>
 )
 

@@ -41,16 +41,6 @@ void esched_share_log_destroy(void)
 #endif
 }
 
-int32_t esched_init_sched_cpu_num(unsigned int dev_id, int fd)
-{
-#ifndef CFG_ENV_HOST
-    return esched_init_device_sched_cpu_num(dev_id, fd);
-#endif
-    (void)dev_id;
-    (void)fd;
-    return 0;
-}
-
 void sched_set_k2u_time_delta(unsigned long long kernel_tick)
 {
     if (kernel_tick > 0) {
@@ -152,6 +142,11 @@ bool esched_support_extern_interface(void)
 void esched_detach_device(unsigned int dev_id, struct sched_ioctl_para_detach *para_detach)
 {
     int ret;
+
+    if (dev_id >= ESCHED_DEV_NUM) {
+        return;
+    }
+
     (void)pthread_mutex_lock(&esched_proc_mutex);
     if (attach_refcnt[dev_id]++ > 0) {
         para_detach->dev_id = dev_id;

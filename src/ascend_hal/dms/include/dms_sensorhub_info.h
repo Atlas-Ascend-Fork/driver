@@ -23,4 +23,3 @@ int dms_get_sensor_hub_status(int device_id, struct dsmi_sensorhub_status_stru *
 int dms_get_sensor_hub_config(int device_id, struct dsmi_sensorhub_config_stru *sensorhub_config_data);
 
 #endif
-

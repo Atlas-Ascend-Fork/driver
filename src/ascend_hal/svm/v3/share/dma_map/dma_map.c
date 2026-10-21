@@ -9,6 +9,7 @@
  */
 
 #include <sys/ioctl.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "ascend_hal_error.h"

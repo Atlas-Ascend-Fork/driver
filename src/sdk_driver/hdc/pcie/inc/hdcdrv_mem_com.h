@@ -39,44 +39,12 @@ struct hdcdrv_mem {
     void *buf;
 };
 
-#ifdef CFG_FEATURE_MIRROR
-
-#define HDCDRV_PAGE_BLOCK_NUM 4
-#define HDCDRV_HUGE_PAGE_NUM 16
-#define HDCDRV_PAGE_BLOCK_NUM_MAX (HDCDRV_PAGE_BLOCK_NUM * HDCDRV_HUGE_PAGE_NUM)
-#define HDCDRV_USE_POOL 0
-#define HDCDRV_USE_PAGE 1
-
-#define HDCDRV_PAGE_NOT_ALLOC 0  /* page addr is NULL, if need to use, alloc first */
-#define HDCDRV_PAGE_PRE_STATUS 1 /* this page is preparing to alloc, need to retry until this status has changed */
-#define HDCDRV_PAGE_HAS_ALLOC 2  /* this page has alloc, can use it immediately if it has free blocks */
-
-#define HDCDRV_BLOCK_IS_ALLOC 1
-#define HDCDRV_BLOCK_IS_IDLE 0
-
-#define HDCDRV_ALLOC_LATER_WITH_INDEX 1 /* page alloc in spin_lock failed, need to alloc with index out of lock */
-#define HDCDRV_ALLOC_AGAIN 2            /* page status is HDCDRV_PAGE_PRE_STATUS, retry until this status change */
-
-#define HDCDRV_ALLOC_MEM_BY_HUGE_PAGE 0
-#define HDCDRV_ALLOC_MEM_BY_PAGE_NODE 1
-
-struct hdcdrv_huge_page {
-    ka_page_t *page_addr; /* huge page addr */
-    int used_block_num;   /* max is 4, means the whole page is used; 0 means this page is empty or going to free */
-    int used_block[HDCDRV_PAGE_BLOCK_NUM]; /* record which blocks are used */
-    void *buf;
-    int valid;
-    int alloc_flag; /* used to distinguish mem alloc method in OS6.6 */
-};
-#endif
-
 /*
  * hdc memory pool.
  * size : memory block count
  * segment : memory block size, include the block head
  * head : Point to where the effective memory on the ring begins
  * tail : Point to the released ring position, when the memory is released, put it in this position
- * page_list: Array for recording each page information, only used in MIRROR
  */
 struct hdcdrv_mem_pool {
     u32 valid;
@@ -93,11 +61,6 @@ struct hdcdrv_mem_pool {
     void __ka_mm_iomem *reserve_mem_va;
     ka_dma_addr_t reserve_mem_dma_addr;
     size_t reserve_mem_size;
-#ifdef CFG_FEATURE_MIRROR
-    struct hdcdrv_huge_page page_list[HDCDRV_HUGE_PAGE_NUM];
-    int used_block_all;
-    int type;
-#endif
 };
 
 struct hdcdrv_mem_work {
@@ -331,6 +294,19 @@ struct hdcdrv_fast_addr_info {
     struct hdcdrv_fast_mem *f_mem;
 };
 
+struct hdcdrv_fast_page_info {
+    u32 send_inner_page_offset;
+    u32 page_start;
+    u32 page_end;
+};
+
+struct hdcdrv_fast_mem_info {
+    struct hdcdrv_fast_addr_info src_data;
+    struct hdcdrv_fast_addr_info dst_data;
+    struct hdcdrv_fast_addr_info src_ctrl;
+    struct hdcdrv_fast_addr_info dst_ctrl;
+};
+
 struct hdcdrv_fast_node_msg_info {
     u32 dev_id;
     u32 process_stage; /* 0:register 1:send or recv 2:unregister */
@@ -414,6 +390,18 @@ struct hdcdrv_alloc_pool_stamp {
     u64 end;
 };
 
+struct hdcdrv_mem_list_entry {
+    u32 devid;
+    u64 hash_va;
+    ka_list_head_t list;
+};
+
+struct hdcdrv_mem_list {
+    u32 list_len;
+    struct hdcdrv_mem_list_entry ka_list_entry;
+    ka_task_spinlock_t lock;
+};
+
 int hdccom_alloc_mem(struct hdcdrv_mem_pool *pool, void **buf, ka_dma_addr_t *addr, u32 *offset);
 int hdccom_free_mem(struct hdcdrv_mem_pool *pool, void *buf);
 int hdccom_init_mem_pool(struct hdcdrv_mem_pool *pool, struct hdccom_mem_init *init_mem);
@@ -424,15 +412,6 @@ int hdccom_rx_vpc_msg_para_check(u32 dev_id, u32 fid, const struct vmng_rx_msg_p
 int hdccom_rx_vpc_cmd_type_check(unsigned int cmd, const struct vmng_rx_msg_proc_info *proc_info);
 int hdccom_rx_comm_msg_type_check(unsigned int cmd_min_len, const struct vmng_rx_msg_proc_info *proc_info);
 void hdccom_fill_cmd_size_table(void);
-#endif
-
-#ifdef CFG_FEATURE_MIRROR
-#define HDCDRV_PAGE_BLOCK_ALLOC 0
-#define HDCDRV_PAGE_BLOCK_FREE 1
-int hdccom_free_page_pool(struct hdcdrv_mem_pool *pool);
-int hdccom_init_page_pool(struct hdcdrv_mem_pool *pool, struct hdccom_mem_init *init_mem);
-int hdccom_alloc_mem_page(struct hdcdrv_mem_pool *pool, void **buf, ka_dma_addr_t *addr, int *mem_id);
-int hdccom_free_mem_page(struct hdcdrv_mem_pool *pool, void *buf, int mem_id);
 #endif
 
 int hdccom_free_mem_pool(struct hdcdrv_mem_pool *pool, ka_device_t *dev, u32 segment);

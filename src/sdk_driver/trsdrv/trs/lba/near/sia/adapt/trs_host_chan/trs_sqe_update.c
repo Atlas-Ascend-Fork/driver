@@ -268,7 +268,9 @@ static int trs_dma_desc_node_create(u32 devid, struct trs_dma_desc_addr_info *ad
     trs_rb_get_root_index(addr_info->sqid, &root_index);
     ka_task_spin_lock_bh(&rb_info->spinlock);
     ret = trs_rb_insert(&rb_info->root[root_index], &node->desc_node, rb_handle_of_desc_node);
-    rb_info->rb_cnt++;
+    if (ret == 0) {
+        rb_info->rb_cnt++;
+    }
     ka_task_spin_unlock_bh(&rb_info->spinlock);
     if (ret != 0) {
         trs_vfree(node);
@@ -321,6 +323,24 @@ static bool trs_is_rb_node_limited(u32 devid)
     return false;
 }
 
+static void trs_fill_sqe_update_info(struct trs_sqe_update_info *update_info, struct trs_chan_sq_info *sq_info,
+                                     struct trs_dma_desc_addr_info *addr_info, u8 *sqe_dst_buf, ka_page_t *tmp_pages)
+{
+    update_info->sqid = addr_info->sqid;
+    update_info->sqeid = addr_info->sqeid;
+    update_info->sqe = ka_mm_page_to_virt(tmp_pages);
+    update_info->size = addr_info->size;
+    if (sq_info->vmap_pfn_handle != NULL) {
+        /* Physical address non-contiguous: read dst sqe via vmap_pfn handle */
+        unsigned long dst_offset = (unsigned long)addr_info->sqeid * sq_info->sq_para.sqe_size + sq_info->addr_offset;
+        ka_mm_vmap_pfn_memcpy_fromio(sq_info->vmap_pfn_handle, dst_offset, sqe_dst_buf, addr_info->size);
+        update_info->dst_sqe = sqe_dst_buf;
+        update_info->addr_non_continuous = true;
+    } else {
+        update_info->sq_base = sq_info->sq_vaddr;
+    }
+}
+
 static int trs_check_alloc_src_security_dma_addr(u32 devid, struct trs_dma_desc_addr_info *addr_info,
                                                  struct trs_chan_sq_info *sq_info, bool is_src_secure,
                                                  struct trs_security_src_info *src_info)
@@ -329,6 +349,7 @@ static int trs_check_alloc_src_security_dma_addr(u32 devid, struct trs_dma_desc_
     ka_device_t *dev = NULL;
     ka_page_t *tmp_pages = NULL;
     struct trs_sqe_update_info update_info = {0};
+    u8 sqe_dst_buf[SQE_CACHE_SIZE];
     int ret = 0;
 
     /* The src is uva in milan, no need dma map;
@@ -358,11 +379,8 @@ static int trs_check_alloc_src_security_dma_addr(u32 devid, struct trs_dma_desc_
     }
 
     trs_id_inst_pack(&inst, devid, 0);
-    update_info.sqid = addr_info->sqid;
-    update_info.sqeid = addr_info->sqeid;
-    update_info.sqe = ka_mm_page_to_virt(tmp_pages);
-    update_info.size = addr_info->size;
-    update_info.sq_base = sq_info->sq_vaddr;
+    trs_fill_sqe_update_info(&update_info, sq_info, addr_info, sqe_dst_buf, tmp_pages);
+
     ret = trs_chan_ops_sqe_update_src_check(&inst, &update_info);
     if (ret != 0) {
         __ka_mm_free_pages(tmp_pages, ka_mm_get_order(addr_info->size));

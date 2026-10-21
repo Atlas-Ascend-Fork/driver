@@ -35,9 +35,6 @@
 
 #include "vmng_kernel_interface.h"
 #include "adapter_api.h"
-#if defined(CFG_FEATURE_CAPABILITY_GROUP) && defined(CFG_FEATURE_SOC_RESMNG_CAPA_GROUP_INFO)
-#include "ascend_platform.h"
-#endif
 #include "pbl/pbl_soc_res.h"
 #include "pbl/pbl_uda.h"
 #include "dms_feature_pub.h"
@@ -222,8 +219,8 @@ STATIC int dms_get_basic_info(unsigned int dev_id, int sub_cmd, unsigned int *ba
     } else if (sub_cmd == DMS_SUBCMD_GET_PCB_ID_HOST) {
         ret = memcpy_s(basic_buffer, sizeof(unsigned int), &(basic_info_host->pcb_id), sizeof(unsigned int));
     } else {
-        dms_err("Invalid subcmd. (phys_id=%u; sub_cmd=%u).\n", phys_id, sub_cmd);
-        return -EINVAL;
+        dms_debug("Not support subcmd. (phys_id=%u; sub_cmd=%u).\n", phys_id, sub_cmd);
+        return -EOPNOTSUPP;
     }
     if (ret != 0) {
         dms_err("basic info memcpy fail. (phys_id=%u; sub_cmd=%u).\n", phys_id, sub_cmd);
@@ -297,7 +294,7 @@ STATIC int dms_get_aicore_die_num(const struct urd_cmd *cmd, struct urd_cmd_kern
     int ret = 0;
 
     if ((cmd == NULL) || (kernel_para == NULL) || (para == NULL)) {
-        dms_err("Input urd(user request forward) argument is null.\n");
+        dms_err("Input urd argument is null.\n");
         return -EINVAL;
     }
 
@@ -330,7 +327,7 @@ STATIC int dms_get_cpu_work_mode(const struct urd_cmd *cmd, struct urd_cmd_kerne
     int ret = 0;
 
     if ((cmd == NULL) || (kernel_para == NULL) || (para == NULL)) {
-        dms_err("Input urd(user request forward) argument is null.\n");
+        dms_err("Input urd argument is null.\n");
         return -EINVAL;
     }
 
@@ -413,7 +410,7 @@ STATIC int dms_soc_get_hcom_cpu_num(const struct urd_cmd *cmd, struct urd_cmd_ke
     int ret = 0;
 
     if ((cmd == NULL) || (kernel_para == NULL) || (para == NULL)) {
-        dms_err("Input urd(user request forward) argument is null.\n");
+        dms_err("Input urd argument is null.\n");
         return -EINVAL;
     }
 

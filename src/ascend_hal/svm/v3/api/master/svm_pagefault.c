@@ -15,6 +15,7 @@
 #include "svm_umc_server.h"
 #include "svm_dbi.h"
 #include "svm_log.h"
+#include "svm_pagefault_info.h"
 
 #define SVM_PAGEFAULT_MAX_MAP_PAGE_NUM 8
 static int svm_pagefault_handle(u32 devid, u64 va)
@@ -35,7 +36,7 @@ static int svm_pagefault_handle(u32 devid, u64 va)
     }
 
     if (prop.devid == devid) {
-        svm_run_info_ratelimited("Pagefault va belongs to device. (va=0x%llx; devid=%u)\n", va, devid);
+        svm_run_info_ratelimited("Pagefault va is belong to device. (va=0x%llx; devid=%u)\n", va, devid);
         return DRV_ERROR_PARA_ERROR;
     } else if (prop.devid == svm_get_host_devid()) {
         svm_run_info_ratelimited("Not support device pagefault access host mem. (va=0x%llx; host_devid=%u)\n", va,
@@ -72,6 +73,10 @@ static int svm_pagefault_proc_func(u32 devid, const void *msg_in, void *msg_out)
 
     *pagefault_msg_out = *pagefault_msg;
     pagefault_msg_out->result = svm_pagefault_handle(devid, pagefault_msg->va);
+
+    if (pagefault_msg_out->result != 0) {
+        svm_pagefault_info_record_access(devid, pagefault_msg->va);
+    }
 
     return 0;
 }

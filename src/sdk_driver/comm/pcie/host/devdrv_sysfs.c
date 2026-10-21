@@ -38,7 +38,7 @@ STATIC struct devdrv_pci_ctrl *devdrv_sysfs_get_pci_ctrl_by_dev(ka_device_t *dev
     ka_pci_dev_t *pdev = ka_pci_to_pci_dev(dev);
     struct devdrv_pdev_ctrl *pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_pci_get_drvdata(pdev);
     if (pdev_ctrl == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (pdev_ctrl_is_null=%d;)\n", (pdev_ctrl == NULL));
         return NULL;
     }
     pci_ctrl = pdev_ctrl->pci_ctrl[g_sysfs_davinci_dev_id];
@@ -51,7 +51,7 @@ STATIC u32 devdrv_sysfs_get_devid_by_dev(ka_device_t *dev)
     struct devdrv_pci_ctrl *pci_ctrl = devdrv_sysfs_get_pci_ctrl_by_dev(dev);
 
     if (pci_ctrl == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (pci_ctrl_is_null=%d;)\n", (pci_ctrl == NULL));
         return MAX_DEV_CNT;
     }
 
@@ -60,8 +60,8 @@ STATIC u32 devdrv_sysfs_get_devid_by_dev(ka_device_t *dev)
 
 STATIC int devdrv_sysfs_common_msg_send(u32 devid, void *data, u32 *real_out_len)
 {
-    return devdrv_common_msg_send(devid, data, DEVDRV_SYSFS_MSG_IN_BYTES, (u32)sizeof(struct devdrv_sysfs_msg),
-                                  real_out_len, DEVDRV_COMMON_MSG_SYSFS);
+    return devdrv_pci_common_msg_send(devid, data, DEVDRV_SYSFS_MSG_IN_BYTES, (u32)sizeof(struct devdrv_sysfs_msg),
+                                      real_out_len, DEVDRV_COMMON_MSG_SYSFS);
 }
 
 STATIC ssize_t devdrv_sysfs_link_info_show(ka_device_t *dev, ka_device_attribute_t *attr, char *buf)
@@ -86,9 +86,9 @@ STATIC ssize_t devdrv_sysfs_link_info_show(ka_device_t *dev, ka_device_attribute
 
     devdrv_info("devdrv sysfs show link info.(dev_id=%u)\n", pci_ctrl->dev_id);
 
-    if (pci_ctrl->ops.get_peh_link_info != NULL) {
-        ret = pci_ctrl->ops.get_peh_link_info(pci_ctrl->pdev, &(msg->link_info.link_speed),
-                                              &(msg->link_info.link_width), &(msg->link_info.link_status));
+    if (pci_ctrl->ops.peh != NULL) {
+        ret = pci_ctrl->ops.peh->get_peh_link_info(pci_ctrl->pdev, &(msg->link_info.link_speed),
+                                                   &(msg->link_info.link_width), &(msg->link_info.link_status));
     } else {
         ret = devdrv_sysfs_common_msg_send(pci_ctrl->dev_id, (void *)msg, &real_out_len);
     }
@@ -288,7 +288,7 @@ STATIC ssize_t devdrv_sysfs_aer_cnt_store(ka_device_t *dev, ka_device_attribute_
         }
     }
 
-    devdrv_info("Clear aer count success. (dev_id=%u; uid=%u)\n", devid, ka_task_get_current_cred_uid());
+    devdrv_info("Clear aer count success. (dev_id=%u;uid=%u)\n", devid, ka_task_get_current_cred_uid());
 
     devdrv_kfree(msg);
     return (ssize_t)count;
@@ -315,7 +315,6 @@ STATIC ssize_t devdrv_sysfs_set_profiling_enable(ka_device_t *dev, ka_device_att
     int ret;
     u32 real_out_len = 0, dev_id, val;
     struct devdrv_sysfs_msg *msg = NULL;
-    struct devdrv_msg_dev *msg_dev = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = devdrv_sysfs_get_pci_ctrl_by_dev(dev);
 
     (void)attr;
@@ -336,7 +335,6 @@ STATIC ssize_t devdrv_sysfs_set_profiling_enable(ka_device_t *dev, ka_device_att
     }
 
     dev_id = pci_ctrl->dev_id;
-    msg_dev = pci_ctrl->msg_dev;
     devdrv_set_profiling_enable(val);
 
     msg = (struct devdrv_sysfs_msg *)devdrv_kzalloc(sizeof(struct devdrv_sysfs_msg), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
@@ -485,8 +483,8 @@ STATIC ssize_t devdrv_sysfs_get_chip_id(ka_device_t *dev, ka_device_attribute_t 
 
     (void)attr;
 
-    if (pci_ctrl == NULL) {
-        devdrv_err("Get pci_ctrl failed.\n");
+    if ((pci_ctrl == NULL) || (pci_ctrl->shr_para == NULL)) {
+        devdrv_warn("Can not get pci_ctrl, may probing or removing.\n");
         return 0;
     }
 
@@ -568,16 +566,15 @@ STATIC ssize_t devdrv_sysfs_set_hotreset_flag(ka_device_t *dev, ka_device_attrib
         if (pci_ctrl != NULL) {
             if (pci_ctrl->shr_para != NULL) {
                 pci_ctrl->shr_para->hot_reset_pcie_flag = DEVDRV_PCIE_HOT_RESET_FLAG;
-                devdrv_info("Set hotreset flag success. (dev_id=%u; uid=%u; val=%lu)\n", devid,
+                devdrv_info("Set hotreset flag success. (dev_id=%u;uid=%u;val=%lu)\n", devid,
                             ka_task_get_current_cred_uid(), val);
                 return (ssize_t)count;
             }
         }
     }
 
-    devdrv_info("No need to set hotreset flag. (dev_id=%u; uid=%u; val=%lu)\n", devid, ka_task_get_current_cred_uid(),
+    devdrv_info("No need to set hotreset flag. (dev_id=%u;uid=%u;val=%lu)\n", devid, ka_task_get_current_cred_uid(),
                 val);
-
     return (ssize_t)count;
 }
 
@@ -607,7 +604,7 @@ STATIC ssize_t devdrv_sysfs_get_common_msg(ka_device_t *dev, ka_device_attribute
 
     (void)attr;
 
-    if (pci_ctrl == NULL) {
+    if ((pci_ctrl == NULL) || (pci_ctrl->msg_dev == NULL)) {
         devdrv_err("Get pci_ctrl failed.\n");
         return 0;
     }
@@ -813,7 +810,7 @@ STATIC ssize_t devdrv_sysfs_get_non_trans_msg(ka_device_t *dev, ka_device_attrib
 
     (void)attr;
 
-    if (pci_ctrl == NULL) {
+    if ((pci_ctrl == NULL) || (pci_ctrl->msg_dev == NULL)) {
         devdrv_err("Get pci_ctrl failed.\n");
         return 0;
     }
@@ -848,7 +845,6 @@ STATIC ssize_t devdrv_sysfs_sync_dma_info_show(ka_device_t *dev, ka_device_attri
 {
     struct devdrv_pci_ctrl *pci_ctrl = devdrv_sysfs_get_pci_ctrl_by_dev(dev);
     struct devdrv_sysfs_msg *msg = NULL;
-    struct devdrv_msg_dev *msg_dev = NULL;
     struct devdrv_dma_dev *dma_dev = NULL;
     u32 dev_id;
     u32 real_out_len = 0;
@@ -856,14 +852,12 @@ STATIC ssize_t devdrv_sysfs_sync_dma_info_show(ka_device_t *dev, ka_device_attri
     ssize_t offset = 0;
     u32 i;
 
-    if (pci_ctrl == NULL) {
+    if ((pci_ctrl == NULL) || (pci_ctrl->dma_dev == NULL)) {
         devdrv_err("Get pci_ctrl failed.\n");
         return 0;
     }
 
     dev_id = pci_ctrl->dev_id;
-
-    msg_dev = pci_ctrl->msg_dev;
     dma_dev = pci_ctrl->dma_dev;
 
     msg = (struct devdrv_sysfs_msg *)devdrv_kzalloc(sizeof(struct devdrv_sysfs_msg), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
@@ -1054,9 +1048,15 @@ STATIC ssize_t devdrv_sysfs_features_show(ka_device_t *dev, ka_device_attribute_
     ssize_t offset = 0;
     const char *status_str;
     struct devdrv_pci_ctrl *pci_ctrl = devdrv_sysfs_get_pci_ctrl_by_dev(dev);
-    const struct devdrv_feature_meta *meta = g_devdrv_feature_mgr.meta;
+    struct devdrv_feature_mgr *feat_mgr = devdrv_feature_get_feature_mgr();
+    const struct devdrv_feature_meta *meta = feat_mgr->meta;
 
     (void)attr;
+
+    if (pci_ctrl == NULL) {
+        devdrv_err("Get pci_ctrl failed.\n");
+        return 0;
+    }
 
     for (i = 0; i < DEVDRV_FEATURE_MAX; i++) {
         if (strlen(meta[i].name) > max_name_width) {
@@ -1090,7 +1090,8 @@ STATIC ssize_t devdrv_sysfs_features_bitmap_show(ka_device_t *dev, ka_device_att
     int ret;
     u32 i;
     ssize_t offset = 0;
-    const struct devdrv_feature_ops_meta *meta = g_devdrv_feature_mgr.ops_meta;
+    struct devdrv_feature_mgr *feat_mgr = devdrv_feature_get_feature_mgr();
+    const struct devdrv_feature_ops_meta *meta = feat_mgr->ops_meta;
 
     (void)attr;
 

@@ -179,6 +179,14 @@ int devmm_svm_get_and_pin_pa_list(struct devmm_svm_process_id *process_id, u64 a
         return -EINVAL;
     }
 
+    ret = devmm_inc_page_ref(svm_process, aligned_va, aligned_size);
+    if (ret != 0) {
+        devmm_drv_err("Address reference failed. (pid=%u; devid=%u; va=0x%llx; ret=%d)\n", process_id->hostpid,
+                      process_id->devid, aligned_va, ret);
+        devmm_svm_proc_and_heap_put(svm_process, heap);
+        return ret;
+    }
+
     if (heap->heap_type == DEVMM_HEAP_PINNED_HOST) {
         ret = devmm_svm_get_host_pa_list(svm_process, aligned_va, aligned_size, pa_list, pa_num);
     } else {
@@ -186,21 +194,12 @@ int devmm_svm_get_and_pin_pa_list(struct devmm_svm_process_id *process_id, u64 a
         ret = devmem_svm_get_dev_pa_list(svm_process, heap, &mem_info, pa_list, pa_num);
     }
     if (ret != 0) {
-        devmm_svm_proc_and_heap_put(svm_process, heap);
         devmm_drv_err("Fail to get pa list. (hostpid=%d; devid=%u; vfid=%u; va=0x%llx; size=%llx; heap_type=%d)\n",
                       process_id->hostpid, process_id->devid, process_id->vfid, aligned_va, aligned_size,
                       heap->heap_type);
-        return ret;
-    }
-
-    /*
-     * inc ref of cur va to avoid free addr when it is in used.
-     */
-    if (devmm_inc_page_ref(svm_process, aligned_va, aligned_size) != 0) {
+        devmm_dec_page_ref(svm_process, aligned_va, aligned_size);
         devmm_svm_proc_and_heap_put(svm_process, heap);
-        devmm_drv_err("Address reference failed. (pid=%u; devid=%u; va=0x%llx)\n", process_id->hostpid,
-                      process_id->devid, aligned_va);
-        return -EINVAL;
+        return ret;
     }
 
     devmm_svm_proc_and_heap_put(svm_process, heap);
@@ -213,11 +212,11 @@ int devmm_shm_get_pa_list(struct devmm_svm_process_id *process_id, u64 aligned_v
     return -EINVAL;
 }
 
-void devmm_svm_put_pa_list(struct devmm_svm_process_id *process_id, u64 va, u64 *pa_list, u32 pa_num)
+void devmm_svm_put_pa_list(struct devmm_svm_process_id *process_id, u64 va, u64 size, u64 *pa_list, u32 pa_num)
 {
     struct devmm_svm_process *svm_process = NULL;
-    u64 size = pa_num << KA_MM_PAGE_SHIFT;
 
+    size = ((u64)pa_num << KA_MM_PAGE_SHIFT);
     svm_process = devmm_svm_proc_get_by_process_id_ex(process_id);
     if (svm_process == NULL) {
         devmm_drv_err("Process has exited. (va=0x%llx; hostpid=%d; devid=%u; vfid=%u)\n", va, process_id->hostpid,
@@ -344,7 +343,7 @@ static int devmm_init_p2p_page_table(struct devmm_svm_process *svm_proc, struct 
 
     heap = devmm_svm_heap_get(svm_proc, mem_info->va);
     if (heap == NULL) {
-        devmm_drv_err("Get heap failed. (va=0x%llx; hostpid=%u)\n", mem_info->va, svm_proc->process_id.hostpid);
+        devmm_drv_err("Get heap fail. (va=0x%llx; hostpid=%u)\n", mem_info->va, svm_proc->process_id.hostpid);
         return -EINVAL;
     }
     page_table->version = P2P_GET_PAGE_VERSION;
@@ -621,6 +620,7 @@ int hal_kernel_p2p_get_pages(u64 va, u64 len, void (*free_callback)(void *data),
 {
     struct devmm_svm_process_id process_id = {.hostpid = ka_task_get_current_tgid(), .devid = 0, .vfid = 0};
     struct devmm_svm_process *svm_proc = NULL;
+    int ret;
 
     if (!ka_system_try_module_get(KA_THIS_MODULE)) {
         return -EPERM;
@@ -643,13 +643,22 @@ int hal_kernel_p2p_get_pages(u64 va, u64 len, void (*free_callback)(void *data),
         return -ESRCH;
     }
 
+    ret = devmm_inc_page_ref(svm_proc, va, len);
+    if (ret != 0) {
+        devmm_svm_proc_put(svm_proc);
+        ka_system_module_put(KA_THIS_MODULE);
+        return ret;
+    }
+
     if (devmm_is_support_p2p_get_pages(svm_proc, va, len) == false) {
+        devmm_dec_page_ref(svm_proc, va, len);
         devmm_svm_proc_put(svm_proc);
         ka_system_module_put(KA_THIS_MODULE);
         return -EOPNOTSUPP;
     }
 
     *page_table = devmm_create_p2p_page_table(svm_proc, va, len, free_callback, data);
+    devmm_dec_page_ref(svm_proc, va, len);
     devmm_svm_proc_put(svm_proc);
     ka_system_module_put(KA_THIS_MODULE);
 

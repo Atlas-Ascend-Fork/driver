@@ -27,6 +27,7 @@
 
 #include "trs_sec_eh_id.h"
 #include "trs_sec_eh_sq.h"
+#include "trs_mailbox_def.h"
 
 #define TRS_SEC_EH_MAX_SQE_SIZE 128
 #define TRS_SEC_EH_MAX_SQDEPTH_SIZE (64 * 1024)
@@ -42,6 +43,7 @@ void trs_sec_eh_sq_ctx_init(struct trs_sec_eh_ts_inst *sec_eh_cfg, struct trs_se
     sec_eh_cfg->sq_ctx[ctx->sqid].sq_paddr = ctx->sq_paddr;
     sec_eh_cfg->sq_ctx[ctx->sqid].pid = ctx->pid;
     sec_eh_cfg->sq_ctx[ctx->sqid].sq_dev_vaddr = ctx->sq_dev_vaddr;
+    sec_eh_cfg->sq_ctx[ctx->sqid].sq_create_cmd_type = ctx->sq_create_cmd_type;
     ka_task_mutex_unlock(&sec_eh_cfg->mutex);
 }
 
@@ -55,6 +57,7 @@ void trs_sec_eh_sq_ctx_uninit(struct trs_sec_eh_ts_inst *sec_eh_cfg, u32 sqid)
     sec_eh_cfg->sq_ctx[sqid].sq_paddr = 0;
     sec_eh_cfg->sq_ctx[sqid].pid = 0;
     sec_eh_cfg->sq_ctx[sqid].sq_dev_vaddr = NULL;
+    sec_eh_cfg->sq_ctx[sqid].sq_create_cmd_type = 0;
     ka_task_mutex_unlock(&sec_eh_cfg->mutex);
 }
 
@@ -82,26 +85,30 @@ u64 trs_sec_eh_alloc_sq_mem(struct trs_sec_eh_ts_inst *sec_eh_cfg, struct trs_se
     }
 
     ka_task_mutex_lock(&sec_eh_cfg->mutex);
-    if (sec_eh_cfg->sq_ctx[ctx->sqid].d_addr == NULL) {
-        ctx->sq_addr = trs_chan_sq_mem_alloc(&sec_eh_cfg->pm_inst, ctx->sqesize, ctx->sqdepth, &mem_attr);
-        if (ctx->sq_addr == NULL) {
-            ka_task_mutex_unlock(&sec_eh_cfg->mutex);
-            return -ENOMEM;
-        }
-        ctx->sq_paddr = mem_attr.phy_addr;
-        ctx->mem_type = mem_attr.mem_type;
-
-        sec_sq_map_param_pack(&sec_sq_map_param, ctx);
-        ret = trs_chan_sq_rsvmem_map(&sec_eh_cfg->inst, &sec_sq_map_param, &ctx->sq_dev_vaddr);
-        if (ret != 0) {
-#ifndef EMU_ST
-            trs_chan_sq_mem_free(&sec_eh_cfg->pm_inst, ctx->sq_addr, &mem_attr);
-            trs_err("map sq mem failed. (devid=%u; tsid=%u)\n", sec_eh_cfg->inst.devid, sec_eh_cfg->inst.tsid);
-            ka_task_mutex_unlock(&sec_eh_cfg->mutex);
-            return ret;
-#endif
-        }
+    if (sec_eh_cfg->sq_ctx[ctx->sqid].d_addr != NULL) {
+        ka_task_mutex_unlock(&sec_eh_cfg->mutex);
+        return -EEXIST;
     }
+
+    ctx->sq_addr = trs_chan_sq_mem_alloc(&sec_eh_cfg->pm_inst, ctx->sqesize, ctx->sqdepth, &mem_attr);
+    if (ctx->sq_addr == NULL) {
+        ka_task_mutex_unlock(&sec_eh_cfg->mutex);
+        return -ENOMEM;
+    }
+    ctx->sq_paddr = mem_attr.phy_addr;
+    ctx->mem_type = mem_attr.mem_type;
+
+    sec_sq_map_param_pack(&sec_sq_map_param, ctx);
+    ret = trs_chan_sq_rsvmem_map(&sec_eh_cfg->inst, &sec_sq_map_param, &ctx->sq_dev_vaddr);
+    if (ret != 0) {
+#ifndef EMU_ST
+        trs_chan_sq_mem_free(&sec_eh_cfg->pm_inst, ctx->sq_addr, &mem_attr);
+        trs_err("map sq mem failed. (devid=%u; tsid=%u)\n", sec_eh_cfg->inst.devid, sec_eh_cfg->inst.tsid);
+        ka_task_mutex_unlock(&sec_eh_cfg->mutex);
+        return ret;
+#endif
+    }
+
     ka_task_mutex_unlock(&sec_eh_cfg->mutex);
 
     return 0;
@@ -122,11 +129,11 @@ void trs_sec_eh_free_sq_mem(struct trs_sec_eh_ts_inst *sec_eh_cfg, u32 sqid)
 {
     struct trs_sec_eh_sq_ctx *sq_ctx = sec_eh_cfg->sq_ctx;
     struct trs_sq_mem_map_para sec_sq_map_param;
-    struct trs_chan_mem_attr mem_attr = {sq_ctx[sqid].sq_paddr, sq_ctx[sqid].sq_depth * sq_ctx[sqid].sqe_size,
-                                         sq_ctx[sqid].mem_type};
 
     ka_task_mutex_lock(&sec_eh_cfg->mutex);
     if (sq_ctx[sqid].d_addr != NULL) {
+        struct trs_chan_mem_attr mem_attr = {sq_ctx[sqid].sq_paddr, sq_ctx[sqid].sq_depth * sq_ctx[sqid].sqe_size,
+                                             sq_ctx[sqid].mem_type};
         sec_sq_unmap_param_pack(&sec_sq_map_param, &sq_ctx[sqid]);
         trs_chan_sq_rsvmem_unmap(&sec_eh_cfg->inst, &sec_sq_map_param, sq_ctx[sqid].sq_dev_vaddr);
         sq_ctx[sqid].sq_dev_vaddr = NULL;
@@ -162,6 +169,7 @@ int _trs_sec_eh_sqe_update(struct trs_id_inst *inst, int pid, u32 sqid, u32 sqei
     u8 *s_addr = (void *)data;
     u8 *d_addr = NULL;
     u64 sqe_size, sqe_pa;
+    u32 sq_mem_type;
     int ret = -EINVAL;
 
     sec_eh_cfg = trs_sec_eh_ts_inst_get(inst);
@@ -174,29 +182,32 @@ int _trs_sec_eh_sqe_update(struct trs_id_inst *inst, int pid, u32 sqid, u32 sqei
             return -EACCES;
         }
 
-        if (sqeid >= sec_eh_cfg->sq_ctx[sqid].sq_depth) {
-            trs_sec_eh_ts_inst_put(sec_eh_cfg);
-            return -EINVAL;
-        }
-
         ka_task_mutex_lock(&sec_eh_cfg->mutex);
-        if (sec_eh_cfg->sq_ctx[sqid].d_addr == NULL) {
-            trs_sec_eh_ts_inst_put(sec_eh_cfg);
+        if ((sqeid >= sec_eh_cfg->sq_ctx[sqid].sq_depth) || (sec_eh_cfg->sq_ctx[sqid].d_addr == NULL)) {
             ka_task_mutex_unlock(&sec_eh_cfg->mutex);
+            trs_sec_eh_ts_inst_put(sec_eh_cfg);
             return -EINVAL;
         }
 
         sqe_size = sec_eh_cfg->sq_ctx[sqid].sqe_size;
         d_addr = sec_eh_cfg->sq_ctx[sqid].d_addr + sqe_size * sqeid;
-        ka_task_mutex_unlock(&sec_eh_cfg->mutex);
+        sqe_pa = sec_eh_cfg->sq_ctx[sqid].sq_paddr + sqe_size * sqeid;
+        sq_mem_type = sec_eh_cfg->sq_ctx[sqid].mem_type;
 
         update_info.pid = pid;
         update_info.sqid = sqid;
         update_info.sqeid = sqeid;
         update_info.sqe = s_addr;
         update_info.long_sqe_cnt = &sec_eh_cfg->sq_ctx[sqid].long_sqe_cnt;
-        ret = trs_chan_ops_sqe_update(&sec_eh_cfg->inst, &update_info);
+
+        if (sec_eh_cfg->sq_ctx[sqid].sq_create_cmd_type == TRS_MBOX_CREATE_TOPIC_SQCQ) {
+            ret = esched_drv_sqe_update(sec_eh_cfg->inst.devid, sec_eh_cfg->inst.tsid, pid, sqid, s_addr);
+        } else {
+            ret = trs_chan_ops_sqe_update(&sec_eh_cfg->inst, &update_info);
+        }
+
         if (ret != 0) {
+            ka_task_mutex_unlock(&sec_eh_cfg->mutex);
             trs_sec_eh_ts_inst_put(sec_eh_cfg);
             return ret;
         } else if (sec_eh_cfg->sq_ctx[sqid].long_sqe_cnt != 0) {
@@ -204,8 +215,8 @@ int _trs_sec_eh_sqe_update(struct trs_id_inst *inst, int pid, u32 sqid, u32 sqei
         }
 
         ka_mm_memcpy_toio(d_addr, s_addr, sqe_size);
-        sqe_pa = sec_eh_cfg->sq_ctx[sqid].sq_paddr + sqe_size * sqeid;
-        trs_chan_flush_sqe_cache(&sec_eh_cfg->inst, sec_eh_cfg->sq_ctx[sqid].mem_type, sqe_pa, sqe_size);
+        trs_chan_flush_sqe_cache(&sec_eh_cfg->inst, sq_mem_type, sqe_pa, sqe_size);
+        ka_task_mutex_unlock(&sec_eh_cfg->mutex);
         trs_sec_eh_ts_inst_put(sec_eh_cfg);
     }
 

@@ -25,16 +25,6 @@
 
 #include "utils.h"
 
-#define CHECK_ERROR_GOTO(call, result, label)                               \
-    do {                                                                    \
-        int call_ret = (call);                                              \
-        if (call_ret != 0) {                                                \
-            LOG_ERR("Operation failed: return error code %d.\n", call_ret); \
-            (result) = -1;                                                  \
-            goto label;                                                     \
-        }                                                                   \
-    } while (0)
-
 // common method
 void data_init_in_host(uint8_t *data, uint64_t start, uint64_t size)
 {
@@ -146,38 +136,59 @@ void st_svm_close_cp(uint32_t cp_mode, uint32_t devid)
     hlt_devmm_tsd_close_cp_process(devid);
 }
 
-static int st_uvm_init_and_prefetch(uint8_t *x_Data, uint32_t inputByteSize, uint8_t value)
+int32_t st_uvm_test_001(void *hdc_session, uint32_t devid, uint64_t arg[10])
 {
+    int ret = 0;
+    uint32_t blockDim = 8;
+    uint32_t inputByteSize = 2 << 20;  // 2 << 20 = 2M
+    uint32_t outputByteSize = 2 << 20; // 2 << 20 = 2M
+    void *x = NULL;
+    void *y = NULL;
+    uint8_t *x_Data = NULL;
+    uint8_t *y_Data = NULL;
+    uint64_t err_count = 0;
+    int32_t num_attributes = 3;
+    enum DEVMM_MEM_RANGE_ATTRIBUTE attributes[num_attributes];
+    size_t size[num_attributes];
     struct drv_uvm_location location;
+    uint8_t value = 0;
+
+    // Allocate 2MB of UVM memory and return a virtual address(x) within the UVM region.
+    CHECK_ERROR(halMemAlloc(&x, inputByteSize, MEM_UVM));
+    CHECK_ERROR(halMemAlloc(&y, inputByteSize, MEM_UVM));
+
+    x_Data = (uint8_t *)x;
+    y_Data = (uint8_t *)y;
+
+    // Host triggers a normal page fault (no mapping)
     data_init_in_host(x_Data, 0, inputByteSize);
     LOG_INFO("page fault success.\n");
 
+    // Setting the read-mostly attribute on x_Data makes the host the primary copy.
     struct drv_uvm_location loc = {DRV_UVM_LOCATION_TYPE_HOST, 0};
     CHECK_ERROR(halMemManagedAdvise((DVdeviceptr)x_Data, inputByteSize, READ_MOSTLY, loc));
 
+    // The host triggers a write fault on a read-mostly va (host mapped)
     data_init_in_host(x_Data, 0, inputByteSize);
     LOG_INFO("page fault readmostly success.\n");
 
+    // Setting the preferredLocation and AccessedBy attribute on x_Data
     CHECK_ERROR(halMemManagedAdvise((DVdeviceptr)x_Data, inputByteSize, PREFER_LOCATION, loc));
     CHECK_ERROR(halMemManagedAdvise((DVdeviceptr)x_Data, inputByteSize, ACCESS_BY_LOCATION, loc));
 
-    CHECK_ERROR(drvMemsetD8((DVdeviceptr)x_Data, inputByteSize, value, inputByteSize));
+    // memsets the value into x
+    CHECK_ERROR(drvMemsetD8((DVdeviceptr)x, inputByteSize, value, inputByteSize));
     LOG_INFO("Init data success. (inputByteSize=%#xB, x_Data[0]=%u)\n", inputByteSize, x_Data[0]);
 
+    // halMemManagedPrefetch prefetches x_Data (size inputByteSize) to the specified location (device 0)
     LOG_INFO("[S2] Start prefetch data from host to device 0.\n");
     location.type = DRV_UVM_LOCATION_TYPE_DEVICE;
     location.id = 0;
     CHECK_ERROR(halMemManagedPrefetch((DVdeviceptr)x_Data, inputByteSize, location, 0));
     LOG_INFO("Prefetch data to device 0 success.\n");
 
-    return 0;
-}
-
-static int st_uvm_check_prefetch_attributes(uint8_t *x_Data, uint32_t inputByteSize)
-{
-    int32_t num_attributes = 3;
-    enum DEVMM_MEM_RANGE_ATTRIBUTE attributes[num_attributes];
-    size_t size[num_attributes];
+    // Query the MEM_RANGE_ATTR_LAST_PREFETCH_LOC, MEM_RANGE_ATTR_LAST_PREFETCH_LOC_TYPE, and
+    // MEM_RANGE_ATTR_LAST_PREFETCH_LOC_ID attributes of x_Data.
     LOG_INFO("[S3] Start get data attribute.\n");
     attributes[0] = MEM_RANGE_ATTR_LAST_PREFETCH_LOC;
     attributes[1] = MEM_RANGE_ATTR_LAST_PREFETCH_LOC_TYPE;
@@ -186,101 +197,58 @@ static int st_uvm_check_prefetch_attributes(uint8_t *x_Data, uint32_t inputByteS
     for (int i = 0; i < num_attributes; i++) {
         size[i] = sizeof(int32_t);
     }
-
     int32_t attr_res[num_attributes][2];
     uint64_t attr_res_addr[num_attributes];
-
     for (int idx = 0; idx < num_attributes; idx++) {
         attr_res_addr[idx] = (uint64_t)attr_res[idx];
     }
 
     CHECK_ERROR(halMemManagedRangeGetAttributes((void **)attr_res_addr, size, attributes, num_attributes,
                                                 (DVdeviceptr)x_Data, inputByteSize));
-
     LOG_INFO("MEM_RANGE_ATTR_LAST_PREFETCH_LOC=%d\n", attr_res[0][0]);
     LOG_INFO("MEM_RANGE_ATTR_LAST_PREFETCH_LOC_TYPE=%d, DRV_UVM_LOCATION_TYPE_DEVICE=%d\n", attr_res[1][0],
              DRV_UVM_LOCATION_TYPE_DEVICE);
     LOG_INFO("MEM_RANGE_ATTR_LAST_PREFETCH_LOC_ID=%d\n", attr_res[2][0]);
-
     if (attr_res[0][0] != 0 || attr_res[1][0] != DRV_UVM_LOCATION_TYPE_DEVICE || attr_res[2][0] != 0) {
         LOG_ERR("multi attrs query failed.");
-        return -1;
+        ret = -1;
+        goto exit;
     }
-
     LOG_INFO("Get data attribute success.\n");
 
-    return 0;
-}
-
-static int st_uvm_check_and_copy(uint8_t *x_Data, uint8_t *y_Data, uint32_t inputByteSize, uint8_t value)
-{
-    int ret;
-    uint64_t err_count;
+    // check the data on the host
     ret = check_u8_value_data(x_Data, value, inputByteSize);
     if (ret != 0) {
         LOG_ERR("Check x value in host failed.\n");
-        return -1;
+        ret = -1;
+        goto exit;
     } else {
         LOG_INFO("Check x value in host success.\n");
     }
 
-    ret = drvMemcpy((DVdeviceptr)y_Data, inputByteSize, (DVdeviceptr)x_Data, inputByteSize);
+    // memcopy: copy x to y
+    ret = drvMemcpy((DVdeviceptr)y, inputByteSize, (DVdeviceptr)x, inputByteSize);
     if (ret != 0) {
-        LOG_ERR("drvMemcpy failed: ret=%d, src=0x%lx, dst=0x%lx, size=%u\n", ret, (unsigned long)x_Data,
-                (unsigned long)y_Data, inputByteSize);
-        return ret;
+        LOG_ERR("drvMemcpy failed: ret=%d, src=0x%lx, dst=0x%lx, size=%u\n", ret, (unsigned long)x, (unsigned long)y,
+                inputByteSize);
+        goto exit;
     }
-
+    // check if x and y match
     err_count = check_uint8_data(y_Data, 0, x_Data, 0, inputByteSize);
     if (err_count != 0) {
-        LOG_ERR("copy_size=%lu; err_count=%lu\n", (unsigned long)inputByteSize, (unsigned long)err_count);
+        LOG_ERR("copy_size=%lu;  err_count=%lu\n", (unsigned long)inputByteSize, (unsigned long)err_count);
         ret = -1;
     }
-
     LOG_INFO("memcopy success.\n");
 
-    return ret;
-}
-
-static int st_uvm_free_memory(void *ptr, int ret)
-{
-    if (ptr != NULL) {
-        int free_ret = halMemFree(ptr);
-        if (free_ret != 0) {
-            LOG_ERR("halMemFree failed: ret=%d, ptr=%p\n", free_ret, ptr);
-            if (ret == 0) {
-                ret = -1;
-            }
-        }
-    }
-    return ret;
-}
-
-int32_t st_uvm_test_001(void *hdc_session, uint32_t devid, uint64_t arg[10])
-{
-    int ret;
-    uint32_t inputByteSize = 2 << 20;
-    void *x = NULL;
-    void *y = NULL;
-    uint8_t value = 0;
-
-    CHECK_ERROR_GOTO(halMemAlloc(&x, inputByteSize, MEM_UVM), ret, exit);
-    CHECK_ERROR_GOTO(halMemAlloc(&y, inputByteSize, MEM_UVM), ret, exit);
-
-    ret = st_uvm_init_and_prefetch((uint8_t *)x, inputByteSize, value);
-    if (ret != 0) {
-        goto exit;
-    }
-    ret = st_uvm_check_prefetch_attributes((uint8_t *)x, inputByteSize);
-    if (ret != 0) {
-        goto exit;
-    }
-    ret = st_uvm_check_and_copy((uint8_t *)x, (uint8_t *)y, inputByteSize, value);
-
 exit:
-    ret = st_uvm_free_memory(x, ret);
-
-    ret = st_uvm_free_memory(y, ret);
+    // Release resources
+    if (x != NULL) {
+        CHECK_ERROR(halMemFree(x));
+    }
+    if (y != NULL) {
+        CHECK_ERROR(halMemFree(y));
+    }
 
     return ret;
 }
@@ -289,30 +257,30 @@ int32_t st_uvm_test_002(void *hdc_session, uint32_t devid, uint64_t arg[10])
 {
     int ret = 0;
     uint32_t blockDim = 8;
-    uint32_t inputByteSize = 2 << 20;
+    uint32_t inputByteSize = 2 << 20; // 2 << 20 = 2M
     void *x = NULL;
     uint8_t *x_Data = NULL;
     uint8_t value = 0;
     struct drv_uvm_location location;
 
     // Allocate 2MB of UVM memory and return a virtual address(x) within the UVM region.
-    CHECK_ERROR_GOTO(halMemAlloc(&x, inputByteSize, MEM_UVM), ret, exit);
+    CHECK_ERROR(halMemAlloc(&x, inputByteSize, MEM_UVM));
 
     x_Data = (uint8_t *)x;
 
     // Setting the read-mostly attribute on x_Data
     struct drv_uvm_location loc = {DRV_UVM_LOCATION_TYPE_HOST, 0};
-    CHECK_ERROR_GOTO(halMemManagedAdvise((DVdeviceptr)x_Data, inputByteSize, READ_MOSTLY, loc), ret, exit);
+    CHECK_ERROR(halMemManagedAdvise((DVdeviceptr)x_Data, inputByteSize, READ_MOSTLY, loc));
 
     // memsets the value into x
-    CHECK_ERROR_GOTO(drvMemsetD8((DVdeviceptr)x, inputByteSize, value, inputByteSize), ret, exit);
+    CHECK_ERROR(drvMemsetD8((DVdeviceptr)x, inputByteSize, value, inputByteSize));
     LOG_INFO("Init data success. (inputByteSize=%#xB, x_Data[0]=%u)\n", inputByteSize, x_Data[0]);
 
     // halMemManagedPrefetch prefetches x_Data (size inputByteSize) to the device 0
     LOG_INFO("[S2] Start prefetch data from host to device 0.\n");
     location.type = DRV_UVM_LOCATION_TYPE_DEVICE;
     location.id = 0;
-    CHECK_ERROR_GOTO(halMemManagedPrefetch((DVdeviceptr)x_Data, inputByteSize, location, 0), ret, exit);
+    CHECK_ERROR(halMemManagedPrefetch((DVdeviceptr)x_Data, inputByteSize, location, 0));
     LOG_INFO("Prefetch data to device 0 success.\n");
 
     // check the data on the host
@@ -327,7 +295,9 @@ int32_t st_uvm_test_002(void *hdc_session, uint32_t devid, uint64_t arg[10])
 
 exit:
     // Release resources
-    ret = st_uvm_free_memory(x, ret);
+    if (x != NULL) {
+        CHECK_ERROR(halMemFree(x));
+    }
 
     return ret;
 }

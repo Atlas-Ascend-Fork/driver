@@ -50,6 +50,12 @@ static inline int trs_id_type_convert(int type)
             return MIA_STARS_RTSQ;
         case TRS_CDQM_ID:
             return MIA_STARS_CDQ;
+        case TRS_STARS_H2D_JETTY_ID:
+            return MIA_STARS_H2D_JETTY;
+        case TRS_STARS_D2D_IN_BOARD_JETTY_ID:
+            return MIA_STARS_D2D_IN_BOARD_JETTY;
+        case TRS_STARS_D2D_CROSS_BOARD_JETTY_ID:
+            return MIA_STARS_D2D_CROSS_BOARD_JETTY;
         default:
             return MIA_MAX_RES_TYPE;
     }

@@ -25,6 +25,7 @@
 
 static add_exception_handle g_add_exception_func = NULL;
 
+// clang-format off
 #if (!defined CFG_FEATURE_NEW_EVENT_CODE)
 static struct dms_event_bbox_map g_event_bbox_map[] = {
     {
@@ -130,6 +131,7 @@ static struct dms_event_bbox_map g_event_bbox_map[] = {
         .bbox_code = 0x94025101U /* hdcd heartbeat recover */
     }
 };
+// clang-format on
 
 static struct dms_event_bbox_map *dms_event_bbox_map(DMS_EVENT_NODE_STRU *exception_node)
 {
@@ -182,19 +184,19 @@ static int dms_event_distribute_to_bbox(DMS_EVENT_NODE_STRU *exception_node)
     bbox_map = dms_event_bbox_map(exception_node);
     if (bbox_map == NULL) {
 #ifdef CFG_EDGE_HOST
-        dms_warn("Unsupported bbox event_code. (dev_id=%u; event_code=0x%x)\n",
-            exception_node->event.deviceid, exception_node->event.event_code);
+        dms_warn("Unsupported bbox event_code. (dev_id=%u; event_code=0x%x)\n", exception_node->event.deviceid,
+                 exception_node->event.event_code);
 #endif
         return ret;
     }
     ret = dms_event_call_add_exception_handle(exception_node->event.deviceid, bbox_map->bbox_code);
     if (ret) {
-        dms_err("Add event_id to bbox failed. (dev_id=%u; event_code=0x%x; ret=%d)\n",
-            exception_node->event.deviceid, exception_node->event.event_code, ret);
+        dms_err("Add event_id to bbox failed. (dev_id=%u; event_code=0x%x; ret=%d)\n", exception_node->event.deviceid,
+                exception_node->event.event_code, ret);
         return ret;
     }
-    dms_event("Add event_id to bbox. (dev_id=%u; event_id=0x%x;bbox_code=0x%x)\n",
-        exception_node->event.deviceid, exception_node->event.event_id, bbox_map->bbox_code);
+    dms_event("Add event_id to bbox. (dev_id=%u; event_id=0x%x;bbox_code=0x%x)\n", exception_node->event.deviceid,
+              exception_node->event.event_id, bbox_map->bbox_code);
 #endif
     return DRV_ERROR_NONE;
 }
@@ -237,4 +239,3 @@ int dms_event_distribute_handle_init(void)
 
     return DRV_ERROR_NONE;
 }
-

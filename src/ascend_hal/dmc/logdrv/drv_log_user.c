@@ -18,7 +18,10 @@ static void __attribute__((constructor)) drv_log_init(void)
     uint32_t drv_log_rsyslog_console_level_tmp = LOG_ERR;
     ret = drvMngGetConsoleLogLevel(&drv_log_rsyslog_console_level_tmp);
     if (ret != DRV_ERROR_NONE) {
-        (void)printf("DrvMngGetConsoleLogLevel failed. (ret=%u)\n", ret);
+        (void)printf("Failed to obtain the console log level. The possible causes are as follows:\n"
+                     " 1. Different containers share the same device;\n"
+                     " 2. Failed to open the character device when interacting with the OS kernel;\n"
+                     " 3. Failed to obtain the number of devices.\n");
     }
     drv_log_rsyslog_console_level_set(drv_log_rsyslog_console_level_tmp);
 }

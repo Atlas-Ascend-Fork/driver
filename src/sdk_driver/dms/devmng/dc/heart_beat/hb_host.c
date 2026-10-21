@@ -362,7 +362,8 @@ STATIC int heart_beat_urgent_judge(u32 dev_id)
     struct devdrv_info *dev_info = devdrv_manager_get_devdrv_info(dev_id);
     static unsigned int rao_read_fail_count[ASCEND_PDEV_MAX_NUM] = {0};
 
-    if (dev_info == NULL || heartbeat_info->hb_stutas != HEART_BEAT_READY) {
+    if (dev_info == NULL || manager_info == NULL || heartbeat_info == NULL ||
+        heartbeat_info->hb_stutas != HEART_BEAT_READY) {
         return DRV_ERROR_NONE;
     }
 
@@ -414,7 +415,7 @@ STATIC int heart_beat_urgent_event(u64 dev_id)
     /* check device heartbeat */
     ret = heart_beat_urgent_judge((u32)dev_id);
     if (ret != 0) {
-        dms_err("The device does not exist. (dev_id=%llu)\n", dev_id);
+        dms_err("The device does not exist! (device=%llu) \n", dev_id);
         return ret;
     }
 

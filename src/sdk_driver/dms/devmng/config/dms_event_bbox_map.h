@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef __DMS_EVENT_BBOX_MAP_H__
 #define __DMS_EVENT_BBOX_MAP_H__
 

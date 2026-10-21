@@ -18,7 +18,7 @@ typedef struct tagDrvSpec {
     unsigned int aiCoreErrorMap;
     unsigned int aiCpuInuse;
     unsigned int aiCpuErrorMap;
-    uint8_t aiCoreNumLevel; /* 0 invalid */
+    uint8_t aiCoreNumLevel;  /* 0 invalid */
     uint8_t aiCoreFreqLevel; /* 0 invalid */
 } drvSpec_t;
 
@@ -79,10 +79,14 @@ struct devdrv_device_info {
     unsigned int mainboard_id;
     unsigned int host_device_connect_type;
     char soc_version[SOC_VERSION_LEN];
-    unsigned long long aicore_bitmap[2]; /* support max 128 aicore */
+    unsigned long long aicore_bitmap[2];      /* support max 128 aicore */
     unsigned long long vector_core_bitmap[2]; /* support max 128 vector core */
     unsigned char product_type;
-    unsigned int resv[74];
+    unsigned char resv1[7];
+    uint64_t real_time_ms;
+    unsigned int l2_num;
+    unsigned int hbm_num;
+    unsigned int resv2[69];
 };
 
 typedef enum tagDrvWorkStatus {
@@ -101,7 +105,7 @@ typedef enum {
     BOOTSTRAP_ID_MAX
 } BOOTSTRAP_ID;
 
-#define BITMAP_MAX_LEN 8  /* (Maximum core num:512) / sizeof(unsigned long long) */
+#define BITMAP_MAX_LEN 8 /* (Maximum core num:512) / sizeof(unsigned long long) */
 typedef struct tagDrvHostAicpuInfo {
     unsigned int num;
     unsigned long long bitmap[BITMAP_MAX_LEN];
@@ -110,87 +114,86 @@ typedef struct tagDrvHostAicpuInfo {
 } drvHostAicpuInfo_t;
 
 /**
-* @ingroup driver
-* @brief get cpu information of device
-* @attention null
-* @param [in]  devId device id
-* @param [out]  drvspec cpu information
-* @return  0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief get cpu information of device
+ * @attention null
+ * @param [in]  devId device id
+ * @param [out]  drvspec cpu information
+ * @return  0 for success, others for fail
+ */
 DLLEXPORT drvError_t drvGetDeviceSpec(uint32_t devId, drvSpec_t *drvspec);
 
 /**
-* @ingroup driver
-* @brief Obtains the PCIe bus information of device
-* @attention null
-* @param [in] devId device id
-* @param [out] *bus  Returns the PCIe bus number
-* @param [out] *dev  Returns the PCIe device ID
-* @param [out] *func Returns the PCIe function ID
-* @return   0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief Obtains the PCIe bus information of device
+ * @attention null
+ * @param [in] devId device id
+ * @param [out] *bus  Returns the PCIe bus number
+ * @param [out] *dev  Returns the PCIe device ID
+ * @param [out] *func Returns the PCIe function ID
+ * @return   0 for success, others for fail
+ */
 DLLEXPORT drvError_t drvDeviceGetPcieInfo(uint32_t devId, int32_t *bus, int32_t *dev, int32_t *func);
 
 /**
-* @ingroup driver
-* @brief Get device information, number and bit order of ctrl_cpu and ai_cpu, etc
-* @attention null
-* @param [in] devId  Device ID
-* @param [out] *info  See struct devdrv_device_info
-* @return   0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief Get device information, number and bit order of ctrl_cpu and ai_cpu, etc
+ * @attention null
+ * @param [in] devId  Device ID
+ * @param [out] *info  See struct devdrv_device_info
+ * @return   0 for success, others for fail
+ */
 DLLEXPORT drvError_t drvGetDevInfo(uint32_t devId, struct devdrv_device_info *info);
 
 /**
-* @ingroup driver
-* @brief Get CPU information by devId
-* @attention null
-* @param [in] devId  Device ID
-* @param [out] *cpuInfo  See drvCpuInfo_t
-* @return   0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief Get CPU information by devId
+ * @attention null
+ * @param [in] devId  Device ID
+ * @param [out] *cpuInfo  See drvCpuInfo_t
+ * @return   0 for success, others for fail
+ */
 DLLEXPORT drvError_t drvGetCpuInfo(uint32_t devId, drvCpuInfo_t *cpuInfo);
 
 drvError_t drv_get_container_dev_ids(uint32_t *devices, uint32_t len, uint32_t *num);
-drvError_t drvStartContainerServe(void);
 DLLEXPORT drvError_t drvAllocateTflops(uint32_t devid, const char *vnpu_str, unsigned char *uuid,
-    unsigned int uuid_size);
+                                       unsigned int uuid_size);
 DLLEXPORT drvError_t drvStartContainerTflopsServe(uint32_t devid);
 
 /**
-* @ingroup driver
-* @brief Start host and mini time zone synchronization thread
-* @attention Can only be called once by the daemon on the host, not multiple times
-* @return   0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief Start host and mini time zone synchronization thread
+ * @attention Can only be called once by the daemon on the host, not multiple times
+ * @return   0 for success, others for fail
+ */
 drvError_t drvStartTimeSyncServeHost(void);
 
 /**
-* @ingroup driver
-* @brief get online device list interface
-* @attention when device boot,device list only get once,otherwise will get no device.
-* @param [in] *devBuf buffer for storing physical device id
-* @param [in] bufCnt buffer count,max count for store device id
-* @param [out] devCnt online device count.
-* @return   0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief get online device list interface
+ * @attention when device boot,device list only get once,otherwise will get no device.
+ * @param [in] *devBuf buffer for storing physical device id
+ * @param [in] bufCnt buffer count,max count for store device id
+ * @param [out] devCnt online device count.
+ * @return   0 for success, others for fail
+ */
 DLLEXPORT drvError_t halGetOnlineDevList(unsigned int *devBuf, unsigned int bufCnt, unsigned int *devCnt);
 
 /**
-* @ingroup driver
-* @brief poll wait online device interface
-* @attention null.
-* @return   0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief poll wait online device interface
+ * @attention null.
+ * @return   0 for success, others for fail
+ */
 DLLEXPORT drvError_t halDevOnlinePollWait(void);
 
 /**
-* @ingroup driver
-* @brief get bootstrap
-* @attention null.
-* @param [out]  *bootstrap : Stores bootstrap information, which is used to indicate whether UFS is started or SSD
-* @return   0 for success, others for fail
-*/
+ * @ingroup driver
+ * @brief get bootstrap
+ * @attention null.
+ * @param [out]  *bootstrap : Stores bootstrap information, which is used to indicate whether UFS is started or SSD
+ * @return   0 for success, others for fail
+ */
 DLLEXPORT drvError_t drvGetBootstrap(unsigned int *bootstrap);
 
 /* *
@@ -203,8 +206,8 @@ DLLEXPORT drvError_t drvGetBootstrap(unsigned int *bootstrap);
  * @param [out]  slot_id : slot id
  * @return   0 for success, others for fail
  */
-DLLEXPORT drvError_t drvDeviceGetBoardFromHostMem(uint32_t devId, uint32_t *board_id,
-    uint32_t *pcb_id, uint32_t *bom_id, uint32_t *slot_id);
+DLLEXPORT drvError_t drvDeviceGetBoardFromHostMem(uint32_t devId, uint32_t *board_id, uint32_t *pcb_id,
+                                                  uint32_t *bom_id, uint32_t *slot_id);
 
 DLLEXPORT drvError_t drvGetDeviceStatus(unsigned int devId, unsigned int *device_status);
 
@@ -222,14 +225,14 @@ DLLEXPORT drvError_t drvDeviceHealthStatus(uint32_t devId, unsigned int *healthS
  * @param [in out] size input buffer size and output data size
  * @return   0 for success, others for fail
  */
-DLLEXPORT drvError_t drvQueryDeviceInfo(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size);
+DLLEXPORT drvError_t drvQueryDeviceInfo(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                        unsigned int *size);
 
-DLLEXPORT drvError_t drvSetDeviceInfo(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, const void *buf, unsigned int size);
+DLLEXPORT drvError_t drvSetDeviceInfo(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, const void *buf,
+                                      unsigned int size);
 
 DLLEXPORT drvError_t drvSetDeviceInfoToDmsHal(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    const void *buf, unsigned int size);
+                                              const void *buf, unsigned int size);
 
 DLLEXPORT int dms_get_ts_info_from_udis(unsigned int dev_id, const char *name, void *buf, unsigned int *size);
 

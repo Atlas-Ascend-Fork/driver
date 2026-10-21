@@ -209,6 +209,7 @@ static int dms_bbox_dump_feature_check_init(void)
     uda_davinci_near_real_entity_type_pack(&type);
     ret = uda_notifier_register(DMS_MODULE_BBOX_FEATURE, &type, UDA_PRI2, bbox_common_notifier_func);
     if (ret != 0) {
+        CALL_EXIT_MODULE(DMS_MODULE_BBOX_FEATURE);
         dms_err("Failed to register bbox feature notifier. (ret=%d)\n", ret);
         return ret;
     }
@@ -223,6 +224,7 @@ static void dms_bbox_dump_feature_check_uninit(void)
 
     uda_davinci_near_real_entity_type_pack(&type);
     (void)uda_notifier_unregister(DMS_MODULE_BBOX_FEATURE, &type);
+    CALL_EXIT_MODULE(DMS_MODULE_BBOX_FEATURE);
     bbox_feature_reset();
 }
 DECLAER_FEATURE_AUTO_UNINIT(dms_bbox_dump_feature_check_uninit, FEATURE_LOADER_STAGE_5);

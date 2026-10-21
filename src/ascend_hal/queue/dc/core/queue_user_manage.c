@@ -116,7 +116,7 @@ static drvError_t queue_buf_get(void *mem_base, uint64_t mem_size)
 
     ret = buff_blk_get(mem_base, &pool_id, &alloc_ptr, &alloc_size, &blk_id);
     if ((ret != 0) || (alloc_ptr != mem_base) || (alloc_size < mem_size)) {
-        QUEUE_LOG_ERR("queue grp get error. (ret=%d; addr=0x%llx; baseaddr=0x%llx; size=%luB; base size=%luB)\n", ret,
+        QUEUE_LOG_ERR("queue grp get error. (ret=%d; addr=0x%llx; baseaddr=0x%llx; size=%lu; base size=%lu)\n", ret,
                       (unsigned long long)(uintptr_t)alloc_ptr, (unsigned long long)(uintptr_t)mem_base,
                       (unsigned long)alloc_size, (unsigned long)mem_size);
         return DRV_ERROR_INNER_ERR;
@@ -259,7 +259,7 @@ void queue_set_local_depth(unsigned int qid, unsigned int depth)
 static void queue_format_addr_name(char *name, int len, unsigned int qid)
 {
     if (sprintf_s(name, (unsigned int)len, "que_%u_addr", qid) <= 0) {
-        QUEUE_LOG_WARN("sprintf_s failed. (qid=%u)\n", qid);
+        QUEUE_LOG_WARN("sprintf_s not successful. (qid=%u)\n", qid);
     }
 }
 
@@ -285,7 +285,7 @@ STATIC drvError_t queue_init_base_addr(void)
             addr = queue_alloc_buf(size, QUEUE_ALLOC_BUF_FLAG, &blk_id);
             if (addr == NULL) {
                 (void)queue_del_prop(QUE_MEM_BASE_ADDR_MASTER);
-                QUEUE_LOG_ERR("malloc buff size failed. (size=%luB)\n", size);
+                QUEUE_LOG_ERR("malloc buff size failed. (size=%lu)\n", size);
                 return DRV_ERROR_OUT_OF_MEMORY;
             }
 
@@ -472,7 +472,7 @@ static drvError_t queue_id_alloc(void *que_entity, unsigned int *qid)
 {
     static unsigned int last_id = 0;
     unsigned long value;
-    unsigned int i, id;
+    unsigned int i = 0, id = 0;
 
     value = (unsigned long)(uintptr_t)que_entity;
     for (i = 0; i < MAX_SURPORT_QUEUE_NUM; i++) {
@@ -488,7 +488,7 @@ static drvError_t queue_id_alloc(void *que_entity, unsigned int *qid)
         }
     }
     if (i >= MAX_SURPORT_QUEUE_NUM) {
-        QUEUE_LOG_ERR("no valid qid\n");
+        QUEUE_LOG_ERR("no valid qid. (qid=%u, max=%u)\n", id, (MAX_SURPORT_QUEUE_NUM - 1));
         return DRV_ERROR_OVER_LIMIT;
     }
 
@@ -581,9 +581,7 @@ static drvError_t queue_entity_get(void *entity, unsigned int *depth)
 
     if ((alloc_size < (MIN_VALID_QUEUE_DEPTH * QUE_ENTITY_NODE_SIZE)) ||
         (alloc_size > (MAX_QUEUE_DEPTH * QUE_ENTITY_NODE_SIZE))) {
-        QUEUE_LOG_ERR("entity size out of range. (alloc_size=%lu, valid range=[%lu, %lu])\n", (unsigned long)alloc_size,
-                      (unsigned long)(MIN_VALID_QUEUE_DEPTH * QUE_ENTITY_NODE_SIZE),
-                      (unsigned long)(MAX_QUEUE_DEPTH * QUE_ENTITY_NODE_SIZE));
+        QUEUE_LOG_ERR("entity size out of range. (alloc_size=%lu)\n", (unsigned long)alloc_size);
         return DRV_ERROR_INNER_ERR;
     }
 
@@ -659,7 +657,7 @@ STATIC void queue_resume_grp_event(uint32 devid, struct group_merge *merge)
     ATOMIC_INC(&merge->event_stat.call_back);
 
     if (CAS(&merge->atomic_flag, 1, 0) == false) {
-        QUEUE_LOG_WARN("cas failed. (grp=%u; flag=%d)\n", merge->groupid, merge->atomic_flag);
+        QUEUE_LOG_WARN("cas not successful. (grp=%u; flag=%d)\n", merge->groupid, merge->atomic_flag);
     }
 
     que_manage = get_merge_grp_not_empty_que(merge);
@@ -673,7 +671,7 @@ static void queue_resume_single_queue_event(uint32 devid, struct queue_manages *
     ATOMIC_INC(&que_manage->stat.call_back);
 
     if (CAS(&que_manage->event_flag, 1, 0) != true) {
-        QUEUE_LOG_WARN("queue cas failed. (qid=%u)\n", que_manage->id);
+        QUEUE_LOG_WARN("queue cas not successful. (qid=%u)\n", que_manage->id);
     }
 
     if (que_manage->queue_head.head_info.head != queue_get_orig_tail(que_manage)) {
@@ -688,6 +686,11 @@ void queue_finish_callback_local(unsigned int dev_id, unsigned int qid, unsigned
 
     if ((event_id != EVENT_QUEUE_ENQUEUE) || (grp_id >= SUBSCRIBE_MAX_GRP_NUM)) {
         QUEUE_LOG_ERR("event callback para invalid. (grp_id=%u, event_id=%u, qid=%u)\n", grp_id, event_id, qid);
+        return;
+    }
+
+    if (qid >= MAX_SURPORT_QUEUE_NUM) {
+        QUEUE_LOG_ERR("event callback qid invalid. (qid=%u, max=%u)\n", qid, MAX_SURPORT_QUEUE_NUM);
         return;
     }
 
@@ -718,7 +721,7 @@ void queue_finish_callback_local(unsigned int dev_id, unsigned int qid, unsigned
     } else if (merge != NULL) {
         queue_resume_grp_event(dev_id, merge);
     } else {
-        QUEUE_LOG_WARN("parameter error. (group_id=%u; qid=%u; bind_type=%d; valid=%d).\n", grp_id, qid,
+        QUEUE_LOG_WARN("parameter invalid. (group_id=%u; qid=%u; bind_type=%d; valid=%d).\n", grp_id, qid,
                        que_manage->bind_type, que_manage->valid);
     }
     queue_put(qid);
@@ -913,6 +916,7 @@ drvError_t queue_merge_uninit(struct queue_manages *que_manage, unsigned int qid
 {
     struct group_merge *merge = NULL;
     int groupid, merge_id, ret;
+    unsigned int ref = 0;
 
     ret = (int)get_atomic_lock(&que_manage->merge_atomic_lock, ATOMIC_LOCK_TIME_DEFAULT);
     if (ret != ATOMIC_LOCK_ERROR_NONE) {
@@ -928,20 +932,22 @@ drvError_t queue_merge_uninit(struct queue_manages *que_manage, unsigned int qid
     }
 
     merge = queue_get_merge_addr(merge_id);
-    ATOMIC_DEC(&merge->ref_cnt);
 
     /* unsubscribe by other proc, not need set proc para */
     if (que_manage->consumer.pid == que_cur_pid) {
         (void)pthread_mutex_lock(&merge_mutex);
+        ref = ATOMIC_DEC(&merge->ref_cnt);
         groupid = merge_que[qid].groupid;
         merge_que[qid].groupid = -1;
         get_atomic_lock(&grp_merge_list[groupid].lock, MAX_WAITE_TIME);
         drv_user_list_del(&merge_que[qid].list);
         release_atomic_lock(&grp_merge_list[groupid].lock);
-        if (merge->ref_cnt == 0) {
+        if (ref == 0) {
             grp_merge[groupid] = NULL;
         }
         (void)pthread_mutex_unlock(&merge_mutex);
+    } else {
+        ATOMIC_DEC(&merge->ref_cnt);
     }
 
     que_manage->merge_idx = INVALID_QUEUE_MERGE_IDX;

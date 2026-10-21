@@ -21,8 +21,8 @@
 struct svm_mem_repair_ops {
     int (*normal_map)(u64 va, struct svm_prop *prop);
     void (*normal_unmap)(u64 va, struct svm_prop *prop);
-    int (*vmm_map)(void *seg_handle, u32 devid, u64 va, struct svm_global_va *src_info);
-    void (*vmm_unmap)(void *seg_handle, u32 devid, u64 va, struct svm_global_va *src_info);
+    int (*vmm_map)(u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info);
+    void (*vmm_unmap)(u32 devid, u64 va, u64 svm_flag, struct svm_global_va *src_info);
 };
 
 void svm_mem_repair_set_ops(struct svm_mem_repair_ops *ops);

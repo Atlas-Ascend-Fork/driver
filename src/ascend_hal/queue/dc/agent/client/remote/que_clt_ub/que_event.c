@@ -195,7 +195,7 @@ static drvError_t que_esched_submit_event_sync(uint32_t dev_id, unsigned int ret
 
     ret = esched_alloc_event_res(dev_id, QUEUE_EVENT, &res);
     if (que_unlikely(ret != DRV_ERROR_NONE)) {
-        QUEUE_LOG_ERR("failed to invoke the esched_sync_init. (ret=%d)\n", ret);
+        QUEUE_LOG_ERR("failed to invoke the esched_alloc_event_res. (ret=%d)\n", ret);
         return ret;
     }
 

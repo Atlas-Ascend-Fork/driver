@@ -32,7 +32,7 @@ int trs_soc_get_chip_type(u32 phy_devid)
 {
     u32 chip_type = uda_get_chip_type(phy_devid);
     if (chip_type >= HISI_CHIP_UNKNOWN) {
-        trs_err("Get chip type failed. (devid=%u; chip_type=%u)\n", phy_devid, chip_type);
+        trs_err("Get chip type fail. (devid=%u; chip_type=%u)\n", phy_devid, chip_type);
         return TRS_CHIP_TYPE_UNKNOWN;
     }
     return trs_soc_chip_type[chip_type];
@@ -532,6 +532,24 @@ bool trs_soc_is_support_soft_mbox(struct trs_id_inst *inst)
 
     if (soc_is_support_soft_mbox_ops[chip_type] != NULL) {
         return soc_is_support_soft_mbox_ops[chip_type]();
+    }
+
+    return false;
+}
+
+static bool (*const soc_is_support_virt_ops[TRS_CHIP_TYPE_MAX])(u32 devid) = {
+    [TRS_CHIP_TYPE_CLOUD_V4] = trs_soc_is_cloud_v4_support_virt,
+    [TRS_CHIP_TYPE_CLOUD_V5] = trs_soc_is_cloud_v5_support_virt,
+};
+bool trs_soc_is_support_virt(struct trs_id_inst *inst)
+{
+    int chip_type = trs_soc_get_chip_type(inst->devid);
+    if (chip_type == TRS_CHIP_TYPE_UNKNOWN) {
+        return false;
+    }
+
+    if (soc_is_support_virt_ops[chip_type] != NULL) {
+        return soc_is_support_virt_ops[chip_type](inst->devid);
     }
 
     return false;

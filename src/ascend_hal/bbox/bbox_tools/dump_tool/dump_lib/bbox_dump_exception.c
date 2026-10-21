@@ -18,7 +18,7 @@
 #include "bbox_tool_fs.h"
 
 #define KDUMP_MAGIC_NUM 0xf0f0f0f0
-#define KDUMP_FLAG_NUM  3
+#define KDUMP_FLAG_NUM 3
 
 /**
  * @brief       get status of the devices which is running
@@ -29,10 +29,8 @@
 STATIC void bbox_online_device_state(struct bbox_devices_info *info)
 {
     drvStatus_t device_status = DRV_STATUS_INITING;
-    u32 boot_status = DSMI_BOOT_STATUS_UNINIT;
+    u32 boot_status = DSMI_BOOT_STATUS_UNINIT, phy_id = 0, i;
     char dev_buf[DEV_BUF_MAX_LEN];
-    u32 phy_id = 0;
-    u32 i;
 
     drvError_t err = drvGetDevNum(&info->dev_num);
     if (err != DRV_ERROR_NONE) {
@@ -57,13 +55,15 @@ STATIC void bbox_online_device_state(struct bbox_devices_info *info)
 
         err = drvGetDeviceBootStatus((s32)phy_id, &boot_status);
         if (err != DRV_ERROR_NONE) {
-            BBOX_ERR("[%s] get boot status failed with %d.", bbox_get_dev_str(phy_id, i, dev_buf, sizeof(dev_buf)), (int)err);
+            BBOX_ERR("[%s] get boot status failed with %d.", bbox_get_dev_str(phy_id, i, dev_buf, sizeof(dev_buf)),
+                     (int)err);
             continue;
         }
 
         err = drvDeviceStatus(i, &device_status);
         if (err != DRV_ERROR_NONE) {
-            BBOX_ERR("[%s] get run status failed with %d.", bbox_get_dev_str(phy_id, i, dev_buf, sizeof(dev_buf)), (int)err);
+            BBOX_ERR("[%s] get run status failed with %d.", bbox_get_dev_str(phy_id, i, dev_buf, sizeof(dev_buf)),
+                     (int)err);
             continue;
         }
 
@@ -75,6 +75,9 @@ STATIC void bbox_online_device_state(struct bbox_devices_info *info)
                 info->status[phy_id] = SOC_STATUS_BOOT_FAILED;
                 info->offline_num++;
             }
+        } else if (device_status == DRV_STATUS_INITING) {
+            info->status[phy_id] = SOC_STATUS_INITING;
+            info->online_num++;
         } else {
             info->status[phy_id] = SOC_STATUS_OS_RUNNING;
             info->online_num++;
@@ -133,6 +136,8 @@ STATIC const char *bbox_get_devices_status_des(u32 status)
             return STRING_HEARTBEAT_LOST;
         case SOC_STATUS_OS_RUNNING:
             return STRING_OS_RUNNING;
+        case SOC_STATUS_INITING:
+            return STRING_INITING;
         default:
             return STRING_UNKNOWN;
     }
@@ -154,10 +159,7 @@ STATIC void bbox_save_devices_info(const struct bbox_devices_info *info, const c
                         "devices info:\n"
                         "==================================================\n"
                         "dir                phy-id    logic-id    status\n",
-                        info->dev_num,
-                        info->prob_num,
-                        info->online_num,
-                        info->offline_num);
+                        info->dev_num, info->prob_num, info->online_num, info->offline_num);
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret == -1, return, "format devices information failed.");
     ret = bbox_save_buf_to_fs(path, DEV_INFO_FILE, buf, (u32)strlen(buf), BBOX_FALSE);
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret < 0, return, "save devices information failed");
@@ -224,7 +226,8 @@ STATIC int bbox_get_logic_id(const struct bbox_devices_info *info, u32 phy_id)
  * @param [in]  info:       device info
  * @return      == -1 failed, == 0 success
  */
-STATIC bbox_status bbox_dump_excep_event_by_id(u32 phy_id, const char *path, enum BBOX_DUMP_MODE mode, const struct bbox_devices_info *info)
+STATIC bbox_status bbox_dump_excep_event_by_id(u32 phy_id, const char *path, enum BBOX_DUMP_MODE mode,
+                                               const struct bbox_devices_info *info)
 {
     bool err = false;
     bbox_status ret = BBOX_SUCCESS;
@@ -232,10 +235,9 @@ STATIC bbox_status bbox_dump_excep_event_by_id(u32 phy_id, const char *path, enu
 
     // dump if device heart beat lost when msnpureport permanent
     if (mode == BBOX_DUMP_MODE_HBL) {
-        if (info->status[phy_id] == SOC_STATUS_HEARTBEAT_LOST) {
-            ret = bbox_dump_excep_event(phy_id, path, EVENT_HEARTBEAT_LOST, NULL, logic_id);
-        }
-        return ret;
+        return (info->status[phy_id] == SOC_STATUS_HEARTBEAT_LOST) ?
+                   (ret = bbox_dump_excep_event(phy_id, path, EVENT_HEARTBEAT_LOST, NULL, logic_id)) :
+                   ret;
     }
     switch (info->status[phy_id]) {
         case SOC_STATUS_BOOT_FAILED:
@@ -245,6 +247,7 @@ STATIC bbox_status bbox_dump_excep_event_by_id(u32 phy_id, const char *path, enu
             ret = bbox_dump_excep_event(phy_id, path, EVENT_HEARTBEAT_LOST, NULL, logic_id);
             break;
         case SOC_STATUS_OS_RUNNING:
+        case SOC_STATUS_INITING:
             ret = bbox_dump_runtime(phy_id, path, mode, logic_id);
             break;
         default:
@@ -255,8 +258,8 @@ STATIC bbox_status bbox_dump_excep_event_by_id(u32 phy_id, const char *path, enu
     err = ((ret == BBOX_SUCCESS) ? err : true);
     // dump device all info
     if (mode == BBOX_DUMP_MODE_FORCE) {
-        if (info->status[phy_id] == SOC_STATUS_OS_RUNNING ||
-            info->status[phy_id] == SOC_STATUS_HEARTBEAT_LOST) {
+        if (info->status[phy_id] == SOC_STATUS_OS_RUNNING || info->status[phy_id] == SOC_STATUS_HEARTBEAT_LOST ||
+            info->status[phy_id] == SOC_STATUS_INITING) {
             ret = bbox_dump_excep_event(phy_id, path, EVENT_DUMP_FORCE, NULL, logic_id);
             err = ((ret == BBOX_SUCCESS) ? err : true);
         }
@@ -311,7 +314,10 @@ bbox_status bbox_dump_exception(s32 dev_id, const char *path, u32 p_size, enum B
         drvError_t err_code = drvDeviceGetPhyIdByIndex((u32)dev_id, &phy_id);
         if (err_code != DRV_ERROR_NONE) {
             BBOX_ERR("get phy_id by index failed. (dev_id=%u)", (u32)dev_id);
-            err= true;
+            err = true;
+        } else if (phy_id >= MAX_PHY_DEV_NUM) {
+            BBOX_ERR("Invalid id. (logic_id=%d; phy_id=%u)", dev_id, phy_id);
+            err = true;
         } else {
             ret = bbox_dump_excep_event_by_id(phy_id, path, mode, &info);
             err = ((ret == BBOX_SUCCESS) ? err : true);
@@ -321,4 +327,3 @@ bbox_status bbox_dump_exception(s32 dev_id, const char *path, u32 p_size, enum B
     bbox_dir_chmod(path, FILE_RO_MODE, DIR_RECURSION_DEPTH);
     return (err == false) ? BBOX_SUCCESS : BBOX_FAILURE;
 }
-

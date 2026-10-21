@@ -54,9 +54,9 @@ STATIC int udis_ioctl_input_check(unsigned int udevid, unsigned int module_type,
     unsigned int name_len = 0;
 
     if (module_type >= UDIS_MODULE_MAX) {
-        udis_err("Invalid module_type. (udevid=%u; module_type=%u; name=%s; max_module_type=%u)\n", udevid, module_type,
-                 name, UDIS_MODULE_MAX - 1);
-        return -EINVAL;
+        udis_debug("Not support module_type. (udevid=%u; module_type=%u; name=%s; max_module_type=%u)\n", udevid,
+                   module_type, name, UDIS_MODULE_MAX - 1);
+        return -EOPNOTSUPP;
     }
 
     name_len = ka_base_strnlen(name, UDIS_MAX_NAME_LEN);
@@ -85,9 +85,7 @@ STATIC int udis_get_process_mem_name(unsigned int udevid, const char *in_name, c
 {
     int ret;
 #ifdef DRV_HOST
-    u32 vfid = 0;
-    u32 owner_id = 0;
-    u32 hostpid = 0;
+    u32 vfid = 0, owner_id = 0, hostpid = 0;
     char temp_name[UDIS_MAX_NAME_LEN] = {0};
     ka_struct_pid_t *pgrp = NULL;
     struct uda_mia_dev_para mia_para = {0};
@@ -95,8 +93,7 @@ STATIC int udis_get_process_mem_name(unsigned int udevid, const char *in_name, c
     if (!uda_is_pf_dev(udevid)) {
         ret = uda_udevid_to_mia_devid(udevid, &mia_para);
         if (ret != 0) {
-            udis_err("Failed to convert udevid to MIA(multi-instance access) device id. (udev_id=%u; ret=%d)\n", udevid,
-                     ret);
+            udis_err("The udevid to mia devid failed. (udev_id=%u; ret=%d)\n", udevid, ret);
             return ret;
         }
 
@@ -104,7 +101,11 @@ STATIC int udis_get_process_mem_name(unsigned int udevid, const char *in_name, c
     }
 
     ret = strncpy_s(temp_name, UDIS_MAX_NAME_LEN, in_name, OWNER_ID_LEN);
-    ret += ka_base_kstrtou32(temp_name, HEXADECIMAL, &owner_id);
+    if (ret != 0) {
+        udis_err("Strncpy_s failed. (udevid=%u; name=%s; ret=%d)\n", udevid, in_name, ret);
+        return ret;
+    }
+    ret = ka_base_kstrtou32(temp_name, HEXADECIMAL, &owner_id);
     if (ret != 0) {
         udis_err("Get owner id from name failed. (udevid=%u; name=%s; ret=%d)\n", udevid, in_name, ret);
         return ret;

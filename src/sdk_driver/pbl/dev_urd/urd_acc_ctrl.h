@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef URD_ACC_CTRL_H
 #define URD_ACC_CTRL_H
 #include "pbl/pbl_urd.h"
@@ -21,8 +20,7 @@
 s32 dms_feature_access_identify(u32 feature_prof, u32 msg_source);
 
 s32 dms_feature_whitelist_check(const char **proc_ctrl, u32 proc_num);
-int dms_feature_parse_proc_ctrl(const char *proc_str, char **buf,
-    char ***proc_ctl, u32 *proc_num);
+int dms_feature_parse_proc_ctrl(const char *proc_str, char **buf, char ***proc_ctl, u32 *proc_num);
 #define DMI_VIRTUAL_SYSVENDOR "QEMU"
 #define DMI_VIRTUAL_PRODUCT_NAME "KVM Virtual Machine"
 

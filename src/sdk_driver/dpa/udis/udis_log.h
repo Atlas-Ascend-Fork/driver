@@ -19,6 +19,7 @@
 
 #define MODULE_UDIS "ascend_udis"
 
+#ifdef UT_VCAST
 #define udis_err(fmt, ...) drv_err(MODULE_UDIS, fmt, ##__VA_ARGS__)
 #define udis_warn(fmt, ...) drv_warn(MODULE_UDIS, fmt, ##__VA_ARGS__)
 #define udis_info(fmt, ...) drv_info(MODULE_UDIS, fmt, ##__VA_ARGS__)
@@ -31,5 +32,27 @@
             udis_err(fmt, ##__VA_ARGS__);                                      \
         }                                                                      \
     } while (0)
-
+#else
+#define udis_err(fmt, ...)                                                                          \
+    drv_err(MODULE_UDIS, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+            ka_task_get_current_pid(), ##__VA_ARGS__)
+#define udis_warn(fmt, ...)                                                                          \
+    drv_warn(MODULE_UDIS, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+             ka_task_get_current_pid(), ##__VA_ARGS__)
+#define udis_info(fmt, ...)                                                                          \
+    drv_info(MODULE_UDIS, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+             ka_task_get_current_pid(), ##__VA_ARGS__)
+#define udis_event(fmt, ...)                                                                          \
+    drv_event(MODULE_UDIS, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+              ka_task_get_current_pid(), ##__VA_ARGS__)
+#define udis_debug(fmt, ...)                                                                             \
+    drv_pr_debug(MODULE_UDIS, "<%s:%d,%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                 ka_task_get_current_pid(), ##__VA_ARGS__)
+#define udis_ex_notsupport_err(ret, fmt, ...)                                  \
+    do {                                                                       \
+        if (((ret) != (int)DRV_ERROR_NOT_SUPPORT) && ((ret) != -EOPNOTSUPP)) { \
+            udis_err(fmt, ##__VA_ARGS__);                                      \
+        }                                                                      \
+    } while (0)
+#endif
 #endif

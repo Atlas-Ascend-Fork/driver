@@ -63,6 +63,15 @@ typedef u64 TASK_TIME_TYPE;
 typedef struct timespec TASK_TIME_TYPE;
 #endif
 
+// adapt for task_struct.start_time
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
+#define ka_task_set_start_time(tsk, time) tsk->start_time = (time)
+#define ka_task_get_start_time(tsk) tsk->start_time
+#else
+#define ka_task_set_start_time(tsk, time) tsk->start_time.tv_sec = (time)
+#define ka_task_get_start_time(tsk) tsk->start_time.tv_sec
+#endif
+
 #ifdef FUNC_GET_PID_LINK_NODE
 #define KA_TASK_PID_ENTRY(PARAM_PIDTYPE_PID) pid_links[(PARAM_PIDTYPE_PID)]
 #else
@@ -222,7 +231,13 @@ ka_pid_namespace_t *ka_task_get_init_pid_ns_addr(void);
 #define ka_task_get_pid(pid) get_pid(pid)
 #define ka_task_put_pid(pid) put_pid(pid)
 #define ka_task_get_pid_task(pid, type) get_pid_task(pid, type)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0)
 #define ka_task_sched_show_task(t) sched_show_task(t)
+#else
+#define ka_task_sched_show_task(t) void *(t)
+#endif
+
 #define ka_task_put_task_struct(t) put_task_struct(t)
 #define ka_task_schedule_work_on(cpu, work) schedule_work_on(cpu, work)
 #define ka_task_next_task(p) next_task(p)

@@ -17,22 +17,22 @@
 #define DATE_MAXLEN 32
 
 #ifdef NOMSG_PRINT
-#define LOG_FPRINTF(format, ...) do { \
-    bbox_dump_log_get_stream(); \
-    bbox_dump_log_get_time(); \
-} while (0)
+#define LOG_FPRINTF(format, ...)    \
+    do {                            \
+        bbox_dump_log_get_stream(); \
+        bbox_dump_log_get_time();   \
+    } while (0)
 #define BBOX_PRINT(level, msg, ...)
 #else
-#define LOG_FPRINTF(format, ...) do { \
-    fprintf(bbox_dump_log_get_stream(), "%s " format, bbox_dump_log_get_time(), ##__VA_ARGS__); \
-    fflush(bbox_dump_log_get_stream()); \
-} while (0)
+#define LOG_FPRINTF(format, ...)                                                                    \
+    do {                                                                                            \
+        fprintf(bbox_dump_log_get_stream(), "%s " format, bbox_dump_log_get_time(), ##__VA_ARGS__); \
+        fflush(bbox_dump_log_get_stream());                                                         \
+    } while (0)
 #define BBOX_PRINT(level, msg, ...) \
     printf("%s [%s] %s:%d: " msg "\n", bbox_dump_log_get_time(), level, __func__, __LINE__, ##__VA_ARGS__)
 #endif
 
-void bbox_dump_log_open_stream(const char *path, const char *log_file);
-void bbox_dump_log_close_stream(void);
 FILE *bbox_dump_log_get_stream(void);
 const char *bbox_dump_log_get_time(void);
 

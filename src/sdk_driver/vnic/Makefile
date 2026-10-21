@@ -9,7 +9,8 @@
 # ------------------------------------------------------------------------------------------------------------
 MODULE_NAME := asdrv_vnic
 obj-m += $(MODULE_NAME).o
-$(MODULE_NAME)-objs := host/pcivnic_main.o host/pcivnic_host.o host/pcivnic_init.o host/pcivnic_adapt.o
+$(MODULE_NAME)-objs := host/pcivnic_main.o host/pcivnic_common_adapt.o host/pcivnic_host.o \
+					   host/pcivnic_host_adapt.o host/pcivnic_init.o host/pcivnic_adapt.o
 
 EXTRA_CFLAGS += -I$(DRIVER_HAL_INC_DIR)
 EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/inc

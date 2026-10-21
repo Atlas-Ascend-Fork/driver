@@ -17,6 +17,7 @@
 #include "trs_user_pub_def.h"
 #include "urma_types.h"
 #include "udma_u_ctl.h"
+#include "trs_dev_drv.h"
 #include "trs_user_msg.h"
 #include "trs_urma_async.h"
 
@@ -26,10 +27,12 @@
 #define TRS_URMA_ARGS_CPY_WR_MAX_NUM 16U
 
 #define TRS_UB_CQE_LINE 1
+#define TRS_UB_SQE_WQE_BB_SIZE 64U
 uint32_t trs_get_jfs_depth(void);
 uint32_t trs_get_jfc_depth(void);
 uint32_t trs_get_jfr_depth(void);
 #define TRS_STARS_JFC_MAX_DEPTH (8192 * 2)
+#define TRS_JFS_MAX_SGE_NUM 12U
 
 #define TRS_URMA_DWQE_LEN 64U
 
@@ -41,6 +44,8 @@ enum trs_urma_wqe_opcode {
 
 struct trs_urma_jfc {
     urma_jfc_t *jfc;
+    uint32_t id;            /* only used in stars jfc */
+    uint64_t cqe_base_addr; /* only used in stars jfc */
 };
 
 struct trs_wr_sge_pack {
@@ -68,6 +73,9 @@ struct trs_urma_stars_jetty {
     urma_target_seg_t **tseg_array;
     struct trs_wr_sge_pack *wr_sge_array;
     uint32_t pi;
+    uint32_t id;
+    uint32_t depth;
+    int jetty_id_type;
     enum udma_u_jetty_type jetty_type;
     bool wqe_sink_flag;
     bool jetty_pre_fill_flag;
@@ -81,6 +89,7 @@ struct trs_async_dma_wqe_info {
     uint8_t wqe[STARS_ASYNC_DMA_WQE_SIZE]; /* wqe must be first member for free */
     urma_target_seg_t *async_tseg;         /* for async copy */
     uint32_t remote_dev_id;
+    trs_d2d_index_t d2d_index;
     uint8_t flag; /* 0: svm addr and not need register segment; 1: non svm addr and need to register segment */
     uint8_t dir;
 };
@@ -116,11 +125,13 @@ struct trs_urma_ctx {
     urma_target_seg_t *local_tseg;
     void *notify_buffer;
     urma_target_seg_t local_notify_tseg;
+    urma_token_id_t *token_id;
     urma_token_t token;
     urma_eid_t eid;
     struct trs_async_ctx async_ctx;
     struct trs_async_ctx batch_2d_async_ctx;
-    struct trs_async_ctx d2d_async_ctx; /* d2d send side async ctx */
+    struct trs_async_ctx d2d_async_ctx[TRS_MAX_D2D_INDEX];          /* d2d send side async ctx */
+    struct trs_async_ctx d2d_batch_2d_async_ctx[TRS_MAX_D2D_INDEX]; /* d2d send side async ctx */
     pthread_mutex_t ctx_mutex;
     uint32_t devid;
     uint32_t die_id;  /* for async copy */
@@ -153,13 +164,14 @@ struct trs_dma_wr_addr {
     urma_seg_t recv_seg;
     urma_seg_t send_seg;
     urma_token_t recv_token;
+    uint32_t urma_opcode;
+    uint32_t dir;
 };
 
 struct trs_remote_fill_wqe_info {
     uint32_t sq_id;
     uint32_t recv_dev_id;
-    uint32_t urma_opcode;
-    uint32_t dir;
+    uint32_t d2d_index;
     enum trs_async_dma_type async_dma_type;
     uint32_t batch_num;
     struct trs_dma_wr_addr wr_addr[0];
@@ -230,6 +242,20 @@ static inline urma_import_seg_flag_t trs_get_seg_import_flag(void)
     return import_flag;
 }
 
+static inline urma_reg_seg_flag_t trs_get_seg_register_flag(void)
+{
+    urma_reg_seg_flag_t register_flag = {0};
+
+    register_flag.bs.token_policy = URMA_TOKEN_PLAIN_TEXT;
+    register_flag.bs.cacheable = URMA_NON_CACHEABLE;
+    register_flag.bs.access = URMA_ACCESS_READ | URMA_ACCESS_WRITE | URMA_ACCESS_ATOMIC;
+    register_flag.bs.non_pin = 1; /* alloc_pages memory need non pin, malloc need pin */
+    register_flag.bs.token_id_valid = 1;
+    register_flag.bs.reserved = 0;
+
+    return register_flag;
+}
+
 static inline uint32_t trs_jetty_get_credit(uint32_t pi, uint32_t ci, uint32_t depth)
 {
     if (pi >= ci) {
@@ -241,16 +267,19 @@ static inline uint32_t trs_jetty_get_credit(uint32_t pi, uint32_t ci, uint32_t d
 
 int trs_create_jfs(urma_context_t *urma_ctx, urma_jfce_t *jfce, struct trs_urma_jfs *trs_jfs, void *priv);
 void trs_destroy_jfs(struct trs_urma_jfs *trs_jfs);
-int trs_create_stars_jetty(urma_context_t *urma_ctx, urma_jfce_t *jfce, struct trs_urma_jfr *trs_jfr, uint32_t depth,
-                           struct trs_urma_stars_jetty *trs_jetty);
-void trs_destroy_stars_jetty(urma_context_t *urma_ctx, struct trs_urma_stars_jetty *trs_jetty);
 int trs_create_jfr(urma_context_t *urma_ctx, urma_jfce_t *jfce, urma_token_t token, struct trs_urma_jfr *trs_jfr);
 void trs_destroy_jfr(struct trs_urma_jfr *trs_jfr);
+int trs_stars_jetty_init(struct trs_urma_stars_jetty *trs_jetty, struct trs_urma_proc_ctx *proc_ctx, int res_type,
+                         bool is_wqe_sink, bool is_2d_batch);
+void trs_stars_jetty_uninit(struct trs_urma_stars_jetty *trs_jetty, urma_context_t *urma_ctx, uint32_t dev_id);
+int trs_create_stars_jetty(urma_context_t *urma_ctx, urma_jfce_t *jfce, struct trs_urma_jfr *trs_jfr,
+                           struct trs_urma_stars_jetty *trs_jetty);
 struct trs_urma_ctx *trs_urma_ctx_create(void);
 void trs_urma_ctx_destroy(struct trs_urma_ctx *urma_ctx);
 struct trs_urma_proc_ctx *trs_get_urma_proc_ctx(uint32_t dev_id);
 drvError_t trs_urma_proc_ctx_init(struct trs_urma_proc_ctx *proc_ctx);
 void trs_urma_proc_ctx_uninit(struct trs_urma_proc_ctx *proc_ctx);
+void trs_dev_ubdma_uninit(uint32_t dev_id);
 int trs_query_fe_info(struct trs_urma_proc_ctx *proc_ctx);
 urma_target_jetty_t *trs_import_jfr(struct trs_urma_proc_ctx *proc_ctx, urma_jfr_id_t *jfr_id, urma_token_t *token);
 int trs_urma_cqe_poll_init_dev(uint32_t dev_id);

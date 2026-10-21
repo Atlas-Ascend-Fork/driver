@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdatomic.h>
 #include <pthread.h>
+#include <unistd.h>
 
 #include "rbtree.h"
 #include "ascend_hal.h"
@@ -24,6 +25,7 @@
 #include "svm_sys_cmd.h"
 #include "svm_urma_seg_register_client.h"
 #include "svm_urma_seg_mng.h"
+#include "va_allocator.h"
 
 struct seg_node_mng {
     pthread_rwlock_t rwlock;
@@ -119,42 +121,61 @@ static int _svm_urma_insert_client_seg(struct seg_node_mng *mng, u64 va, u64 siz
     return ret;
 }
 
+#define SVM_URMA_REF_WAIT_TIMEOUT_MS 120000ULL
+#define SVM_URMA_REF_WAIT_INTERVAL_US 10000U
+
 static int _svm_urma_erase_client_seg(struct seg_node_mng *mng, u64 va, u64 size,
                                       struct svm_urma_client_seg *client_seg, bool is_remote)
 {
     struct svm_urma_seg_node *node = NULL;
+    u64 elapsed = 0;
 
-    (void)pthread_rwlock_wrlock(&mng->rwlock);
-    node = svm_get_urma_seg_node(mng, va, size);
-    if (node == NULL) {
-        (void)pthread_rwlock_unlock(&mng->rwlock);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    if ((node->va != va) || (node->size != size)) {
-        svm_err("Seg node is invalid. (va=%llx; size=%llu; node_va=0x%llx; node_size=%llu\n", va, size, node->va,
-                node->size);
-        (void)pthread_rwlock_unlock(&mng->rwlock);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    if (atomic_load(&node->ref) > 1) {
-        if (is_remote) {
-            svm_err("Remote does not allow repeat. (va=0x%llx; size=%llu)\n", va, size);
+    while (1) {
+        (void)pthread_rwlock_wrlock(&mng->rwlock);
+        node = svm_get_urma_seg_node(mng, va, size);
+        if (node == NULL) {
             (void)pthread_rwlock_unlock(&mng->rwlock);
-            return DRV_ERROR_BUSY;
+            return DRV_ERROR_INVALID_VALUE;
         }
-        atomic_fetch_sub(&node->ref, 1);
-        *client_seg = node->client_seg;
+
+        if ((node->va != va) || (node->size != size)) {
+            svm_err("Seg node is invalid. (va=%llx; size=%llu; node_va=0x%llx; node_size=%llu\n", va, size, node->va,
+                    node->size);
+            (void)pthread_rwlock_unlock(&mng->rwlock);
+            return DRV_ERROR_INVALID_VALUE;
+        }
+
+        if (atomic_load(&node->ref) > 1) {
+            if (is_remote) {
+                svm_err("Remote is not allow repeat. (va=0x%llx; size=%llu)\n", va, size);
+                (void)pthread_rwlock_unlock(&mng->rwlock);
+                return DRV_ERROR_BUSY;
+            }
+
+            if (svm_va_is_in_range(va, size)) {
+                atomic_fetch_sub(&node->ref, 1);
+                *client_seg = node->client_seg;
+                (void)pthread_rwlock_unlock(&mng->rwlock);
+                return DRV_ERROR_NONE;
+            }
+            /* For malloc address, ref > 1 means an in-flight copy is holding a reference */
+            (void)pthread_rwlock_unlock(&mng->rwlock);
+            if (elapsed >= SVM_URMA_REF_WAIT_TIMEOUT_MS) {
+                svm_warn("Va is still in use. (va=0x%llx; size=%llu)\n", va, size);
+                return DRV_ERROR_BUSY;
+            }
+            (void)usleep(SVM_URMA_REF_WAIT_INTERVAL_US);
+            elapsed += SVM_URMA_REF_WAIT_INTERVAL_US / 1000;
+            continue;
+        }
+
+        /* ref == 1, safe to erase. No new copy can find this node after erase. */
+        svm_urma_seg_node_erase(mng, node);
         (void)pthread_rwlock_unlock(&mng->rwlock);
+        *client_seg = node->client_seg;
+        free(node);
         return DRV_ERROR_NONE;
     }
-
-    svm_urma_seg_node_erase(mng, node);
-    (void)pthread_rwlock_unlock(&mng->rwlock);
-    *client_seg = node->client_seg;
-    free(node);
-    return DRV_ERROR_NONE;
 }
 
 static int _svm_urma_get_seg_with_token_info(struct seg_node_mng *mng, u64 va, u64 size, urma_seg_t *seg, u32 *token_id,
@@ -192,6 +213,35 @@ static int _svm_urma_get_tseg(struct seg_node_mng *mng, u64 va, u64 size, urma_t
     return DRV_ERROR_NOT_EXIST;
 }
 
+static int _svm_urma_tseg_get(struct seg_node_mng *mng, u64 va, u64 size, urma_target_seg_t **tseg)
+{
+    struct svm_urma_seg_node *node = NULL;
+
+    (void)pthread_rwlock_rdlock(&mng->rwlock);
+    node = svm_get_urma_seg_node(mng, va, size);
+    if (node != NULL) {
+        *tseg = node->client_seg.tseg;
+        (void)atomic_fetch_add(&node->ref, 1);
+        (void)pthread_rwlock_unlock(&mng->rwlock);
+        return DRV_ERROR_NONE;
+    }
+    (void)pthread_rwlock_unlock(&mng->rwlock);
+
+    return DRV_ERROR_NOT_EXIST;
+}
+
+static void _svm_urma_tseg_put(struct seg_node_mng *mng, u64 va, u64 size)
+{
+    struct svm_urma_seg_node *node = NULL;
+
+    (void)pthread_rwlock_rdlock(&mng->rwlock);
+    node = svm_get_urma_seg_node(mng, va, size);
+    if (node != NULL) {
+        (void)atomic_fetch_sub(&node->ref, 1);
+    }
+    (void)pthread_rwlock_unlock(&mng->rwlock);
+}
+
 static int _svm_urma_get_token_id(struct seg_node_mng *mng, u64 va, u64 size, u32 *token_id, u32 *token_val)
 {
     struct svm_urma_seg_node *node = NULL;
@@ -221,8 +271,8 @@ static int _svm_urma_get_seg_size(struct seg_node_mng *mng, u64 va, u64 *size)
     }
 
     if (va != node->va) {
-        (void)pthread_rwlock_unlock(&mng->rwlock);
         svm_err("Va is not first addr. (va=0x%llx; first_va=0x%llx)\n", va, node->va);
+        (void)pthread_rwlock_unlock(&mng->rwlock);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -381,6 +431,24 @@ int svm_urma_get_tseg(u32 user_devid, struct svm_dst_va *dst_va, urma_target_seg
         return svm_urma_get_local_tseg(user_devid, dst_va->va, dst_va->size, tseg);
     } else {
         return svm_urma_get_remote_tseg(dst_va->devid, dst_va->va, dst_va->size, tseg);
+    }
+}
+
+int svm_urma_tseg_get(u32 user_devid, struct svm_dst_va *dst_va, urma_target_seg_t **tseg)
+{
+    if (dst_va->devid == svm_get_host_devid()) {
+        return _svm_urma_tseg_get(&g_local_seg_mng[user_devid], dst_va->va, dst_va->size, tseg);
+    } else {
+        return _svm_urma_tseg_get(&g_remote_seg_mng[dst_va->devid], dst_va->va, dst_va->size, tseg);
+    }
+}
+
+void svm_urma_tseg_put(u32 user_devid, struct svm_dst_va *dst_va)
+{
+    if (dst_va->devid == svm_get_host_devid()) {
+        _svm_urma_tseg_put(&g_local_seg_mng[user_devid], dst_va->va, dst_va->size);
+    } else {
+        _svm_urma_tseg_put(&g_remote_seg_mng[dst_va->devid], dst_va->va, dst_va->size);
     }
 }
 

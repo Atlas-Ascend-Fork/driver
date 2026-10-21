@@ -8,7 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-
 #ifndef __ABL_DMS_MEM_H
 #define __ABL_DMS_MEM_H
 
@@ -19,7 +18,7 @@ int dms_get_ddr_capacity(unsigned int dev_id, unsigned int vfid, unsigned long *
 int dms_get_ddr_utilization(unsigned int dev_id, unsigned int vfid, unsigned int *ddr_util);
 int dms_get_hbm_capacity(unsigned int dev_id, unsigned int vfid, unsigned int *total);
 int dms_get_hbm_utilization(unsigned int dev_id, unsigned int vfid, unsigned int *hbm_util);
-int dms_get_device_cgroup_info(unsigned int dev_id, unsigned int vfid, struct tag_cgroup_info* cg_info);
+int dms_get_device_cgroup_info(unsigned int dev_id, unsigned int vfid, struct tag_cgroup_info *cg_info);
 int DmsGetMemoryInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 int DmsSetMemoryInfo(unsigned int dev_id, unsigned int sub_cmd, void *buf, unsigned int size);
 int dms_set_memory_detect_info(unsigned int dev_id, unsigned int sub_cmd, void *buf, unsigned int size);

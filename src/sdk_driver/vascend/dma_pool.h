@@ -39,7 +39,7 @@ struct vdavinci_iova_info {
     struct dev_dma_sgt **sgt_array;
 };
 
-void hw_vdavinci_unpin_pages(struct hw_vdavinci *vdavinci);
+void hw_vdavinci_unpin_pages(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom);
 void hw_vdavinci_dma_pool_uninit(struct hw_vdavinci *vdavinci);
 int hw_vdavinci_dma_pool_init(struct hw_vdavinci *vdavinci);
 void hw_vdavinci_unplug_ram(struct hw_vdavinci *vdavinci, unsigned long start_gfn, unsigned long size);

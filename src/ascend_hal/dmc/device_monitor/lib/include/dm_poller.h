@@ -39,11 +39,11 @@
 
 #define POLLER_T_FD_LEN 2
 typedef struct poller_t {
-    int state;              /* poller module stats: all 4 status */
+    int state;                            /* poller module stats: all 4 status */
     int self_notify_fds[POLLER_T_FD_LEN]; /* poller internal communication fds
                                   use pipe channel: fds[0]-read fds[1]-write */
-    pthread_t owner;        /* thread id which call poller */
-    pthread_t looper;       /* poler id itself ID ( __do_poll ) */
+    pthread_t owner;                      /* thread id which call poller */
+    pthread_t looper;                     /* poler id itself ID ( __do_poll ) */
 
     LIST_T *fds_list;   /* poller fd_list which it detect */
     LIST_T *timer_list; /* poller timer_list which it detect */
@@ -87,11 +87,11 @@ typedef struct POLLER_ENTRY_S {
 } POLLER_ENTRY_T;
 
 struct POLLER_S {
-    int state;              /* status of poller, all 4 status */
+    int state;                            /* status of poller, all 4 status */
     int self_notify_fds[POLLER_T_FD_LEN]; /* fds which poller communicate with itself
                                use pipe channel: fds[0]-read fds[1]-write */
-    pthread_t owner;        /* thread id of owner of poller(create it) */
-    pthread_t looper;       /* thread id of poller itself */
+    pthread_t owner;                      /* thread id of owner of poller(create it) */
+    pthread_t looper;                     /* thread id of poller itself */
 
     LIST_T *fds_list;   /* fd list which poller detect */
     LIST_T *timer_list; /* timer list which poller detect */
@@ -102,8 +102,8 @@ extern int poller_destory(POLLER_T *poller);
 extern int poller_fd_add(POLLER_T *poller, int fd, short events, POLLER_FDS_HNDL_T handler, void *user_data,
                          int data_len);
 extern int poller_fd_remove(POLLER_T *poller, int fd, short events);
-extern int poller_timer_add(POLLER_T *poller, int timeout, POLLER_TIMEDOUT_T handler, void *user_data,
-                            int data_len, POLLER_TIMER_ID_T *timer_id);
+extern int poller_timer_add(POLLER_T *poller, int timeout, POLLER_TIMEDOUT_T handler, void *user_data, int data_len,
+                            POLLER_TIMER_ID_T *timer_id);
 extern int poller_timer_remove(POLLER_T *poller, POLLER_TIMER_ID_T *time_id);
 extern int poller_run(POLLER_T *poller);
 extern int poller_exit(POLLER_T *poller);

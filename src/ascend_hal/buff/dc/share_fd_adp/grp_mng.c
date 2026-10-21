@@ -294,6 +294,7 @@ static void socket_close(int sfd)
 static void scan_remove_residual_socket_file(const char *name)
 {
     char dir_path[BUF_LEN];
+    char file_path[BUF_LEN];
     struct dirent *ptr = NULL;
     DIR *dir = NULL;
     struct stat sb;
@@ -320,7 +321,11 @@ static void scan_remove_residual_socket_file(const char *name)
 
     while ((ptr = readdir(dir)) != NULL) {
         if (strncmp(ptr->d_name, name, strlen(name)) == 0) {
-            if (stat(ptr->d_name, &sb) == -1) {
+            ret = sprintf_s(file_path, (unsigned int)sizeof(file_path), "%s/%s", dir_path, ptr->d_name);
+            if (ret < 0) {
+                continue;
+            }
+            if (stat(file_path, &sb) == -1) {
                 continue;
             }
 
@@ -329,8 +334,8 @@ static void scan_remove_residual_socket_file(const char *name)
                 continue;
             }
 
-            (void)unlink(ptr->d_name);
-            buff_info("remove %s socket file\n", ptr->d_name);
+            (void)unlink(file_path);
+            buff_info("remove %s socket file\n", file_path);
         }
     }
 
@@ -479,7 +484,7 @@ static drvError_t get_proc_init_result(int sfd, int *result)
 
     cnt = recv(sfd, result, sizeof(*result), 0);
     if (cnt != (long)sizeof(*result)) {
-        buff_err("Recv msg failed. (sfd=%d; cnt=%ld; errno=%d)\n", sfd, cnt, errno);
+        buff_err("Resv msg failed. (sfd=%d; cnt=%ld; errno=%d)\n", sfd, cnt, errno);
         return DRV_ERROR_RECV_MESG;
     }
 
@@ -647,8 +652,7 @@ static drvError_t create_grp_para_check(const char *name, GroupCfg *cfg)
     }
 
     if (buff_kb_to_b(cfg->maxMemSize) > BUFF_MEM_MAX_SIZE) {
-        buff_err("name %s max_mem_size %llxKB exceeds max limit (max=%llxKB)\n", name, cfg->maxMemSize,
-                 (BUFF_MEM_MAX_SIZE / 1024));
+        buff_err("name %s max_mem_size %llxKB error\n", name, cfg->maxMemSize);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -738,10 +742,10 @@ static unsigned long long get_grp_max_mem_size_from_cfg(GroupCfg *cfg)
     if (cfg->cacheAllocFlag == 0) {
         /* cache_alloc feature no support default or min mem_size */
         if (cfg->maxMemSize == 0) {
-            buff_info("max_mem_size not config, use default %llxKB\n", cfg->maxMemSize);
+            buff_info("max_mem_size not config, use default %llx\n", cfg->maxMemSize);
             return BUFF_MEM_MAX_SIZE;
         } else if (buff_kb_to_b(cfg->maxMemSize) < BUFF_MEM_MIN_SIZE) {
-            buff_info("max_mem_size is too small, use min %llxKB\n", cfg->maxMemSize);
+            buff_info("max_mem_size is too small, use min %llx\n", cfg->maxMemSize);
             return BUFF_MEM_MIN_SIZE;
         }
     }
@@ -760,17 +764,25 @@ static drvError_t create_shr_mem_fd(const char *name, unsigned long long max_mem
     }
 
     ret = ftruncate(fd, (long)max_mem_size);
+    if (ret != 0) {
+        buff_err("file name %s ftruncate failed errno %d\n", name, errno);
+        (void)close(fd);
+        return DRV_ERROR_INNER_ERR;
+    }
 
     set_grp_shr_mem_fd(fd);
 
-    buff_info("file memfd create success. (name=%s; fd=%d; ret=%d)\n", name, fd, ret);
+    buff_info("file memfd create success. (name=%s; fd=%d)\n", name, fd);
 
     return DRV_ERROR_NONE;
 }
 
 bool is_cache_size_valid(unsigned long long cache_size)
 {
-    return ((cache_size != 0) && (buff_kb_to_b(cache_size) == get_grp_max_mem_size()));
+    if ((cache_size == 0) || (cache_size > (ULLONG_MAX / 1024))) {
+        return false;
+    }
+    return (buff_kb_to_b(cache_size) == get_grp_max_mem_size());
 }
 
 drvError_t buff_is_support(void)
@@ -838,7 +850,7 @@ int halGrpCreate(const char *name, GroupCfg *cfg)
         set_grp_cache_type(BUFF_CACHE);
     }
     if (ret != DRV_ERROR_NONE) {
-        buff_err("name %s register pool failed, max_mem_size %llxKB\n", name, max_mem_size);
+        buff_err("name %s register pool failed, len %llx\n", name, max_mem_size);
         goto out;
     }
 
@@ -874,13 +886,13 @@ int halGrpAddProc(const char *name, int pid, GroupShareAttr attr)
 
     pool_id = get_grp_pool_id();
     if (pool_id < 0) {
-        buff_err("name %s has not created grp\n", name);
+        buff_err("name %s has not created grp.\n", name);
         return (int)DRV_ERROR_INVALID_VALUE;
     }
 
     ret = pool_id_name_check(pool_id, name);
     if (ret != DRV_ERROR_NONE) {
-        buff_err("pool id %d name %s check failed\n", pool_id, name);
+        buff_err("pool id %d name %s check failed.\n", pool_id, name);
         return (int)ret;
     }
 

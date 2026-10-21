@@ -61,6 +61,12 @@ static bool trs_is_id_query_cmd(unsigned int cmd)
             (cmd == TRS_RES_ID_AVAIL_NUM_QUERY));
 }
 
+static inline bool trs_res_is_jetty_type(int res_type)
+{
+    return ((res_type == TRS_STARS_H2D_JETTY) || (res_type == TRS_STARS_D2D_IN_BOARD_JETTY) ||
+            (res_type == TRS_STARS_D2D_CROSS_BOARD_JETTY));
+}
+
 static int ioctl_trs_res_id_comm(struct trs_proc_ctx *proc_ctx, unsigned int cmd, unsigned long arg)
 {
     struct trs_core_ts_inst *ts_inst = NULL;
@@ -77,7 +83,7 @@ static int ioctl_trs_res_id_comm(struct trs_proc_ctx *proc_ctx, unsigned int cmd
     }
 
     if ((para.res_type < 0) || (trs_is_id_query_cmd(cmd) && (para.res_type >= TRS_CORE_MAX_ID_TYPE)) ||
-        (!trs_is_id_query_cmd(cmd) && (para.res_type >= TRS_HW_SQ))) {
+        (!trs_is_id_query_cmd(cmd) && (para.res_type >= TRS_HW_SQ) && !trs_res_is_jetty_type(para.res_type))) {
         trs_err("Invalid para. (cmd=%d; res_type=%d)\n", _KA_IOC_NR(cmd), para.res_type);
         return -EINVAL;
     }
@@ -167,7 +173,7 @@ static int ioctl_trs_hw_info_query(struct trs_proc_ctx *proc_ctx, unsigned int c
     int hw_type = TRS_HW_TYPE_STARS;
     int connection_type = TRS_CONNECT_PROTOCOL_UNKNOWN;
     enum trsSqSendMode sq_send_mode = TRS_MODE_TYPE_SQ_SEND_HIGH_SECURITY;
-    int tsnum = 0;
+    int tsnum = 0, die_id = -1;
     int ret, tsid;
 
     if (usr_para == NULL) {
@@ -189,6 +195,10 @@ static int ioctl_trs_hw_info_query(struct trs_proc_ctx *proc_ctx, unsigned int c
             if (ts_inst->ops.get_sq_send_mode != NULL) {
                 sq_send_mode = ts_inst->ops.get_sq_send_mode(proc_ctx->devid);
             }
+
+            if (ts_inst->ops.get_stars_die_id != NULL) {
+                die_id = ts_inst->ops.get_stars_die_id(&ts_inst->inst);
+            }
             trs_core_inst_put(ts_inst);
         }
     }
@@ -201,6 +211,7 @@ static int ioctl_trs_hw_info_query(struct trs_proc_ctx *proc_ctx, unsigned int c
     ret |= ka_base_put_user(tsnum, &usr_para->tsnum);
     ret |= ka_base_put_user(connection_type, &usr_para->connection_type);
     ret |= ka_base_put_user(sq_send_mode, &usr_para->sq_send_mode);
+    ret |= ka_base_put_user(die_id, &usr_para->die_id);
 
     return ret;
 }
@@ -1220,7 +1231,7 @@ static long trs_ioctl(ka_file_t *file, unsigned int cmd, unsigned long arg)
     int ret;
 
     if ((cmd_nr < 0) || (cmd_nr >= TRS_MAX_CMD) || (trs_ioctl_handles[cmd_nr] == NULL)) {
-        trs_err("Unsupported command. (cmd_nr=%d)\n", cmd_nr);
+        trs_debug("Unsupported command. (cmd_nr=%d)\n", cmd_nr);
         return -EOPNOTSUPP;
     }
 
@@ -1301,7 +1312,7 @@ static int trs_ts_inst_open(struct trs_proc_ctx *proc_ctx)
 exit:
 #ifndef EMU_ST
     for (i = (int)(tsid - 1); i >= 0; i--) {
-        ts_inst = proc_ctx->ts_ctx[tsid].ts_inst;
+        ts_inst = proc_ctx->ts_ctx[i].ts_inst;
         if (ts_inst == NULL) {
             continue;
         }
@@ -1310,7 +1321,7 @@ exit:
             ka_mm_mmput(proc_ctx->mm);
         }
         if (ts_inst->ops.proc_unbind_smmu != NULL) {
-            ts_inst->ops.proc_unbind_smmu(proc_ctx->ts_ctx[tsid].smmu_inst, proc_ctx->pid);
+            ts_inst->ops.proc_unbind_smmu(proc_ctx->ts_ctx[i].smmu_inst, proc_ctx->pid);
         }
         ka_system_module_put(ts_inst->ops.owner);
     }
@@ -1488,8 +1499,13 @@ static ka_vm_operations_struct_t trs_vm_ops = {ka_vm_ops_init_mremap(trs_mremap)
 static int trs_mmap(ka_file_t *file, ka_vm_area_struct_t *vma)
 {
     ka_mm_set_vm_ops(vma, &trs_vm_ops);
+#ifdef CFG_FEATURE_NOT_SUPPORT_VM_LOCKED
+    ka_mm_set_vm_flags(
+        vma, ka_mm_get_vm_flags(vma) | KA_VM_DONTEXPAND | KA_VM_DONTDUMP | KA_VM_DONTCOPY | KA_VM_IO | KA_VM_PFNMAP);
+#else
     ka_mm_set_vm_flags(vma, ka_mm_get_vm_flags(vma) | KA_VM_LOCKED | KA_VM_DONTEXPAND | KA_VM_DONTDUMP |
                                 KA_VM_DONTCOPY | KA_VM_IO | KA_VM_PFNMAP);
+#endif
     if (!(ka_mm_get_vm_flags(vma) & KA_VM_WRITE)) {
         ka_mm_vm_flags_clear(vma, KA_VM_MAYWRITE);
     }
@@ -1503,10 +1519,43 @@ static int trs_release(ka_inode_t *inode, ka_file_t *file)
     return 0;
 }
 
+static int _trs_release_by_exit_stage(struct trs_proc_ctx *proc_ctx, int stage);
+
+#if IS_ENABLED(CONFIG_KILL_MGR_V2)
+static int trs_early_release(ka_inode_t *inode, ka_file_t *file)
+{
+#ifdef CFG_FEATURE_SUPPORT_FAST_EXIT
+    struct trs_task_info_struct *task_info = ka_fs_get_file_private_data(file);
+    struct trs_proc_ctx *proc_ctx = NULL;
+    int stage = APM_STAGE_STOP_STREAM;
+    int ret;
+    /* fd not opened normally or already released */
+    if (task_info == NULL) {
+        return 0;
+    }
+
+    proc_ctx = task_info->proc_ctx;
+    if (proc_ctx == NULL) {
+        return 0;
+    }
+
+    ret = _trs_release_by_exit_stage(proc_ctx, stage);
+    if (ret != 0) {
+        return ret;
+    }
+    trs_info("Early release end.\n");
+#endif
+    return 0;
+}
+#endif
+
 static ka_file_operations_t trs_fops = {
     .owner = KA_THIS_MODULE,
     .open = trs_open,
     .release = trs_release,
+#if IS_ENABLED(CONFIG_KILL_MGR_V2)
+    .early_release = trs_early_release,
+#endif
     .unlocked_ioctl = trs_ioctl,
     .mmap = trs_mmap_not_support,
 };
@@ -1696,6 +1745,10 @@ static int trs_release_by_exit_stage(ka_notifier_block_t *self, unsigned long va
     int tgid = apm_get_exit_tgid(val);
     int stage = apm_get_exit_stage(val);
     int ret, i;
+
+    if (stage > APM_STAGE_RECYCLE_RES) {
+        return KA_NOTIFY_OK;
+    }
 
     for (i = 0; i < TRS_DEV_MAX_NUM; i++) {
         struct trs_proc_ctx *proc_ctx = NULL;

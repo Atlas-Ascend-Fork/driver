@@ -36,6 +36,9 @@ void svm_recycle_handle_register(void (*func)(void))
     for (i = 0; i < SVM_MAX_RECYCLE_HANDLE_NUM; i++) {
         if (g_recycle_handle[i] == NULL) {
             g_recycle_handle[i] = func;
+#ifndef EMU_ST
+            break;
+#endif
         }
     }
 }

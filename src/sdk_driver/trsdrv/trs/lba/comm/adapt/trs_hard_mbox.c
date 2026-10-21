@@ -76,7 +76,7 @@ static struct trs_mbox_chan *trs_mbox_chan_create(struct trs_id_inst *inst, stru
         trs_err("Ioremap chan base fail. (size=0x%lx)\n", attr->size);
         return NULL;
     }
-    ka_mm_memset_io(chan->base, 0, chan->size);
+    ka_mm_memset_io(chan->base, 0, attr->size);
     chan->size = attr->size;
     chan->priv = attr->priv;
     chan->ops = attr->ops;

@@ -8,7 +8,7 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ------------------------------------------------------------------------------------------------------------
 
-$(MODULE_NAME)-objs += lba/near/sriov_sec_enhanced/adapt/trs_sec_eh.o lba/near/sriov_sec_enhanced/adapt/trs_sec_eh_vpc.o
+$(MODULE_NAME)-objs += lba/near/sriov_sec_enhanced/adapt/trs_sec_eh.o lba/near/sriov_sec_enhanced/adapt/trs_sec_eh_vpc.o lba/near/sriov_sec_enhanced/adapt/trs_sec_eh_trsbase_feature.o
 $(MODULE_NAME)-objs += lba/near/sriov_sec_enhanced/adapt/trs_sec_eh_chan/trs_sec_eh_chan.o lba/near/sriov_sec_enhanced/adapt/trs_sec_eh_core/trs_sec_eh_core.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/soc_adapt/soc_adapt.o lba/near/comm/adapt/soc_adapt/cloud_v2/soc_adapt_res_cloud_v2.o lba/near/comm/adapt/soc_adapt/mini_v3/soc_adapt_res_mini_v3.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/soc_adapt/cloud_v4/soc_adapt_res_cloud_v4.o
@@ -22,7 +22,7 @@ $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_chan/trs_chan_near_ops_mem.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_core/stars_v1/trs_core_stars_v1_ops.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_core/stars_v2/trs_core_stars_v2_ops.o lba/near/comm/adapt/trs_host_core/stars_v2/trs_ub_info.o
 $(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_id.o lba/near/comm/adapt/trs_host_msg.o lba/near/comm/adapt/trs_host_comm.o lba/near/comm/adapt/trs_host_rpc.o lba/near/comm/adapt/trs_host_ts_cq.o lba/near/comm/adapt/trs_near_adapt_init.o lba/near/comm/adapt/trs_host_core/trs_core_near_ops.o lba/near/comm/adapt/trs_host_group.o lba/near/comm/adapt/trs_host_accelerator_util.o
-$(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_mode_config.o
+$(MODULE_NAME)-objs += lba/near/comm/adapt/trs_host_mode_config.o lba/near/comm/adapt/trs_host_feature.o
 $(MODULE_NAME)-objs += lba/comm/adapt/trs_chan_irq.o lba/comm/adapt/trs_chan_mbox.o lba/comm/adapt/trs_chan_mem_pool.o lba/comm/adapt/trs_chan_mem.o lba/comm/adapt/trs_chan_update.o lba/comm/adapt/trs_rsv_mem.o lba/comm/adapt/trs_ts_db.o lba/comm/adapt/trs_ts_status.o lba/comm/adapt/trs_id_range.o
 $(MODULE_NAME)-objs += lba/comm/adapt/stars_v1/trs_chan_sqcq.o lba/comm/adapt/trs_stars.o lba/comm/adapt/stars_v1/trs_stars_cq.o lba/comm/adapt/stars_v1/trs_stars_sq.o lba/comm/adapt/trs_chan_maint_sqcq.o
 $(MODULE_NAME)-objs += lba/comm/adapt/stars_v2/trs_stars_v2_chan_sqcq.o lba/comm/adapt/stars_v2/trs_stars_v2_cq.o lba/comm/adapt/stars_v2/trs_stars_v2_sq.o

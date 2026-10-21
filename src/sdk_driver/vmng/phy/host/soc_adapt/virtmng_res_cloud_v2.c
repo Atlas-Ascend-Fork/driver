@@ -52,7 +52,7 @@ STATIC int vmngh_sriov_reset_vdev_cloud_v2(u32 dev_id)
     vf_id = mia_para.sub_devid + 1;
 
     if ((pf_id >= ASCEND_PDEV_MAX_NUM) || (vf_id >= VMNG_VDEV_MAX_PER_PDEV)) {
-        vmng_err("Get pf_id or vf_id invalid. (dev_id=%u;pf_id=%u;vf_id=%u)\n", dev_id, pf_id, vf_id);
+        vmng_err("Get pf_id or vf_id invalid. (dev_id=%u; pf_id=%u; vf_id=%u)\n", dev_id, pf_id, vf_id);
         return -EINVAL;
     }
 
@@ -65,7 +65,7 @@ STATIC int vmngh_sriov_reset_vdev_cloud_v2(u32 dev_id)
     ret = vmngh_container_client_offline_comm(pf_id, vf_id);
     if (ret != 0) {
         ka_task_mutex_unlock(&vmngh_get_ctrl(pf_id, vf_id)->reset_mutex);
-        vmng_err("Vf device offline failed.(dev_id=%u;vfid=%u;ret=%d)\n", pf_id, vf_id, ret);
+        vmng_err("Vf device offline failed.(dev_id=%u; pf_id=%u; vfid=%u; ret=%d)\n", dev_id, pf_id, vf_id, ret);
         return ret;
     }
 
@@ -81,23 +81,23 @@ STATIC int vmngh_sriov_reset_vdev_cloud_v2(u32 dev_id)
     }
 vf_recover:
     if (vmngh_init_instance_client_device(pf_id, vf_id) != VMNG_OK) {
-        vmng_err("Init instance all client device failed. (dev_id=%u; vfid=%u)\n", pf_id, vf_id);
+        vmng_err("Init instance all client device failed. (dev_id=%u; pf_id=%u; vfid=%u)\n", dev_id, pf_id, vf_id);
         ret = VMNG_ERR;
     }
 
     if (vmngh_ctrl_sriov_init_instance(pf_id, vf_id) != VMNG_OK) {
-        vmng_err("pci init instance error. (pf_id=%u;vfid=%u;dev_id=%u;ret=%d)\n", pf_id, vf_id, dev_id, ret);
+        vmng_err("pci init instance error. (dev_id=%u; pf_id=%u; vfid=%u; ret=%d)\n", dev_id, pf_id, vf_id, ret);
         ret = VMNG_ERR;
     }
 
     if (vmngh_init_instance_all_client(pf_id, vf_id, VMNGH_CONTAINER) != VMNG_OK) {
-        vmng_err("Init instance all client failed. (dev_id=%u; vfid=%u)\n", pf_id, vf_id);
+        vmng_err("Init instance all client failed. (dev_id=%u; pf_id=%u; vfid=%u)\n", dev_id, pf_id, vf_id);
         ret = VMNG_ERR;
     }
 
     if (vmngh_add_mia_dev(pf_id, vf_id, 0) != 0) {
         ret = VMNG_ERR;
-        vmng_err("Call vmngh_add_mia_dev failed. (dev_id=%u; vfid=%u)\n", pf_id, vf_id);
+        vmng_err("Call vmngh_add_mia_dev failed. (dev_id=%u; pf_id=%u; vfid=%u)\n", dev_id, pf_id, vf_id);
     }
 
     ka_task_mutex_unlock(&vmngh_get_ctrl(pf_id, vf_id)->reset_mutex);
@@ -129,4 +129,9 @@ int vmngh_res_init_cloud_v2(u32 devid, struct vmngh_ctrl_ops *ops)
     ops->valid = VMNG_VALID;
 
     return VMNG_OK;
+}
+
+vmng_feature_bitmap_t vmngh_feature_init_cloud_v2(void)
+{
+    return (1ULL << VMNG_FEATURE_MIA_RES) | (1ULL << VMNG_FEATURE_VM_FULL_VF_EN);
 }

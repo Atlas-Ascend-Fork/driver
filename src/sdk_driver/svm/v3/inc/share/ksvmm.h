@@ -23,6 +23,8 @@ int ksvmm_add_seg(u32 udevid, int tgid, u64 start, struct svm_global_va *src_inf
 /* If mem ref if bigger than 1(pin by others), del method will return -EBUSY. */
 int ksvmm_del_seg(u32 udevid, int tgid, u64 start); /* start must same with the start in added */
 int ksvmm_get_seg(u32 udevid, int tgid, u64 va, u64 *start, struct svm_global_va *src_info);
+int ksvmm_for_each_seg(u32 udevid, int tgid, int (*func)(u64 start, struct svm_global_va *src_info, void *priv),
+                       void *priv);
 int ksvmm_pin_seg(u32 udevid, int tgid, u64 va, u64 size); /* va and size is in range of added mapped va */
 int ksvmm_unpin_seg(u32 udevid, int tgid, u64 va, u64 size);
 int ksvmm_check_range(u32 udevid, int tgid, u64 va, u64 size);

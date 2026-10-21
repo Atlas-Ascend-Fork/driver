@@ -16,11 +16,11 @@
 enum devdrv_arch_type {
     ARCH_BEGIN = 0,
     ARCH_V100 = ARCH_BEGIN, /* Ascend310，Ascend910，Ascend910B Ascend910_93 used value */
-    ARCH_V200,     /* Ascend310P */
-    ARCH_V300,     /* Ascend310B */
-    ARCH_C100 = 3, /* Ascend910 real value */
-    ARCH_C220 = 4, /* Ascend910B & Ascend910_93 real value */
-    ARCH_M100 = 5, /* Ascend310 real value */
+    ARCH_V200,              /* Ascend310P */
+    ARCH_V300,              /* Ascend310B */
+    ARCH_C100 = 3,          /* Ascend910 real value */
+    ARCH_C220 = 4,          /* Ascend910B & Ascend910_93 real value */
+    ARCH_M100 = 5,          /* Ascend310 real value */
     ARCH_M200 = 6,
     ARCH_M201 = 7,
     ARCH_T300 = 8, /* Tiny */
@@ -36,25 +36,31 @@ enum devdrv_arch_type {
 enum devdrv_chip_type {
     CHIP_BEGIN = 0,
     CHIP_MINI = CHIP_BEGIN, /* Ascend310 */
-    CHIP_CLOUD,  /* Ascend910 */
-    CHIP_RSVD_1, /* Reserved */
-    CHIP_LHISI,  /* Hi3796CV300ES & TsnsE, Hi3796CV300CS & OPTG & SD3403 &TsnsC */
-    CHIP_DC,     /* Ascend310P */
-    CHIP_CLOUD_V2 = 5,     /* Ascend910B & Ascend910_93 */
-    CHIP_RSVD_2 = 6,     /* Reserved */
-    CHIP_MINI_V3 = 7,  /* Ascend310B */
-    CHIP_TINY_V1 = 8,  /* Tiny */
-    CHIP_NANO_V1 = 9,  /* Nano */
-    CHIP_KUNPENG_V1 = 10, /* KUNPENG */
-    CHIP_RSVD_3 = 11, /* Reserved */
-    CHIP_RSVD_4 = 12, /* Reserved */
-    CHIP_CLOUD_V3 = 13,  /* Ascend910_93 */
-    CHIP_RSVD_5 = 14,    /* Reserved */
-    CHIP_CLOUD_V4 = 15,  /* Ascend950 */
-    CHIP_CLOUD_V5 = 16,  /* Ascend910_96 */
-    CHIP_RSVD_6 = 17,    /* Reserved */
-    CHIP_RSVD_7 = 18,    /* Reserved */
-    CHIP_MINI_V4 = 19,   /* Ascend350 */
+    CHIP_CLOUD,             /* Ascend910 */
+    CHIP_RSVD_1,            /* Reserved */
+    CHIP_LHISI,             /* Hi3796CV300ES & TsnsE, Hi3796CV300CS & OPTG & SD3403 &TsnsC */
+    CHIP_DC,                /* Ascend310P */
+    CHIP_CLOUD_V2 = 5,      /* Ascend910B & Ascend910_93 */
+    CHIP_RSVD_2 = 6,        /* Reserved */
+    CHIP_MINI_V3 = 7,       /* Ascend310B */
+    CHIP_TINY_V1 = 8,       /* Tiny */
+    CHIP_NANO_V1 = 9,       /* Nano */
+    CHIP_KUNPENG_V1 = 10,   /* KUNPENG */
+    CHIP_RSVD_3 = 11,       /* Reserved */
+    CHIP_RSVD_4 = 12,       /* Reserved */
+    CHIP_CLOUD_V3 = 13,     /* Ascend910_93 */
+    CHIP_RSVD_5 = 14,       /* Reserved */
+    CHIP_CLOUD_V4 = 15,     /* Ascend950 */
+    CHIP_CLOUD_V5 = 16,     /* Ascend960 */
+    CHIP_RSVD_6 = 17,       /* Reserved */
+    CHIP_RSVD_7 = 18,       /* Reserved */
+    CHIP_MINI_V4 = 19,      /* Ascend350 */
+    CHIP_XPU = 20,          /* Keep value aligned, not use in driver */
+    CHIP_5162A = 21,        /* Keep value aligned, not use in driver */
+    CHIP_CLOUD_V6 = 22,     /* Ascend960PR(David V122) */
+    CHIP_CLOUD_V7 = 23,     /* Ascend970 */
+    CHIP_MINI_V5_RC = 24,   /* Ascend310N_RC */
+    CHIP_MINI_V5 = 25,      /* Ascend310N */
     CHIP_END
 };
 

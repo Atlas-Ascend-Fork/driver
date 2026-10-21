@@ -169,7 +169,11 @@ int32_t tsagent_sqe_update_src_check(uint32_t devid, uint32_t tsid, struct trs_s
     }
 
     sqe = (ts_stars_sqe_t *)update_info->sqe;
-    sqe_dest = (ts_stars_sqe_t *)(update_info->sq_base) + update_info->sqeid;
+    if (update_info->addr_non_continuous) {
+        sqe_dest = (ts_stars_sqe_t *)update_info->dst_sqe;
+    } else {
+        sqe_dest = (ts_stars_sqe_t *)(update_info->sq_base) + update_info->sqeid;
+    }
 
     if ((sqe->sqe_length > TS_AGENT_SQE_LENGTH_MAX) ||
         ((sqe->sqe_length + 1) * sizeof(ts_stars_sqe_t) != update_info->size)) {

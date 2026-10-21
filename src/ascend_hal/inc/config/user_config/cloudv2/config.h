@@ -11,112 +11,113 @@
 #define __CONFIG_H
 
 #ifndef NULL
-#define NULL    (0L)
+#define NULL (0L)
 #endif
 /*
- * 用户配置区静态选项
+ * Static options for user config area
  */
-#define CURRENT_USER_CONFIG_VERSION     1                       /* 当前软件能支持的用户配置的版本号 */
+#define CURRENT_USER_CONFIG_VERSION 1 /* User config version supported by current software */
 
-#define UC_FLASH_MAIN_ADDR              0x3E00000                /* 配置所在的flash主区偏移地址 */
-#define UC_FLASH_BK_ADDR                0x3E80000                /* 配置所在的flash备区偏移地址 */
-#define UC_FLASH_DEV_OFFSET             0x100000                 /* 配置共flash场景每个device的地址差值 */
+#define UC_FLASH_MAIN_ADDR 0x3E00000 /* Flash main area offset address of config */
+#define UC_FLASH_BK_ADDR 0x3E80000   /* Flash backup area offset address of config */
+#define UC_FLASH_DEV_OFFSET 0x100000 /* Address difference per device in shared-flash config scenario */
 
-#define UC_FLASH_PARTITION_NUM          16                      /* 用户配置分区数量 */
-#define UC_FLASH_PARTITION_MAIN_NUM     8                       /* 用户配置区主区数量 */
-#define UC_FLASH_PARTITION_BK_NUM       8                       /* 用户配置区备区数量 */
-#define UC_FLASH_PARTITION_SIZE         (64 * 1024)             /* 用户配置分区大小(字节数) */
+#define UC_FLASH_PARTITION_NUM 16           /* Number of user config partitions */
+#define UC_FLASH_PARTITION_MAIN_NUM 8       /* Number of main partitions in user config area */
+#define UC_FLASH_PARTITION_BK_NUM 8         /* Number of backup partitions in user config area */
+#define UC_FLASH_PARTITION_SIZE (64 * 1024) /* User config partition size (bytes) */
 
-#define UC_VERION_FLASH_OFFSET          0                       /* 配置版本号偏移 */
-#define UC_CONFIG_FLASH_OFFSET          4                       /* 配置内容偏移 */
-#define UC_CHECK_FLASH_OFFSET           (64 * 1024 - 4 - 32)    /* 配置校验码偏移 */
-#define UC_VALID_FLASH_OFFSET           (64 * 1024 - 4)         /* 配置分区有效标志偏移 */
-#define UC_VALID_FLAG_VALUE             (0x8a7b6c5dU)              /* 配置分区有效标志值 */
+#define UC_VERION_FLASH_OFFSET 0                   /* Config version offset */
+#define UC_CONFIG_FLASH_OFFSET 4                   /* Config content offset */
+#define UC_CHECK_FLASH_OFFSET (64 * 1024 - 4 - 32) /* Config checksum offset */
+#define UC_VALID_FLASH_OFFSET (64 * 1024 - 4)      /* Config partition valid flag offset */
+#define UC_VALID_FLAG_VALUE (0x8a7b6c5dU)          /* Config partition valid flag value */
 
-#define UC_ITEM_VALID_VALUE             1                       /* 配置项有效标志值 */
-#define UC_ITEM_MAX_NUM                 5                       /* 配置项数量 */
-#define UC_ITEM_DATA_MAX_LEN            0x8000                  /* 配置内容的最大长度,32KB */
+#define UC_ITEM_VALID_VALUE 1       /* Config item valid flag value */
+#define UC_ITEM_MAX_NUM 5           /* Number of config items */
+#define UC_ITEM_DATA_MAX_LEN 0x8000 /* Max length of config content, 32KB */
 
-/* 配置项数据字节数(最少为2，第1字节为有效性) */
-#define UC_P2P_SIZE                     2
-#define UC_DDR_ECC_SIZE                 2
-#define UC_LOG_LEVEL_SIZE               2
-#define UC_USER_SHADOW_SIZE             (2048 + 1)              /* 1个字节是有效性标志 */
-#define UC_USER_SPOD_SIZE               (16 + 1)                /* 1个字节是有效性标志 */
-#define UC_MAC_INFO_1_SIZE              (16 + 1)                /* 1个字节是有效性标志 */
-#define UC_MAC_INFO_SIZE                16                      /* 16个字节MAC信息存储 */
-#define UC_SIGN_AUTH_ENABLE_SIZE        2                       /* 2个字节存储验签标志 */
+/* Config item data bytes (min 2, first byte is validity) */
+#define UC_P2P_SIZE 2
+#define UC_DDR_ECC_SIZE 2
+#define UC_LOG_LEVEL_SIZE 2
+#define UC_USER_SHADOW_SIZE (2048 + 1) /* 1 byte is validity flag */
+#define UC_USER_SPOD_SIZE (16 + 1)     /* 1 byte is validity flag */
+#define UC_MAC_INFO_1_SIZE (16 + 1)    /* 1 byte is validity flag */
+#define UC_MAC_INFO_SIZE 16            /* 16 bytes MAC info storage */
+#define UC_SIGN_AUTH_ENABLE_SIZE 2     /* 2 bytes store signature verification flag */
 
-/* 配置内容中各项偏移 */
-#define UC_P2P_OFFSET          0                                /* P2P用户配置偏移 */
-#define UC_DDR_ECC_OFFSET      (UC_P2P_OFFSET + UC_P2P_SIZE)    /* DDE ECC使能用户配置偏移 */
-#define UC_LOG_LEVEL_OFFSET    (UC_DDR_ECC_OFFSET + UC_DDR_ECC_SIZE) /* LOG级别用户配置偏移 */
-#define UC_USERSHADOW_OFFSET   (UC_LOG_LEVEL_OFFSET + UC_LOG_LEVEL_SIZE) /* usershadow_0用户配置偏移 */
-#define UC_USERSPOD_OFFSET     (UC_USERSHADOW_OFFSET + UC_USER_SHADOW_SIZE) /* SPOD 用户配置偏移 */
-#define UC_MAC_INFO_1_OFFSET   (UC_USERSPOD_OFFSET + UC_USER_SPOD_SIZE) /* MAC INFO 1 用户配置偏移 */
-#define UC_MAC_INFO_OFFSET     0  /* MAC INFO用户配置偏移 */
-#define UC_SIGN_AUTH_ENABLE_OFFSET (UC_MAC_INFO_1_OFFSET + UC_MAC_INFO_1_SIZE)  /* 验签标志用户配置偏移 */
+/* Offsets of each item in config content */
+#define UC_P2P_OFFSET 0                                                 /* P2P user config offset */
+#define UC_DDR_ECC_OFFSET (UC_P2P_OFFSET + UC_P2P_SIZE)                 /* DDR ECC enable user config offset */
+#define UC_LOG_LEVEL_OFFSET (UC_DDR_ECC_OFFSET + UC_DDR_ECC_SIZE)       /* LOG level user config offset */
+#define UC_USERSHADOW_OFFSET (UC_LOG_LEVEL_OFFSET + UC_LOG_LEVEL_SIZE)  /* usershadow_0 user config offset */
+#define UC_USERSPOD_OFFSET (UC_USERSHADOW_OFFSET + UC_USER_SHADOW_SIZE) /* SPOD user config offset */
+#define UC_MAC_INFO_1_OFFSET (UC_USERSPOD_OFFSET + UC_USER_SPOD_SIZE)   /* MAC INFO 1 user config offset */
+#define UC_MAC_INFO_OFFSET 0                                            /* MAC INFO user config offset */
+#define UC_SIGN_AUTH_ENABLE_OFFSET \
+    (UC_MAC_INFO_1_OFFSET + UC_MAC_INFO_1_SIZE) /* Signature verification flag user config offset */
 
-/* 配置项权限控制 */
-#define UC_AUTHORITY_ROOT_WR	(0) /* root 用户可读可写 普通用户无法访问 */
-#define UC_AUTHORITY_USER_WR	(1) /* root 用户可读可写 普通用户可读可写 */
-#define UC_AUTHORITY_USER_RO	(2) /* root 用户可读可写 普通用户只读 */
-#define UC_USER_PARA_ERR    -1
-#define UC_USER_PARA_OK     0
+/* Config item authority control */
+#define UC_AUTHORITY_ROOT_WR (0) /* root user read/write, normal user no access */
+#define UC_AUTHORITY_USER_WR (1) /* root user read/write, normal user read/write */
+#define UC_AUTHORITY_USER_RO (2) /* root user read/write, normal user read-only */
+#define UC_USER_PARA_ERR -1
+#define UC_USER_PARA_OK 0
 
-/* 用户配置项信息 */
+/* User config item info */
 struct user_config_item {
-    const char *name;             /* 配置项名 */
-    int  board_id;          /* 此配置属于board_id的单板，如果board_id为-1，那么所有board_id都使用 */
-    int  offset;            /* 配置项数据地址偏移 */
-    int  len;               /* 数据字节长度,至少为2，第1字节为配置有效性,1为有效 */
-    int  authority_flag;    /* 配置项权限， 定义见UC_AUTHORITY_XXX */
-    const char *default_data;     /* 配置项默认值,数据为字符串,例如: "0x12,0x34,0x78,0xaa" */
+    const char *name;         /* Config item name */
+    int board_id;             /* Board ID this config belongs to; if board_id is -1, all board IDs use this config */
+    int offset;               /* Config item data address offset */
+    int len;                  /* Data byte length, min 2; first byte is config validity, 1 means valid */
+    int authority_flag;       /* Config item authority, see UC_AUTHORITY_XXX */
+    const char *default_data; /* Config item default value, data is string, e.g.: "0x12,0x34,0x78,0xaa" */
     int (*check_para)(unsigned int buf_size, unsigned char *buf);
 };
 
 /*
- * user config配置项
+ * User config items
  */
-#define DDR_ECC_CONFIG_NAME      "ddr_ecc_enable"
-#define SSH_CONFIG_NAME             "ssh_status"
-#define CPU_NUM_CONFIG_NAME         "cpu_num_cfg"
-#define P2P_MEM_CONFIG_NAME         "p2p_mem_cfg"
-#define CCPU_USR_CERT_CONFIG_NAME   "ccpu_usr_cert_hash"
-#define UBMEM_RETRY_FLAG_NAME       "ubmem_retry_flag"
+#define DDR_ECC_CONFIG_NAME "ddr_ecc_enable"
+#define SSH_CONFIG_NAME "ssh_status"
+#define CPU_NUM_CONFIG_NAME "cpu_num_cfg"
+#define P2P_MEM_CONFIG_NAME "p2p_mem_cfg"
+#define CCPU_USR_CERT_CONFIG_NAME "ccpu_usr_cert_hash"
+#define UBMEM_RETRY_FLAG_NAME "ubmem_retry_flag"
 
-#define AUTH_CONFIG_ENABLE_NAME     "sign_auth_enable"
-#define AUTH_CONFIG_ENABLE           1
-#define AUTH_CONFIG_DISENABLE        0
+#define AUTH_CONFIG_ENABLE_NAME "sign_auth_enable"
+#define AUTH_CONFIG_ENABLE 1
+#define AUTH_CONFIG_DISENABLE 0
 
 static int spod_info_check_para(unsigned int buf_size, unsigned char *buf);
 static int cpu_sign_auth_check_para(unsigned int buf_size, unsigned char *buf);
 /*
- * default_data字段必须保证，以"0x"开始，每两个字符表示一个字节
- * 例如: 数值0，1表示为 0x0001
+ * default_data field must start with "0x", every two chars represent one byte
+ * e.g.: value 0,1 represented as 0x0001
  */
 static const struct user_config_item user_cfg_version_1[UC_ITEM_MAX_NUM] = {
     {"usershadow", -1, UC_USERSHADOW_OFFSET, UC_USER_SHADOW_SIZE, UC_AUTHORITY_ROOT_WR, "0x00", NULL},
     {"mac_info", -1, UC_MAC_INFO_OFFSET, UC_MAC_INFO_SIZE, UC_AUTHORITY_USER_WR, "0x00", NULL},
     {"spod_info", -1, UC_USERSPOD_OFFSET, UC_USER_SPOD_SIZE, UC_AUTHORITY_USER_WR, "0x00", spod_info_check_para},
     {"mac_info_1", -1, UC_MAC_INFO_1_OFFSET, UC_MAC_INFO_1_SIZE, UC_AUTHORITY_USER_WR, "0x00", NULL},
-    {"sign_auth_enable", -1, UC_SIGN_AUTH_ENABLE_OFFSET, UC_SIGN_AUTH_ENABLE_SIZE,
-        UC_AUTHORITY_USER_WR, "0x00", cpu_sign_auth_check_para},
+    {"sign_auth_enable", -1, UC_SIGN_AUTH_ENABLE_OFFSET, UC_SIGN_AUTH_ENABLE_SIZE, UC_AUTHORITY_USER_WR, "0x00",
+     cpu_sign_auth_check_para},
 };
 
-#define UC_ITEM_INDEX_USER_SHADOW          0
-#define UC_ITEM_INDEX_MAC_INFO             1
+#define UC_ITEM_INDEX_USER_SHADOW 0
+#define UC_ITEM_INDEX_MAC_INFO 1
 
 /*
- * 用户配置区动态选项
+ * Dynamic options for user config area
  */
-/* 动态配置头地址 */
-#define UC_DYNAMIC_CFG_HEAD_OFFSET          0x2000  // 8KB
-#define UC_CFG_HEAD_LEN_OFFSET              UC_DYNAMIC_CFG_HEAD_OFFSET
-#define UC_CFG_HEAD_BYTES                   4       // 4Bytes
-#define UC_CFG_HEAD_ITEM_START              (UC_DYNAMIC_CFG_HEAD_OFFSET + UC_CFG_HEAD_BYTES)
-#define UC_CFG_NAME_LEN_MAX                 32
-#define UC_SHA256_DIGEST                    32
+/* Dynamic config head address */
+#define UC_DYNAMIC_CFG_HEAD_OFFSET 0x2000 // 8KB
+#define UC_CFG_HEAD_LEN_OFFSET UC_DYNAMIC_CFG_HEAD_OFFSET
+#define UC_CFG_HEAD_BYTES 4 // 4Bytes
+#define UC_CFG_HEAD_ITEM_START (UC_DYNAMIC_CFG_HEAD_OFFSET + UC_CFG_HEAD_BYTES)
+#define UC_CFG_NAME_LEN_MAX 32
+#define UC_SHA256_DIGEST 32
 
 typedef struct _uc_cfg_head {
     unsigned char item_name[UC_CFG_NAME_LEN_MAX];
@@ -133,12 +134,12 @@ typedef struct _uc_blk_used_info {
     unsigned short used_len;
 } uc_blk_used_info_t;
 
-#define UC_BLK_INFO_OFFSET           (UC_CHECK_FLASH_OFFSET - sizeof(uc_blk_used_info_t)*UC_FLASH_PARTITION_MAIN_NUM)
-#define UC_BLK_INFO_BYTES	         (sizeof(uc_blk_used_info_t)*UC_FLASH_PARTITION_MAIN_NUM)
-#define UC_ITEM_CONTENT_BLK_START    2
-#define UC_BLK_INDEX_MAC_INFO        1
-#define UC_ITEM_CONTENT_BLK_OFFSET   0   // first block offset
-#define UC_MAC_CNT                   2
+#define UC_BLK_INFO_OFFSET (UC_CHECK_FLASH_OFFSET - sizeof(uc_blk_used_info_t) * UC_FLASH_PARTITION_MAIN_NUM)
+#define UC_BLK_INFO_BYTES (sizeof(uc_blk_used_info_t) * UC_FLASH_PARTITION_MAIN_NUM)
+#define UC_ITEM_CONTENT_BLK_START 2
+#define UC_BLK_INDEX_MAC_INFO 1
+#define UC_ITEM_CONTENT_BLK_OFFSET 0 // first block offset
+#define UC_MAC_CNT 2
 
 typedef struct {
     unsigned short crc;
@@ -150,10 +151,10 @@ typedef struct {
     unsigned int reserved[1];
 } uc_spod_cfg_t;
 
-#define CRC_POLYNOMIAL  0x1021
+#define CRC_POLYNOMIAL 0x1021
 #define CRC_16_INIT_VAL 0xFFFF
-#define BIT15_MASK      0x8000
-#define BITS_PER_BYTE   8
+#define BIT15_MASK 0x8000
+#define BITS_PER_BYTE 8
 static unsigned short calc_crc16(unsigned char *data, unsigned int len)
 {
     unsigned int val = CRC_16_INIT_VAL;

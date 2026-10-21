@@ -58,6 +58,7 @@
 #define PCI_DEVICE_ID_ASCEND910_93 0xd803
 #define PCI_DEVICE_ID_ASCEND950 0xd806
 #define PCI_DEVICE_ID_ASCEND350 0xd808
+#define PCI_DEVICE_ID_ASCEND310N 0xd200
 #define DVT_MMIO_BAR0_SIZE 0x20000
 #define DVT_MMIO_BAR2_SIZE 0x2000000
 #define DVT_MMIO_BAR4_SIZE 0x4500000
@@ -259,10 +260,16 @@ struct hw_vdavinci {
     struct vdavinci_dev dev;
     unsigned int vfg_id;
     u32 id;
-    /* vDavinci handle used by hypervisor MPT modules */
-    uintptr_t handle;
-    bool active;
+    atomic_t active;
+    /* Serializes open against a concurrent open: claimed with cmpxchg(0, 1)
+     * before any resource is taken, cleared on every open failure path and at
+     * the end of release. Must not be conflated with active, which is only set
+     * after all resources are ready. */
+    atomic_t opened;
     bool msix_injection_allowed;
+    /* Total msix vector count, also the length of vdev.ctx and
+     * debugfs.msix_count. Owned by the msix setup path, not debugfs-only. */
+    int msix_nvec;
 
     struct hw_vdavinci_cfg_space cfg_space;
     struct hw_vdavinci_mmio mmio;
@@ -274,7 +281,6 @@ struct hw_vdavinci {
         ka_dentry_t *debugfs;
         unsigned long long notify_count;
         unsigned long long *msix_count;
-        int nvec;
         ka_dentry_t *debugfs_cache_info;
     } debugfs;
 
@@ -299,7 +305,6 @@ struct mmio_init_ops {
     void (*mmio_uninit)(struct hw_vdavinci *vdavinci);
 };
 
-bool handle_valid(uintptr_t handle);
 struct vdavinci_priv *kdev_to_davinci(ka_device_t *kdev);
 void hw_dvt_update_vdavinci_types(struct hw_dvt *dvt, unsigned int dev_index);
 
@@ -309,6 +314,10 @@ void hw_dvt_release_vdavinci(struct hw_vdavinci *vdavinci);
 int hw_dvt_reset_vdavinci(struct hw_vdavinci *vdavinci);
 void hw_dvt_activate_vdavinci(struct hw_vdavinci *vdavinci);
 void hw_dvt_deactivate_vdavinci(struct hw_vdavinci *vdavinci);
+static inline bool hw_dvt_is_vdavinci_active(struct hw_vdavinci *vdavinci)
+{
+    return ka_base_atomic_read(&vdavinci->active) != 0;
+}
 
 int hw_vdavinci_emulate_cfg_read(struct hw_vdavinci *vdavinci, unsigned int offset, void *buf, unsigned int bytes);
 int hw_vdavinci_emulate_cfg_write(struct hw_vdavinci *vdavinci, unsigned int offset, void *buf, unsigned int bytes);
@@ -316,7 +325,7 @@ void hw_vdavinci_init_cfg_space(struct hw_vdavinci *vdavinci);
 void hw_vdavinci_reset_cfg_space(struct hw_vdavinci *vdavinci);
 void hw_dvt_debugfs_add_vdavinci(struct hw_vdavinci *vdavinci);
 void hw_dvt_debugfs_remove_vdavinci(struct hw_vdavinci *vdavinci);
-void hw_dvt_debugfs_init(struct hw_dvt *dvt);
+int hw_dvt_debugfs_init(struct hw_dvt *dvt);
 void hw_dvt_debugfs_clean(struct hw_dvt *dvt);
 bool davinci_vfg_support(unsigned short vendor, unsigned short device);
 int get_reserve_iova_for_check(ka_device_t *dev, ka_dma_addr_t *iova_addr, size_t *size);

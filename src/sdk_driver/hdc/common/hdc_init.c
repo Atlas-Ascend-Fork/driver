@@ -13,7 +13,16 @@
 
 #include "ka_kernel_def_pub.h"
 #include "ka_compiler_pub.h"
+#include "comm_kernel_interface.h"
 #include "hdc_init.h"
+#include "hdcdrv_log.h"
+
+int __attribute__((weak)) hdcdrv_ub_init_module(void)
+{
+    return 0;
+}
+void __attribute__((weak)) hdcdrv_ub_exit_module(void)
+{}
 
 STATIC int __ka_init init_hdc(void)
 {
@@ -24,21 +33,17 @@ STATIC int __ka_init init_hdc(void)
         return ret;
     }
 
-#ifdef CFG_FEATURE_UB_COMM
     ret = hdcdrv_ub_init_module();
     if (ret != 0) {
         hdcdrv_pcie_exit_module();
     }
-#endif
 
     return ret;
 }
 
 STATIC void __ka_exit exit_hdc(void)
 {
-#ifdef CFG_FEATURE_UB_COMM
     hdcdrv_ub_exit_module();
-#endif
     hdcdrv_pcie_exit_module();
 }
 

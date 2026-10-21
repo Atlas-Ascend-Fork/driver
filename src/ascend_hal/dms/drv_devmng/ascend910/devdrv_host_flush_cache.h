@@ -12,9 +12,9 @@
 
 #include <stdint.h>
 
-#define rmb()       dsb(ld) /* read fence */
-#define wmb()       dsb(st) /* write fence */
-#define rwmb()      dsb(st) /* write fence */
+#define rmb() dsb(ld)  /* read fence */
+#define wmb() dsb(st)  /* write fence */
+#define rwmb() dsb(st) /* write fence */
 #define dsb(opt)
 
 void mb(void);

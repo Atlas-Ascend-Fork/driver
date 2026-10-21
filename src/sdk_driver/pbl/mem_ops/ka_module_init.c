@@ -13,7 +13,6 @@
 #include "ka_memory_mng.h"
 #include "ka_proc_fs.h"
 
-#include "event_notify_proc.h"
 #include "ka_timer.h"
 #include "ka_module_init.h"
 
@@ -36,23 +35,11 @@ int ka_mem_ops_module_init(void)
     ka_mem_mng_init();
     ka_proc_fs_init();
 
-    ret = event_notify_proc_init();
-    if (ret != 0) {
-        ka_err("Event notify init failed. (ret=%d)", ret);
-        goto TRACE_SCHED_FAILED;
-    }
     return 0;
-
-TRACE_SCHED_FAILED:
-    ka_proc_fs_uninit();
-    ka_mem_mng_uninit();
-    ka_timer_uninit();
-    return ret;
 }
 
 void ka_mem_ops_module_exit(void)
 {
-    event_notify_proc_uninit();
     ka_proc_fs_uninit();
     ka_mem_mng_uninit();
     ka_timer_uninit();

@@ -18,6 +18,21 @@
 
 #define HDC_PERF_DEC_NOTATION 10
 
+STATIC bool g_hdc_perf_log_not_limit = false;
+
+bool hdc_ub_perf_log_not_limit(void)
+{
+    return g_hdc_perf_log_not_limit;
+}
+
+void hdc_ub_perf_log_env_init(void)
+{
+#ifdef CFG_BUILD_DEBUG
+    g_hdc_perf_log_not_limit = (getenv(HDC_PERF_LOG_LIMIT_TIME_ENV) != NULL);
+#endif
+    return;
+}
+
 // basic interface
 int hdc_get_lock_index(int dev_id, int session_id)
 {
@@ -66,6 +81,9 @@ void hdc_ub_init_dfx_info(hdc_ub_dbg_stat_t *dbg_stat)
     dbg_stat->tx_fail_ub = 0;
     dbg_stat->remote_rx_full = 0;
     dbg_stat->remote_rx_fail = 0;
+    dbg_stat->epoll_thread_create = 0;
+    dbg_stat->epoll_thread_epfd = -1;
+    dbg_stat->recv_event_abnormal = 0;
 
     return;
 }
@@ -176,13 +194,25 @@ STATIC void hdc_get_time_record_for_urma_res_init(struct hdc_time_record_for_urm
                                                   struct timespec *import_jetty_start,
                                                   hdc_urma_init_info_t *urma_timecost)
 {
-    urma_timecost->urma_init_end = hdc_get_time_cost(&record->urma_record.urma_init_start,
+    urma_timecost->urma_init_end = hdc_get_time_cost(&record->urma_record.lock_wait,
                                                      &record->urma_record.urma_init_end);
+    urma_timecost->lock_wait = hdc_get_time_cost(&record->urma_record.urma_init_start, &record->urma_record.lock_wait);
     urma_timecost->ctx_calloc = hdc_get_time_cost(&record->urma_record.ctx_calloc, &record->dms_record.get_token_val);
     urma_timecost->get_token_val = hdc_get_time_cost(&record->dms_record.get_token_val,
                                                      &record->urma_record.urma_init_start);
-    urma_timecost->register_own_seg = hdc_get_time_cost(&record->urma_record.res_init_start,
-                                                        &record->urma_record.register_own_seg);
+    if (record->urma_record.own_reg_re_end.tv_sec != 0) {
+        urma_timecost->own_reg_re = hdc_get_time_cost(&record->urma_record.own_reg_re_start,
+                                                      &record->urma_record.own_reg_re_end);
+    }
+    if (record->urma_record.own_reg_new_end.tv_sec != 0) {
+        struct timespec *new_start = (record->urma_record.own_reg_re_end.tv_sec != 0) ?
+                                         &record->urma_record.own_reg_re_end :
+                                         &record->urma_record.res_init_start;
+        urma_timecost->reg_alloc_tid = hdc_get_time_cost(new_start, &record->urma_record.alloc_tid_end);
+        urma_timecost->own_reg_new = hdc_get_time_cost(&record->urma_record.alloc_tid_end,
+                                                       &record->urma_record.own_reg_new_end);
+    }
+    urma_timecost->reg_dmp = hdc_get_time_cost(&record->urma_record.register_own_seg, &record->urma_record.reg_dmp_end);
     urma_timecost->create_jfc = hdc_get_time_cost(&record->urma_record.register_own_seg,
                                                   &record->urma_record.create_jfc);
     urma_timecost->create_jfs = hdc_get_time_cost(&record->urma_record.create_jfc, &record->urma_record.create_jfs);
@@ -211,33 +241,64 @@ void hdc_get_urma_init_time_cost(struct hdc_time_record_for_urma_init *record, s
     if (record->urma_record.need_init) {
         HDC_PERF_LOG_RUN_INFO(
             log_limit,
-            "hdc urma_cost info.(dev_id=%d; l_id=%u; type=%d; "
+            "hdc urma_cost info (us).(dev_id=%d; l_id=%u; unique_val=%u; type=%d; "
             "ctx_c=%llu; get_token=%llu; attr_c:%llu; dev_info=%llu; urma_ctx=%llu; alloc_id=%llu; share_seg=%llu; "
-            "urma_init=%llu; own_seg=%llu; jfc=%llu; jfs=%llu; jfr:%llu; post_wr:%llu; res_init=%llu; "
-            "get_tp=%llu; import=%llu)\n",
-            session->dev_id, session->local_id, session->service_type, urma_timecost->ctx_calloc,
+            "lock_wait=%llu; urma_init=%llu; own_reg_re=%llu; alloc_tid=%llu; own_reg(new)=%llu; reg_dmp=%llu; "
+            "jfc=%llu; jfs=%llu; jfr:%llu; post_wr=%llu; res_init=%llu; get_tp=%llu; import=%llu)\n",
+            session->dev_id, session->local_id, session->unique_val, session->service_type, urma_timecost->ctx_calloc,
             urma_timecost->get_token_val, urma_timecost->attr_calloc, urma_timecost->get_dev_info,
             urma_timecost->create_ctx, urma_timecost->alloc_token_id, urma_timecost->register_share_seg,
-            urma_timecost->urma_init_end, urma_timecost->register_own_seg, urma_timecost->create_jfc,
+            urma_timecost->lock_wait, urma_timecost->urma_init_end, urma_timecost->own_reg_re,
+            urma_timecost->reg_alloc_tid, urma_timecost->own_reg_new, urma_timecost->reg_dmp, urma_timecost->create_jfc,
             urma_timecost->create_jfs, urma_timecost->create_jfr, urma_timecost->post_jfr_wr,
             urma_timecost->res_init_end, urma_timecost->get_tp_list, urma_timecost->import_jfr);
     } else {
         HDC_PERF_LOG_RUN_INFO(
             log_limit,
-            "hdc urma_cost info.(dev_id=%d; l_id=%u; type=%d; "
-            "ctx_c=%llu; get_token=%llu; urma_init=%llu; own_seg=%llu; jfc=%llu; jfs=%llu; jfr:%llu; post_wr:%llu; "
+            "hdc urma_cost info (us).(dev_id=%d; l_id=%u; unique_val=%u; type=%d; "
+            "ctx_c=%llu; get_token=%llu; lock_wait=%llu; urma_init=%llu; own_reg_re=%llu; "
+            "alloc_tid=%llu; own_reg(new)=%llu; reg_dmp=%llu; jfc=%llu; jfs=%llu; jfr:%llu; post_wr=%llu; "
             "res_init=%llu; get_tp=%llu; import=%llu\n",
-            session->dev_id, session->local_id, session->service_type, urma_timecost->ctx_calloc,
-            urma_timecost->get_token_val, urma_timecost->urma_init_end, urma_timecost->register_own_seg,
+            session->dev_id, session->local_id, session->unique_val, session->service_type, urma_timecost->ctx_calloc,
+            urma_timecost->get_token_val, urma_timecost->lock_wait, urma_timecost->urma_init_end,
+            urma_timecost->own_reg_re, urma_timecost->reg_alloc_tid, urma_timecost->own_reg_new, urma_timecost->reg_dmp,
             urma_timecost->create_jfc, urma_timecost->create_jfs, urma_timecost->create_jfr, urma_timecost->post_jfr_wr,
             urma_timecost->res_init_end, urma_timecost->get_tp_list, urma_timecost->import_jfr);
     }
 }
 
-void hdc_get_connect_time_cost(struct hdc_time_record_for_connect *connect_record, struct hdc_ub_session *session)
+STATIC unsigned long long hdc_calc_kernel_cost(unsigned long long start_ns, unsigned long long end_ns)
+{
+    if ((start_ns == 0) || (end_ns < start_ns)) {
+        return 0;
+    }
+
+    return (end_ns - start_ns) / CONVERT_US_TO_NS;
+}
+
+/* cost from a kernel timestamp to a user timespec, same monotonic clock domain */
+STATIC unsigned long long hdc_calc_k2u_cost(const struct timespec *user_tval, unsigned long long kernel_start_ns)
+{
+    unsigned long long end_ns;
+
+    if (kernel_start_ns == 0) {
+        return 0;
+    }
+
+    end_ns = (unsigned long long)user_tval->tv_sec * CONVERT_S_TO_NS + (unsigned long long)user_tval->tv_nsec;
+    if (end_ns < kernel_start_ns) {
+        return 0;
+    }
+
+    return (end_ns - kernel_start_ns) / CONVERT_US_TO_NS;
+}
+
+void hdc_get_connect_time_cost(struct hdc_time_record_for_connect *connect_record, struct hdc_ub_session *session,
+                               const union hdcdrv_cmd *send_cmd)
 {
     hdc_ub_connect_info_t timecost = {0};
     hdc_urma_init_info_t urma_timecost = {0};
+    const struct hdcdrv_connect_perf *perf = &send_cmd->send_ctrl_msg.connect;
 
     if (connect_record->fail_times > 0) {
         HDC_PERF_LOG_RUN_INFO_LIMIT("hdc perf data not get successfully.(dev_id=%d; l_id=%d; type=\'%s\'\n",
@@ -251,47 +312,53 @@ void hdc_get_connect_time_cost(struct hdc_time_record_for_connect *connect_recor
         return;
     }
 
-    // cost of link_pre_init
     timecost.link_pre_init = hdc_get_time_cost(&connect_record->connect_start, &connect_record->link_pre_init);
-    // cost of mem_res_init
     timecost.mem_res_init = hdc_get_time_cost(&connect_record->link_pre_init, &connect_record->mem_res_init);
-    // cost of alloc session in kernel
     timecost.alloc_session = hdc_get_time_cost(&connect_record->mem_res_init, &connect_record->alloc_session);
-    // cost of session_pre_init
     timecost.pre_init = hdc_get_time_cost(&connect_record->alloc_session, &connect_record->pre_init);
-    // cost of create_ub_ctx
     timecost.create_ub_ctx = hdc_get_time_cost(&connect_record->pre_init, &connect_record->create_ub_ctx);
-    // cost of get_res_info_and_add_ctrl
     timecost.get_res_info_and_add_ctrl = hdc_get_time_cost(&connect_record->create_ub_ctx,
                                                            &connect_record->get_res_info_and_add_ctrl);
-    // cost of send_ctrl_msg
     timecost.send_ctrl_msg = hdc_get_time_cost(&connect_record->get_res_info_and_add_ctrl,
                                                &connect_record->send_ctrl_msg);
-    // cost of check_reply
     timecost.check_reply = hdc_get_time_cost(&connect_record->send_ctrl_msg, &connect_record->check_reply);
-    // cost of free_tid_and_fill_jetty_info
     timecost.free_tid_and_fill_jetty_info = hdc_get_time_cost(&connect_record->urma_func_cost.urma_record.import_jfr,
                                                               &connect_record->free_tid_and_fill_jetty_info);
+
+    // kernel cost computed from raw timestamps returned by ioctl
+    timecost.k_pre = hdc_calc_kernel_cost(perf->k_cnt_start, perf->k_cnt_send_ctrl_start);
+    timecost.k_send = hdc_calc_kernel_cost(perf->k_cnt_send_ctrl_start, perf->k_cnt_send_ctrl_end);
+    timecost.k_wait = hdc_calc_kernel_cost(perf->k_cnt_send_ctrl_end, perf->k_cnt_wait_fin);
+    timecost.k_sched = hdc_calc_kernel_cost(perf->k_cnt_reply_wake, perf->k_cnt_wait_fin);
+    timecost.k_copy = hdc_calc_kernel_cost(perf->k_cnt_wait_fin, perf->k_cnt_cpy_end);
+    timecost.k_ret = hdc_calc_k2u_cost(&connect_record->send_ctrl_msg, perf->k_cnt_cpy_end);
 
     // get all urma res timecost
     hdc_get_urma_init_time_cost(&connect_record->urma_func_cost, session, &connect_record->send_ctrl_msg,
                                 &urma_timecost, HDC_PERF_LOG_PRINT_LIMIT);
-    HDC_PERF_LOG_RUN_INFO_LIMIT(
-        "hdc connect time_cost:%llu, exceed %lu us.(dev_id=%d; l_id=%u; type=%d; "
-        "link_pre=%llu; res_init=%llu; alloc_session=%llu; pre_init=%llu; "
-        "ub_ctx=%llu; get_res_ctrl=%llu; send_wait=%llu; check=%llu; free_fill=%llu; "
-        "import_jetty=%llu)\n",
-        timecost.connect_end, (unsigned long)HDC_ACCEPT_PERF_STANDER, session->dev_id, session->local_id,
-        session->service_type, timecost.link_pre_init, timecost.mem_res_init, timecost.alloc_session, timecost.pre_init,
-        timecost.create_ub_ctx, timecost.get_res_info_and_add_ctrl, timecost.send_ctrl_msg, timecost.check_reply,
-        timecost.free_tid_and_fill_jetty_info, (urma_timecost.get_tp_list + urma_timecost.import_jfr));
+    HDC_PERF_LOG_RUN_INFO_LIMIT("hdc connect time_cost:%llu, exceed %lu us.(dev_id=%d; l_id=%u; unique_val=%u; "
+                                "r_id=%u; type=%d; link_pre=%llu; res_init=%llu; alloc_session=%llu; pre_init=%llu; "
+                                "ub_ctx=%llu; get_res_ctrl=%llu; send_wait=%llu; check=%llu; free_fill=%llu; "
+                                "import_jetty=%llu)\n",
+                                timecost.connect_end, (unsigned long)HDC_ACCEPT_PERF_STANDER, session->dev_id,
+                                session->local_id, session->unique_val, session->remote_id, session->service_type,
+                                timecost.link_pre_init, timecost.mem_res_init, timecost.alloc_session,
+                                timecost.pre_init, timecost.create_ub_ctx, timecost.get_res_info_and_add_ctrl,
+                                timecost.send_ctrl_msg, timecost.check_reply, timecost.free_tid_and_fill_jetty_info,
+                                (urma_timecost.get_tp_list + urma_timecost.import_jfr));
+    HDC_PERF_LOG_RUN_INFO_LIMIT("hdc connect kernel_cost.(dev_id=%d; l_id=%u; unique_val=%u; r_id=%u; type=%d; "
+                                "k_pre=%llu; k_send=%llu; k_wait=%llu; k_copy=%llu; k_sched=%llu; k_ret=%llu)\n",
+                                session->dev_id, session->local_id, session->unique_val, session->remote_id,
+                                session->service_type, timecost.k_pre, timecost.k_send, timecost.k_wait,
+                                timecost.k_copy, timecost.k_sched, timecost.k_ret);
 }
 
 void hdc_get_accept_time_cost(struct hdc_time_record_for_accept *accept_record, struct hdc_ub_session *session,
-                              bool succ_flag)
+                              bool succ_flag, const union hdcdrv_cmd *send_cmd)
 {
     hdc_ub_accept_info_t accept_time_cost = {0};
     hdc_urma_init_info_t urma_timecost = {0};
+    const struct hdcdrv_accept_perf *perf = &send_cmd->send_ctrl_msg.accept;
 
     if (accept_record->fail_times > 0) {
         HDC_PERF_LOG_RUN_INFO_LIMIT("hdc perf data not get successfully.(dev_id=%d; l_id=%d; type=\'%s\'\n",
@@ -311,34 +378,47 @@ void hdc_get_accept_time_cost(struct hdc_time_record_for_accept *accept_record, 
         return;
     }
 
-    // cost of mmReadFile conn_wait
     accept_time_cost.conn_wait = hdc_get_time_cost(&accept_record->accept_start, &accept_record->conn_wait);
-    // cost of mem_res_init
     accept_time_cost.res_init = hdc_get_time_cost(&accept_record->conn_wait, &accept_record->res_init);
-    // cost of alloc session in kernel
     accept_time_cost.alloc_session = hdc_get_time_cost(&accept_record->res_init, &accept_record->alloc_session);
-    // cost of session_pre_init
     accept_time_cost.pre_init = hdc_get_time_cost(&accept_record->alloc_session, &accept_record->pre_init);
-    // cost of urma_init
     accept_time_cost.urma_init = hdc_get_time_cost(&accept_record->pre_init, &accept_record->create_ub_ctx);
-    // cost of add_ctrl
     accept_time_cost.add_ctrl = hdc_get_time_cost(&accept_record->create_ub_ctx, &accept_record->add_ctrl);
-    // cost of submit_event
     accept_time_cost.send_ctrl_msg = hdc_get_time_cost(&accept_record->urma_func_cost.urma_record.import_jfr,
                                                        &accept_record->send_ctrl_msg);
+
+    // cost of pipe write start (esched thread) to read pipe return (accept thread)
+    accept_time_cost.pipe_trans = hdc_get_time_cost(&accept_record->pipe_write_start, &accept_record->conn_wait);
 
     // time_cost exceed ACCEPT_PERF_STANDER, print log
     hdc_get_urma_init_time_cost(&accept_record->urma_func_cost, session, &accept_record->add_ctrl, &urma_timecost,
                                 HDC_PERF_LOG_PRINT_NOT_LIMIT);
     HDC_PERF_LOG_RUN_INFO(HDC_PERF_LOG_PRINT_NOT_LIMIT,
-                          "hdc accept time_cost:%llu, exceed %lu us.(dev_id=%d; l_id=%u; "
-                          "type=%d; conn_wait=%llu; res_init=%llu; alloc_session=%llu; pre_init=%llu; urma_init=%llu; "
-                          "add_ctrl=%llu; import_jetty=%llu; send_ctrl_msg=%llu)\n",
+                          "hdc accept time_cost:%llu, exceed %lu us.(dev_id=%d; l_id=%u; unique_val=%u; r_id=%u; "
+                          "type=%d; conn_wait=%llu; pipe_trans=%llu; res_init=%llu; alloc_session=%llu; "
+                          "pre_init=%llu; urma_init=%llu; add_ctrl=%llu; import_jetty=%llu; send_ctrl_msg=%llu)\n",
                           accept_time_cost.accept, (unsigned long)HDC_ACCEPT_PERF_STANDER, session->dev_id,
-                          session->local_id, session->service_type, accept_time_cost.conn_wait,
-                          accept_time_cost.res_init, accept_time_cost.alloc_session, accept_time_cost.pre_init,
-                          accept_time_cost.urma_init, accept_time_cost.add_ctrl,
-                          (urma_timecost.get_tp_list + urma_timecost.import_jfr), accept_time_cost.send_ctrl_msg);
+                          session->local_id, session->unique_val, session->remote_id, session->service_type,
+                          accept_time_cost.conn_wait, accept_time_cost.pipe_trans, accept_time_cost.res_init,
+                          accept_time_cost.alloc_session, accept_time_cost.pre_init, accept_time_cost.urma_init,
+                          accept_time_cost.add_ctrl, (urma_timecost.get_tp_list + urma_timecost.import_jfr),
+                          accept_time_cost.send_ctrl_msg);
+    if (succ_flag) {
+        // kernel cost computed from raw timestamps returned by ioctl
+        accept_time_cost.notify_search = hdc_calc_kernel_cost(perf->k_acc_notify_entry, perf->k_acc_notify_search_end);
+        // cost from kernel notify search end to user event thread pipe write start
+        accept_time_cost.k2u_trans = hdc_calc_k2u_cost(&accept_record->pipe_write_start, perf->k_acc_notify_search_end);
+        accept_time_cost.k_pre = hdc_calc_kernel_cost(perf->k_acc_start, perf->k_acc_send_ctrl_start);
+        accept_time_cost.k_send = hdc_calc_kernel_cost(perf->k_acc_send_ctrl_start, perf->k_acc_send_ctrl_end);
+        accept_time_cost.k_ret = hdc_calc_k2u_cost(&accept_record->send_ctrl_msg, perf->k_acc_send_ctrl_end);
+
+        HDC_PERF_LOG_RUN_INFO(HDC_PERF_LOG_PRINT_NOT_LIMIT,
+                              "hdc accept kernel_cost.(dev_id=%d; l_id=%u; unique_val=%u; r_id=%u; type=%d; "
+                              "notify_search=%llu; k2u_trans=%llu; k_pre=%llu; k_send=%llu; k_ret=%llu)\n",
+                              session->dev_id, session->local_id, session->unique_val, session->remote_id,
+                              session->service_type, accept_time_cost.notify_search, accept_time_cost.k2u_trans,
+                              accept_time_cost.k_pre, accept_time_cost.k_send, accept_time_cost.k_ret);
+    }
 }
 
 void hdc_get_recv_time_cost(struct hdc_time_record_for_single_recv *recv_record, struct hdc_ub_session *session)
@@ -378,14 +458,14 @@ void hdc_get_recv_time_cost(struct hdc_time_record_for_single_recv *recv_record,
     if (recv_total > HDC_PERF_STANDER) {
         session->send_recv_info.timecost_exceed_cnt_recv++;
         HDC_PERF_LOG_RUN_INFO_LIMIT(
-            "hdc recv exceed %d us.(dev_id=%d; l_id=%d; type=\'%s\'; jfr_id=%u; jfc_r=%u;"
+            "hdc recv exceed %d us.(dev_id=%d; l_id=%d; unique_val=%u; type=\'%s\'; jfr_id=%u; jfc_r=%u;"
             " wait_poll_jfc:%llu; ack_rearm_jfc=%llu; memcpy=%llu; post_jfr_wr=%llu; recv_peek=%llu;"
             " recv=%llu; exceed_times=%llu\n",
-            HDC_PERF_STANDER, session->dev_id, session->local_id, hdc_get_sevice_str(session->service_type),
-            session->jetty_info.session_jfr_id, session->jetty_info.session_jfc_recv_id, recv_time_cost.timecost6,
-            recv_time_cost.timecost7, recv_time_cost.timecost8, recv_time_cost.timecost9,
-            recv_time_cost.timecost_recv_peek, recv_time_cost.timecost_recv,
-            session->send_recv_info.timecost_exceed_cnt_recv);
+            HDC_PERF_STANDER, session->dev_id, session->local_id, session->unique_val,
+            hdc_get_sevice_str(session->service_type), session->jetty_info.session_jfr_id,
+            session->jetty_info.session_jfc_recv_id, recv_time_cost.timecost6, recv_time_cost.timecost7,
+            recv_time_cost.timecost8, recv_time_cost.timecost9, recv_time_cost.timecost_recv_peek,
+            recv_time_cost.timecost_recv, session->send_recv_info.timecost_exceed_cnt_recv);
     }
 
     // if time_cost exceed current max val, update max val
@@ -432,13 +512,14 @@ void hdc_get_send_time_cost(struct hdc_time_record_for_single_send *send_record,
         timecost_post_jfs_wr = hdc_get_time_cost(&send_record->post_jfs_wr_start, &send_record->wait_jfc_send_start);
         timecost_wait_jfc = hdc_get_time_cost(&send_record->wait_jfc_send_start, &send_record->wait_jfc_send_finish);
         HDC_PERF_LOG_RUN_INFO_LIMIT(
-            "hdc send exceed %d us.(dev_id=%d; l_id=%u; type=\'%s\'; jfs_id=%u; jfc_s=%u; "
+            "hdc send exceed %d us.(dev_id=%d; l_id=%u; unique_val=%u; type=\'%s\'; jfs_id=%u; jfc_s=%u; "
             "find_block:%llu; memcpy=%llu; post_jfs_wr=%llu; wait_jfc=%llu; poll_jfc:%llu; ack_rearm_jfc=%llu; "
             "send=%llu; exceed_times=%llu\n",
-            HDC_PERF_STANDER, session->dev_id, session->local_id, hdc_get_sevice_str(session->service_type),
-            session->jetty_info.session_jfs_id, session->jetty_info.session_jfc_send_id, send_time_cost.timecost1,
-            send_time_cost.timecost2, timecost_post_jfs_wr, timecost_wait_jfc, send_time_cost.timecost4,
-            send_time_cost.timecost5, send_time_cost.timecost_send, session->send_recv_info.timecost_exceed_cnt_send);
+            HDC_PERF_STANDER, session->dev_id, session->local_id, session->unique_val,
+            hdc_get_sevice_str(session->service_type), session->jetty_info.session_jfs_id,
+            session->jetty_info.session_jfc_send_id, send_time_cost.timecost1, send_time_cost.timecost2,
+            timecost_post_jfs_wr, timecost_wait_jfc, send_time_cost.timecost4, send_time_cost.timecost5,
+            send_time_cost.timecost_send, session->send_recv_info.timecost_exceed_cnt_send);
     }
 
     // if time_cost exceed current max val, update max val
@@ -466,7 +547,6 @@ STATIC void hdc_get_urma_uninit_time_cost(struct hdc_time_record_for_close *clos
     time_cost->own_unreg = hdc_get_time_cost(&uninit_record->del_jfcs_1, &uninit_record->own_unreg);
     if (uninit_record->need_uninit) {
         time_cost->share_unreg = hdc_get_time_cost(&uninit_record->own_unreg, &uninit_record->share_unreg);
-        time_cost->share_unreg = hdc_get_time_cost(&uninit_record->own_unreg, &uninit_record->share_unreg);
         time_cost->free_token_id = hdc_get_time_cost(&uninit_record->share_unreg, &uninit_record->free_token_id);
         time_cost->del_ctx = hdc_get_time_cost(&uninit_record->free_token_id, &uninit_record->del_ctx);
     }
@@ -477,7 +557,7 @@ STATIC void hdc_print_close_time_cost(struct hdc_time_record_for_close *close_re
 {
     if (close_record->close_type == HDCDRV_CLOSE_TYPE_USER) {
         HDC_PERF_LOG_RUN_INFO_LIMIT(
-            "hdc urma_uninit_cost info. dev_id=%d; l_id=%u; type=\'%s\'; "
+            "hdc urma_uninit_cost info (us). dev_id=%d; l_id=%u; type=\'%s\'; "
             "unimport_jetty=%llu; del_jfr:%llu; del_jfcr=%llu; del_jfs=%llu; del_jfcs=%llu; own_unreg=%llu; "
             "(urma_uninit_flag=%d; share_unreg=%llu; free_token_id=%llu; del_ctx=%llu)\n",
             close_record->dev_id, close_record->local_id, hdc_get_sevice_str(close_record->service_type),
@@ -496,7 +576,7 @@ STATIC void hdc_print_close_time_cost(struct hdc_time_record_for_close *close_re
             time_cost->del_close_epoll);
     } else if (close_record->close_type == HDCDRV_CLOSE_TYPE_REMOTE_CLOSED_POST) {
         HDC_PERF_LOG_RUN_INFO_LIMIT(
-            "hdc urma_uninit_cost info. dev_id=%d; l_id=%u; type=\'%s\'; del_jfs=%llu; "
+            "hdc urma_uninit_cost info (us). dev_id=%d; l_id=%u; type=\'%s\'; del_jfs=%llu; "
             "del_jfcs=%llu; unimport_jetty=%llu; del_jfr:%llu; del_jfcr=%llu; del_jfs_1=%llu; del_jfcs_1=%llu; "
             "own_unreg=%llu; (urma_uninit_flag=%d; share_unreg=%llu; free_token_id=%llu; del_ctx=%llu)\n",
             close_record->dev_id, close_record->local_id, hdc_get_sevice_str(close_record->service_type),
@@ -658,7 +738,7 @@ STATIC bool hdc_check_wait_recv_jfc_ret(hdc_ub_context_t *ctx, struct hdc_ub_ses
     return flag;
 }
 
-void hdc_recv_data_in_event_handle(struct hdc_ub_epoll_node *node)
+int hdc_recv_data_in_event_handle(struct hdc_ub_epoll_node *node)
 {
     int service_type, dev_id;
     struct hdc_time_record_for_single_recv recv_record = {0};
@@ -667,11 +747,13 @@ void hdc_recv_data_in_event_handle(struct hdc_ub_epoll_node *node)
     urma_target_seg_t *tseg = NULL;
     urma_cr_t cr = {0};
     uint64_t inc = 1;
-    mmSsize_t ret;
+    mmSsize_t mm_ret;
+    int ret = DRV_ERROR_NONE;
 
     pthread_mutex_lock(&node->mutex);
     // Add a session status check
     if ((session == NULL) || (session->status == HDC_SESSION_STATUS_IDLE)) {
+        ret = HDCDRV_ERR;
         goto recv_abnormal_exit;
     }
 
@@ -720,20 +802,21 @@ void hdc_recv_data_in_event_handle(struct hdc_ub_epoll_node *node)
     wmb();
 
     pthread_cond_signal(&node->cond);
-    pthread_mutex_unlock(&node->mutex);
-    hdc_touch_data_in_notify(dev_id, service_type);
     if (session->recv_eventfd != -1) {
-        ret = mm_write_file(session->recv_eventfd, &inc, sizeof(inc));
-        if (ret != (mmSsize_t)sizeof(inc)) {
-            HDC_LOG_WARN("send close event not success.(ret=%ld; id=%d; dev=%d)\n", ret, session->local_id,
+        mm_ret = mm_write_file(session->recv_eventfd, &inc, sizeof(inc));
+        if (mm_ret != (mmSsize_t)sizeof(inc)) {
+            HDC_LOG_WARN("send close event not success.(ret=%ld; id=%d; dev=%d)\n", mm_ret, session->local_id,
                          session->dev_id);
         }
     }
-    return;
+    pthread_mutex_unlock(&node->mutex);
+    // data_in notify may directly use halHdcRecv, so need to use outside mutex
+    hdc_touch_data_in_notify(dev_id, service_type);
+    return HDCDRV_OK;
 
 recv_abnormal_exit:
     pthread_mutex_unlock(&node->mutex);
-    return;
+    return ret;
 }
 
 uint8_t hdc_ub_get_jfs_priority_by_type(int service_type)

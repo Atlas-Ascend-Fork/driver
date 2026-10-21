@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef DEVDRV_MANAGER_CONTAINER_H
 #define DEVDRV_MANAGER_CONTAINER_H
 #include "ka_system_pub.h"

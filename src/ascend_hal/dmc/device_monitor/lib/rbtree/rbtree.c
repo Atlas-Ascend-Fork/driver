@@ -27,10 +27,7 @@ static inline void rbtree_dummy_rotate(struct rbtree_node *rb_old, struct rbtree
 }
 
 static const struct rbtree_augment_callbacks g_dummy_callbacks = {
-    .propagate = rbtree_dummy_propagate,
-    .copy = rbtree_dummy_copy,
-    .rotate = rbtree_dummy_rotate
-};
+    .propagate = rbtree_dummy_propagate, .copy = rbtree_dummy_copy, .rotate = rbtree_dummy_rotate};
 
 static inline struct rbtree_node *rbtree_red_parent(struct rbtree_node *red)
 {
@@ -131,7 +128,7 @@ static void rbtree_insert_gparent_rotate(int32_t flag, struct rbtree_root *root,
 }
 
 static void __rbtree_insert(struct rbtree_node *node, struct rbtree_root *root,
-    void (*augment_rotate)(struct rbtree_node *rb_old, struct rbtree_node *rb_new))
+                            void (*augment_rotate)(struct rbtree_node *rb_old, struct rbtree_node *rb_new))
 {
     struct rbtree_node *parent = rbtree_red_parent(node);
     struct rbtree_node *gparent = NULL;
@@ -361,8 +358,9 @@ static void rbtree_erase_sibling_rotate(void (*augment_rotate)(struct rbtree_nod
 }
 
 static void rbtree_insert_parent_rotate_color_flips(struct rbtree_root *root, struct rbtree_node *sibling,
-    struct rbtree_node *parent, struct rbtree_node *rb_node,
-    void (*augment_rotate)(struct rbtree_node *rb_old, struct rbtree_node *rb_new))
+                                                    struct rbtree_node *parent, struct rbtree_node *rb_node,
+                                                    void (*augment_rotate)(struct rbtree_node *rb_old,
+                                                                           struct rbtree_node *rb_new))
 {
     if (rb_node->rbtree_parent_color == RIGHT_FLAG) { /* rbtree_erase_color function rb_node->rbtree_parent_color =
                                                          RIGHT_FLAG */
@@ -407,7 +405,8 @@ static int32_t rbtree_erase_color_flips(struct rbtree_node *sibling, struct rbtr
 }
 
 static int32_t rbtree_erase_color_augmented(struct rbtree_root *root, struct rbtree_node *rb_node,
-    struct rbtree_node **parent, struct rbtree_node **sibling, struct rbtree_node **node)
+                                            struct rbtree_node **parent, struct rbtree_node **sibling,
+                                            struct rbtree_node **node)
 {
     int32_t flag = -1;
 
@@ -577,7 +576,6 @@ struct rb_node *rbtree_insert_get_node(uint64_t key, struct rbtree_root *root, s
     return node;
 }
 
-
 int rbtree_insert(uint64_t key, struct rbtree_root *root, struct rb_node *node)
 {
     struct rb_node *this = NULL;
@@ -641,11 +639,10 @@ struct rb_node *rbtree_get_upper_bound(uint64_t key, struct rbtree_root *root)
     return (tmp_upper != NULL) ? tmp_upper : NULL;
 }
 
-bool rbtree_can_insert_range(struct rbtree_root *root, struct rb_range_handle *range,
-    rb_range_handle_func get_range)
+bool rbtree_can_insert_range(struct rbtree_root *root, struct rb_range_handle *range, rb_range_handle_func get_range)
 {
     struct rbtree_node **tmp = &(root->rbtree_node);
-#ifndef COMPILE_UT  /* device_monitor's UT macro */
+#ifndef COMPILE_UT /* device_monitor's UT macro */
     while (*tmp != NULL) {
         struct rb_range_handle tmp_range;
 
@@ -662,8 +659,7 @@ bool rbtree_can_insert_range(struct rbtree_root *root, struct rb_range_handle *r
     return true;
 }
 
-int rbtree_insert_by_range(struct rbtree_root *root, struct rbtree_node *node,
-    rb_range_handle_func get_range)
+int rbtree_insert_by_range(struct rbtree_root *root, struct rbtree_node *node, rb_range_handle_func get_range)
 {
     struct rbtree_node **tmp = &(root->rbtree_node);
     struct rbtree_node *parent = NULL;
@@ -693,7 +689,7 @@ int rbtree_insert_by_range(struct rbtree_root *root, struct rbtree_node *node,
 }
 
 struct rbtree_node *rbtree_search_by_range(struct rbtree_root *root, struct rb_range_handle *range,
-    rb_range_handle_func get_range)
+                                           rb_range_handle_func get_range)
 {
     struct rbtree_node *tmp = root->rbtree_node;
 
@@ -715,7 +711,7 @@ struct rbtree_node *rbtree_search_by_range(struct rbtree_root *root, struct rb_r
 }
 #ifndef COMPILE_UT /* device_monitor's UT macro */
 struct rbtree_node *rbtree_search_upper_bound_range(struct rbtree_root *root, uint64_t val,
-    rb_range_handle_func get_range)
+                                                    rb_range_handle_func get_range)
 {
     struct rbtree_node *cur = root->rbtree_node;
     struct rbtree_node *next = NULL;
@@ -752,4 +748,3 @@ struct rbtree_node *rbtree_erase_one_node(struct rbtree_root *root)
 
     return node;
 }
-

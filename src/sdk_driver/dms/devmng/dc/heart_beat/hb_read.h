@@ -26,12 +26,13 @@ struct hb_read_block {
     volatile u64 total_lost_count;
     volatile u64 miss_read_count;
     u64 last_read_time;
-    u32 urgent_task_id; /* ub emergency heartbeat registration timer ID for DMS, used to unregister the callback during ko unloading */
+    u32 urgent_task_id; /* ub emergency heartbeat registration timer ID for DMS, used to unregister the callback during
+                           ko unloading */
     u32 timer_urgent_registered;
     ka_mutex_t mutex;
 };
 
 int hb_read_item_work_start(unsigned int dev_id, struct hb_read_block *hb_read_item);
-void hb_read_item_work_stop(unsigned int dev_id, struct hb_read_block* hb_read_item);
-struct hb_read_block* get_heart_beat_read_item(unsigned int dev_id);
+void hb_read_item_work_stop(unsigned int dev_id, struct hb_read_block *hb_read_item);
+struct hb_read_block *get_heart_beat_read_item(unsigned int dev_id);
 #endif

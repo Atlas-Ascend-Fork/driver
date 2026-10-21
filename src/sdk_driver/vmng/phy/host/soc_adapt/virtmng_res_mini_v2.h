@@ -16,7 +16,9 @@
 
 #include "ka_task_pub.h"
 #include "virtmnghost_ctrl.h"
+#include "virtmnghost_feature.h"
 
 int vmngh_res_init_mini_v2(u32 devid, struct vmngh_ctrl_ops *ops);
+vmng_feature_bitmap_t vmngh_feature_init_mini_v2(void);
 
 #endif

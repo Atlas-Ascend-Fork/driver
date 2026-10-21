@@ -259,26 +259,78 @@ SOMA (Stream-Oriented Memory Allocator) 是 SVM（Shared Virtual Memory）模块
 - SOMA特性无法通过主机侧调用 HAL 接口使能，只能通过 Runtime ACL 接口使能，使用样例参考[SOMA Runtime example](https://gitcode.com/cann/runtime/blob/master/example/3_memory_advanced/memory_pool)。
 - 当前只支持Ascend950 PCIE硬件形态。
 
-## 内存池创建销毁
+## SOMA 内存池创建销毁
 SOMA 接口：`halMemPoolCreate` / `halMemPoolDestroy`  
 
 通过 `halMemPoolCreate` 可以在设备上创建一个内存池管理结构，用于管理后续的异步内存申请和释放。内存池创建时可以设置内存池的id、内存池的最大容量等，但不会立即分配物理内存。  
 
 通过 `halMemPoolDestroy` 可以销毁指定的内存池管理结构，确保所有由该池分配的内存块被正确释放，并将相关资源归还给系统，从而避免内存泄漏。
 
-## 异步内存申请/释放
+## SOMA 异步内存申请/释放
 SOMA 接口：`halMemPoolMalloc` / `halMemPoolFree`  
 
 `halMemPoolMalloc` 是 device 侧提供给 AI CPU 调用的内存申请接口，用于从指定内存池中申请一段设备内存。调用时需要指定目标内存池、虚拟地址、申请大小以及内存申请策略。函数会根据内存池管理结构分配物理页，并建立对应的页表映射，使申请得到的内存可以直接用于后续计算。
 
 `halMemPoolFree` 用于将一段设备内存归还到内存池。调用时需要指定目标内存池、虚拟地址、释放大小以及释放策略。释放后的内存不会立即归还给操作系统，而是保留在内存池中等待后续复用，从而提高内存利用率和分配效率。
 
-## 内存池属性设置与查询
+## SOMA 异步申请内存地址的同步释放
+同步内存释放接口：`halMemFree`  
+<br/>
+SOMA 内存地址的同步释放复用 SVM 的 `halMemFree` 接口。当调用 `halMemFree` 释放一个由 SOMA 内存池异步申请得到的虚拟地址时，驱动通过 `svm_va_is_soma` 判断该地址的内存来源为 SOMA 内存池（`SVM_POOL_MEM`），进而转入 `soma_mem_sync_free` 路径完成同步释放。
+
+与常规内存释放不同，SOMA 内存地址的同步释放流程如下：
+1. 通过地址解析出对应的 SOMA 内存池句柄，并获取该地址已配置的内存大小。
+2. 通过 `mem_pool_client_mem_free` 向 Device 侧（AI CPU）发送同步释放事件，清除该块内存在内存池中对应的 used/PA 位图记录，并解除物理页映射（depopulate）。
+3. 调用 `soma_mem_free_cfg` 注销该地址在内核态的 KSVMM 映射关系，完成资源回收。
+
+通过上述同步释放机制，业务可以通过统一的 `halMemFree` 接口释放 SOMA 内存，无需区分地址的来源，简化了内存管理流程并避免内存泄漏。
+
+## SOMA 内存池属性设置与查询
 SOMA 接口：`halMemPoolSetAttr` / `halMemPoolGetAttr`  
 
 通过 `halMemPoolSetAttr` 可以设置内存池的属性，如内存池水线值等。调用时需要指定目标内存池和属性键值对。  
 
 通过 `halMemPoolGetAttr` 可以查询内存池的当前属性值。调用时需要指定目标内存池和属性键，返回对应属性值。  
+
+## SOMA 内存复用（单流、跨流事件、机会主义、隐式依赖）
+SOMA 接口：`halMemPoolAsyncConfig` / `halMemPoolMalloc`  
+<br/>
+为提升内存复用效率，SOMA 在异步申请内存的基础上新增了单流、跨流事件、机会主义、隐式依赖等多种内存复用策略，使同一块设备内存能够在不同算子和流之间复用，降低物理内存申请的开销与碎片。
+
+内存复用整体分为两步：
+- **配置阶段**（`halMemPoolAsyncConfig`）：在算子分发前对指定虚拟地址进行申请/释放预处理，将虚拟地址与内存池绑定。新增的 `SOMA_MEM_WAITING` flag 与 `SOMA_MEM_ALLOC` 在配置阶段逻辑一致，均登记虚拟地址到内存池的映射关系；真正的复用/等待语义在申请阶段由 Device 侧策略决定。
+- **申请阶段**（`halMemPoolMalloc`）：调用时需要指定内存申请策略，新增的内存复用策略包括：
+    - `SOMA_MEM_ALLOC_REUSE_POLICY`（Reuse）：机会主义复用。仅在目标内存块已满足可复用条件时快速复用（fail_fast），适用于单流场景下内存已释放、可直接复用的情形。
+    - `SOMA_MEM_ALLOC_WAITING_POLICY`（Awaiting reuse）：带等待的隐式依赖复用。当目标内存块正处于被使用（未释放）状态时，申请任务会按照一定的退避策略等待其释放后再复用（retry），用于跨流事件、隐式依赖等场景，等待既定的依赖（如跨流事件、上一个算子结束）释放内存。
+    
+    配合上述策略，SOMA 支持单流（同一流内前一算子释放后直接复用）、跨流事件（通过跨流事件同步依赖，等待对端流释放内存）、机会主义（有则用、无则快速失败）以及隐式依赖（依据执行依赖隐式等待内存可复用）等内存复用能力，从而显著提升内存利用率，减少因频繁向系统申请物理页带来的开销。
+
+释放侧同样支持显式释放与隐式释放策略（`SOMA_MEM_FREE_EXP_POLICY`/`SOMA_MEM_FREE_IMP_POLICY`），与上述复用策略配合，由业务根据执行语义选择合适的申请/释放策略组合。
+
+## SOMA 异步申请内存的同步拷贝与赋值
+SOMA 接口：`drvMemcpy` / `drvMemsetD8`  
+<br/>
+SOMA 异步申请得到的内存虚拟地址在建立映射后，可以直接作为普通设备内存使用，支持同步拷贝与赋值操作：
+
+- **同步拷贝**（`drvMemcpy`）：将指定内存数据从源地址同步拷贝到 SOMA 设备内存（H2D/D2D），或从 SOMA 设备内存拷贝回主机（D2H）。该同步拷贝操作为阻塞式，调用方会一直等待拷贝完成。
+- **同步赋值**（`drvMemsetD8`）：将 SOMA 设备内存的指定区域设置为给定的 8 位值，用于内存初始化或清零。
+
+由于 SOMA 内存虚拟地址在申请时会携带同步拷贝（`SVM_FLAG_CAP_SYNC_COPY_EX`）与赋值（`SVM_FLAG_CAP_MEMSET`）等能力，业务无需额外步骤即可对 SOMA 异步内存执行同步拷贝与赋值，实现"异步申请、同步使用"的灵活内存操作。
+
+**SOMA 内存同步拷贝支持场景**：根据源/目标内存所在的位置，SOMA 同步拷贝覆盖非跨卡（同卡）与跨卡两类场景。
+
+- **非跨卡（同卡内）拷贝场景**
+  - Host 锁页内存 与 SOMA 内存 之间（H2D/D2H）：将数据在 Host 锁页内存与 SOMA 设备内存间同步搬运，适用于需要稳定映射、支持 DMA 直传的锁页缓冲。
+  - Host 非锁页内存 与 SOMA 内存 之间（H2D/D2H）：将数据在 Host 非锁页内存与 SOMA 设备内存间同步搬运，适用于常规用户态缓冲。
+  - Device 内存 与 SOMA 内存 之间（D2D）：在同一设备上的普通设备内存与 SOMA 内存之间同步拷贝。
+  - SOMA 内存 到 SOMA 内存（D2D）：在同一设备上的两个 SOMA 内存之间同步拷贝，例如将算子的输出搬移到下一算子的输入。
+
+- **跨卡拷贝场景**
+  - SVM 内存 与 SOMA 内存 之间（D2D）：在不同设备上的普通 SVM 设备内存与 SOMA 内存之间同步拷贝。
+  - SOMA 内存 到 SOMA 内存（D2D）：在不同设备上的两个 SOMA 内存之间同步拷贝，用于跨卡数据交换与流水线并行。
+  - （SOMA 参与的跨卡拷贝覆盖不同设备间的数据同步搬运，具体支持的方向以平台提供的 D2D 拷贝能力为准。）
+
+上述场景中的同步拷贝操作均为阻塞式，调用方会一直等待拷贝完成后才返回。赋值操作 `drvMemsetD8` 则对 SOMA 设备内存的指定区域设置为给定值，用于初始化或清零。
 
 ## SOMA在业务中使用流程
 #### 内存池异步申请与释放的业务使用流程
@@ -294,3 +346,39 @@ SOMA 接口：`halMemPoolSetAttr` / `halMemPoolGetAttr`
 <center>
     <img src="../../../docs/zh/figures/SOMA_malloc_and_free_process.png" alt="SOMA模块复用策略流程" width=100% />
 </center>
+
+#### SOMA 同步释放功能的业务使用流程
+
+- **应用场景**  
+<br/>
+在算子执行完成、需要回收 SOMA 设备内存时，业务可以直接通过统一的 `halMemFree` 接口释放 SOMA 异步申请得到的内存地址，驱动内部自动识别 SOMA 来源并执行同步释放，简化释放流程。
+
+- **业务调用 SOMA 接口流程**  
+1. 调用 `halMemPoolCreate` 创建内存池管理结构。
+2. 调用 `halMemPoolMalloc` 异步申请设备内存，获取虚拟地址。
+3. 算子计算完成后，调用 `halMemFree` 直接释放该 SOMA 内存虚拟地址，驱动识别 SOMA 来源后执行同步释放，回收内存。
+
+#### SOMA 内存复用功能的业务使用流程
+
+- **应用场景**  
+<br/>
+在 AI 推理流水线中，同一块设备内存可被 单流 / 跨流事件 / 机会主义 / 隐式依赖 等多种方式复用于不同算子，从而减少物理内存申请开销，提升内存利用率和流水线效率。
+
+- **业务调用 SOMA 接口流程**  
+1. 调用 `halMemPoolCreate` 创建内存池管理结构。
+2. 算子分发前，调用 `halMemPoolAsyncConfig` 对待分配的虚拟地址进行申请配置（`SOMA_MEM_ALLOC`/`SOMA_MEM_WAITING`），登记到内存池。
+3. 在算子执行前，调用 `halMemPoolMalloc` 并指定复用策略（`SOMA_MEM_ALLOC_REUSE_POLICY`/`SOMA_MEM_ALLOC_WAITING_POLICY`）异步申请设备内存；根据单流、跨流事件、机会主义、隐式依赖等场景选择相应策略，复用已释放或依赖满足后释放的内存。
+4. 算子完成计算后，根据语义选择显式释放（`SOMA_MEM_FREE_EXP_POLICY`）或隐式释放（`SOMA_MEM_FREE_IMP_POLICY`）将设备内存归还内存池，等待后续复用。
+
+#### SOMA 内存同步拷贝与赋值功能的业务使用流程
+
+- **应用场景**  
+<br/>
+SOMA 异步申请得到的内存地址可直接用于数据搬运与初始化：通过同步拷贝将待计算数据从 Host 侧写入 SOMA 设备内存，或通过同步赋值对 SOMA 内存进行初始化/清零。
+
+- **业务调用 SOMA 接口流程**  
+1. 调用 `halMemPoolCreate` 创建内存池管理结构。
+2. 调用 `halMemPoolMalloc` 异步申请设备内存，获取虚拟地址。
+3. 调用 `drvMemcpy` 将数据从 Host 内存同步拷贝至 SOMA 设备内存，或将 SOMA 设备内存数据拷贝回 Host。
+4. 调用 `drvMemsetD8` 将 SOMA 设备内存区域的指定大小设置为给定值，完成内存初始化或清零。
+5. 算子计算完成后，调用 `halMemFree` 或 `halMemPoolFree` 释放 SOMA 内存。

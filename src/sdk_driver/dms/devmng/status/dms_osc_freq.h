@@ -19,7 +19,7 @@
 int dms_get_device_osc_freq(u32 devid, u64 *freq);
 int dms_get_host_osc_freq(u64 *freq);
 
-#define DMS_MODULE_OSC_FREQ  "dms_osc_freq"
+#define DMS_MODULE_OSC_FREQ "dms_osc_freq"
 INIT_MODULE_FUNC(DMS_MODULE_OSC_FREQ);
 EXIT_MODULE_FUNC(DMS_MODULE_OSC_FREQ);
 

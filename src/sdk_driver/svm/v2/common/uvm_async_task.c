@@ -35,18 +35,18 @@ void uvm_hnode_add_to_prefetch_msg_id_hashtable(struct msg_process_cnt *cnt)
 #endif
 }
 
-struct msg_process_cnt *uvm_hnode_find_from_prefetch_msg_id_hashtable(uint64_t id)
+struct msg_process_cnt *uvm_hnode_find_from_prefetch_msg_id_hashtable(uint64_t prefetch_msg_id)
 {
 #ifndef EMU_ST
     struct msg_process_cnt *cnt = NULL;
     uint32_t key;
 
-    key = ka_base_jhash(&id, sizeof(id), 0) & UVM_TASK_HLIST_TABLE_MASK;
+    key = ka_base_jhash(&prefetch_msg_id, sizeof(prefetch_msg_id), 0) & UVM_TASK_HLIST_TABLE_MASK;
 
     ka_task_spin_lock(&prefetch_msg_id_lock);
     ka_hash_for_each_possible(prefetch_msg_id_hashtable, cnt, hnode, key)
     {
-        if (cnt->id == id) {
+        if (cnt->id == prefetch_msg_id) {
             ka_task_spin_unlock(&prefetch_msg_id_lock);
             return cnt;
         }
@@ -56,19 +56,19 @@ struct msg_process_cnt *uvm_hnode_find_from_prefetch_msg_id_hashtable(uint64_t i
     return NULL;
 }
 
-int uvm_hnode_find_and_add_to_prefetch_msg_id_hashtable(struct msg_process_cnt **cnt, uint64_t id)
+int uvm_hnode_find_and_add_to_prefetch_msg_id_hashtable(struct msg_process_cnt **cnt, uint64_t prefetch_msg_id)
 {
     struct msg_process_cnt *tmp_cnt = NULL;
     uint32_t key;
     bool found = false;
     int ret = 0;
 
-    key = ka_base_jhash(&id, sizeof(id), 0) & UVM_TASK_HLIST_TABLE_MASK;
+    key = ka_base_jhash(&prefetch_msg_id, sizeof(prefetch_msg_id), 0) & UVM_TASK_HLIST_TABLE_MASK;
 
     ka_task_spin_lock(&prefetch_msg_id_lock);
     ka_hash_for_each_possible(prefetch_msg_id_hashtable, tmp_cnt, hnode, key)
     {
-        if (tmp_cnt->id == id) {
+        if (tmp_cnt->id == prefetch_msg_id) {
             found = true;
             ret = 1;
             *cnt = tmp_cnt;
@@ -85,7 +85,7 @@ int uvm_hnode_find_and_add_to_prefetch_msg_id_hashtable(struct msg_process_cnt *
         }
 
         ka_base_atomic_set(&(*cnt)->cnt, 0);
-        (*cnt)->id = id;
+        (*cnt)->id = prefetch_msg_id;
         ka_hash_add(prefetch_msg_id_hashtable, &(*cnt)->hnode, key);
         ret = 0;
     }
@@ -100,19 +100,36 @@ void uvm_hnode_del_from_prefetch_msg_id_hashtable(struct msg_process_cnt *cnt)
     ka_task_spin_unlock(&prefetch_msg_id_lock);
 }
 
-int add_to_prefetch_msg_id_hashtable(struct msg_process_cnt **cnt, uint64_t id)
+int add_to_prefetch_msg_id_hashtable(struct msg_process_cnt **cnt, uint64_t prefetch_msg_id)
 {
 #ifndef EMU_ST
-    *cnt = devmm_kzalloc_ex(sizeof(**cnt), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-    if (!*cnt) {
+    struct msg_process_cnt *tmp_cnt = NULL;
+    struct msg_process_cnt *new_cnt = NULL;
+    uint32_t key;
+
+    new_cnt = devmm_kzalloc_ex(sizeof(*new_cnt), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    if (!new_cnt) {
         devmm_drv_err("kzalloc for cnt failed\n");
         return -EFAULT;
     }
 
-    ka_base_atomic_set(&(*cnt)->cnt, 0);
-    (*cnt)->id = id;
+    ka_base_atomic_set(&new_cnt->cnt, 0);
+    new_cnt->id = prefetch_msg_id;
+    key = ka_base_jhash(&prefetch_msg_id, sizeof(prefetch_msg_id), 0) & UVM_TASK_HLIST_TABLE_MASK;
 
-    uvm_hnode_add_to_prefetch_msg_id_hashtable(*cnt);
+    ka_task_spin_lock(&prefetch_msg_id_lock);
+    ka_hash_for_each_possible(prefetch_msg_id_hashtable, tmp_cnt, hnode, key)
+    {
+        if (tmp_cnt->id == prefetch_msg_id) {
+            *cnt = tmp_cnt;
+            ka_task_spin_unlock(&prefetch_msg_id_lock);
+            devmm_kfree_ex(new_cnt);
+            return 0;
+        }
+    }
+    ka_hash_add(prefetch_msg_id_hashtable, &new_cnt->hnode, key);
+    *cnt = new_cnt;
+    ka_task_spin_unlock(&prefetch_msg_id_lock);
 #endif
     return 0;
 }

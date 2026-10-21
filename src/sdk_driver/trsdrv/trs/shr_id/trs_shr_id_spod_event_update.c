@@ -42,6 +42,13 @@ static int shr_id_get_notify_base_addr(u32 devid, u32 sdid, u64 *base_addr)
         return ret;
     }
 
+    DBL_SPOD_CHECK_SDID(parse_info, ret);
+    if (ret != 0) {
+        trs_err("Invalid sdid. (server_id=%u; chip_id=%u; die_id=%u; udevid=%u; sdid=%u)\n", parse_info.server_id,
+                parse_info.chip_id, parse_info.die_id, devid, sdid);
+        return ret;
+    }
+
     *base_addr = SHRID_ASCEND910_93_CROSS_NODE_BASE_ADDR +
                  parse_info.server_id * SHRID_ASCEND910_93_SERVER_ADDR_OFFSET +
                  parse_info.chip_id * SHRID_ASCEND910_93_CHIP_ADDR_OFFSET +
@@ -61,13 +68,13 @@ STATIC int _shr_id_spod_event_update(unsigned int devid, struct sched_published_
     int res_type;
     int ret;
 
-    if ((event_info->subevent_id != DRV_SUBEVENT_TRS_SHR_ID_CONFIG_MSG) &&
-        (event_info->subevent_id != DRV_SUBEVENT_TRS_SHR_ID_DECONFIG_MSG)) {
+    if (event_info->subevent_id != DRV_SUBEVENT_TRS_SHR_ID_CONFIG_MSG) {
         return 0;
     }
 
-    if (event_info->msg == NULL) {
-        trs_err("Msg is NULL.\n");
+    if ((event_info->msg == NULL) ||
+        (event_info->msg_len < sizeof(struct event_sync_msg) + sizeof(struct drvShrIdInfo))) {
+        trs_err("Invalid msg. (msg_is_null=%d; msg_len=%u)\n", (int)(event_info->msg == NULL), event_info->msg_len);
         return -EINVAL;
     }
 
@@ -86,12 +93,10 @@ STATIC int _shr_id_spod_event_update(unsigned int devid, struct sched_published_
         return -EINVAL;
     }
 
-    if (event_info->subevent_id == DRV_SUBEVENT_TRS_SHR_ID_CONFIG_MSG) { /* only shrIdOpen need check shrid. */
-        if (!hal_kernel_trs_is_belong_to_pod_proc(sdid, tsid, ka_task_get_current_tgid(), res_type, info->shrid)) {
-            trs_err("Id invalid. (devid=%u; sdid=%u; tsid=%u; pid=%d; type=%u; shrid=%u)\n", devid, sdid, tsid,
-                    ka_task_get_current_tgid(), info->id_type, info->shrid);
-            return -EACCES;
-        }
+    if (!hal_kernel_trs_is_belong_to_pod_proc(sdid, tsid, ka_task_get_current_tgid(), res_type, info->shrid)) {
+        trs_err("Id invalid. (devid=%u; sdid=%u; tsid=%u; pid=%d; type=%u; shrid=%u)\n", devid, sdid, tsid,
+                ka_task_get_current_tgid(), info->id_type, info->shrid);
+        return -EACCES;
     }
 
     ret = shr_id_get_notify_base_addr(devid, info->devid, &base_addr);

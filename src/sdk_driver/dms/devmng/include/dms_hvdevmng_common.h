@@ -69,7 +69,7 @@ struct vdevdrv_info_msg {
     u64 vector_core_bitmap;
     u64 vector_core_freq;
 
-    #define TEMPLATE_NAME_LEN 32
+#define TEMPLATE_NAME_LEN 32
     u8 template_name[TEMPLATE_NAME_LEN];
 };
 
@@ -125,7 +125,7 @@ struct vdevmng_current_aic_freq {
 struct vdevmng_log_info {
     void *buf;
     u32 length;  // size of buf
-    u32 buf_len;  // actual len of host log ringbuffer
+    u32 buf_len; // actual len of host log ringbuffer
 };
 
 union vdevmng_cmd {

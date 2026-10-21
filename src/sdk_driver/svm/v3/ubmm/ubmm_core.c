@@ -68,14 +68,14 @@ static int ubmm_map_host_pa_get(struct ubmm_node *node, int tgid, u64 va, u64 si
 
     pages = (ka_page_t **)svm_kvmalloc(page_num * sizeof(ka_page_t *), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (pages == NULL) {
-        svm_err("Malloc pages failed. (pages_num=%llu)\n", page_num);
+        svm_err("Alloc pages failed. (pages_num=%llu)\n", page_num);
         return -ENOMEM;
     }
 
     ret = svm_get_user_pages(tgid, va, page_num, (void **)pages, &is_remap_addr);
     if (ret != 0) {
         svm_kvfree(pages);
-        svm_err("Get user pages failed. (ret=%d; va=0x%llx; size=%llu bytes)\n", ret, va, size);
+        svm_err("Get user pages failed. (ret=%d; va=0x%llx; size=%llu)\n", ret, va, size);
         return ret;
     }
 
@@ -126,7 +126,7 @@ void ubmm_node_recycle(struct ubmm_ctx *ctx)
         ubmm_node_del(node);
         (void)ubmm_unmap(ctx->udevid, node->uba, node->size);
         ubmm_map_pa_put(node);
-        (void)ubmm_free_uba(node->uba, node->size);
+        (void)ubmm_free_uba(node->raw_uba, node->raw_uba_size);
         svm_kvfree(node);
         num++;
     }
@@ -211,7 +211,8 @@ static int ubmm_map_uba(struct ubmm_ctx *ctx, u64 va, u64 size, u64 *uba)
     u64 aligned_size = svm_align_up(size, KA_MM_PAGE_SIZE);
     struct ubmm_node *node = NULL;
     struct svm_pa_seg *pa_seg = NULL;
-    u64 page_size, align;
+    u64 prefer_align = KA_HPAGE_SIZE;
+    u64 page_size, prefer_align_offset;
     u64 seg_num = 0;
     int ret;
 
@@ -237,16 +238,27 @@ static int ubmm_map_uba(struct ubmm_ctx *ctx, u64 va, u64 size, u64 *uba)
 
     ret = ubmm_map_pa_get(node, ctx->tgid, aligned_va, aligned_size, pa_seg, &seg_num);
     if ((ret != 0) || (aligned_size != svm_get_pa_size(pa_seg, seg_num))) {
+        if (ret == 0) {
+            ubmm_map_pa_put(node);
+        }
         ubmm_destroy_node(node);
         svm_kvfree(pa_seg);
         svm_err("Pa query failed. (tgid=%d; va=0x%llx; size=0x%llx)\n", ctx->tgid, aligned_va, aligned_size);
         return -EINVAL;
     }
 
-    page_size = svm_get_max_page_size_by_pa_seg(pa_seg, seg_num);
-    align = (page_size <= KA_MM_PAGE_SIZE) ? KA_MM_PAGE_SIZE :
-                                             KA_HPAGE_SIZE; /* only support normal,huge page size align for uba alloc */
-    ret = ubmm_alloc_uba(aligned_size, align, uba);
+    /* Host side we need hpage_aligned uba preferably to dev hpage_table for performance of va not aligned scene.
+       Dev side we use real page_table, consider the memory floor noiser caused by the size of uba. */
+    if (dbl_get_deployment_mode() != DBL_HOST_DEPLOYMENT) {
+        page_size = svm_get_max_page_size_by_pa_seg(pa_seg, seg_num);
+        prefer_align = (page_size <= KA_MM_PAGE_SIZE) ?
+                           KA_MM_PAGE_SIZE :
+                           KA_HPAGE_SIZE; /* only support normal,huge page size align for uba alloc */
+    }
+
+    prefer_align_offset = aligned_va - svm_align_down(aligned_va, prefer_align);
+    node->raw_uba_size = aligned_size + prefer_align_offset;
+    ret = ubmm_alloc_uba(node->raw_uba_size, prefer_align, &node->raw_uba);
     if (ret != 0) {
         ubmm_map_pa_put(node);
         ubmm_destroy_node(node);
@@ -255,10 +267,12 @@ static int ubmm_map_uba(struct ubmm_ctx *ctx, u64 va, u64 size, u64 *uba)
         return ret;
     }
 
+    *uba = (SVM_IS_ALIGNED(node->raw_uba, prefer_align)) ? (node->raw_uba + prefer_align_offset) : node->raw_uba;
+
     ret = ubmm_svm_map(ctx->udevid, *uba, aligned_size, pa_seg, seg_num);
     svm_kvfree(pa_seg);
     if (ret != 0) {
-        ubmm_free_uba(*uba, aligned_size);
+        ubmm_free_uba(node->raw_uba, node->raw_uba_size);
         ubmm_map_pa_put(node);
         ubmm_destroy_node(node);
         svm_err("Map uba failed. (tgid=%d; va=0x%llx; size=0x%llx)\n", ctx->tgid, va, size);
@@ -269,27 +283,11 @@ static int ubmm_map_uba(struct ubmm_ctx *ctx, u64 va, u64 size, u64 *uba)
     return 0;
 }
 
-static int ubmm_remap_uba(struct ubmm_ctx *ctx, u64 va, u64 size)
+static int _ubmm_remap_uba(struct ubmm_ctx *ctx, struct ubmm_node *node)
 {
-    u64 aligned_va = svm_align_down(va, KA_MM_PAGE_SIZE);
-    u64 aligned_size = svm_align_up(size, KA_MM_PAGE_SIZE);
     struct svm_pa_seg *pa_seg = NULL;
-    struct ubmm_node *node = NULL;
-    u64 seg_num = 0;
+    u64 seg_num;
     int ret;
-
-    node = ubmm_node_find(ctx, aligned_va, aligned_size);
-    if (node == NULL) {
-        return -ENOENT;
-    }
-
-    ret = ubmm_unmap(ctx->udevid, node->uba, node->size);
-    if (ret != 0) {
-        svm_err("Unmap failed. (udevid=%u; tgid=%d; va=0x%llx; uba=0x%llx)\n", ctx->udevid, ctx->tgid, va, node->uba);
-        return ret;
-    }
-
-    ubmm_map_pa_put(node);
 
     seg_num = svm_get_align_up_num(node->va, node->size, KA_MM_PAGE_SIZE);
     pa_seg = svm_kvmalloc(sizeof(struct svm_pa_seg) * seg_num, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
@@ -300,6 +298,9 @@ static int ubmm_remap_uba(struct ubmm_ctx *ctx, u64 va, u64 size)
 
     ret = ubmm_map_pa_get(node, ctx->tgid, node->va, node->size, pa_seg, &seg_num);
     if ((ret != 0) || (node->size != svm_get_pa_size(pa_seg, seg_num))) {
+        if (ret == 0) {
+            ubmm_map_pa_put(node);
+        }
         svm_kvfree(pa_seg);
         svm_err("Pmq pa query failed. (tgid=%d; va=0x%llx; size=0x%llx)\n", ctx->tgid, node->va, node->size);
         return -EINVAL;
@@ -316,13 +317,117 @@ static int ubmm_remap_uba(struct ubmm_ctx *ctx, u64 va, u64 size)
     return 0;
 }
 
+static int _ubmm_for_each_node(struct ubmm_ctx *ctx, int (*func)(struct ubmm_node *node, void *priv), void *priv)
+{
+    struct ubmm_node *node = NULL;
+    ka_hlist_node_t *hnode = NULL;
+    u32 bkt;
+    int ret;
+
+    ka_hash_for_each_safe(ctx->htable, bkt, hnode, node, link)
+    {
+        ret = func(node, priv);
+        if (ret != 0) {
+            return ret;
+        }
+    }
+
+    return 0;
+}
+
+static bool ubmm_range_is_overlap(u64 va, u64 size, const struct ubmm_node *node)
+{
+    return (va < (node->va + node->size)) && (node->va < (va + size));
+}
+
+static int ubmm_remap_node(struct ubmm_ctx *ctx, struct ubmm_node *node)
+{
+    int ret;
+
+    ret = ubmm_unmap(ctx->udevid, node->uba, node->size);
+    if (ret != 0) {
+        svm_err("Unmap failed. (udevid=%u; tgid=%d; va=0x%llx; uba=0x%llx)\n", ctx->udevid, ctx->tgid, node->va,
+                node->uba);
+        return ret;
+    }
+
+    ubmm_map_pa_put(node);
+
+    ret = _ubmm_remap_uba(ctx, node);
+    if (ret != 0) {
+        (void)ubmm_free_uba(node->raw_uba, node->raw_uba_size);
+        ubmm_destroy_node(node);
+    }
+
+    return ret;
+}
+
+struct ubmm_remap_priv {
+    struct ubmm_ctx *ctx;
+    u64 va;
+    u64 size;
+    int ret;
+    bool found;
+};
+
+static int ubmm_remap_range_node(struct ubmm_node *node, void *priv)
+{
+    struct ubmm_remap_priv *remap_priv = (struct ubmm_remap_priv *)priv;
+    u64 node_va;
+    u64 node_size;
+    int ret;
+
+    if (!ubmm_range_is_overlap(remap_priv->va, remap_priv->size, node)) {
+        return 0;
+    }
+
+    remap_priv->found = true;
+    node_va = node->va;
+    node_size = node->size;
+    ret = ubmm_remap_node(remap_priv->ctx, node);
+    if (ret != 0) {
+        svm_err("Remap uba failed. (ret=%d; udevid=%u; tgid=%d; repair_va=0x%llx; repair_size=0x%llx; "
+                "node_va=0x%llx; node_size=0x%llx)\n",
+                ret, remap_priv->ctx->udevid, remap_priv->ctx->tgid, remap_priv->va, remap_priv->size, node_va,
+                node_size);
+        if (remap_priv->ret == 0) {
+            remap_priv->ret = ret;
+        }
+    }
+
+    return 0;
+}
+
+static int ubmm_remap_uba(struct ubmm_ctx *ctx, u64 va, u64 size)
+{
+    struct ubmm_remap_priv priv = {.ctx = ctx, .va = va, .size = size, .ret = 0, .found = false};
+    int ret;
+
+    ret = _ubmm_for_each_node(ctx, ubmm_remap_range_node, &priv);
+    if (ret != 0) {
+        return ret;
+    }
+
+    return priv.found ? priv.ret : -ENOENT;
+}
+
 int ubmm_do_map(u32 udevid, int tgid, u64 va, u64 size, u64 *uba)
 {
     int ret;
     struct ubmm_ctx *ctx = ubmm_ctx_get(udevid, tgid);
     if (ctx == NULL) {
-        svm_err("Invalid para. (udevid=%u; tgid=%d; va=0x%llx; size=0x%llx)\n", udevid, tgid, va, size);
-        return -EINVAL;
+        ret = ubmm_init_try(udevid, tgid);
+        if (ret != 0) {
+            svm_err_if((ret != -ENOTSUPP), "Ubmm init retry failed. (udevid=%u; tgid=%d; va=0x%llx; size=0x%llx)\n",
+                       udevid, tgid, va, size);
+            return ret;
+        }
+
+        ctx = ubmm_ctx_get(udevid, tgid);
+        if (ctx == NULL) {
+            svm_err("Invalid para. (udevid=%u; tgid=%d; va=0x%llx; size=0x%llx)\n", udevid, tgid, va, size);
+            return -EINVAL;
+        }
     }
 
     ka_task_mutex_lock(&ctx->mutex);
@@ -358,11 +463,12 @@ static int ubmm_unmap_uba(struct ubmm_ctx *ctx, u64 va, u64 size)
     ret = ubmm_unmap(ctx->udevid, node->uba, node->size);
     if (ret != 0) {
         svm_err("Unmap failed. (udevid=%u; tgid=%d; va=0x%llx; uba=0x%llx)\n", ctx->udevid, ctx->tgid, va, node->uba);
+        node->ref += 1;
         return ret;
     }
 
     ubmm_map_pa_put(node);
-    (void)ubmm_free_uba(node->uba, node->size);
+    (void)ubmm_free_uba(node->raw_uba, node->raw_uba_size);
     ubmm_destroy_node(node);
 
     return 0;

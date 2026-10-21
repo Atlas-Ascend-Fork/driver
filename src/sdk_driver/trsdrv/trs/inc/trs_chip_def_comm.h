@@ -53,13 +53,13 @@ enum {
 };
 
 static const char *trs_chip_type_name[TRS_CHIP_TYPE_MAX] = {
-    [TRS_CHIP_TYPE_UNKNOWN] = "Unknown",  [TRS_CHIP_TYPE_MINI_V1] = "Mini_V1",   [TRS_CHIP_TYPE_CLOUD_V1] = "Cloud_V1",
-    [TRS_CHIP_TYPE_MINI_V2] = "Mini_V2",  [TRS_CHIP_TYPE_CLOUD_V2] = "Cloud_V2", [TRS_CHIP_TYPE_MINI_V3] = "Mini_V3",
-    [TRS_CHIP_TYPE_CLOUD_V4] = "Cloud_V4"};
+    [TRS_CHIP_TYPE_UNKNOWN] = "Unknown",   [TRS_CHIP_TYPE_MINI_V1] = "Mini_V1",   [TRS_CHIP_TYPE_CLOUD_V1] = "Cloud_V1",
+    [TRS_CHIP_TYPE_MINI_V2] = "Mini_V2",   [TRS_CHIP_TYPE_CLOUD_V2] = "Cloud_V2", [TRS_CHIP_TYPE_MINI_V3] = "Mini_V3",
+    [TRS_CHIP_TYPE_CLOUD_V4] = "Cloud_V4", [TRS_CHIP_TYPE_CLOUD_V5] = "Cloud_V5"};
 
 static inline const char *trs_chip_type_to_name(int chip_type)
 {
-    if (chip_type >= TRS_CHIP_TYPE_MAX) {
+    if ((chip_type < TRS_CHIP_TYPE_UNKNOWN) || (chip_type >= TRS_CHIP_TYPE_MAX)) {
         return "MaxChipType";
     }
     return trs_chip_type_name[chip_type];

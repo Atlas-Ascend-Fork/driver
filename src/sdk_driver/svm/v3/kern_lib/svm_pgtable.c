@@ -224,7 +224,7 @@ ka_page_t *svm_pa_to_page(u64 pa)
 static inline u64 svm_make_pgprot_val(bool is_noncache, bool is_rdonly)
 {
     if (dbl_get_deployment_mode() == DBL_HOST_DEPLOYMENT) {
-        return ka_pgprot_val(KA_PAGE_SHARED);
+        return is_rdonly ? ka_pgprot_val(KA_PAGE_READONLY) : ka_pgprot_val(KA_PAGE_SHARED);
     } else {
         u64 prot_val = 0;
 
@@ -243,13 +243,22 @@ static inline u64 svm_make_pgprot_val(bool is_noncache, bool is_rdonly)
     }
 }
 
-static ka_mm_pgprot_t svm_make_pgprot(struct svm_pgtlb_attr *attr)
+static ka_mm_pgprot_t svm_make_pgprot(struct svm_pgtlb_attr *attr, bool is_local_mem)
 {
+    ka_mm_pgprot_t prot;
+
     if (attr->is_writecombine) {
-        return ka_mm_pgprot_writecombine(__ka_pgprot(svm_make_pgprot_val(attr->is_noncache, attr->is_rdonly)));
+        prot = ka_mm_pgprot_writecombine(__ka_pgprot(svm_make_pgprot_val(attr->is_noncache, attr->is_rdonly)));
+    } else {
+        prot = __ka_pgprot(svm_make_pgprot_val(attr->is_noncache, attr->is_rdonly));
     }
 
-    return __ka_pgprot(svm_make_pgprot_val(attr->is_noncache, attr->is_rdonly));
+    if (!run_in_confidential_virtual_mach()) {
+        return prot;
+    }
+
+    /* Local RAM is private in a confidential VM, while peer memory must remain shared. */
+    return is_local_mem ? ka_mm_pgprot_encrypted(prot) : ka_mm_pgprot_decrypted(prot);
 }
 
 #ifndef EMU_ST /* Simulation ST ignore pte */
@@ -294,7 +303,7 @@ static int svm_pte_entry_of_query_pages(ka_pte_t *pte, u64 addr, u64 next, enum 
     }
 
     if (!SVM_IS_ALIGNED(pa, page_size)) {
-        svm_err("Pa is not page aligned. (tmp_va=0x%llx; page_size=0x%llx)\n", addr, page_size);
+        svm_err("Pa not page align. (tmp_va=0x%llx; page_size=0x%llx)\n", addr, page_size);
         return -EFAULT;
     }
 
@@ -448,7 +457,7 @@ int svm_remap_pages(ka_vm_area_struct_t *vma, u64 va, ka_page_t **pages, u64 pag
     enum svm_page_granularity gran = svm_page_size_to_page_gran(pgtlb_attr->page_size);
     u64 page_size = pgtlb_attr->page_size;
     u64 total_size = page_num * page_size;
-    ka_mm_pgprot_t prot = svm_make_pgprot(pgtlb_attr);
+    ka_mm_pgprot_t prot = svm_make_pgprot(pgtlb_attr, true);
     unsigned long stamp = ka_jiffies;
     u64 i;
 
@@ -511,7 +520,7 @@ int svm_remap_phys(ka_vm_area_struct_t *vma, u64 va, struct svm_pa_seg pa_seg[],
 {
     enum svm_page_granularity gran = svm_page_size_to_page_gran(pgtlb_attr->page_size);
     u64 page_size = pgtlb_attr->page_size;
-    ka_mm_pgprot_t prot = svm_make_pgprot(pgtlb_attr);
+    ka_mm_pgprot_t prot = svm_make_pgprot(pgtlb_attr, svm_pa_is_local_mem(pa_seg[0].pa));
     unsigned long stamp = ka_jiffies;
     u64 start, i, total_size;
 

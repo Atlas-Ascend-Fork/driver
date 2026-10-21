@@ -33,10 +33,10 @@
 #define MAX_MAP_LEN 0X200000
 #define MIN_MAP_LEN 0X1000
 
-#define DEVDRV_HOST_PHY_MACH_FLAG 0x5a6b7c8d /* host physical mathine flag */
-#define DEVDRV_HOST_VM_MACH_FLAG 0x1a2b3c4d /* host virt mathine flag */
-#define DEVDRV_HOST_DIRECT_VM_MACH_FLAG 0x0 /* host direct virt mathine flag */
-#define DEVDRV_HOST_CONTAINER_MACH_FLAG     0xa4b3c2d1    /* container mathine flag */
+#define DEVDRV_HOST_PHY_MACH_FLAG 0x5a6b7c8d       /* host physical mathine flag */
+#define DEVDRV_HOST_VM_MACH_FLAG 0x1a2b3c4d        /* host virt mathine flag */
+#define DEVDRV_HOST_DIRECT_VM_MACH_FLAG 0x0        /* host direct virt mathine flag */
+#define DEVDRV_HOST_CONTAINER_MACH_FLAG 0xa4b3c2d1 /* container mathine flag */
 
 int realpath_open(const char *pathname, int flags, mode_t mode);
 int map_virtual_addr(void **base_viraddr, unsigned long base_phyaddr, int dev_fd, int length);

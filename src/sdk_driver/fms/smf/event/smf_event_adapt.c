@@ -61,15 +61,14 @@ int smf_event_mask_event_code(u32 phyid, u32 event_code, u8 mask)
     }
     return g_event_adapt.mask_event_code(phyid, event_code, mask);
 }
-int smf_get_event_code_from_bar(u32 devid, u32 *health_code, u32 health_len,
-    struct shm_event_code *event_code, u32 event_len)
+int smf_get_event_code_from_bar(u32 devid, u32 *health_code, u32 health_len, struct shm_event_code *event_code,
+                                u32 event_len)
 {
     if (g_event_adapt.get_event_code_from_bar == NULL) {
         return DRV_ERROR_NONE;
     }
 
-    return g_event_adapt.get_event_code_from_bar(devid, health_code, health_len,
-        event_code, event_len);
+    return g_event_adapt.get_event_code_from_bar(devid, health_code, health_len, event_code, event_len);
 }
 
 int smf_get_event_code_from_local(u32 devid, u32 *health_code, struct shm_event_code *event_code, u32 event_len)
@@ -117,6 +116,15 @@ int smf_get_remote_event_para(int phyid, struct dms_event_para *dms_event, u32 i
     return g_event_adapt.get_event_para(phyid, dms_event, in_cnt, event_num);
 }
 
+int smf_get_remote_notify_event_para(int phyid, struct dms_event_para *dms_event, u32 in_cnt, u32 *event_num)
+{
+    if (g_event_adapt.get_notify_event_para == NULL) {
+        return DRV_ERROR_NONE;
+    }
+
+    return g_event_adapt.get_notify_event_para(phyid, dms_event, in_cnt, event_num);
+}
+
 int smf_get_connect_protocol(u32 dev_id)
 {
 #ifdef CFG_FEATURE_EP_MODE
@@ -152,4 +160,3 @@ void smf_event_adapt_uninit(void)
     (void)memset_s(&g_event_adapt, sizeof(struct smf_event_adapt), 0, sizeof(struct smf_event_adapt));
 }
 KA_EXPORT_SYMBOL(smf_event_adapt_uninit);
-

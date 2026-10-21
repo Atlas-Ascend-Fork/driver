@@ -22,13 +22,12 @@ static inline void *get_symbol_objective_func(const ka_kernel_symbol_t *sym, con
     if (ka_base_strcmp(module_sym_name, synname) != 0) {
         return NULL;
     }
- 
+
     return get_symbol_fun(sym);
 }
 
- 
-void init_module_func(const ka_module_t *mod, const struct symbol_list *fun_name_list,
-    unsigned int count, struct bus_adpater_stu *adapt)
+void init_module_func(const ka_module_t *mod, const struct symbol_list *fun_name_list, unsigned int count,
+                      struct bus_adpater_stu *adapt)
 {
     unsigned int i, j;
     void *fn = NULL;
@@ -53,8 +52,7 @@ void init_module_func(const ka_module_t *mod, const struct symbol_list *fun_name
     ka_task_up_write(&adapt->rw_lock);
     return;
 }
-void uninit_module_func(const struct symbol_list *fun_name_list,
-    unsigned int count, struct bus_adpater_stu *adapt)
+void uninit_module_func(const struct symbol_list *fun_name_list, unsigned int count, struct bus_adpater_stu *adapt)
 {
     unsigned int i;
     uintptr_t *addr = NULL;
@@ -65,4 +63,3 @@ void uninit_module_func(const struct symbol_list *fun_name_list,
     }
     ka_task_up_write(&adapt->rw_lock);
 }
-

@@ -238,7 +238,7 @@ int udis_link_nodes_scale_up(unsigned int udevid)
 STATIC int udis_update_ub_nodes(unsigned int udevid, const struct udis_ctrl_block *udis_cb,
                                 UDIS_UPDATE_TYPE update_type, struct udis_link_nodes *link_nodes)
 {
-    int ret;
+    int ret = 0;
     struct udis_node *cur;
     unsigned int node_num = 0;
     ka_list_for_each_entry(cur, &udis_cb->addr_list[update_type], list)
@@ -269,7 +269,7 @@ out:
 STATIC int udis_update_dma_nodes(unsigned int udevid, const struct udis_ctrl_block *udis_cb,
                                  UDIS_UPDATE_TYPE update_type, struct udis_link_nodes *link_nodes)
 {
-    int ret;
+    int ret = 0;
     struct udis_node *cur;
     unsigned int node_num = 0;
     ka_list_for_each_entry(cur, &udis_cb->addr_list[update_type], list)
@@ -619,7 +619,7 @@ STATIC int udis_rx_common_msg_process(unsigned int dev_id, void *data, unsigned 
 
     if ((dev_id >= UDIS_DEVICE_UDEVID_MAX) || (data == NULL) || (real_out_len == NULL) ||
         (in_data_len < sizeof(struct udis_msg_info))) {
-        udis_err("date(%pK) or real_out_len(%pK) is NULL. (devid=%u; in_data_len=%u)\n", data, real_out_len, dev_id,
+        udis_err("data(%pK) or real_out_len(%pK) is NULL. (devid=%u; in_data_len=%u)\n", data, real_out_len, dev_id,
                  in_data_len);
         return -EINVAL;
     }

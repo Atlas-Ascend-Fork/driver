@@ -27,6 +27,7 @@ void *ascend_urma_token_pool_create(u32 devid, struct ascend_urma_token_pool_att
 void ascend_urma_token_pool_destroy(void *pool);
 
 void *ascend_urma_token_acquire(void *pool, u32 token_flag);
+void ascend_urma_token_acquire_existing(void *token);
 void ascend_urma_token_release(void *token);
 
 urma_token_id_t *ascend_urma_token_to_id(void *token);

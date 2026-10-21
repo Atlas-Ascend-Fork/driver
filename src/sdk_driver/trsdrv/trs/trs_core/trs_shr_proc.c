@@ -74,7 +74,7 @@ int trs_shr_proc_open(ka_file_t *file, struct trs_core_ts_inst *ts_inst, struct 
     ka_task_write_lock_bh(&proc_ctx->ctx_rwlock);
     if (proc_ctx->cp2_pid != 0) {
         ka_task_write_unlock_bh(&proc_ctx->ctx_rwlock);
-        trs_err("Shr ctx only support one process share.\n");
+        trs_err("Shr ctx only supports one process share.\n");
         return -EMFILE;
     }
 

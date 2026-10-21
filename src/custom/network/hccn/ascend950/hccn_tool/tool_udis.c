@@ -18,8 +18,8 @@
 #include "tool_comm.h"
 #include "tool_udis.h"
 
-STATIC int udis_get_info_init(struct command_context *ctx, struct udis_dev_info *get_info,
-    const char *name, enum query_mode type)
+STATIC int udis_get_info_init(struct command_context *ctx, struct udis_dev_info *get_info, const char *name,
+                              enum query_mode type)
 {
     size_t name_len = 0;
     int ret = 0;
@@ -29,20 +29,21 @@ STATIC int udis_get_info_init(struct command_context *ctx, struct udis_dev_info 
     if (type == QUERY_PORT_TYPE) {
         name_len = strlen(name) + HCCN_NAME_PORT_TYPE_LEN;
         CHK_PRT_RETURN(name_len >= HCCN_MAX_NAME_LEN,
-            hccn_warn("udis_info->name will out of range:%d, name:%s, name_len:%zu",
-                HCCN_MAX_NAME_LEN, name, name_len), ret);
+                       hccn_warn("udis_info->name will be out of range:%d, name:%s, name_len:%zu", HCCN_MAX_NAME_LEN,
+                                 name, name_len),
+                       ret);
 
-        ret = snprintf_s(get_info->name, HCCN_MAX_NAME_LEN, name_len, "%s_%d_%d",
-            name, ctx->udie_id, ctx->port_id);
+        ret = snprintf_s(get_info->name, HCCN_MAX_NAME_LEN, name_len, "%s_%d_%d", name, ctx->udie_id, ctx->port_id);
     } else if (type == QUERY_NPU_TYPE) {
         name_len = strlen(name);
         CHK_PRT_RETURN(name_len >= HCCN_MAX_NAME_LEN,
-            hccn_warn("udis_info->name will out of range:%d, name:%s, name_len:%zu",
-                HCCN_MAX_NAME_LEN, name, name_len), ret);
+                       hccn_warn("udis_info->name will be out of range:%d, name:%s, name_len:%zu", HCCN_MAX_NAME_LEN,
+                                 name, name_len),
+                       ret);
 
         ret = snprintf_s(get_info->name, HCCN_MAX_NAME_LEN, name_len, "%s", name);
     } else {
-        hccn_warn("the query mode:%d not support", type);
+        hccn_warn("query mode:%d is not supported", type);
         return -EINVAL;
     }
 
@@ -60,11 +61,11 @@ int tool_udis_get_net_health_exec(struct command_context *ctx, DSMI_NET_HEALTH_S
     CHK_PRT_RETURN(ret != 0, hccn_warn("udis_get_info_init unsuccessful, ret:%d", ret), ret);
 
     ret = udis_get_device_info((unsigned int)ctx->npu_info.logic_id, &get_info);
-    CHK_PRT_RETURN(ret != 0, hccn_warn("udis_get_device_info unsuccessful, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_warn("udis_get_device_info unsuccessful, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     CHK_PRT_RETURN(get_info.data_len != sizeof(int),
-        hccn_warn("data_len:%d is invalid logic_id:%d", get_info.data_len, ctx->npu_info.logic_id), -EINVAL);
+                   hccn_warn("data_len:%d is invalid logic_id:%d", get_info.data_len, ctx->npu_info.logic_id), -EINVAL);
 
     *presult = *(DSMI_NET_HEALTH_STATUS *)get_info.data;
     return 0;

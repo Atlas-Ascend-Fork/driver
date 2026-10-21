@@ -24,6 +24,12 @@
 
 static u32 kmc_h2d_feature_id;
 static struct svm_kmc_d2h_recv_handle *g_d2h_handle[SVM_KMC_MSG_ID_MAX] = {NULL};
+static u32 g_max_msg_len;
+
+u32 svm_kmc_h2d_get_max_msg_len(void)
+{
+    return g_max_msg_len;
+}
 
 void svm_kmc_d2h_recv_handle_register(enum svm_kmc_msg_id msg_id, struct svm_kmc_d2h_recv_handle *handle)
 {
@@ -86,12 +92,13 @@ static int kmc_d2h_recv(u32 udevid, void *msg, u32 in_len, u32 out_len, u32 *rea
         return -EINVAL;
     }
 
-    if (head->extend_num > SVM_KMC_MAX_EXTEND_NUM) {
-        svm_err("Invalid extend num. (extend_num=%llu)\n", head->extend_num);
+    handle = g_d2h_handle[head->msg_id];
+    if ((handle->raw_msg_size + head->extend_num * handle->extend_gran_size) > g_max_msg_len) {
+        svm_err("Invalid extend num. (extend_num=%llu; extend_gran_size=%u; raw_msg_size=%u; g_max_msg_len=%u)\n",
+                head->extend_num, handle->extend_gran_size, handle->raw_msg_size, g_max_msg_len);
         return -EINVAL;
     }
 
-    handle = g_d2h_handle[head->msg_id];
     data_len = ka_base_max_t(u32, in_len, out_len);
     actual_len = handle->raw_msg_size + head->extend_num * handle->extend_gran_size;
     if (data_len < actual_len) {
@@ -143,6 +150,13 @@ int kmc_h2d_init_dev(u32 udevid)
     if (msg_chan == NULL) {
         svm_err("devdrv_pcimsg_alloc_non_trans_queue failed. (udevid=%u)\n", udevid);
         return -ENOMEM;
+    }
+
+    ret = devdrv_get_non_trans_chan_capacity(msg_chan, &g_max_msg_len);
+    if (ret != 0) {
+        (void)devdrv_pcimsg_free_non_trans_queue(msg_chan);
+        svm_err("devdrv_get_non_trans_chan_capacity failed. (udevid=%u; ret=%d)\n", udevid, ret);
+        return ret;
     }
 
     dev_ctx = svm_dev_ctx_get(udevid);

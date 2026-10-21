@@ -83,6 +83,44 @@ int svm_async_copy_wait(u64 handle)
     return g_copy_ops[devid]->async_copy_wait(devid, id);
 }
 
+int svm_async_chan_alloc(u32 devid, int *chan_id)
+{
+    if ((devid >= SVM_MAX_DEV_NUM) || (g_copy_ops[devid] == NULL) || (g_copy_ops[devid]->async_chan_alloc == NULL)) {
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    return g_copy_ops[devid]->async_chan_alloc(devid, chan_id);
+}
+
+void svm_async_chan_free(u32 devid, int chan_id)
+{
+    if ((devid >= SVM_MAX_DEV_NUM) || (g_copy_ops[devid] == NULL) || (g_copy_ops[devid]->async_chan_free == NULL)) {
+        return;
+    }
+
+    g_copy_ops[devid]->async_chan_free(devid, chan_id);
+}
+
+int svm_async_copy_submit_reuse(u32 devid, int chan_id, struct svm_copy_va_info *src_info,
+                                struct svm_copy_va_info *dst_info)
+{
+    if ((devid >= SVM_MAX_DEV_NUM) || (g_copy_ops[devid] == NULL) ||
+        (g_copy_ops[devid]->async_copy_submit_reuse == NULL)) {
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    return g_copy_ops[devid]->async_copy_submit_reuse(devid, chan_id, src_info, dst_info);
+}
+
+int svm_async_copy_wait_one(u32 devid, int chan_id)
+{
+    if ((devid >= SVM_MAX_DEV_NUM) || (g_copy_ops[devid] == NULL) || (g_copy_ops[devid]->async_copy_wait_one == NULL)) {
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    return g_copy_ops[devid]->async_copy_wait_one(devid, chan_id);
+}
+
 int svm_sync_copy(struct svm_copy_va_info *src_info, struct svm_copy_va_info *dst_info)
 {
     enum svm_cpy_dir dir = copy_dir_get_by_devid(src_info->devid, dst_info->devid);

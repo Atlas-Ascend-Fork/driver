@@ -40,18 +40,19 @@ extern "C" {
 #define DM_DDMP_ERROR_CODE_EAGAIN DRV_ERROR_TRY_AGAIN               /**< same as EAGAIN */
 #define DM_DDMP_ERROR_CODE_PERM_DENIED DRV_ERROR_OPER_NOT_PERMITTED /**< same as EPERM */
 // all of follow must same as inc/base.h
-#define DM_DDMP_ERROR_CODE_SUCCESS DRV_ERROR_NONE                          /**< success */
-#define DM_DDMP_ERROR_CODE_PARAMETER_ERROR DRV_ERROR_PARA_ERROR            /**< param error */
-#define DM_DDMP_ERROR_CODE_INVALID_HANDLE_ERROR DRV_ERROR_INVALID_HANDLE   /**< invalid fd handle */
-#define DM_DDMP_ERROR_CODE_TIME_OUT DRV_ERROR_WAIT_TIMEOUT                 /**< wait time out */
-#define DM_DDMP_ERROR_CODE_IOCRL_ERROR DRV_ERROR_IOCRL_FAIL                /**< ioctl error */
-#define DM_DDMP_ERROR_CODE_INVALID_DEVICE_ERROR DRV_ERROR_INVALID_DEVICE   /**< invalid device */
-#define DM_DDMP_ERROR_CODE_SEND_ERROR DRV_ERROR_SEND_MESG                  /**< hdc or upd send error */
-#define DM_DDMP_ERROR_CODE_INTERNAL_ERROR DRV_ERROR_INNER_ERR              /**< internal error */
-#define DM_DDMP_ERROR_CODE_NOT_SUPPORT DRV_ERROR_NOT_SUPPORT               /**< dsmi command not support error */
-#define DM_DDMP_ERROR_CODE_MEMERY_OPRATOR_ERROR DRV_ERROR_MEMORY_OPT_FAIL  /**< system memory function error */
-#define DM_DDMP_ERROR_CODE_PERIPHERAL_DEVICE_NOT_EXIST DRV_ERROR_NOT_EXIST /**< peripheral device not exist, BMC used \
-                                                                            */
+#define DM_DDMP_ERROR_CODE_SUCCESS DRV_ERROR_NONE                         /**< success */
+#define DM_DDMP_ERROR_CODE_PARAMETER_ERROR DRV_ERROR_PARA_ERROR           /**< param error */
+#define DM_DDMP_ERROR_CODE_INVALID_HANDLE_ERROR DRV_ERROR_INVALID_HANDLE  /**< invalid fd handle */
+#define DM_DDMP_ERROR_CODE_TIME_OUT DRV_ERROR_WAIT_TIMEOUT                /**< wait time out */
+#define DM_DDMP_ERROR_CODE_IOCRL_ERROR DRV_ERROR_IOCRL_FAIL               /**< ioctl error */
+#define DM_DDMP_ERROR_CODE_INVALID_DEVICE_ERROR DRV_ERROR_INVALID_DEVICE  /**< invalid device */
+#define DM_DDMP_ERROR_CODE_SEND_ERROR DRV_ERROR_SEND_MESG                 /**< hdc or upd send error */
+#define DM_DDMP_ERROR_CODE_INTERNAL_ERROR DRV_ERROR_INNER_ERR             /**< internal error */
+#define DM_DDMP_ERROR_CODE_NOT_SUPPORT DRV_ERROR_NOT_SUPPORT              /**< dsmi command not support error */
+#define DM_DDMP_ERROR_CODE_MEMERY_OPRATOR_ERROR DRV_ERROR_MEMORY_OPT_FAIL /**< system memory function error */
+#define DM_DDMP_ERROR_CODE_PERIPHERAL_DEVICE_NOT_EXIST             \
+    DRV_ERROR_NOT_EXIST /**< peripheral device not exist, BMC used \
+                         */
 
 typedef struct dm_flash_info_stru {
     unsigned long long flash_id;    /**< combined device & manufacturer code */
@@ -484,6 +485,7 @@ typedef enum {
     POWER_RESUME_MODE_BUTTON,        /* resume by button */
     POWER_RESUME_MODE_TIME,          /* resume by time */
     POWER_RESUME_MODE_TIME_POWEROFF, /* poweroff by time */
+    POWER_RESUME_MODE_TEST_TIME,     /* resume for selftest by time*/
     POWER_RESUME_MODE_MAX,
 } DSMI_LP_RESUME_MODE;
 
@@ -1345,6 +1347,7 @@ typedef enum {
     DSMI_SILS_SUB_CMD_PMUWDG_DISABLE = 0,
     DSMI_SILS_SUB_CMD_PMUWDG_ENABLE = 1,
     DSMI_SILS_SUB_CMD_PMUWDG_STATUS = 2,
+    DSMI_SILS_SUB_CMD_DUMP_MODE_UPDATE = 3,
     DSMI_SILS_SUB_CMD_INVALID = 0xFF,
 } DSMI_SILS_SUB_CMD;
 
@@ -1445,6 +1448,7 @@ typedef enum {
     DSMI_TS_SUB_CMD_COMMON_MSG,
     DSMI_TS_SUB_CMD_NPU_MULTI_UTILIZATION_RATE,    // Obtains the same time usage of NUP/AIC/AIV/AICORE
     DSMI_TS_SUB_CMD_NPU_MULTI_UTILIZATION_RATE_V2, // Obtains mutil usage of aic/aiv/aicore/npu
+    DSMI_TS_SUB_CMD_STREAM_AVAILABLE,
     DSMI_TS_SUB_CMD_MAX,
 } DSMI_TS_SUB_CMD;
 
@@ -1487,6 +1491,19 @@ struct ts_stl_start_info {
 struct dsmi_ts_fault_mask_stru {
     unsigned int type;
     unsigned int mask_switch; /* 0: switch off; 1 switch on */
+};
+
+#define DSMI_MAX_TS_NUM 8U
+
+struct TsStreamInfo {
+    unsigned int capacity;     /* Max available stream id count */
+    unsigned int availableNum; /* Current unused stread id count */
+};
+
+struct TsStreamAvailable {
+    unsigned char tsNum; /* output: actual Ts count on this die */
+    unsigned char reserved[7];
+    struct TsStreamInfo tsStreamInfo[DSMI_MAX_TS_NUM];
 };
 
 /* DSMI sub command for TEMP module */
@@ -1603,6 +1620,7 @@ typedef enum {
     DSMI_QOS_SUB_DMC_CONFIG,
     DSMI_QOS_SUB_UB_SL_CONFIG,
     DSMI_QOS_SUB_LATENCY_DATA,
+    DSMI_QOS_SUB_L2CACHE_CONFIG
 } DSMI_QOS_SUB_INFO;
 
 /* DSMI sub command for qos module */
@@ -1689,7 +1707,17 @@ struct dsmi_capability_group_info {
     unsigned int vfid;
     unsigned int poolid;
     unsigned int poolid_max;
-    unsigned int res[COMPUTE_GROUP_INFO_RES_NUM - AICORE_MASK_NUM];
+    unsigned char use_l2cache;
+    unsigned char res[(COMPUTE_GROUP_INFO_RES_NUM - AICORE_MASK_NUM - 1) * 4 + 3]; // * 4 + 3 means reserved space left
+};
+
+#define GROUP_NUM_MAX 4
+
+struct dsmi_capability_multi_group_info {
+    unsigned int ts_id;     /* TS type: 0=P die, 1=F die */
+    unsigned int rsv[2];    /* reserved */
+    unsigned int group_num; /* group count, (0, GROUP_NUM_MAX] */
+    struct dsmi_capability_group_info group_info[GROUP_NUM_MAX];
 };
 
 struct dsmi_ecc_pages_stru {
@@ -1844,9 +1872,22 @@ struct dsmi_soc_vdev_ratio {
     unsigned int ratio;
 };
 
+#define DSMI_NUMA_NUM_MAX 16U
+struct dsmi_hugepages_numa_surp_statistic {
+    unsigned char numa_num;
+    unsigned char reserved[7];
+    unsigned long long numa_surp[DSMI_NUMA_NUM_MAX];
+};
+
+struct dsmi_hugepages_surp_statistic {
+    unsigned long long total_surp;
+    struct dsmi_hugepages_numa_surp_statistic numa_surp;
+};
+
 typedef enum {
     DSMI_SET_VDEV_CONVERT_LEN = 0,
     DSMI_GET_VDEV_CONVERT_LEN,
+    DSMI_HUGEPAGES_SURP_STATISTIC,
     DSMI_SVM_SUB_CMD_MAX,
 } DSMI_SVM_SUB_CMD;
 
@@ -1980,6 +2021,13 @@ struct dsmi_event {
 
 #define QOS_TARGET_NUM_MAX 16U
 #define QOS_CFG_RESERVED_LEN 8
+#define QOS_GROUP_RESERVED_LEN 7 /* keep both sides of union 32 bytes */
+
+#define QOS_MASTER_MODE_REGS 0U     /* register granularity, original */
+#define QOS_MASTER_MODE_SMMU 1U     /* smmu granularity, reserved */
+#define QOS_MASTER_MODE_SQE 2U      /* sqe granularity, original */
+#define QOS_MASTER_MODE_GROUP_ID 3U /* compute group groupId granularity, new */
+
 struct qos_bw_config {
     unsigned char mode;
     unsigned char state;
@@ -1988,7 +2036,8 @@ struct qos_bw_config {
     unsigned int interval;
     unsigned int target_set[QOS_TARGET_NUM_MAX];
     unsigned int pq_stat_enable;
-    int reserved_1[QOS_CFG_RESERVED_LEN - 1];
+    unsigned int cache_stat_enable;
+    int reserved_1[QOS_CFG_RESERVED_LEN - 2];
 };
 
 struct qos_bw_result {
@@ -2020,9 +2069,39 @@ struct qos_master_config {
     int mpamid;
     int qos;
     int pmg;
-    unsigned long long bitmap[4]; /* max support 64 * 4  */
-    unsigned int mode;            /* 0 -- regs valid, 1 -- smmu valid, 2 -- sqe valid */
+    union {
+        unsigned long long bitmap[4]; /*mode 0/2 max support 64 * 4 */
+        struct {
+            unsigned int master_group_id; /* mode 3: compute group ID */
+            unsigned int group_reserved[QOS_GROUP_RESERVED_LEN];
+        } group;
+    };
+    unsigned int mode; /* 0 -- regs valid, 1 -- smmu valid, 2 -- sqe valid, 3 -- group id */
     int reserved[QOS_CFG_RESERVED_LEN - 1];
+};
+
+/* L2 cache group configuration */
+#define QOS_L2CACHE_GROUP_MAX_NUM 4
+#define QOS_L2CACHE_MODE_CREATE_GROUP 0
+#define QOS_L2CACHE_MODE_DELETE_GROUP 1
+#define QOS_L2CACHE_MODE_QUERY_GROUP 2
+#define QOS_L2CACHE_MODE_MAP_GROUP 3
+#define QOS_L2CACHE_MODE_QUERY_MAP 4
+
+struct qos_l2cache_config {
+    unsigned int mode; /* QOS_L2CACHE_MODE_ */
+    union {
+        struct {                    /* CREATE_GROUP(set) / QUERY_GROUP(get) */
+            unsigned int group_num; /* [1, QOS_L2CACHE_GROUP_MAX_NUM] */
+            unsigned int group_id[QOS_L2CACHE_GROUP_MAX_NUM];
+            int capacity[QOS_L2CACHE_GROUP_MAX_NUM];
+        } l2_group;
+        struct {                      /* MAP_GROUP(set) / QUERY_MAP(get) */
+            unsigned int mpamid;      /* set:in; get:in(encoded in sub_cmd bits 8-15) */
+            unsigned int l2_group_id; /* set:in; get:out */
+        } l2_group_map;
+    }; /* union both sides 32 bytes, ABI compatible */
+    int reserved[QOS_CFG_RESERVED_LEN];
 };
 
 struct qos_gbl_config {
@@ -2204,7 +2283,9 @@ struct dsmi_spod_info {
     unsigned int chassis_id;
     unsigned int super_pod_type;
     unsigned int super_pod_intercon_type;
-    unsigned int reserve[5];
+    unsigned short scale_up_group_id;
+    unsigned short scale_out_group_id;
+    unsigned int reserve[4];
 };
 
 typedef enum {
@@ -3434,6 +3515,33 @@ DLLEXPORT int dsmi_delete_capability_group(int device_id, int ts_id, int group_i
  */
 DLLEXPORT int dsmi_get_capability_group_info(int device_id, int ts_id, int group_id,
                                              struct dsmi_capability_group_info *group_info, int group_count);
+
+/**
+ * @ingroup driver
+ * @brief create multiple capability groups atomically
+ * @attention atomicity guaranteed by kernel: all succeed or all rollback
+ * @param [in] device_id device id
+ * @param [in] group_info multi group info (ts_id, rsv, group_num, group_info[])
+ * @return 0 for success, others for fail
+ */
+DLLEXPORT int dsmi_create_capability_multi_group(int device_id, struct dsmi_capability_multi_group_info *group_info);
+/**
+ * @ingroup driver
+ * @brief delete multiple capability groups
+ * @param [in] device_id device id
+ * @param [in] group_info multi group info (ts_id, rsv, group_num, group_info[] with group_ids to delete)
+ * @return 0 for success, others for fail
+ */
+DLLEXPORT int dsmi_delete_capability_multi_group(int device_id, struct dsmi_capability_multi_group_info *group_info);
+/**
+ * @ingroup driver
+ * @brief get multiple capability groups info
+ * @attention group_info[] is dual I/O: input group_id identifies query targets, output filled with matched info
+ * @param [in] device_id device id
+ * @param [in,out] group_info multi group info (group_num input=query count, output=matched count)
+ * @return 0 for success, others for fail
+ */
+DLLEXPORT int dsmi_get_capability_multi_group(int device_id, struct dsmi_capability_multi_group_info *group_info);
 
 /**
  * @brief: get total ECC counts and isolated pages count

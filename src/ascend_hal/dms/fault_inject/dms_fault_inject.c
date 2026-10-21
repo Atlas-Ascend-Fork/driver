@@ -14,18 +14,23 @@
 #include "dmc_user_interface.h"
 #include "securec.h"
 
-int dms_fault_inject(unsigned int dev_id, unsigned int vfid, unsigned int main_cmd,
-    unsigned int sub_cmd, DMS_FAULT_INJECT_STRU *para)
+int dms_fault_inject(unsigned int dev_id, unsigned int vfid, unsigned int main_cmd, unsigned int sub_cmd,
+                     DMS_FAULT_INJECT_STRU *para)
 {
     int ret;
     struct dms_fault_inject_in fault_inject_in;
     struct dms_ioctl_arg ioarg = {0};
     struct dms_filter_st filter = {0};
 
+    if (para == NULL) {
+        DMS_ERR("Parameter is null. (dev_id=%u; vfid=%u)\n", dev_id, vfid);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
     DMS_MAKE_UP_FILTER_DEVICE_INFO(&filter, main_cmd);
     fault_inject_in.dev_id = dev_id;
     fault_inject_in.vfid = vfid;
-    fault_inject_in.buff = (void*)para;
+    fault_inject_in.buff = (void *)para;
     fault_inject_in.buff_size = sizeof(DMS_FAULT_INJECT_STRU);
 
     ioarg.main_cmd = DMS_FAULT_INJECT_CMD;

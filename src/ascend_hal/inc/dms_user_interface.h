@@ -12,7 +12,6 @@
 #define DMS_USER_INTERFACE_H
 
 #include "dms/dms_devdrv_info_comm.h"
-#include "dms/dms_devdrv_user_config.h"
 #include "dms/dms_drv_internal.h"
 #include "dms/dms_lpm_interface.h"
 #include "dms/dms_memory_interface.h"

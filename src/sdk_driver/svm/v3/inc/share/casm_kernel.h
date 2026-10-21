@@ -16,10 +16,12 @@
 
 #include "svm_pub.h"
 #include "svm_addr_desc.h"
+#include "casm_def.h"
 
 struct casm_src_ex {
     u64 updated_va; /* in ub case, we update va to uba id and offset, and stored here; in pcie case, this is 0 */
     int owner_tgid;
+    struct casm_src_prop src_prop;
 };
 
 /* register by ub mem adapt */
@@ -55,7 +57,8 @@ int casm_get_src_va(u64 key, struct svm_global_va *src_va, struct casm_src_ex *s
 
 /* register by cross server adapt who open key */
 struct svm_casm_dst_ops {
-    int (*src_info_query)(u32 udevid, u64 key, struct svm_global_va *src_va);                /* get src cmd */
+    int (*src_info_query)(u32 udevid, u64 key, struct svm_global_va *src_va,
+                          struct casm_src_prop *src_prop);                                   /* get src cmd */
     int (*src_info_get)(u32 udevid, u64 key, struct svm_global_va *src_va, int *owner_tgid); /* pin cmd */
     void (*src_info_put)(u32 udevid, u64 key, struct svm_global_va *src_va, int owner_tgid); /* unpin cmd */
 };

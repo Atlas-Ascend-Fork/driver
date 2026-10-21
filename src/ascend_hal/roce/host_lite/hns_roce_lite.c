@@ -219,7 +219,7 @@ int hns_roce_lite_deinit_mem_pool(struct rdma_lite_context *lite_ctx, u32 mem_id
 }
 
 STATIC int hns_roce_lite_init_cq(struct hns_roce_lite_cq *cq, struct rdma_lite_context *lite_ctx,
-    struct rdma_lite_cq_attr *lite_cq_attr)
+                                 struct rdma_lite_cq_attr *lite_cq_attr)
 {
     struct hns_roce_lite_context *ctx = NULL;
     int ret, ret_temp;
@@ -231,7 +231,7 @@ STATIC int hns_roce_lite_init_cq(struct hns_roce_lite_cq *cq, struct rdma_lite_c
     cq->flags = lite_cq_attr->device_cq_attr.flags;
 
     if ((cq->flags & HNS_ROCE_LITE_CQ_FLAG_RECORD_DB) == 0) {
-        roce_err("Lite cq only support record db! cq_flag 0x%x", cq->flags);
+        roce_err("Lite cq only supports record db! cq_flag 0x%x", cq->flags);
         return -EINVAL;
     }
 
@@ -278,8 +278,7 @@ unregister_cq_buf:
     return ret;
 }
 
-struct rdma_lite_cq *hns_roce_lite_create_cq(struct rdma_lite_context *lite_ctx,
-    struct rdma_lite_cq_attr *lite_cq_attr)
+struct rdma_lite_cq *hns_roce_lite_create_cq(struct rdma_lite_context *lite_ctx, struct rdma_lite_cq_attr *lite_cq_attr)
 {
     struct hns_roce_lite_cq *cq = NULL;
     int ret;
@@ -369,7 +368,7 @@ out:
 }
 
 STATIC int hns_roce_lite_create_qp_init(struct hns_roce_lite_context *context, struct hns_roce_lite_qp *qp,
-    struct rdma_lite_qp_attr *attr)
+                                        struct rdma_lite_qp_attr *attr)
 {
     int ret;
 
@@ -458,8 +457,7 @@ alloc_wr_id_err:
     return -ENOMEM;
 }
 
-struct rdma_lite_qp *hns_roce_lite_create_qp(struct rdma_lite_context *lite_ctx,
-    struct rdma_lite_qp_attr *lite_qp_attr)
+struct rdma_lite_qp *hns_roce_lite_create_qp(struct rdma_lite_context *lite_ctx, struct rdma_lite_qp_attr *lite_qp_attr)
 {
     struct hns_roce_lite_context *context = NULL;
     struct hns_roce_lite_qp *qp = NULL;
@@ -569,7 +567,7 @@ STATIC struct hns_roce_lite_qp *hns_roce_lite_find_qp(struct hns_roce_lite_conte
 }
 
 STATIC void hns_roce_lite_poll_one_set_wc(struct rdma_lite_wc *lite_wc, u32 qpn, struct hns_roce_lite_qp **cur_qp,
-    int is_send, struct hns_roce_lite_cqe *cqe)
+                                          int is_send, struct hns_roce_lite_cqe *cqe)
 {
     struct hns_roce_lite_wq *lite_wq = NULL;
     u16 wqe_ctr;
@@ -588,7 +586,7 @@ STATIC void hns_roce_lite_poll_one_set_wc(struct rdma_lite_wc *lite_wc, u32 qpn,
              * lite_wq->tail will plus a positive number every time,
              * when lite_wq->tail exceeds 32b, it is 0 and acc
              */
-            lite_wq->tail += (u32)(wqe_ctr - (u16) lite_wq->tail) & (lite_wq->wqe_cnt - 1);
+            lite_wq->tail += (u32)(wqe_ctr - (u16)lite_wq->tail) & (lite_wq->wqe_cnt - 1);
         }
         /* write the wr_id of lite_wq into the lite_wc */
         lite_wc->wr_id = lite_wq->wrid[lite_wq->tail & (lite_wq->wqe_cnt - 1)];
@@ -603,19 +601,19 @@ STATIC void hns_roce_lite_poll_one_set_wc(struct rdma_lite_wc *lite_wc, u32 qpn,
 static void hns_roce_lite_handle_error_cqe(struct hns_roce_lite_cqe *cqe, struct rdma_lite_wc *lite_wc)
 {
     struct cqe_wc_status lite_cqe_wc_array[] = {
-        { HNS_ROCE_V2_CQE_LOCAL_LENGTH_ERR, RDMA_LITE_WC_LOC_LEN_ERR },
-        { HNS_ROCE_V2_CQE_LOCAL_QP_OP_ERR, RDMA_LITE_WC_LOC_QP_OP_ERR },
-        { HNS_ROCE_V2_CQE_LOCAL_PROT_ERR, RDMA_LITE_WC_LOC_PROT_ERR },
-        { HNS_ROCE_V2_CQE_WR_FLUSH_ERR, RDMA_LITE_WC_WR_FLUSH_ERR },
-        { HNS_ROCE_V2_CQE_MEM_MANAGERENT_OP_ERR, RDMA_LITE_WC_MW_BIND_ERR },
-        { HNS_ROCE_V2_CQE_BAD_RESP_ERR, RDMA_LITE_WC_BAD_RESP_ERR },
-        { HNS_ROCE_V2_CQE_LOCAL_ACCESS_ERR, RDMA_LITE_WC_LOC_ACCESS_ERR },
-        { HNS_ROCE_V2_CQE_REMOTE_INVAL_REQ_ERR, RDMA_LITE_WC_REM_INV_REQ_ERR },
-        { HNS_ROCE_V2_CQE_REMOTE_ACCESS_ERR, RDMA_LITE_WC_REM_ACCESS_ERR },
-        { HNS_ROCE_V2_CQE_REMOTE_OP_ERR, RDMA_LITE_WC_REM_OP_ERR },
-        { HNS_ROCE_V2_CQE_TRANSPORT_RETRY_EXC_ERR, RDMA_LITE_WC_RETRY_EXC_ERR },
-        { HNS_ROCE_V2_CQE_RNR_RETRY_EXC_ERR, RDMA_LITE_WC_RNR_RETRY_EXC_ERR },
-        { HNS_ROCE_V2_CQE_REMOTE_ABORTED_ERR, RDMA_LITE_WC_REM_ABORT_ERR },
+        {HNS_ROCE_V2_CQE_LOCAL_LENGTH_ERR, RDMA_LITE_WC_LOC_LEN_ERR},
+        {HNS_ROCE_V2_CQE_LOCAL_QP_OP_ERR, RDMA_LITE_WC_LOC_QP_OP_ERR},
+        {HNS_ROCE_V2_CQE_LOCAL_PROT_ERR, RDMA_LITE_WC_LOC_PROT_ERR},
+        {HNS_ROCE_V2_CQE_WR_FLUSH_ERR, RDMA_LITE_WC_WR_FLUSH_ERR},
+        {HNS_ROCE_V2_CQE_MEM_MANAGERENT_OP_ERR, RDMA_LITE_WC_MW_BIND_ERR},
+        {HNS_ROCE_V2_CQE_BAD_RESP_ERR, RDMA_LITE_WC_BAD_RESP_ERR},
+        {HNS_ROCE_V2_CQE_LOCAL_ACCESS_ERR, RDMA_LITE_WC_LOC_ACCESS_ERR},
+        {HNS_ROCE_V2_CQE_REMOTE_INVAL_REQ_ERR, RDMA_LITE_WC_REM_INV_REQ_ERR},
+        {HNS_ROCE_V2_CQE_REMOTE_ACCESS_ERR, RDMA_LITE_WC_REM_ACCESS_ERR},
+        {HNS_ROCE_V2_CQE_REMOTE_OP_ERR, RDMA_LITE_WC_REM_OP_ERR},
+        {HNS_ROCE_V2_CQE_TRANSPORT_RETRY_EXC_ERR, RDMA_LITE_WC_RETRY_EXC_ERR},
+        {HNS_ROCE_V2_CQE_RNR_RETRY_EXC_ERR, RDMA_LITE_WC_RNR_RETRY_EXC_ERR},
+        {HNS_ROCE_V2_CQE_REMOTE_ABORTED_ERR, RDMA_LITE_WC_REM_ABORT_ERR},
     };
     u32 status = roce_get_field(cqe->byte_4, CQE_BYTE_4_STATUS_M, CQE_BYTE_4_STATUS_S);
     int array_num = sizeof(lite_cqe_wc_array) / sizeof(struct cqe_wc_status);
@@ -639,12 +637,12 @@ static void hns_roce_lite_handle_error_cqe(struct hns_roce_lite_cqe *cqe, struct
 }
 
 STATIC void hns_roce_lite_mark_recv_opcode(struct hns_roce_lite_cqe *cqe, struct rdma_lite_wc *lite_wc,
-    struct rdma_lite_wc_ext *ext)
+                                           struct rdma_lite_wc_ext *ext)
 {
     u32 opcode;
 
     lite_wc->byte_len = le32toh(cqe->byte_cnt);
-    opcode  = roce_get_field(cqe->byte_4, CQE_BYTE_4_OPCODE_M, CQE_BYTE_4_OPCODE_S) & HNS_ROCE_LITE_CQE_OPCODE_MASK;
+    opcode = roce_get_field(cqe->byte_4, CQE_BYTE_4_OPCODE_M, CQE_BYTE_4_OPCODE_S) & HNS_ROCE_LITE_CQE_OPCODE_MASK;
 
     switch (opcode) {
         case HNS_ROCE_RECV_OP_RDMA_WRITE_IMM:
@@ -678,8 +676,8 @@ STATIC void hns_roce_lite_mark_send_opcode(int is_send, struct hns_roce_lite_cqe
     u32 opcode;
 
     if (is_send) {
-    /* Get opcode and flag before update the tail point for send */
-        opcode  = roce_get_field(cqe->byte_4, CQE_BYTE_4_OPCODE_M, CQE_BYTE_4_OPCODE_S) & HNS_ROCE_LITE_CQE_OPCODE_MASK;
+        /* Get opcode and flag before update the tail point for send */
+        opcode = roce_get_field(cqe->byte_4, CQE_BYTE_4_OPCODE_M, CQE_BYTE_4_OPCODE_S) & HNS_ROCE_LITE_CQE_OPCODE_MASK;
         lite_wc->wc_flags = 0;
         switch (opcode) {
             case HNS_ROCE_SQ_OP_SEND:
@@ -709,19 +707,19 @@ STATIC void hns_roce_lite_mark_send_opcode(int is_send, struct hns_roce_lite_cqe
                 break;
             case HNS_ROCE_SQ_OP_ATOMIC_COMP_AND_SWAP:
                 lite_wc->opcode = RDMA_LITE_WC_COMP_SWAP;
-                lite_wc->byte_len  = BYTE_LEN;
+                lite_wc->byte_len = BYTE_LEN;
                 break;
             case HNS_ROCE_SQ_OP_ATOMIC_MASK_COMP_AND_SWAP:
                 lite_wc->opcode = (enum rdma_lite_wc_opcode)HNS_ROCE_WC_MASK_COMP_SWAP;
-                lite_wc->byte_len  = BYTE_LEN;
+                lite_wc->byte_len = BYTE_LEN;
                 break;
             case HNS_ROCE_SQ_OP_ATOMIC_FETCH_AND_ADD:
                 lite_wc->opcode = RDMA_LITE_WC_FETCH_ADD;
-                lite_wc->byte_len  = BYTE_LEN;
+                lite_wc->byte_len = BYTE_LEN;
                 break;
             case HNS_ROCE_SQ_OP_ATOMIC_MASK_FETCH_AND_ADD:
                 lite_wc->opcode = (enum rdma_lite_wc_opcode)HNS_ROCE_WC_MASK_FETCH_ADD;
-                lite_wc->byte_len  = BYTE_LEN;
+                lite_wc->byte_len = BYTE_LEN;
                 break;
             case HNS_ROCE_SQ_OP_BIND_MW:
                 lite_wc->opcode = RDMA_LITE_WC_BIND_MW;
@@ -750,7 +748,7 @@ STATIC void hns_roce_lite_mark_send_opcode(int is_send, struct hns_roce_lite_cqe
 }
 
 STATIC void hns_roce_lite_poll_one_mark_opcode(int is_send, struct hns_roce_lite_cqe *cqe, struct rdma_lite_wc *lite_wc,
-    struct rdma_lite_wc_ext *ext)
+                                               struct rdma_lite_wc_ext *ext)
 {
     if (is_send != 0 || ext == NULL) {
         hns_roce_lite_mark_send_opcode(is_send, cqe, lite_wc);
@@ -768,14 +766,13 @@ STATIC void dump_err_cqe(const struct hns_roce_lite_cq *cq, const u32 *cqe, u32 
 
     if (wc_status != RDMA_LITE_WC_WR_FLUSH_ERR) {
         for (index = 0; index < CQE_ELEMENT_EIGHT; index++) {
-            roce_err("CQ(0x%lx) CQE(0x%x) INDEX(0x%08x): 0x%08x", cq->cqn, cq->cons_index, index, *(cqe +
-                index));
+            roce_err("CQ(0x%lx) CQE(0x%x) INDEX(0x%08x): 0x%08x", cq->cqn, cq->cons_index, index, *(cqe + index));
         }
     }
 }
 
 STATIC int hns_roce_lite_poll_one(struct hns_roce_lite_cq *cq, struct hns_roce_lite_qp **cur_qp,
-    struct rdma_lite_wc *lite_wc, struct rdma_lite_wc_ext *ext)
+                                  struct rdma_lite_wc *lite_wc, struct rdma_lite_wc_ext *ext)
 {
     struct hns_roce_lite_cqe *cqe = NULL;
     int is_send;
@@ -842,7 +839,7 @@ int hns_roce_lite_poll_cq(struct rdma_lite_cq *lite_cq, int num_entries, struct 
 
     cq = to_hr_lite_cq(lite_cq);
     if ((cq->flags & HNS_ROCE_LITE_CQ_FLAG_RECORD_DB) == 0) {
-        roce_err("Lite cq only support record db! cq_flag 0x%x", cq->flags);
+        roce_err("Lite cq only supports record db! cq_flag 0x%x", cq->flags);
         return -EINVAL;
     }
 
@@ -879,7 +876,7 @@ int hns_roce_lite_poll_cq_v2(struct rdma_lite_cq *lite_cq, int num_entries, stru
 
     cq = to_hr_lite_cq(lite_cq);
     if ((cq->flags & HNS_ROCE_LITE_CQ_FLAG_RECORD_DB) == 0) {
-        roce_err("Lite cq only support record db! cq_flag 0x%x", cq->flags);
+        roce_err("Lite cq only supports record db! cq_flag 0x%x", cq->flags);
         return -EINVAL;
     }
 
@@ -940,14 +937,13 @@ STATIC int hns_roce_lite_wq_overflow(struct hns_roce_lite_wq *wq, u32 nreq, stru
 STATIC int hns_roce_lite_check_send_wr(struct hns_roce_lite_qp *qp, struct rdma_lite_send_wr *lite_wr, u32 nreq)
 {
     if (hns_roce_lite_wq_overflow(&qp->sq, nreq, to_hr_lite_cq(qp->lite_qp.send_cq))) {
-        roce_warn("send lite_wq overflow! sq head:%u tail:%u nreq:%u max_post:%d",
-            qp->sq.head, qp->sq.tail, nreq, qp->sq.max_post);
+        roce_warn("send lite_wq overflow! sq head:%u tail:%u nreq:%u max_post:%d", qp->sq.head, qp->sq.tail, nreq,
+                  qp->sq.max_post);
         return -ENOMEM;
     }
 
     if ((u32)lite_wr->num_sge > qp->sq.max_gs) {
-        roce_err("send num_sge(%d) in lite_wr is bigger than max_gs(%d)",
-                 lite_wr->num_sge, qp->sq.max_gs);
+        roce_err("send num_sge(%d) in lite_wr is bigger than max_gs(%d)", lite_wr->num_sge, qp->sq.max_gs);
         return -EINVAL;
     }
 
@@ -978,13 +974,13 @@ STATIC __le32 get_immtdata(enum rdma_lite_wr_opcode opcode, const struct rdma_li
 STATIC void set_reduce_op(struct hns_roce_lite_rc_sq_wqe *rc_sq_wqe, const struct rdma_lite_post_send_attr *attr)
 {
     roce_set_field(rc_sq_wqe->byte_20, RC_SQ_WQE_BYTE_20_REDUCE_TYPE_M, RC_SQ_WQE_BYTE_20_REDUCE_TYPE_S,
-        attr->reduce_type & INLINE_REDUCE_TYPE_MASK);
+                   attr->reduce_type & INLINE_REDUCE_TYPE_MASK);
     roce_set_field(rc_sq_wqe->byte_20, RC_SQ_WQE_BYTE_20_REDUCE_OP_M, RC_SQ_WQE_BYTE_20_REDUCE_OP_S,
-        attr->reduce_op & INLINE_REDUCE_OP_MASK);
+                   attr->reduce_op & INLINE_REDUCE_OP_MASK);
 }
 
 STATIC int check_rc_opcode(struct hns_roce_lite_rc_sq_wqe *rc_sq_wqe, const struct rdma_lite_send_wr *lite_wr,
-    struct rdma_lite_post_send_attr *attr)
+                           struct rdma_lite_post_send_attr *attr)
 {
     u32 opcode = lite_wr->opcode;
     int ret = 0;
@@ -1015,8 +1011,7 @@ STATIC int check_rc_opcode(struct hns_roce_lite_rc_sq_wqe *rc_sq_wqe, const stru
             break;
     }
 
-    roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OPCODE_M,
-                   RC_SQ_WQE_BYTE_4_OPCODE_S, to_hr_lite_opcode(opcode));
+    roce_set_field(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_OPCODE_M, RC_SQ_WQE_BYTE_4_OPCODE_S, to_hr_lite_opcode(opcode));
     roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_CQE_S,
                  (lite_wr->send_flags & RDMA_LITE_SEND_SIGNALED) != 0 ? 1 : 0);
     roce_set_bit(rc_sq_wqe->byte_4, RC_SQ_WQE_BYTE_4_FENCE_S,
@@ -1035,7 +1030,7 @@ STATIC void set_data_seg(struct hns_roce_lite_wqe_data_seg *dseg, struct rdma_li
 }
 
 STATIC void set_sge(struct hns_roce_lite_wqe_data_seg *dseg, struct hns_roce_lite_qp *qp,
-    struct rdma_lite_send_wr *lite_wr, struct hns_roce_lite_sge_info *sge_info)
+                    struct rdma_lite_send_wr *lite_wr, struct hns_roce_lite_sge_info *sge_info)
 {
     struct hns_roce_lite_wqe_data_seg *temp_dseg = dseg;
     int i;
@@ -1049,8 +1044,8 @@ STATIC void set_sge(struct hns_roce_lite_wqe_data_seg *dseg, struct hns_roce_lit
             sge_info->valid_num++;
 
             if ((((lite_wr->send_flags & RDMA_LITE_SEND_INLINE) != 0) &&
-                (lite_wr->opcode != RDMA_LITE_WR_ATOMIC_FETCH_AND_ADD) &&
-                (lite_wr->opcode != RDMA_LITE_WR_ATOMIC_CMP_AND_SWP)) ||
+                 (lite_wr->opcode != RDMA_LITE_WR_ATOMIC_FETCH_AND_ADD) &&
+                 (lite_wr->opcode != RDMA_LITE_WR_ATOMIC_CMP_AND_SWP)) ||
                 (lite_wr->opcode == RDMA_LITE_WR_ATOMIC_WRITE)) {
                 continue;
             }
@@ -1065,11 +1060,11 @@ STATIC void set_sge(struct hns_roce_lite_wqe_data_seg *dseg, struct hns_roce_lit
 }
 
 STATIC int set_atom_write_seg(struct hns_roce_lite_wqe_data_seg *dseg, struct hns_roce_lite_rc_sq_wqe *rc_sq_wqe,
-    struct rdma_lite_send_wr *lite_wr, struct hns_roce_lite_sge_info *sge_info)
+                              struct rdma_lite_send_wr *lite_wr, struct hns_roce_lite_sge_info *sge_info)
 {
     // strict maximum support atomic write data to 4B, default capability supports 8B
     if (sge_info->total_len > sizeof(uint32_t)) {
-        roce_err("total_len:%u exceeds %zu, disallow to atomic write", sge_info->total_len, sizeof(uint32_t));
+        roce_err("total_len:%u exceeds %zu, atomic write is not allowed", sge_info->total_len, sizeof(uint32_t));
         return -EINVAL;
     }
 
@@ -1081,8 +1076,8 @@ STATIC int set_atom_write_seg(struct hns_roce_lite_wqe_data_seg *dseg, struct hn
     return 0;
 }
 
-STATIC int hns_roce_lite_set_rc_wqe(void *wqe, struct hns_roce_lite_qp *qp,
-                                    struct rdma_lite_send_wr *lite_wr, struct rdma_lite_post_send_attr *attr, u32 nreq,
+STATIC int hns_roce_lite_set_rc_wqe(void *wqe, struct hns_roce_lite_qp *qp, struct rdma_lite_send_wr *lite_wr,
+                                    struct rdma_lite_post_send_attr *attr, u32 nreq,
                                     struct hns_roce_lite_sge_info *sge_info)
 {
     struct hns_roce_lite_rc_sq_wqe *send_wqe = wqe;
@@ -1098,8 +1093,7 @@ STATIC int hns_roce_lite_set_rc_wqe(void *wqe, struct hns_roce_lite_qp *qp,
         return -EINVAL;
     }
 
-    wqe_length = sizeof(struct hns_roce_lite_rc_sq_wqe) +
-        sizeof(struct hns_roce_lite_wqe_data_seg) * lite_wr->num_sge;
+    wqe_length = sizeof(struct hns_roce_lite_rc_sq_wqe) + sizeof(struct hns_roce_lite_wqe_data_seg) * lite_wr->num_sge;
     rc_sq_wqe = (struct hns_roce_lite_rc_sq_wqe *)calloc(1, wqe_length);
     if (rc_sq_wqe == NULL) {
         roce_err("calloc rc sq wqe failed.\n");
@@ -1113,7 +1107,7 @@ STATIC int hns_roce_lite_set_rc_wqe(void *wqe, struct hns_roce_lite_qp *qp,
     }
 
     roce_set_field(rc_sq_wqe->byte_20, RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_M, RC_SQ_WQE_BYTE_20_MSG_START_SGE_IDX_S,
-        sge_info->start_idx & (qp->sge.sge_cnt - 1));
+                   sge_info->start_idx & (qp->sge.sge_cnt - 1));
 
     dseg = (struct hns_roce_lite_wqe_data_seg *)((char *)rc_sq_wqe + sizeof(struct hns_roce_lite_rc_sq_wqe));
     set_sge(dseg, qp, lite_wr, sge_info);
@@ -1144,8 +1138,8 @@ out:
     return ret;
 }
 
-STATIC int hns_roce_lite_set_wqe(void *wqe, struct hns_roce_lite_qp *qp,
-                                 struct rdma_lite_send_wr *lite_wr, struct rdma_lite_post_send_attr *attr, u32 nreq,
+STATIC int hns_roce_lite_set_wqe(void *wqe, struct hns_roce_lite_qp *qp, struct rdma_lite_send_wr *lite_wr,
+                                 struct rdma_lite_post_send_attr *attr, u32 nreq,
                                  struct hns_roce_lite_sge_info *sge_info)
 {
     int ret = 0;
@@ -1166,17 +1160,16 @@ STATIC void hns_roce_lite_get_rsp(struct hns_roce_lite_qp *qp, struct rdma_lite_
 {
     u32 pi = qp->sq.head & ((qp->sq.wqe_cnt << 1) - 1);
 
-    if (qp->gdr_enabled == HNS_ROCE_QP_AI_MODE_OP ||
-        qp->gdr_enabled == HNS_ROCE_QP_AI_MODE_GDR_ASYN ||
+    if (qp->gdr_enabled == HNS_ROCE_QP_AI_MODE_OP || qp->gdr_enabled == HNS_ROCE_QP_AI_MODE_GDR_ASYN ||
         qp->gdr_enabled == HNS_ROCE_QP_AI_MODE_OP_EXT) {
-        resp->db.lite_db_info = ((unsigned long)qp->sl << DB_SL_OFFSET) |
-                           ((unsigned long)pi << DB_PI_OFFSET) |
-                           (0 << DB_QPN_OFFSET) | qp->lite_qp.qp_num;
+        resp->db.lite_db_info = ((unsigned long)qp->sl << DB_SL_OFFSET) | ((unsigned long)pi << DB_PI_OFFSET) |
+                                (0 << DB_QPN_OFFSET) | qp->lite_qp.qp_num;
     }
 }
 
 int hns_roce_lite_post_send(struct rdma_lite_qp *lite_qp, struct rdma_lite_send_wr *lite_wr,
-    struct rdma_lite_send_wr **bad_wr, struct rdma_lite_post_send_attr *attr, struct rdma_lite_post_send_resp *resp)
+                            struct rdma_lite_send_wr **bad_wr, struct rdma_lite_post_send_attr *attr,
+                            struct rdma_lite_post_send_resp *resp)
 {
     struct rdma_lite_send_wr *lite_wr_temp = NULL;
     struct hns_roce_lite_sge_info sge_info = {0};
@@ -1248,7 +1241,7 @@ STATIC void hns_roce_lite_post_recv_out(int nreq, struct hns_roce_lite_qp *qp)
 }
 
 STATIC void hns_roce_lite_post_recv_fill_dseg(struct hns_roce_lite_qp *qp, struct rdma_lite_recv_wr *lite_wr,
-    struct hns_roce_lite_wqe_data_seg *dseg)
+                                              struct hns_roce_lite_wqe_data_seg *dseg)
 {
     struct hns_roce_lite_wqe_data_seg *temp_dseg = dseg;
     int i;
@@ -1270,14 +1263,13 @@ STATIC void hns_roce_lite_post_recv_fill_dseg(struct hns_roce_lite_qp *qp, struc
 STATIC int hns_roce_lite_check_recv_wr(struct hns_roce_lite_qp *qp, struct rdma_lite_recv_wr *lite_wr, u32 nreq)
 {
     if (hns_roce_lite_wq_overflow(&qp->rq, nreq, to_hr_lite_cq(qp->lite_qp.recv_cq))) {
-        roce_warn("recv lite_wq overflow! rq head:%u tail:%u nreq:%u max_post:%d",
-            qp->rq.head, qp->rq.tail, nreq, qp->rq.max_post);
+        roce_warn("recv lite_wq overflow! rq head:%u tail:%u nreq:%u max_post:%d", qp->rq.head, qp->rq.tail, nreq,
+                  qp->rq.max_post);
         return -ENOMEM;
     }
 
     if ((u32)lite_wr->num_sge > qp->rq.max_gs) {
-        roce_err("recv num_sge(%d) in lite_wr is bigger than max_gs(%u)",
-                 lite_wr->num_sge, qp->rq.max_gs);
+        roce_err("recv num_sge(%d) in lite_wr is bigger than max_gs(%u)", lite_wr->num_sge, qp->rq.max_gs);
         return -EINVAL;
     }
 
@@ -1285,7 +1277,7 @@ STATIC int hns_roce_lite_check_recv_wr(struct hns_roce_lite_qp *qp, struct rdma_
 }
 
 int hns_roce_lite_post_recv(struct rdma_lite_qp *lite_qp, struct rdma_lite_recv_wr *lite_wr,
-    struct rdma_lite_recv_wr **bad_wr)
+                            struct rdma_lite_recv_wr **bad_wr)
 {
     struct hns_roce_lite_wqe_data_seg *dseg = NULL;
     struct rdma_lite_recv_wr *lite_wr_temp = NULL;

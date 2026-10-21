@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef TSDRV_STATUS_H
 #define TSDRV_STATUS_H
 

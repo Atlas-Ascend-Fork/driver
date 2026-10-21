@@ -92,7 +92,6 @@ struct res_id_usr_info *trs_get_res_id_info(uint32_t dev_id, uint32_t ts_id, drv
     return res_id_info;
 }
 
-#ifndef EMU_ST
 drvError_t __attribute__((weak)) trs_register_reg(uint32_t dev_id, uint64_t va, uint32_t size)
 {
     (void)dev_id;
@@ -124,7 +123,6 @@ drvError_t __attribute__((weak)) halResAddrUnmap(unsigned int devId, struct res_
     (void)res_info;
     return DRV_ERROR_NONE;
 }
-#endif
 
 int trs_res_map_reg_init(uint32_t dev_id, uint32_t ts_id, uint32_t res_id, drvIdType_t type,
                          struct res_id_usr_info *id_info)
@@ -247,11 +245,9 @@ static int trs_res_type_init(uint32_t dev_id, uint32_t ts_id, int id_type, struc
     int ret;
 
     if (id_type >= TRS_MAX_ID_TYPE) {
-#ifndef EMU_ST
         *id_info = NULL;
         *id_num = 0;
         return 0;
-#endif
     }
 
     ret = trs_id_query(dev_id, TRS_RES_ID_MAX_QUERY, &para, &num);
@@ -261,10 +257,8 @@ static int trs_res_type_init(uint32_t dev_id, uint32_t ts_id, int id_type, struc
 
     info = calloc(num, sizeof(struct res_id_usr_info));
     if (info == NULL) {
-#ifndef EMU_ST
         trs_err("Calloc failed. (dev_id=%u; ts_id=%u; id_type=%d; num=%u)\n", dev_id, ts_id, id_type, num);
         return DRV_ERROR_OUT_OF_MEMORY;
-#endif
     }
 
     *id_info = info;
@@ -303,21 +297,17 @@ static int trs_ts_res_id_init(uint32_t dev_id, uint32_t ts_id)
         ctx = trs_get_res_id_ctx(dev_id, ts_id, i);
         ret = trs_res_type_init(dev_id, ts_id, trs_get_res_id_type(i), &ctx->res_id_info, &ctx->res_id_num);
         if (ret != DRV_ERROR_NONE) {
-#ifndef EMU_ST
             goto error;
-#endif
         }
     }
     return 0;
 
-#ifndef EMU_ST
 error:
     for (j = 0; j < i; j++) {
         ctx = trs_get_res_id_ctx(dev_id, ts_id, j);
         trs_res_type_un_init(dev_id, ts_id, j, &ctx->res_id_info, &ctx->res_id_num);
     }
     return ret;
-#endif
 }
 
 static void trs_ts_res_id_un_init(uint32_t dev_id, uint32_t ts_id)
@@ -369,12 +359,10 @@ int trs_dev_res_id_init(uint32_t dev_id)
     for (i = 0; i < ts_num; i++) {
         ret = trs_ts_res_id_init(dev_id, i);
         if (ret != DRV_ERROR_NONE) {
-#ifndef EMU_ST
             for (j = 0; j < i; j++) {
                 trs_ts_res_id_un_init(dev_id, j);
             }
             return ret;
-#endif
         }
     }
     return 0;
@@ -422,8 +410,8 @@ static drvError_t trs_res_alloc_para_check(uint32_t dev_id, struct halResourceId
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if ((dev_id >= TRS_DEV_NUM) || (in->type >= DRV_INVALID_ID)) {
-        trs_err("Invalid para. (dev_id=%u; res_type=%d)\n", dev_id, in->type);
+    if ((dev_id >= TRS_DEV_NUM) || (in->type >= DRV_INVALID_ID) || (in->tsId >= TRS_TS_NUM)) {
+        trs_err("Invalid para. (dev_id=%u; res_type=%d; ts_id=%u)\n", dev_id, in->type, in->tsId);
         return DRV_ERROR_INVALID_VALUE;
     }
     return DRV_ERROR_NONE;
@@ -659,8 +647,8 @@ drvError_t trs_res_config_para_check(uint32_t dev_id, struct halResourceIdInputI
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if ((dev_id >= TRS_DEV_NUM) || (in->type >= DRV_INVALID_ID)) {
-        trs_err("Invalid para. (dev_id=%u; res_type=%d)\n", dev_id, in->type);
+    if ((dev_id >= TRS_DEV_NUM) || (in->type >= DRV_INVALID_ID) || (in->tsId >= TRS_TS_NUM)) {
+        trs_err("Invalid para. (dev_id=%u; res_type=%d; ts_id=%u)\n", dev_id, in->type, in->tsId);
         return DRV_ERROR_INVALID_VALUE;
     }
     return DRV_ERROR_NONE;
@@ -796,7 +784,7 @@ static int trs_get_res_id_by_stream(uint32_t dev_id, struct halResourceIdInputIn
     int ret;
 
     if (in->type != DRV_STREAM_ID) {
-        trs_err("Not support. (type=%u\n)", in->type);
+        trs_err("Not support. (type=%u)\n", in->type);
         return DRV_ERROR_INVALID_VALUE;
     }
 

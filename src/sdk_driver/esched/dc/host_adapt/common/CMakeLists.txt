@@ -14,6 +14,7 @@ target_sources(asdrv_esched_obj PRIVATE
     esched.c
     esched_fops.c
     esched_sysfs.c
+    esched_feature_check.c
     ../bind_cpu/drv_cpu_type.c
 )
 

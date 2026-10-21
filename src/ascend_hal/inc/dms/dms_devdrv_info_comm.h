@@ -39,19 +39,19 @@ typedef unsigned char u8;
 #define INFO_MAX_DAVINCI_NUM 64
 
 #if defined(DRV_HOST) && defined(CFG_FEATURE_SRIOV)
-    #ifndef DEVDRV_MAX_DAVINCI_NUM
-        #define DEVDRV_MAX_DAVINCI_NUM 1124
-    #endif
+#ifndef DEVDRV_MAX_DAVINCI_NUM
+#define DEVDRV_MAX_DAVINCI_NUM 1124
+#endif
 #else
-    #ifndef DEVDRV_MAX_DAVINCI_NUM
-        #define DEVDRV_MAX_DAVINCI_NUM 64
-    #endif
+#ifndef DEVDRV_MAX_DAVINCI_NUM
+#define DEVDRV_MAX_DAVINCI_NUM 64
+#endif
 #endif
 
 #define MAX_CMD_DES_CHAR_COUNT 1000
 
-#define DEVDRV_HOST_VM_MACH_FLAG            0x1a2b3c4d    /* vm mathine flag */
-#define DEVDRV_HOST_CONTAINER_MACH_FLAG     0xa4b3c2d1    /* container mathine flag */
+#define DEVDRV_HOST_VM_MACH_FLAG 0x1a2b3c4d        /* vm mathine flag */
+#define DEVDRV_HOST_CONTAINER_MACH_FLAG 0xa4b3c2d1 /* container mathine flag */
 
 struct inline_reduce {
     unsigned int ADD : 1;
@@ -69,9 +69,9 @@ struct inline_reduce {
 
 struct ioctl_arg {
     unsigned int dev_id;
-    unsigned int type;   // core id or device type
-    unsigned int data1;  // u32 data
-    int data2;           // int data  for temperature
+    unsigned int type;  // core id or device type
+    unsigned int data1; // u32 data
+    int data2;          // int data  for temperature
     unsigned int data3;
     unsigned int vfid;
 };
@@ -198,17 +198,18 @@ enum dmanager_tsensor_id {
     PERI_TEMP_ID = 1,
     AICORE0_TEMP_ID,
     AICORE1_TEMP_ID,
-    AICORE_LIMIT_ID,       // AICORE core limit status: 0 (no limit), 1 (core limit)
-    AICORE_TOTAL_PER_ID,   // AICORE pulse total cycle
-    AICORE_ELIM_PER_ID,    // aicore erasable cycle
-    AICORE_BASE_FREQ_ID,   // aicore Base Frequency (MHz) returns u16
-    NPU_DDR_FREQ_ID,       // DDR frequency unit in MHz returns u16
-    THERMAL_THRESHOLD_ID,  // thermal comfort frequency limit temp, system reset temp, return u8 * temp temp[0] temp[1]
-    NTC_TEMP_ID,           // four thermistor temperatures, return is an array: int * ret ret[0] ret[1] ret[2] ret[3]
-    SOC_TEMP_ID,           // SOC's max temp
-    FP_TEMP_ID,            // optical module's temp
+    AICORE_LIMIT_ID,      // AICORE core limit status: 0 (no limit), 1 (core limit)
+    AICORE_TOTAL_PER_ID,  // AICORE pulse total cycle
+    AICORE_ELIM_PER_ID,   // aicore erasable cycle
+    AICORE_BASE_FREQ_ID,  // aicore Base Frequency (MHz) returns u16
+    NPU_DDR_FREQ_ID,      // DDR frequency unit in MHz returns u16
+    THERMAL_THRESHOLD_ID, // thermal comfort frequency limit temp, system reset temp, return u8 * temp temp[0] temp[1]
+    NTC_TEMP_ID,          // four thermistor temperatures, return is an array: int * ret ret[0] ret[1] ret[2] ret[3]
+    SOC_TEMP_ID,          // SOC's max temp
+    FP_TEMP_ID,           // optical module's temp
     N_DIE_TEMP_ID,
-    HBM_TEMP_ID,           // hbm's max temp
+    HBM_TEMP_ID,       // hbm's max temp
+    HBM_ARRAY_TEMP_ID, // hbm dram temp
     INVALID_TSENSOR_ID,
 };
 #define DEV_TIME_TO_MS 1000
@@ -292,9 +293,9 @@ struct dmanage_aicpu_info_stru {
 };
 
 struct dmanage_pri_auth {
-    int dev_id; /**< Device ID */
+    int dev_id;    /**< Device ID */
     int host_root; /**< status 0:not root 1:root */
-    int run_env; /**< status 0:physical environment 1:not physical environment */
+    int run_env;   /**< status 0:physical environment 1:not physical environment */
 };
 
 #define DEVDRV_SUCCESS 0
@@ -312,11 +313,10 @@ int dmanage_get_device_ddr_capacity(unsigned int dev_id, unsigned int *pcapacity
 
 int dmanage_get_device_health(unsigned int dev_id, unsigned int *phealth);
 int dmanage_get_device_errorcode(unsigned int dev_id, int *p_error_code_count, unsigned int *p_error_code,
-    int p_error_code_len);
+                                 int p_error_code_len);
 int devdrv_lpm3_smoke_ipc(unsigned char *send, unsigned char *ack, unsigned int len);
 int dmanage_get_mini_device_id(unsigned int *id);
 int devdrv_get_slot_id(unsigned int dev_id, unsigned int *slot_id);
-int dmanage_get_container_flag(unsigned int *flag);
 int dmanage_get_emmc_voltage(int *emmc_vcc, int *emmc_vccq);
 int dmanage_enable_efuse_ldo2(void);
 int dmanage_disable_efuse_ldo2(void);
@@ -324,14 +324,13 @@ int devdrv_imu_smoke_ipc(unsigned int dev_id, const unsigned char *send, unsigne
                          unsigned int *ack_len);
 int dms_imu_dmp_msg_send(int fd, unsigned int dev_id, unsigned char *buf, unsigned char len);
 int dms_imu_dmp_msg_recv(int fd, unsigned int dev_id, unsigned char *buf, unsigned char buf_len,
-                            unsigned char *recv_len);
+                         unsigned char *recv_len);
 int DmsGetImuInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 drvError_t dms_get_ub_info(uint32_t devId, int32_t infoType, void *buf, int32_t *size);
-drvError_t DmsGetUbInfo(unsigned int dev_id, int module_type, int info_type,
-    void *buf, unsigned int *size);
+drvError_t DmsGetUbInfo(unsigned int dev_id, int module_type, int info_type, void *buf, unsigned int *size);
 #ifdef CFG_FEATURE_GET_DEV_INDEX_IN_GROUP
-drvError_t DmsGetIndexInGroup(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size);
+drvError_t DmsGetIndexInGroup(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                              unsigned int *size);
 #endif
 int dms_get_ub_info_by_dmp(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size);
 #ifndef CFG_SOC_PLATFORM_MINI
@@ -346,13 +345,13 @@ int dmanage_get_gateway_address(unsigned int dev_id, struct dmanager_card_info c
 int dmanage_set_gateway_address(unsigned int dev_id, struct dmanager_card_info card_info,
                                 struct dmanager_gtw_info config_info);
 int dmanage_set_gateway_address6(unsigned int dev_id, struct dmanager_card_info card_info,
-    struct dmanager_gtw_info config_info);
+                                 struct dmanager_gtw_info config_info);
 int dmanage_get_mac_address(unsigned int dev_id, struct dmanager_card_info card_info,
-    struct dmanager_mac_info *ack_info);
+                            struct dmanager_mac_info *ack_info);
 int dmanage_set_mac_address(unsigned int dev_id, struct dmanager_card_info card_info,
-    struct dmanager_mac_info config_info);
+                            struct dmanager_mac_info config_info);
 int dmanage_get_net_device_info(unsigned int dev_id, struct dmanager_card_info card_info,
-    struct dmanager_net_dev_info *ack_info);
+                                struct dmanager_net_dev_info *ack_info);
 int dmanage_get_pmu_voltage(struct dmanager_pmu_voltage_stru *pmu_voltage);
 int dmanage_get_llc_perf_para(unsigned int dev_id, struct dmanager_llc_perf_info *perf_info);
 int devdrv_get_root_config(unsigned int devid, const char *name, unsigned char *buf, unsigned int *buf_size);
@@ -364,7 +363,6 @@ int dmanage_inquire_imu_info(unsigned int dev_id, unsigned int *status);
 int dmanage_get_computing_power(unsigned int dev_id, struct tag_computing_power_msg *data);
 int dmanage_get_bb_errstr(unsigned int dev_id, unsigned int errcode, unsigned char *errstr, int buf_len);
 int dmanage_reset_i2c_controller(void);
-int dmanage_get_xloader_boot_info(unsigned int op_flag, unsigned int *op_area);
 int dmanage_i2c_gpio_read(unsigned int gpio_num, unsigned int *gpio_value);
 int dmanage_get_flash_count(unsigned int device_id, unsigned int *flash_count);
 int dmanage_get_flash_info(unsigned int device_id, struct dm_flash_info_stru *flash_info);
@@ -373,13 +371,16 @@ int dmanage_get_lp_status(int device_id, struct dsmi_lp_status_stru *lp_status_d
 int dmanage_dmp_init(void);
 int dmanage_create_capability_group(int dev_id, int ts_id, struct capability_group_info *group_info);
 int dmanage_delete_capability_group(int dev_id, int ts_id, int group_id);
-int dmanage_get_capability_group_info(int dev_id, int ts_id, int group_id,
-                                      struct capability_group_info *group_info, int group_count);
+int dmanage_get_capability_group_info(int dev_id, int ts_id, int group_id, struct capability_group_info *group_info,
+                                      int group_count);
+int dms_create_capability_multi_group(int dev_id, struct capability_multi_group_info *multi_group_info);
+int dms_delete_capability_multi_group(int dev_id, struct capability_multi_group_info *multi_group_info);
+int dms_get_capability_multi_group(int dev_id, struct capability_multi_group_info *multi_group_info);
 int dmanage_get_ts_group_check_para(int group_id, int group_count);
 int dmanage_get_ts_group_num(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *ret_size);
+                             unsigned int *ret_size);
 int dmanage_get_temperature(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *size);
+                            unsigned int *size);
 int dmanage_set_temperature(unsigned int dev_id, unsigned int sub_cmd, void *out_buf, unsigned int ret_size);
 #ifdef CFG_FEATURE_GPIO_STATUS
 int dmanage_gpio_read(int device_id, unsigned int phy_gpio_num, unsigned int *gpio_value);
@@ -388,26 +389,28 @@ int dmanage_gpio_read(int device_id, unsigned int phy_gpio_num, unsigned int *gp
 #ifdef CFG_FEATURE_UFS_INFO_AND_STATUS
 int dmanage_get_ufs_status(int device_id, struct dsmi_ufs_status_stru *ufs_status_data);
 int dmanage_get_ufs_info(unsigned int device_id, unsigned int vfid, unsigned int sub_cmd, void *buf,
-    unsigned int *size);
+                         unsigned int *size);
 int dmanage_set_ufs_info(unsigned int device_id, unsigned int sub_cmd, void *buf, unsigned int size);
 #endif
 
 #ifdef CFG_FEATURE_POWER_STATE
 int dmanage_get_power_state(unsigned int device_id, unsigned int vfid, unsigned int sub_cmd, void *buf,
-    unsigned int *size);
+                            unsigned int *size);
 #endif
 
 #ifdef CFG_FEATURE_SOC_INFO
-int dmanage_get_soc_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd,
-                         void *out_buf, unsigned int *ret_size);
+int dmanage_get_soc_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
+                         unsigned int *ret_size);
 #endif
+
+drvError_t dms_get_pcie_info(unsigned int dev_id, unsigned int info_type, void *buf, int *size);
 /*
  * diff soc adapt
  */
 int dmanage_get_optical_module_temp_adapt(unsigned int dev_id, int *value);
 int dmanage_get_network_health_adapt(unsigned int dev_id, unsigned int *health);
-int dmanage_get_network_dev_info_adapt(struct dmanage_pri_auth *auth, const char *inbuf,
-    unsigned int size_in, char *outbuf, unsigned int *size_out);
+int dmanage_get_network_dev_info_adapt(struct dmanage_pri_auth *auth, const char *inbuf, unsigned int size_in,
+                                       char *outbuf, unsigned int *size_out);
 void devdrv_p2p_mem_sync_to_flash(void);
 
 int dmanage_get_imu_info(unsigned int dev_id, unsigned char *send, unsigned int send_len, unsigned char *ack,
@@ -415,19 +418,18 @@ int dmanage_get_imu_info(unsigned int dev_id, unsigned char *send, unsigned int 
 int devdrv_get_user_config(u32 devid, const char *name, u8 *buf, u32 *buf_size);
 int devdrv_set_user_config(u32 devid, const char *name, u8 *buf, u32 buf_size);
 int devdrv_clear_user_config(u32 devid, const char *name);
-drvError_t drvGetLocalDevIDs(uint32_t *devices, uint32_t len);
 drvError_t drvDeviceGetPcieIdInfo(uint32_t devId, struct tag_pcie_idinfo *pcie_idinfo);
 int dmanage_get_optical_module_temp(unsigned int dev_id, int *value);
 
 #ifdef CFG_FEATURE_PSS_SIGN
 int dmanage_set_device_sign(unsigned int dev_id, unsigned int subcmd, void *buf, unsigned int buf_size);
 int dmanage_get_device_sign(unsigned int dev_id, unsigned int vfid, unsigned int subcmd, void *buf,
-    unsigned int *buf_size);
+                            unsigned int *buf_size);
 #endif
 
 int dmanage_set_device_sec_info(unsigned int dev_id, unsigned int sub_cmd, void *buf, unsigned int buf_size);
-int dmanage_get_device_sec_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd,
-    void *buf, unsigned int *buf_size);
+int dmanage_get_device_sec_info(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf,
+                                unsigned int *buf_size);
 
 typedef struct tagDrvModuleStatus {
     unsigned int ai_core_error_bitmap;
@@ -452,13 +454,9 @@ drvError_t drvGetDeviceModuleStatus(uint32_t devId, drvModuleStatus_t *moduleSta
 drvError_t drvGetDeviceModuleStatus(drvModuleStatus_t *moduleStatus);
 #endif
 drvError_t drvCheckDevid(unsigned int devId);
-drvError_t drvDeviceResetInform(uint32_t devid);
-drvError_t drvGetHostPhyMachFlag(unsigned int device_id, unsigned int *host_flag);
 drvError_t drvGetDeviceSplitMode(unsigned int dev_id, unsigned int *mode);
-drvError_t drvGetDevProbeNum(uint32_t *num);
 drvError_t drvCreateVdevice(u32 devid, u32 vdev_id, struct dsmi_create_vdev_res_stru *vdev_res,
                             struct dsmi_create_vdev_result *vdev_result);
-drvError_t drvDestroyVdevice(u32 devid, u32 vdevid);
 drvError_t drvGetVdevTotalInfo(u32 devid, u32 main_cmd, u32 sub_cmd, void *vdev_res, u32 *size);
 drvError_t drvGetVdevFreeInfo(u32 devid, u32 main_cmd, u32 sub_cmd, void *vdev_res, u32 *size);
 drvError_t drvGetVdevActivityInfo(u32 devid, u32 main_cmd, u32 sub_cmd, void *vdev_res, u32 *size);
@@ -467,18 +465,12 @@ drvError_t drvGetVdevTopsPercentage(u32 devid, u32 main_cmd, u32 sub_cmd, void *
 
 drvError_t drvGetVdavinciIdByIndex(uint32_t devIndex, uint32_t *vdevId);
 drvError_t drvGetCommonDriverInitStatus(int *status);
-drvError_t drvGetDeviceResourceInfo(u32 devid, struct dsmi_resource_para *para,
-    struct dsmi_resource_info *info);
-drvError_t drvSetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd,
-    const void *buf, unsigned int buf_size);
-drvError_t drvGetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd,
-    void *buf, unsigned int *buf_size);
-drvError_t drvGetDmpStarted(uint32_t devId, uint32_t *dmp_started);
-drvError_t drvGetVdeviceMode(int *mode);
-drvError_t drvSetVdeviceMode(int mode);
+drvError_t drvGetDeviceResourceInfo(u32 devid, struct dsmi_resource_para *para, struct dsmi_resource_info *info);
+drvError_t drvSetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd, const void *buf, unsigned int buf_size);
+drvError_t drvGetSvmVdevInfo(unsigned int devid, unsigned int sub_cmd, void *buf, unsigned int *buf_size);
 
 /* internal */
-#define IPCDRV_MSG_LENGTH    28
+#define IPCDRV_MSG_LENGTH 28
 struct msgHeader {
     unsigned int msgType : 1;
     unsigned int cmdType : 7;
@@ -531,7 +523,7 @@ typedef enum {
 } rproc_id_t;
 #endif
 
-#define MCU_RESP_LEN  28
+#define MCU_RESP_LEN 28
 struct devdrv_mcu_msg {
     unsigned char dev_id;
     unsigned char rw_flag;
@@ -560,41 +552,41 @@ struct ioctl_ipc {
 };
 
 /**
-* @ingroup driver
-* @brief  set or get imu,ts info from ipc channel
-* @attention this interface use only in device side, not support in host side
-* if the type you input is not compatitable with the table below, then will return failed
-* ---------------------------------------------------------------------------------------------------------
-* targetId               | mainCmd             | subCmd                 | support board type              |
-* ---------------------------------------------------------------------------------------------------------
-* TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_SOC_TEMP   | ascend310,ascend310p   |
-* TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_AIC0_FREQ  | ascend310p             |
-* TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_AIC1_FREQ  | ascend310p             |
-* TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_CCPU_FREQ  | ascend310p             |
-* TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_DDR_FREQ   | ascend310,ascend310p   |
-* ---------------------------------------------------------------------------------------------------------
-* TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_SOC_TEMP   | ascend910                       |
-* TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_HBM_TEMP   | ascend910                       |
-* TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_NDIE_TEMP  | ascend910                       |
-* TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_AIC0_FREQ  | ascend910                       |
-* TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_DDR_FREQ   | ascend910                       |
-* TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_HBM_FREQ   | ascend910                       |
-* TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_SOC_POWER  | ascend910                       |
-* --------------------------------------------------------------------------------------------------------
-* TARGET_ID_TSC          | mainCmd             | subCmd                 | not support                     |
-* --------------------------------------------------------------------------------------------------------
-* TARGET_ID_TSV          | mainCmd             | subCmd                 | not support                     |
-* --------------------------------------------------------------------------------------------------------
-* TARGET_ID_SAFETYISLAND | mainCmd             | subCmd                 | not support                     |
-* --------------------------------------------------------------------------------------------------------
-* @param [in] devId: chip id
-* @param [in] targetId: ipc machine id that that you want get info from
-* @param [in] mainCmd: ipcMainCmdType
-* @param [in] subCmd: ipcSubCmdType
-* @param [out] msg: msg return from driver
-* @return   0 for success, others for fail
-*/
-int ipc_msg_request(unsigned int devId, unsigned char targetId,
-    unsigned char mainCmd, unsigned char subCmd, struct ipc_msg *msg);
+ * @ingroup driver
+ * @brief  set or get imu,ts info from ipc channel
+ * @attention this interface use only in device side, not support in host side
+ * if the type you input is not compatitable with the table below, then will return failed
+ * ---------------------------------------------------------------------------------------------------------
+ * targetId               | mainCmd             | subCmd                 | support board type              |
+ * ---------------------------------------------------------------------------------------------------------
+ * TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_SOC_TEMP   | ascend310,ascend310p   |
+ * TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_AIC0_FREQ  | ascend310p             |
+ * TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_AIC1_FREQ  | ascend310p             |
+ * TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_CCPU_FREQ  | ascend310p             |
+ * TARGET_ID_LP           | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_DDR_FREQ   | ascend310,ascend310p   |
+ * ---------------------------------------------------------------------------------------------------------
+ * TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_SOC_TEMP   | ascend910                       |
+ * TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_HBM_TEMP   | ascend910                       |
+ * TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_NDIE_TEMP  | ascend910                       |
+ * TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_AIC0_FREQ  | ascend910                       |
+ * TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_DDR_FREQ   | ascend910                       |
+ * TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_HBM_FREQ   | ascend910                       |
+ * TARGET_ID_IMU          | IPC_MAIN_CMD_QUERY  | IPC_SUB_CMD_SOC_POWER  | ascend910                       |
+ * --------------------------------------------------------------------------------------------------------
+ * TARGET_ID_TSC          | mainCmd             | subCmd                 | not support                     |
+ * --------------------------------------------------------------------------------------------------------
+ * TARGET_ID_TSV          | mainCmd             | subCmd                 | not support                     |
+ * --------------------------------------------------------------------------------------------------------
+ * TARGET_ID_SAFETYISLAND | mainCmd             | subCmd                 | not support                     |
+ * --------------------------------------------------------------------------------------------------------
+ * @param [in] devId: chip id
+ * @param [in] targetId: ipc machine id that that you want get info from
+ * @param [in] mainCmd: ipcMainCmdType
+ * @param [in] subCmd: ipcSubCmdType
+ * @param [out] msg: msg return from driver
+ * @return   0 for success, others for fail
+ */
+int ipc_msg_request(unsigned int devId, unsigned char targetId, unsigned char mainCmd, unsigned char subCmd,
+                    struct ipc_msg *msg);
 /* internal end */
 #endif

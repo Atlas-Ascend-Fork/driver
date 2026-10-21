@@ -248,6 +248,7 @@ STATIC signed int Search(PCFGPARSE_CB_T handle, const char *str, char **value, s
         if (strstr(tmp, str) == NULL) {
             continue;
         }
+
         /* Extract the part before the first separator */
         if ((pvalue[0] = str_to_ok(tmp, separator, &p_save, MAX_LINE_SIZE)) == NULL) {
             continue;
@@ -268,7 +269,7 @@ STATIC signed int Search(PCFGPARSE_CB_T handle, const char *str, char **value, s
             *value_num = i + 1;
 
             if (*value_num >= MAX_VALUE_NUM) {
-                HDC_LOG_ERR("Parameter value_num is out of range. (value_num=%d;max=%d)\n", *value_num, MAX_VALUE_NUM);
+                HDC_LOG_ERR("Parameter value_num is out of range. (value_num=%d, max=%d)\n", *value_num, MAX_VALUE_NUM);
                 break;
             }
             i++;
@@ -302,7 +303,6 @@ signed int str_search(PCFGPARSE_CB_T handle, const char *str, char **value, sign
 
     /* Read from the beginning of the file */
     (void)fseek(handle->fp, 0, SEEK_SET);
-
     /* Initialize value count to 0 */
     *value_num = 0;
 

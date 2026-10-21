@@ -428,10 +428,7 @@ STATIC int dms_event_print_converge_one_tree(EVENT_CONVERGE_NODE_T *top_node, u3
 
     /* convergent event_node of layer 0 print */
     dms_event_get_attribute_info(devid, opt, top_node, &attribute_info);
-    len = snprintf_s(*str, *avl_len, *avl_len - 1,
-                     "Top node: (event_id=0x%X)\n"
-                     "  0x%X(%c:%d)\n"
-                     "    |\n",
+    len = snprintf_s(*str, *avl_len, *avl_len - 1, "Top node: (event_id=0x%X)\n  0x%X(%c:%d)\n    |\n",
                      top_node->event_id, top_node->event_id, opt, attribute_info);
     EVENT_DFX_CHECK_DO_SOMETHING(len < 0, return len);
     *str += len;
@@ -618,7 +615,7 @@ static int dms_event_convergent_item_check(unsigned int item_converge_id[], unsi
     u32 i;
 
     if ((event_id_num < EVENT_CONVERGE_ID_NUM_MIN) || (event_id_num > EVENT_CONVERGE_ID_NUM_MAX)) {
-        dms_err("Invalid event_id_num. (event_id_num=%u; max=%u)\n", event_id_num, EVENT_CONVERGE_ID_NUM_MAX);
+        dms_err("Invalid event_id_num. (event_id_num=%u)\n", event_id_num);
         for (i = 0; i < event_id_num; i++) {
             dms_err("Invalid event_id. (event_id[%u]=0x%x)\n", i, item_converge_id[i]);
         }
@@ -672,7 +669,7 @@ static int dms_event_convergent_item_add(unsigned int item_converge_id[], unsign
         bro_idx = EVENT_CONVERGE_GET_BRO_NEXT(i, event_id_num);
         if ((child_node[i]->parent != NULL) ||
             ((child_node[i]->bro_next != NULL) && (child_node[i]->bro_next != child_node[i]))) {
-            dms_warn("One event_id converge to many event_id.\n");
+            dms_warn("One event_id converges to many event_id.\n");
             ret = DRV_ERROR_PARA_ERROR;
             goto out;
         }
@@ -759,7 +756,7 @@ STATIC bool dms_event_convergent_diagrams_layer_check(void)
         }
         if (layer > EVENT_CONVERGE_DIAGRAMS_LAYER_MAX) {
             ka_task_mutex_unlock(&g_converge_htable.lock);
-            dms_warn("Convergent diagrams layer is invalid. (layer=%u; max=%u)\n", layer,
+            dms_warn("Convergent diagrams layer is invalid. (layer=%u, max=%u)\n", layer,
                      EVENT_CONVERGE_DIAGRAMS_LAYER_MAX);
             return false;
         }
@@ -1142,6 +1139,11 @@ void dms_event_convergent_diagrams_mask(u32 devid, u32 event_id, u8 mask)
         return;
     }
 
+    if (devid >= ASCEND_DEV_MAX_NUM) {
+        dms_err("Invalid devid. (devid=%u)\n", devid);
+        return;
+    }
+
     ka_task_mutex_lock(&g_converge_htable.lock);
     convergent_node = dms_event_get_convergent_node(converge_event_id);
     if (convergent_node != NULL) {
@@ -1494,7 +1496,7 @@ int dms_get_event_code_from_event_cb(u32 devid, u32 *health_code, u32 health_len
     ka_task_mutex_unlock(&dev_cb->dev_event_cb.event_list.lock);
 
     if (i > event_len) {
-        dms_warn("Event_list is larger than event_code array. (dev_id=%u; event_num=%u; max=%u)\n", devid, i,
+        dms_warn("Event_list is larger than event_code array. (dev_id=%u; event_num=%u; event_len=%u)\n", devid, i,
                  event_len);
     }
     return DRV_ERROR_NONE;
@@ -1628,7 +1630,7 @@ int dms_event_converge_to_exception(struct dms_event_obj *event_obj, DMS_EVENT_N
                                  DMS_EVENT_ID_TO_SENSOR_TYPE(exception_node->event.event_id),
                                  DMS_EVENT_ID_TO_EVENT_STATE(exception_node->event.event_id), &severity);
     if (ret != 0) {
-        dms_warn("Get event severity failed. (ret=%d)\n", ret);
+        dms_warn("Can not get event severity. (ret=%d)\n", ret);
     } else {
         exception_node->event.severity = (unsigned char)severity;
     }

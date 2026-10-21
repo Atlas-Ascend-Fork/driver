@@ -21,38 +21,37 @@
 #include "svm_phy_addr_blk_mng.h"
 #include "ka_base_pub.h"
 
-int uvm_check_and_get_advise_id(int type, int id, bool numaEnable)
+int uvm_check_location(int type, int id, bool numaEnable)
 {
-    int advise_id;
     switch (type) {
         case DRV_UVM_LOCATION_TYPE_HOST:
-            advise_id = UVM_HOST_ID;
             break;
+
         case DRV_UVM_LOCATION_TYPE_DEVICE:
             if (id < 0 || id > UVM_MAX_DEVICE_ID) {
                 devmm_drv_err("Invalid device id. (id=%d)\n", id);
                 return -EINVAL;
             }
-            advise_id = id;
             break;
+
         case DRV_UVM_LOCATION_TYPE_HOST_NUMA:
 #ifndef EMU_ST
             if (!numaEnable) {
-                devmm_drv_err("Invalid device id. (id=%d)\n", id);
-                return -EINVAL;
+                return -EOPNOTSUPP;
             }
-            if (id < 0 || !ka_mm_node_online(id)) {
-                devmm_drv_err("Invalid host numa id. (id=%d)\n", id);
+            if (id <= 0 || id > ka_mm_num_possible_nodes() || !ka_mm_node_online(id - 1)) {
+                devmm_drv_err("Invalid host numa id. (id=%d)\n", id - 1);
                 return -EINVAL;
             }
 #endif
-            advise_id = id + 1; /* push the NUMA node +1 operation from the runtime layer down to the hal layer */
             break;
+
         default:
             devmm_drv_err("Unknown advise type. (type=%d)\n", type);
             return -EINVAL;
     }
-    return advise_id;
+
+    return EOK;
 }
 
 static int uvm_sync_host_data_to_device(struct devmm_svm_process *svm_proc, struct uvm_page_info *page_info, int devid,
@@ -141,8 +140,8 @@ static int uvm_prefer_host_default(struct devmm_svm_process *svm_proc, struct uv
     return ret;
 }
 
-static int uvm_prealloc_one_page_device(struct devmm_svm_process *svm_proc, struct uvm_page_info *page_info, u16 dev_id,
-                                        u64 *out_dev_pa)
+int uvm_prealloc_one_page_device(struct devmm_svm_process *svm_proc, struct uvm_page_info *page_info, u16 dev_id,
+                                 u64 *out_dev_pa)
 {
     struct devmm_chan_alloc_map_req msg = {0};
     int ret;
@@ -249,6 +248,7 @@ static int uvm_set_preferred_loc_one_page(struct devmm_svm_process *svm_proc, st
     struct uvm_page_info page_info;
     bool should_prealloc;
     int preferred_numa = INVALID_NUMA;
+    u16 target_loc;
     ret = uvm_get_page_info_by_va(uvm_heap, set_addr, &page_info);
 #ifndef EMU_ST
     if (ret != 0) {
@@ -270,19 +270,20 @@ static int uvm_set_preferred_loc_one_page(struct devmm_svm_process *svm_proc, st
     page_bitmap_set_preferred_loc_type(page_info.page_bitmap, preferred_loc_type);
     page_bitmap_set_preferred_loc(page_info.page_bitmap, preferred_loc);
 
+    target_loc = preferred_loc;
     if (preferred_loc_type == DRV_UVM_LOCATION_TYPE_HOST_NUMA) {
         preferred_numa = preferred_loc;
-        preferred_loc = UVM_HOST_ID;
+        target_loc = UVM_HOST_ID;
     }
 
-    should_prealloc = (preferred_loc != UVM_INVALID_DEVICE_ID) &&
-                      is_device_present(page_info.access_by_bitmap, preferred_loc);
+    should_prealloc = (target_loc != UVM_INVALID_DEVICE_ID) &&
+                      is_device_present(page_info.access_by_bitmap, target_loc);
     if (!should_prealloc) {
         ka_task_up_write(page_info.page_rwlock);
         return 0;
     }
 
-    ret = uvm_apply_page_policy(svm_proc, &page_info, preferred_loc, preferred_numa);
+    ret = uvm_apply_page_policy(svm_proc, &page_info, target_loc, preferred_numa);
 
     ka_task_up_write(page_info.page_rwlock);
 
@@ -295,10 +296,17 @@ static int uvm_set_preferred_loc_process(struct devmm_svm_process *svm_proc, str
     int ret = 0;
     uint64_t set_addr;
     int preferred_loc_type = arg->type;
-    int preferred_loc = uvm_check_and_get_advise_id(arg->type, arg->id, true);
-    if (preferred_loc < 0) {
-        return -EINVAL;
+    int preferred_loc = arg->id;
+
+    ret = uvm_check_location(arg->type, arg->id, true);
+    if (ret != 0) {
+        return ret;
     }
+
+    if (preferred_loc_type == DRV_UVM_LOCATION_TYPE_HOST) {
+        preferred_loc = UVM_HOST_ID;
+    }
+
     for (set_addr = arg->ptr; set_addr < arg->ptr + arg->size; set_addr += DEVMM_UVM_PAGE_SIZE) {
         ret = uvm_set_preferred_loc_one_page(svm_proc, uvm_heap, set_addr, (u16)preferred_loc, preferred_loc_type);
 #ifndef EMU_ST
@@ -366,16 +374,21 @@ static int uvm_set_access_by_process(struct devmm_svm_process *svm_proc, struct 
 {
     int ret = 0;
     uint64_t set_addr;
-    int access_by = uvm_check_and_get_advise_id(arg->type, arg->id, false);
-    if (access_by < 0) {
-        return -EINVAL;
+
+    ret = uvm_check_location(arg->type, arg->id, false);
+    if (ret != 0) {
+        return ret;
     }
+
+    if (arg->type == DRV_UVM_LOCATION_TYPE_HOST) {
+        arg->id = UVM_HOST_ID;
+    }
+
     for (set_addr = arg->ptr; set_addr < arg->ptr + arg->size; set_addr += DEVMM_UVM_PAGE_SIZE) {
-        ret = uvm_set_access_by_one_page(svm_proc, uvm_heap, set_addr, (u16)access_by);
+        ret = uvm_set_access_by_one_page(svm_proc, uvm_heap, set_addr, (u16)arg->id);
 #ifndef EMU_ST
         if (ret != 0) {
-            devmm_drv_err("Uvm set task access_by one page failed, addr = 0x%llx, access_by = %d\n", set_addr,
-                          access_by);
+            devmm_drv_err("Uvm set task access_by one page failed, addr = 0x%llx, arg->id = %d\n", set_addr, arg->id);
             break;
         }
 #endif
@@ -453,10 +466,13 @@ static int uvm_unset_access_by_process(struct devmm_svm_process *svm_proc, struc
 {
     int ret = 0;
     uint64_t set_addr;
-    int access_by = uvm_check_and_get_advise_id(arg->type, arg->id, false);
-    if (access_by < 0) {
-        return -EINVAL;
+    int access_by = arg->id;
+
+    ret = uvm_check_location(arg->type, arg->id, false);
+    if (ret != 0) {
+        return ret;
     }
+
     for (set_addr = arg->ptr; set_addr < arg->ptr + arg->size; set_addr += DEVMM_UVM_PAGE_SIZE) {
         ret = uvm_unset_access_by_one_page(svm_proc, uvm_heap, set_addr, (u16)access_by);
 #ifndef EMU_ST
@@ -664,7 +680,7 @@ static int uvm_free_other_device_page_process(struct devmm_svm_process *svm_proc
     int16_t i, count;
     int *device_ids;
 
-    device_ids = devmm_kzalloc_ex(sizeof(int) * DEVMM_UVM_MAX_DEVICE_NUM, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    device_ids = devmm_kzalloc_ex(sizeof(int) * BITMAP_BITS_COUNT, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
 #ifndef EMU_ST
     if (!device_ids) {
         devmm_drv_err("Failed to alloc mem for device ids\n");
@@ -672,7 +688,7 @@ static int uvm_free_other_device_page_process(struct devmm_svm_process *svm_proc
     }
 #endif
 
-    count = get_present_devices(page_info->dev_bitmap, device_ids);
+    count = get_present_devices(page_info->dev_bitmap, device_ids, BITMAP_BITS_COUNT);
     for (i = 0; i < count; i++) {
 #ifndef EMU_ST
         if (device_ids[i] != id) {
@@ -771,6 +787,7 @@ static int uvm_unset_page_readonly_process(struct devmm_svm_process *svm_proc, s
     ka_vm_area_struct_t *vma = NULL;
     u16 preferred_loc_type;
     int actual_id = id;
+    int target_type = type;
 
     vma = devmm_find_vma(svm_proc, page_info->va_align);
 #ifndef EMU_ST
@@ -783,17 +800,17 @@ static int uvm_unset_page_readonly_process(struct devmm_svm_process *svm_proc, s
 #endif
     preferred_loc_type = page_bitmap_get_preferred_loc_type(page_info->page_bitmap);
     if (preferred_loc_type == DRV_UVM_LOCATION_TYPE_HOST || preferred_loc_type == DRV_UVM_LOCATION_TYPE_HOST_NUMA) {
-        type = DRV_UVM_LOCATION_TYPE_HOST;
+        target_type = DRV_UVM_LOCATION_TYPE_HOST;
     } else if (preferred_loc_type == DRV_UVM_LOCATION_TYPE_DEVICE) {
-        type = DRV_UVM_LOCATION_TYPE_DEVICE;
+        target_type = DRV_UVM_LOCATION_TYPE_DEVICE;
         actual_id = page_bitmap_get_preferred_loc(page_info->page_bitmap);
     }
 
-    if (type == DRV_UVM_LOCATION_TYPE_INVALID || type == DRV_UVM_LOCATION_TYPE_HOST_NUMA) {
-        type = DRV_UVM_LOCATION_TYPE_HOST;
+    if (target_type == DRV_UVM_LOCATION_TYPE_INVALID || target_type == DRV_UVM_LOCATION_TYPE_HOST_NUMA) {
+        target_type = DRV_UVM_LOCATION_TYPE_HOST;
     }
 
-    if (type == DRV_UVM_LOCATION_TYPE_HOST) {
+    if (target_type == DRV_UVM_LOCATION_TYPE_HOST) {
         ret = uvm_unset_page_readonly_host_process(svm_proc, vma, page_info);
     } else {
         ret = uvm_unset_page_readonly_device_process(svm_proc, vma, page_info, actual_id);
@@ -847,10 +864,10 @@ static int uvm_unset_readmostly_process(struct devmm_svm_process *svm_proc, stru
     uint64_t set_addr;
 
     if (arg->type == DRV_UVM_LOCATION_TYPE_HOST_NUMA || arg->type == DRV_UVM_LOCATION_TYPE_DEVICE) {
-        ret = uvm_check_and_get_advise_id(arg->type, arg->id, true);
+        ret = uvm_check_location(arg->type, arg->id, true);
 #ifndef EMU_ST
-        if (ret < 0) {
-            return -EINVAL;
+        if (ret != 0) {
+            return ret;
         }
 #endif
     }
@@ -922,10 +939,13 @@ int devmm_uvm_ioctl_advise(struct devmm_svm_process *svm_proc, struct devmm_ioct
     advise_para->size = KA_DRIVER_ALIGN(advise_para->size, uvm_heap->chunk_page_size);
 #ifndef EMU_ST
     if (!devmm_vaddr_and_size_is_in_uvm_range(advise_para->ptr, advise_para->size)) {
-        devmm_drv_err("Advise addr is not in uvm range.\n");
+        devmm_drv_err("Advise addr is not in uvm range. (ptr=0x%llx)\n", advise_para->ptr);
         return -EFAULT;
     }
 #endif
+    if (advise_para->type == DRV_UVM_LOCATION_TYPE_HOST_NUMA) {
+        advise_para->id += 1;
+    }
     return uvm_advise(svm_proc, uvm_heap, advise_para);
 }
 
@@ -1042,7 +1062,7 @@ static int devmm_set_access_by_loc_attr(struct uvm_page_info page_info, size_t n
     }
 
     for (page_idx = 0; page_idx < num_pages; page_idx++) {
-        dev_num_per_page = get_present_devices(&access_by_bitmap[page_idx], device_per_page);
+        dev_num_per_page = get_present_devices(&access_by_bitmap[page_idx], device_per_page, BITMAP_BITS_COUNT);
         for (dev_idx = 0; dev_idx < dev_num_per_page; dev_idx++) {
             dev_cur_access_by[device_per_page[dev_idx]] = true;
         }
@@ -1246,7 +1266,7 @@ static const devmm_get_mem_range_attr handle_mem_range_attr[MEM_RANGE_ATTR_MAX] 
     [MEM_RANGE_ATTR_LAST_PREFETCH_LOC_TYPE] = devmm_get_last_prefetch_loc_type_attr,
     [MEM_RANGE_ATTR_LAST_PREFETCH_LOC_ID] = devmm_get_last_prefetch_loc_id_attr,
 };
-static int devmm_uvm_mem_attr_query(struct devmm_svm_process *svm_pro, struct devmm_uvm_heap *uvm_heap,
+static int devmm_uvm_mem_attr_query(struct devmm_svm_process *svm_proc, struct devmm_uvm_heap *uvm_heap,
                                     struct devmm_mem_range_attribute *attr_arg)
 {
     struct uvm_page_info page_info = {};
@@ -1256,6 +1276,11 @@ static int devmm_uvm_mem_attr_query(struct devmm_svm_process *svm_pro, struct de
     int ret = 0, page_idx;
     page_bitmap_t *page_bitmap;
     u32 stamp = (u32)ka_jiffies;
+
+    if ((attr_arg->attribute >= MEM_RANGE_ATTR_MAX) || (handle_mem_range_attr[attr_arg->attribute] == NULL)) {
+        devmm_drv_err("Invalid attribute type. (attribute=%u)\n", attr_arg->attribute);
+        return -EINVAL;
+    }
 
     num_pages = (attr_arg->size + chunk_page_size - 1) / chunk_page_size;
     ret = uvm_get_page_info_by_va(uvm_heap, attr_arg->ptr, &page_info);
@@ -1295,33 +1320,63 @@ mem_attr_free:
     return ret;
 }
 
-static int mem_managed_attrs_copy_from_usr(struct devmm_mem_range_attributes *attrs_arg, uint32_t **attributes,
-                                           size_t **data_sizes, uint64_t **data)
+static int mem_managed_attrs_get_size(struct devmm_mem_range_attributes *attrs_arg, uint32_t *mem_attrs_size,
+                                      uint32_t *data_num_size, uint32_t *data_size)
 {
-    int ret = 0;
-    uint32_t mem_attrs_size = attrs_arg->attribute_num * sizeof(uint32_t);
-    uint32_t data_num_size = attrs_arg->attribute_num * sizeof(size_t);
-    uint32_t data_size = attrs_arg->attribute_num * sizeof(uint64_t); /* store addr */
+    if ((attrs_arg->attribute_num > KA_U32_MAX / sizeof(uint32_t)) ||
+        (attrs_arg->attribute_num > KA_U32_MAX / sizeof(size_t)) ||
+        (attrs_arg->attribute_num > KA_U32_MAX / sizeof(uint64_t))) {
+        devmm_drv_err("Attribute number is too large. (num=%u; max=%u)\n", attrs_arg->attribute_num,
+                      (u32)(KA_U32_MAX / sizeof(uint64_t)));
+        return -EINVAL;
+    }
+    *mem_attrs_size = (uint32_t)(attrs_arg->attribute_num * sizeof(uint32_t));
+    *data_num_size = (uint32_t)(attrs_arg->attribute_num * sizeof(size_t));
+    *data_size = (uint32_t)(attrs_arg->attribute_num * sizeof(uint64_t)); /* store addr */
+    return 0;
+}
 
+static int mem_managed_attrs_alloc(uint32_t mem_attrs_size, uint32_t data_num_size, uint32_t data_size,
+                                   uint32_t **attributes, size_t **data_sizes, uint64_t **data)
+{
     *attributes = devmm_kzalloc_ex(mem_attrs_size, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (*attributes == NULL) {
         devmm_drv_err("Uvm attributes Kvzalloc fail. (num=%u)\n", mem_attrs_size);
         return -ENOMEM;
     }
     *data_sizes = devmm_kzalloc_ex(data_num_size, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+#ifndef EMU_ST
     if (*data_sizes == NULL) {
-        devmm_drv_err("Uvm data_sizes Kvzalloc fail. (num=%u)\n", mem_attrs_size);
+        devmm_drv_err("Uvm data_sizes Kvzalloc fail. (num=%u)\n", data_num_size);
         devmm_kfree_ex(*attributes);
         return -ENOMEM;
     }
+#endif
     *data = devmm_kzalloc_ex(data_size, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (*data == NULL) {
 #ifndef EMU_ST
-        devmm_drv_err("Uvm data Kvzalloc fail. (num=%u)\n", mem_attrs_size);
+        devmm_drv_err("Uvm data Kvzalloc fail. (num=%u)\n", data_size);
         devmm_kfree_ex(*attributes);
         devmm_kfree_ex(*data_sizes);
 #endif
         return -ENOMEM;
+    }
+    return 0;
+}
+
+static int mem_managed_attrs_copy_from_usr(struct devmm_mem_range_attributes *attrs_arg, uint32_t **attributes,
+                                           size_t **data_sizes, uint64_t **data)
+{
+    uint32_t mem_attrs_size, data_num_size, data_size;
+    int ret;
+
+    ret = mem_managed_attrs_get_size(attrs_arg, &mem_attrs_size, &data_num_size, &data_size);
+    if (ret != 0) {
+        return ret;
+    }
+    ret = mem_managed_attrs_alloc(mem_attrs_size, data_num_size, data_size, attributes, data_sizes, data);
+    if (ret != 0) {
+        return ret;
     }
 
     /* data init */
@@ -1381,7 +1436,7 @@ static int mem_managed_attrs_uninit(struct devmm_mem_range_attributes *attrs_arg
     return 0;
 }
 
-static int devmm_uvm_mem_attrs_query(struct devmm_svm_process *svm_pro, struct devmm_uvm_heap *uvm_heap,
+static int devmm_uvm_mem_attrs_query(struct devmm_svm_process *svm_proc, struct devmm_uvm_heap *uvm_heap,
                                      struct devmm_mem_range_attributes *attrs_arg)
 {
     struct devmm_mem_range_attribute single_mem_attr = {};
@@ -1405,7 +1460,7 @@ static int devmm_uvm_mem_attrs_query(struct devmm_svm_process *svm_pro, struct d
         single_mem_attr.size = attrs_arg->size;
         single_mem_attr.data = (int32_t *)(attrs_arg->data)[mem_attr_idx];
         single_mem_attr.data_size = attrs_arg->data_sizes[mem_attr_idx];
-        ret = devmm_uvm_mem_attr_query(svm_pro, uvm_heap, &single_mem_attr);
+        ret = devmm_uvm_mem_attr_query(svm_proc, uvm_heap, &single_mem_attr);
         if (ret) {
             devmm_drv_err("get mem managed range attribute failed.\n");
             goto mem_attrs_free;
@@ -1417,12 +1472,12 @@ mem_attrs_free:
     return ret;
 }
 
-int devmm_uvm_ioctl_get_mem_range_attributes(struct devmm_svm_process *svm_pro, struct devmm_ioctl_arg *arg)
+int devmm_uvm_ioctl_get_mem_range_attributes(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg)
 {
     struct devmm_mem_range_attributes *attrs_arg = &arg->data.mem_range_attribute_paras;
     struct devmm_uvm_heap *uvm_heap = NULL;
 
-    uvm_heap = devmm_uvm_get_heap(svm_pro, (unsigned long)attrs_arg->ptr);
+    uvm_heap = devmm_uvm_get_heap(svm_proc, (unsigned long)attrs_arg->ptr);
     if (uvm_heap == NULL) {
         devmm_drv_err("UVM Heap is NULL or error.\n");
         return -EADDRNOTAVAIL;
@@ -1443,5 +1498,5 @@ int devmm_uvm_ioctl_get_mem_range_attributes(struct devmm_svm_process *svm_pro, 
 #endif
     }
 
-    return devmm_uvm_mem_attrs_query(svm_pro, uvm_heap, attrs_arg);
+    return devmm_uvm_mem_attrs_query(svm_proc, uvm_heap, attrs_arg);
 }

@@ -14,6 +14,7 @@
 #include "comm_kernel_interface.h"
 #include "apm_msg.h"
 #include "apm_host_msg.h"
+#include "apm_dev.h"
 
 static struct devdrv_common_msg_client apm_host_msg_client = {
     .type = DEVDRV_COMMON_MSG_SMMU,
@@ -24,6 +25,11 @@ int apm_msg_send(u32 udevid, struct apm_msg_header *header, u32 size)
 {
     u32 real_out_len;
     int ret;
+
+    if (apm_dev_is_host_reset(udevid)) {
+        apm_warn("Dev is in host reset status. (udevid=%u)\n", udevid);
+        return 0;
+    }
 
     ret = devdrv_common_msg_send(udevid, (void *)header, size, size, &real_out_len, DEVDRV_COMMON_MSG_SMMU);
     if (ret != 0) {

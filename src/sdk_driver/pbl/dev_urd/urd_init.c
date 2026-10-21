@@ -21,6 +21,7 @@
 #include "urd_init.h"
 #include "pbl/pbl_urd.h"
 #include "urd_cmd.h"
+#include "pbl_urd_main_cmd_def.h"
 #include "ka_compiler_pub.h"
 #include "ka_ioctl_pub.h"
 #include "ka_fs_pub.h"
@@ -169,7 +170,7 @@ STATIC int dms_make_feature_input(struct urd_cmd_para *cmd_para, DMS_FEATURE_ARG
     if ((cmd_para->input_len != 0) && (cmd_para->input != NULL) && (cmd_para->input_len <= DMS_MAX_INPUT_LEN)) {
         arg->input = ka_mm_kmalloc(cmd_para->input_len, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
         if (arg->input == NULL) {
-            dms_err("ka_mm_kzalloc failed. (size=%u)\n", cmd_para->input_len);
+            dms_err("ka_mm_kmalloc failed. (size=%u)\n", cmd_para->input_len);
             return -ENOMEM;
         }
         arg->input_len = cmd_para->input_len;
@@ -212,6 +213,7 @@ static bool dms_is_need_high_capacity_memory(struct urd_cmd *cmd)
     //  get history fault event info need high-capacity memory
     if ((cmd->main_cmd == DMS_MAIN_CMD_BASIC && cmd->sub_cmd == DMS_SUBCMD_GET_HISTORY_FAULT_EVENT) ||
         (cmd->main_cmd == DMS_MAIN_CMD_BASIC && cmd->sub_cmd == DMS_SUBCMD_GET_FAULT_EVENT_OBJ) ||
+        (cmd->main_cmd == DMS_MAIN_CMD_BASIC && cmd->sub_cmd == DMS_SUBCMD_GET_NOTIFY_EVENT_OBJ) ||
         (cmd->main_cmd == DMS_MAIN_CMD_BASIC && cmd->sub_cmd == DMS_SUBCMD_GET_DEVICE_STATE) ||
         (cmd->main_cmd == DMS_MAIN_CMD_BASIC && cmd->sub_cmd == DMS_SUBCMD_GET_DEV_PROBE_LIST) ||
         (cmd->main_cmd == DMS_MAIN_CMD_BASIC && cmd->sub_cmd == DMS_SUBCMD_GET_ALL_DEV_LIST) ||
@@ -347,6 +349,12 @@ STATIC bool check_cmd_arg_valid(unsigned int cmd, struct urd_ioctl_arg ctl_arg)
 {
     if ((cmd & CMD_MASK) == ((ctl_arg.cmd.main_cmd << _KA_IOC_TYPESHIFT) + (ctl_arg.cmd.sub_cmd << _KA_IOC_NRSHIFT))) {
         return true;
+    } else if ((cmd == URD_QUERY_IOCTL_CMD) && (ctl_arg.cmd.main_cmd == DMS_GET_GET_DEVICE_INFO_CMD) &&
+               (ctl_arg.cmd.sub_cmd == ZERO_CMD)) {
+        return true;
+    } else if ((cmd == URD_CONFIG_IOCTL_CMD) && (ctl_arg.cmd.main_cmd == DMS_GET_SET_POWER_STATE_CMD) &&
+               (ctl_arg.cmd.sub_cmd == ZERO_CMD)) {
+        return true;
     } else {
         return false;
     }
@@ -384,15 +392,22 @@ STATIC long dms_ioctl(ka_file_t *filep, unsigned int ioctl_cmd, unsigned long ar
         msg_source = (ascend_intf_is_restrict_access(filep) ? MSG_FROM_USER_REST_ACC : MSG_FROM_USER);
         ret = dms_cmd_process(ctl_arg.devid, &ctl_arg.cmd, &ctl_arg.cmd_para, msg_source);
     } else {
-        dms_err("Invalid command. (command=%u; main_cmd=%u; sub_cmd=%u)\n", ioctl_cmd, ctl_arg.cmd.main_cmd,
-                ctl_arg.cmd.sub_cmd);
-        ret = -ENODEV;
+        dms_debug("Not support command. (command=%u; main_cmd=%u; sub_cmd=%u)\n", ioctl_cmd, ctl_arg.cmd.main_cmd,
+                  ctl_arg.cmd.sub_cmd);
+        ret = -EOPNOTSUPP;
     }
     return ret;
 }
 
-const ka_file_operations_t g_dms_file_operations = {ka_fs_init_f_owner(KA_THIS_MODULE) ka_fs_init_f_open(
-    dms_open) ka_fs_init_f_release(dms_release) ka_fs_init_f_poll(dms_msg_poll) ka_fs_init_f_unlocked_ioctl(dms_ioctl)};
+// clang-format off
+const ka_file_operations_t g_dms_file_operations = {
+    ka_fs_init_f_owner(KA_THIS_MODULE)
+    ka_fs_init_f_open(dms_open)
+    ka_fs_init_f_release(dms_release)
+    ka_fs_init_f_poll(dms_msg_poll)
+    ka_fs_init_f_unlocked_ioctl(dms_ioctl)
+};
+// clang-format on
 
 STATIC int urd_release_prepare(ka_file_t *file_op, unsigned long mode)
 {

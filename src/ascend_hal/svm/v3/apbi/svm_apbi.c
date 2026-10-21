@@ -67,7 +67,7 @@ static int apbi_update_tgid(u32 devid, int task_type)
 
     if ((task_type != DEVDRV_PROCESS_CP1) &&
         (g_apbi[devid][task_type].tgid == g_apbi[devid][DEVDRV_PROCESS_CP1].tgid)) {
-        svm_warn("Same to cp tgid. (devid=%u; task_type=%d; tpid=%d)\n", devid, task_type,
+        svm_warn("Same as cp tgid. (devid=%u; task_type=%d; tpid=%d)\n", devid, task_type,
                  g_apbi[devid][task_type].tgid);
         _apbi_clear(devid, task_type);
         return DRV_ERROR_NO_PROCESS;

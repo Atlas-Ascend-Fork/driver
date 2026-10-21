@@ -20,6 +20,7 @@
 #include "devdrv_common.h"
 #include "pbl/pbl_board_config.h"
 #include "pbl/pbl_chip_config.h"
+#include "pbl/pbl_uda.h"
 #endif
 
 #include "trs_pub_def.h"
@@ -49,6 +50,14 @@ static int shr_id_get_notify_base_addr(u32 devid, u32 remote_phy_id, u64 *base_a
     u32 local_phy_id = devid;
     unsigned long long phy_base_addr = 0;
     unsigned long long chip_offset = SHRID_ASCEND910_93_CHIP_ADDR_OFFSET;
+    u32 chip_type = HISI_CHIP_UNKNOWN;
+
+    /* others chip no need */
+    chip_type = uda_get_chip_type(devid);
+    if (!((chip_type == HISI_CLOUD_V2) || (chip_type == HISI_MINI_V3) || (chip_type == HISI_CHIP_UNKNOWN))) {
+        *base_addr = 0;
+        return 0;
+    }
 
     ret = dms_get_dev_topology(local_phy_id, remote_phy_id, &topology_type);
     if (ret != 0) {
@@ -95,13 +104,13 @@ STATIC int _shr_id_event_update(unsigned int devid, struct sched_published_event
     int res_type;
     int ret;
 
-    if ((event_info->subevent_id != DRV_SUBEVENT_TRS_SHR_ID_CONFIG_MSG) &&
-        (event_info->subevent_id != DRV_SUBEVENT_TRS_SHR_ID_DECONFIG_MSG)) {
+    if (event_info->subevent_id != DRV_SUBEVENT_TRS_SHR_ID_CONFIG_MSG) {
         return 0;
     }
 
-    if (event_info->msg == NULL) {
-        trs_err("Msg is NULL.\n");
+    if ((event_info->msg == NULL) ||
+        (event_info->msg_len < sizeof(struct event_sync_msg) + sizeof(struct drvShrIdInfo))) {
+        trs_err("Invalid msg. (msg_is_null=%d; msg_len=%u)\n", (int)(event_info->msg == NULL), event_info->msg_len);
         return -EINVAL;
     }
 
@@ -125,12 +134,10 @@ STATIC int _shr_id_event_update(unsigned int devid, struct sched_published_event
         return -EINVAL;
     }
 
-    if (event_info->subevent_id == DRV_SUBEVENT_TRS_SHR_ID_CONFIG_MSG) { /* only shrIdOpen need check shrid. */
-        if (!shr_id_is_belong_to_proc(&inst, ka_task_get_current_tgid(), res_type, info->shrid)) {
-            trs_err("Id invalid. (devid=%u; rudevid=%u; tsid=%u; pid=%d; type=%u; shrid=%u)\n", devid, info->devid,
-                    info->tsid, ka_task_get_current_tgid(), info->id_type, info->shrid);
-            return -EACCES;
-        }
+    if (!shr_id_is_belong_to_proc(&inst, ka_task_get_current_tgid(), res_type, info->shrid)) {
+        trs_err("Id invalid. (devid=%u; rudevid=%u; tsid=%u; pid=%d; type=%u; shrid=%u)\n", devid, info->devid,
+                info->tsid, ka_task_get_current_tgid(), info->id_type, info->shrid);
+        return -EACCES;
     }
 
     ret = shr_id_get_notify_base_addr(devid, info->devid, &base_addr);

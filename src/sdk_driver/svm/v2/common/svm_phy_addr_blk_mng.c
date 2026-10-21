@@ -112,9 +112,9 @@ void devmm_phy_addr_blk_put(struct devmm_phy_addr_blk *blk)
 static void devmm_phy_addr_blk_info_init(struct devmm_phy_addr_blk *blk, struct devmm_phy_addr_attr *attr, u64 pg_num,
                                          ka_page_t **pages, struct devmm_dma_blk *dma_blks)
 {
-    u64 pg_size = (attr->pg_type == DEVMM_HUGE_PAGE_TYPE) ? KA_HPAGE_SIZE : KA_MM_PAGE_SIZE;
+    u64 pa_pg_size = (attr->pg_type == DEVMM_HUGE_PAGE_TYPE) ? KA_HPAGE_SIZE : KA_MM_PAGE_SIZE;
     if (attr->pg_type == DEVMM_GIANT_PAGE_TYPE) {
-        pg_size = SVM_MASTER_GIANT_PAGE_SIZE;
+        pa_pg_size = SVM_MASTER_GIANT_PAGE_SIZE;
     }
 
     ka_base_kref_init(&blk->ref);
@@ -124,7 +124,8 @@ static void devmm_phy_addr_blk_info_init(struct devmm_phy_addr_blk *blk, struct 
     blk->init_state = SVM_PHY_ADDR_BLK_IS_INITING;
     blk->attr = *attr;
     blk->pg_num = pg_num;
-    blk->size = pg_num * pg_size;
+    blk->pa_pg_size = pa_pg_size;
+    blk->size = pg_num * pa_pg_size;
     blk->pg_info.pages = pages;
     blk->pg_info.saved_num = 0;
     blk->pg_info.total_num = pg_num;
@@ -140,8 +141,9 @@ static void devmm_blk_target_addr_info_init(struct devmm_phy_addr_blk *blk, u64 
     blk->addr_info.target_addr = target_addr;
 }
 
-struct devmm_phy_addr_blk *devmm_phy_addr_blk_create(struct devmm_phy_addr_blk_mng *mng,
-                                                     struct devmm_phy_addr_attr *attr, u64 pg_num, int *id)
+static struct devmm_phy_addr_blk *_devmm_phy_addr_blk_create(struct devmm_phy_addr_blk_mng *mng,
+                                                             struct devmm_phy_addr_attr *attr, u64 pg_num, int *id)
+
 {
     struct devmm_phy_addr_blk *blk = NULL;
     struct devmm_dma_blk *dma_blks = NULL;
@@ -197,6 +199,19 @@ free_pages:
 free_blk:
     devmm_kvfree_ex(blk);
     return NULL;
+}
+
+struct devmm_phy_addr_blk *devmm_phy_addr_blk_create(struct devmm_phy_addr_blk_mng *mng,
+                                                     struct devmm_phy_addr_attr *attr, u64 pg_num, int *id)
+{
+#ifndef EMU_ST
+    if ((pg_num > KA_U64_MAX / sizeof(ka_page_t *)) || (pg_num > KA_U64_MAX / sizeof(struct devmm_dma_blk)) ||
+        (pg_num > KA_U64_MAX / sizeof(u64))) {
+        devmm_drv_err("Page num is invalid. (pg_num=%llu)\n", pg_num);
+        return NULL;
+    }
+#endif
+    return _devmm_phy_addr_blk_create(mng, attr, pg_num, id);
 }
 
 void devmm_phy_addr_blk_destroy(struct devmm_phy_addr_blk_mng *mng, struct devmm_phy_addr_blk *blk)
@@ -259,7 +274,7 @@ static void _devmm_phy_addr_blk_uninit(struct devmm_svm_process *svm_proc, struc
     freed_dma_blk_num = ka_base_min(range->pg_num, dma_blk_info->saved_num);
     page_off = (range->page_off == DEVMM_PG_OFF_TAIL) ? (pg_info->saved_num - freed_pg_num) : range->page_off;
     dma_off = (range->dma_off == DEVMM_PG_OFF_TAIL) ? (dma_blk_info->saved_num - freed_dma_blk_num) : range->dma_off;
-    devmm_drv_info(
+    devmm_drv_debug(
         "freed_pg_num=%llu, freed_dma_blk_num  =%llu, page_off=%llu,dma_off = %llu, pg_info ->saved_num=%llu,pg_info "
         "->total_num=%llu\n",
         freed_pg_num, freed_dma_blk_num, page_off, dma_off, pg_info->saved_num, pg_info->total_num);
@@ -331,8 +346,10 @@ static int _devmm_phy_addr_blk_init(struct devmm_svm_process *svm_proc, struct d
 
     ret = devmm_phy_addr_blk_alloc_pages(svm_proc, &blk->attr, pages, pg_num);
     if (ret != 0) {
-        devmm_drv_no_err_if((ret == -ENOMEM), "Alloc pages failed. (ret=%d; pg_type=%u; pg_num=%llu)\n", ret, pg_type,
-                            pg_num);
+#ifndef EMU_ST
+        devmm_drv_no_err_if((ret == -ENOMEM), "Not enough memory to alloc pages. (ret=%d; pg_type=%u; pg_num=%llu)\n",
+                            ret, pg_type, pg_num);
+#endif
         return ret;
     }
 
@@ -443,13 +460,13 @@ ka_page_t **devmm_phy_addr_blk_get_pages(struct devmm_phy_addr_blk *blk, u64 off
         if (devmm_phy_addr_blk_not_holes(pg_info, offset, pg_num)) {
             return &pg_info->pages[offset];
         }
-        devmm_drv_err("Not so many pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
+        devmm_drv_err("Not so much pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
                       pg_info->saved_num);
         return NULL;
     }
 
     if (pg_num > (pg_info->saved_num - offset)) {
-        devmm_drv_err("Not so many pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
+        devmm_drv_err("Not so much pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
                       pg_info->saved_num);
         return NULL;
     }
@@ -462,18 +479,118 @@ u64 *devmm_phy_addr_blk_get_target_addr(struct devmm_phy_addr_blk *blk, u64 offs
     struct devmm_target_addr_info *addr_info = &blk->addr_info;
 
     if (offset >= addr_info->saved_num) {
-        devmm_drv_err("Not so many pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
+        devmm_drv_err("Not so much pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
                       addr_info->saved_num);
         return NULL;
     }
 
     if (pg_num > (addr_info->saved_num - offset)) {
-        devmm_drv_err("Not so many pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
+        devmm_drv_err("Not so much pages. (offset=%llu; to_pg_num=%llu; save_pg_num=%llu)\n", offset, pg_num,
                       addr_info->saved_num);
         return NULL;
     }
 
     return &addr_info->target_addr[offset];
+}
+
+static bool devmm_phy_addr_blk_page_pa_get(const struct devmm_phy_addr_blk *blk, u64 page_idx, u64 *pa)
+{
+    if ((blk->pg_info.pages != NULL) && (page_idx < blk->pg_info.total_num) && (blk->pg_info.pages[page_idx] != NULL)) {
+        *pa = ka_mm_page_to_phys(blk->pg_info.pages[page_idx]);
+        return true;
+    }
+
+    if ((blk->addr_info.target_addr != NULL) && (page_idx < blk->addr_info.total_num) &&
+        (blk->addr_info.target_addr[page_idx] != 0)) {
+        *pa = blk->addr_info.target_addr[page_idx];
+        return true;
+    }
+
+    return false;
+}
+
+static u32 _devmm_phy_addr_blk_query_pa(const struct devmm_phy_addr_blk *blk, u64 offset, struct svm_pa_seg pa_seg[],
+                                        u32 max_seg_num)
+{
+    u64 page_size, page_idx, page_offset;
+    u64 remain_size = blk->size - offset;
+    u32 stamp = (u32)ka_jiffies;
+    u32 actual_seg_num;
+
+    page_size = blk->pa_pg_size;
+    page_idx = offset / page_size;
+    page_offset = offset % page_size;
+    for (actual_seg_num = 0; (actual_seg_num < max_seg_num) && (remain_size != 0); actual_seg_num++) {
+        u64 pa, current_size;
+
+        if (!devmm_phy_addr_blk_page_pa_get(blk, page_idx, &pa)) {
+            break;
+        }
+
+        pa += page_offset;
+        current_size = ka_base_min(page_size - page_offset, remain_size);
+        pa_seg[actual_seg_num].pa = pa;
+        pa_seg[actual_seg_num].size = current_size;
+
+        remain_size -= current_size;
+        page_idx++;
+        page_offset = 0;
+        devmm_try_cond_resched(&stamp);
+    }
+
+    return actual_seg_num;
+}
+
+int devmm_phy_addr_blk_query_pa(struct devmm_phy_addr_blk_mng *mng, int id, u64 offset, struct svm_pa_seg pa_seg[],
+                                u32 *seg_num)
+{
+    struct devmm_phy_addr_blk *blk = NULL;
+    u32 max_seg_num, actual_seg_num = 0;
+    int ret;
+
+    if ((mng == NULL) || (pa_seg == NULL) || (seg_num == NULL) || (*seg_num == 0)) {
+#ifndef EMU_ST
+        devmm_drv_err("Invalid phy addr blk query para. (mng is null=%u; pa_seg is null=%u; seg_num is null=%u)\n",
+                      (mng == NULL), (pa_seg == NULL), (seg_num == NULL));
+        return -EINVAL;
+#endif
+    }
+
+    max_seg_num = *seg_num;
+    *seg_num = 0;
+    blk = devmm_phy_addr_blk_get(mng, id);
+    if (blk == NULL) {
+#ifndef EMU_ST
+        devmm_drv_err("Get phy_addr_blk failed. (id=%d)\n", id);
+        return -EINVAL;
+#endif
+    }
+
+    ka_task_down_read(&blk->rw_sem);
+    if ((blk->init_state != SVM_PHY_ADDR_BLK_IS_INITED) || (blk->pa_pg_size == 0) || (offset >= blk->size)) {
+#ifndef EMU_ST
+        devmm_drv_err("Invalid query range. (id=%d; state=%u; pa_pg_size=%llu; offset=%llu; blk_size=%llu)\n", id,
+                      blk->init_state, blk->pa_pg_size, offset, blk->size);
+        ret = -ERANGE;
+        goto unlock;
+#endif
+    }
+
+    actual_seg_num = _devmm_phy_addr_blk_query_pa(blk, offset, pa_seg, max_seg_num);
+    if (actual_seg_num == 0) {
+#ifndef EMU_ST
+        devmm_drv_err("No pa found in phy addr blk. (id=%d; offset=%llu)\n", id, offset);
+        ret = -ENOMEM;
+        goto unlock;
+#endif
+    }
+    *seg_num = actual_seg_num;
+    ret = 0;
+
+unlock:
+    ka_task_up_read(&blk->rw_sem);
+    devmm_phy_addr_blk_put(blk);
+    return ret;
 }
 
 int devmm_phy_addr_blk_occupy_inc(struct devmm_phy_addr_blk *blk)

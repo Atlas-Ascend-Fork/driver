@@ -8,12 +8,10 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-
 #ifndef __ABL_DMS_VDEV_H
 #define __ABL_DMS_VDEV_H
 
-int dms_get_vdevice_info(unsigned int dev_id, unsigned int vf_id,
-    unsigned int *total_core, unsigned int *core_count,
-    unsigned long *mem_size);
+int dms_get_vdevice_info(unsigned int dev_id, unsigned int vf_id, unsigned int *total_core, unsigned int *core_count,
+                         unsigned long *mem_size);
 
 #endif

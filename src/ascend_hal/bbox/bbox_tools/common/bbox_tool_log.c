@@ -22,53 +22,12 @@ struct bbox_log_config {
 
 static struct bbox_log_config g_bbox_log_config = {PRINT_SYSLOG, LOG_INFO};
 /**
- * @brief       open log file stream in given path
- * @param [in]  const char *path :       path to save log
- * @param [in]  const char *log_file :    log's filename
- * @return      NA
- */
-void bbox_dump_log_open_stream(const char *path, const char *log_file)
-{
-    BBOX_CHK_NULL_PTR(path, return);
-    BBOX_CHK_NULL_PTR(log_file, return);
-
-    char log_path[DIR_MAXLEN] = {0};
-    s32 ret = bbox_format_path(log_path, DIR_MAXLEN, path, log_file);
-    BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret == -1, return, "get log file[%s] failed.", log_file);
-
-    g_log_fp = bbox_fopen(log_path, "a");
-    if (g_log_fp == NULL) {
-        BBOX_PERROR("fopen", log_path);
-        return;
-    }
-    BBOX_PRINT("INFO", "create dump log[%s].", log_path);
-
-    ret = bbox_chmod((const char *)log_path, FILE_RW_MODE); // 600
-    if (ret != BBOX_SUCCESS) {
-        BBOX_WAR("change file(%s) mode not succeed.", log_file);
-    }
-    return;
-}
-
-/**
  * @brief       get log file stream
  * @return      FILE * filestream
  */
 FILE *bbox_dump_log_get_stream(void)
 {
     return (g_log_fp == NULL) ? stdout : g_log_fp;
-}
-
-/**
- * @brief       close log file stream
- * @return      NA
- */
-void bbox_dump_log_close_stream(void)
-{
-    if (g_log_fp != NULL) {
-        bbox_fclose(g_log_fp);
-        g_log_fp = NULL;
-    }
 }
 
 /**

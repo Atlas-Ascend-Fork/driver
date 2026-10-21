@@ -23,12 +23,10 @@ EXTRA_CFLAGS += -DDRV_HOST
 ifneq ($(filter $(PRODUCT), ascend910B),)
     EXTRA_CFLAGS += -DCFG_FEATURE_KA_ALLOC_INTERFACE
     EXTRA_CFLAGS += -DCFG_FEATURE_HOST_LOG
-    EXTRA_CFLAGS += -DCFG_FEATURE_KA
 endif
 
 ifneq ($(filter $(PRODUCT), ascend950),)
     EXTRA_CFLAGS += -DCFG_FEATURE_HOST_LOG
-    EXTRA_CFLAGS += -DCFG_FEATURE_KA
 endif
 
 $(MODULE_NAME)-objs += chip_config/chip_info.o

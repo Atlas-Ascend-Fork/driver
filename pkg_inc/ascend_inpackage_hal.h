@@ -98,7 +98,7 @@ typedef enum {
  * @return DRV_ERROR_NONE : success
  * @return DV_ERROR_XXX : init fail
  */
-DV_ONLINE DVresult drvMemInitSvmDevice(int hostpid, unsigned int vfid, unsigned int dev_id);
+DLLEXPORT DV_ONLINE DVresult drvMemInitSvmDevice(int hostpid, unsigned int vfid, unsigned int dev_id);
 
 /**
  * @ingroup driver
@@ -110,7 +110,7 @@ DV_ONLINE DVresult drvMemInitSvmDevice(int hostpid, unsigned int vfid, unsigned 
  * @return   0   success
  * @return   -1  fail
  */
-int devdrv_get_board_id(unsigned int dev_id, unsigned int *board_id);
+DLLEXPORT int devdrv_get_board_id(unsigned int dev_id, unsigned int *board_id);
 /**
  * @ingroup driver
  * @brief get vnic ip
@@ -120,7 +120,7 @@ int devdrv_get_board_id(unsigned int dev_id, unsigned int *board_id);
  * @param [out] ip_addr vnic ip address
  * @return  0  success, return others fail
  */
-int devdrv_get_vnic_ip(unsigned int dev_id, unsigned int *ip_addr);
+DLLEXPORT int devdrv_get_vnic_ip(unsigned int dev_id, unsigned int *ip_addr);
 
 /**
  * @ingroup driver
@@ -131,7 +131,7 @@ int devdrv_get_vnic_ip(unsigned int dev_id, unsigned int *ip_addr);
  * @param [out] ip_addr vnic ip address
  * @return  0  success, return others fail
  */
-int devdrv_get_vnic_ip_by_sdid(unsigned int sdid, unsigned int *ip_addr);
+DLLEXPORT int devdrv_get_vnic_ip_by_sdid(unsigned int sdid, unsigned int *ip_addr);
 
 /**
  * @ingroup driver
@@ -144,7 +144,7 @@ int devdrv_get_vnic_ip_by_sdid(unsigned int sdid, unsigned int *ip_addr);
  * @return   0   success
  * @return   -1  fail
  */
-int drvDeviceGetEthIdByIndex(uint32_t dev_id, uint32_t port_id, uint32_t *eth_id);
+DLLEXPORT int drvDeviceGetEthIdByIndex(uint32_t dev_id, uint32_t port_id, uint32_t *eth_id);
 
 /**
  * @ingroup driver
@@ -157,7 +157,7 @@ int drvDeviceGetEthIdByIndex(uint32_t dev_id, uint32_t port_id, uint32_t *eth_id
  * @param [in] mode choose cover file soc head or not.
  * @return  0  success, return others fail
  */
-int halVerifyImg(HAL_VERIFY_TYPE verify_type, HAL_IMG_ID image_id, const char *img_path, int mode);
+DLLEXPORT int halVerifyImg(HAL_VERIFY_TYPE verify_type, HAL_IMG_ID image_id, const char *img_path, int mode);
 
 typedef enum {
     TSFW_HOT_PATCH_LOAD = 0,
@@ -176,7 +176,7 @@ typedef enum {
  * @param [in] ex_type reserved
  * @return  0  success, return others fail
  */
-int halTsPkgLoad(unsigned int dev_id, TSFW_LOAD_TYPE load_type, unsigned int ex_type);
+DLLEXPORT int halTsPkgLoad(unsigned int dev_id, TSFW_LOAD_TYPE load_type, unsigned int ex_type);
 
 /**
  * @ingroup driver
@@ -189,7 +189,7 @@ int halTsPkgLoad(unsigned int dev_id, TSFW_LOAD_TYPE load_type, unsigned int ex_
  * @param [in] mode choose cover file soc head or not.
  * @return  0  success, return others fail
  */
-int halRegisterVmngClient(void);
+DLLEXPORT int halRegisterVmngClient(void);
 
 /**
  * @ingroup driver
@@ -201,7 +201,7 @@ int halRegisterVmngClient(void);
  * @param [in] record_Id record id
  * @return 0  success, return others fail
  */
-int tsDevRecord(unsigned int devId, unsigned int tsId, unsigned int record_type, unsigned int record_Id);
+DLLEXPORT int tsDevRecord(unsigned int devId, unsigned int tsId, unsigned int record_type, unsigned int record_Id);
 
 /**
  * @ingroup driver
@@ -211,7 +211,7 @@ int tsDevRecord(unsigned int devId, unsigned int tsId, unsigned int record_type,
  * @param [in] tsId  ts id
  * @return 0  success, return others fail
  */
-drvError_t halTsCmdlistMemMap(unsigned int devId, unsigned int tsId);
+DLLEXPORT drvError_t halTsCmdlistMemMap(unsigned int devId, unsigned int tsId);
 
 /**
  * @ingroup driver
@@ -221,7 +221,7 @@ drvError_t halTsCmdlistMemMap(unsigned int devId, unsigned int tsId);
  * @param [in] tsId  ts id
  * @return 0  success, return others fail
  */
-drvError_t halTsCmdlistMemUnMap(unsigned int devId, unsigned int tsId);
+DLLEXPORT drvError_t halTsCmdlistMemUnMap(unsigned int devId, unsigned int tsId);
 
 /**
  * @ingroup driver
@@ -235,7 +235,8 @@ drvError_t halTsCmdlistMemUnMap(unsigned int devId, unsigned int tsId);
  * @param [in] buf_len  input buff length, when proc succ, the value should be change to actual value length
  * @return  0  success, return others fail
  */
-int halGetImgHeadInfo(HAL_IMG_ID image_id, const char *img_path, HAL_IMG_HEAD_TYPE cmd_type, char *buf, int *buf_len);
+DLLEXPORT int halGetImgHeadInfo(HAL_IMG_ID image_id, const char *img_path, HAL_IMG_HEAD_TYPE cmd_type, char *buf,
+                                int *buf_len);
 
 typedef enum {
     UADK_CFG_ADD_PID_CMD = 0,
@@ -262,7 +263,7 @@ struct uadk_certified_info {
  * @param [in] info  config info
  * @return  0  success, return others fail
  */
-int uadk_config_certified_info(UADK_CFG_CMD_TYPE cmd, struct uadk_certified_info *info);
+DLLEXPORT int uadk_config_certified_info(UADK_CFG_CMD_TYPE cmd, struct uadk_certified_info *info);
 
 typedef enum {
     UADK_DIGEST_SHA256,
@@ -351,7 +352,7 @@ DLLEXPORT int uadk_digest_uninit(DIGEST_CTX handle);
  * @param [out] phy_dev_id phycical device id
  * @return  0  success, return others fail
  */
-drvError_t halGetPhyDevIdByLogicDevId(unsigned int dev_id, unsigned int *phy_dev_id);
+DLLEXPORT drvError_t halGetPhyDevIdByLogicDevId(unsigned int dev_id, unsigned int *phy_dev_id);
 
 /**
  * @ingroup driver
@@ -608,6 +609,82 @@ struct prof_data_report_para {
  */
 DLLEXPORT int halProfSampleDataReport(unsigned int dev_id, unsigned int chan_id, unsigned int sub_chan_id,
                                       struct prof_data_report_para *para);
+
+/**
+ * @ingroup driver
+ * @brief Get the base trusted path sent to the specified node device, get trusted path, used to combine dst_path
+ * parameters of drvHdcSendFile
+ * @attention host call is valid, used to obtain the basic trusted path sent to the device side using the drvHdcSendFile
+ * interface
+ * @param [in]  signed int user_mode   :	0xFF for HwDmUser(upgrade), 0 for BaseUser;
+ * @param [in]  int peer_node          :	Node number of the node where the Device is located
+ * @param [in]  int peer_devid         :	Device's unified ID in the host
+ * @param [in]  unsigned int path_len  :	base_path space size
+ * @param [out] char *base_path		  :	Obtained trusted path
+ * @return   DRV_ERROR_NONE, DRV_ERROR_INVALID_VALUE
+ */
+DLLEXPORT drvError_t drvHdcGetTrustedBasePathEx(signed int user_mode, int peer_node, int peer_devid, char *base_path,
+                                                unsigned int path_len);
+
+/**
+ * @ingroup driver
+ * @brief Send file to the specified path on the specified device
+ * @attention null
+ * @param [in]  signed int user_mode :	0xFF for HwDmUser(upgrade), 0 for BaseUser;
+ * @param [in]  int peer_node        :	Node number of the node where the Device is located
+ * @param [in]  int peer_devid       :	Device's unified ID in the host
+ * @param [in]  const char *file		:	Specify the file name of the sent file
+ * @param [in]  const char *dst_path	:	Specifies the path to send the file to the receiver. If the path is
+ * directory, the file name remains unchanged after it is sent to the peer; otherwise, the file name is changed to the
+ * part of the path after the file is sent to the receiver.
+ * @param [out] void (*progress_notifier)(struct drvHdcProgInfo *) :	  Specify the user's callback handler function;
+ * when progress of the file transfer increases by at least one percent,file transfer protocol will call this interface.
+ * @return   DRV_ERROR_NONE, DRV_ERROR_INVALID_VALUE
+ */
+DLLEXPORT drvError_t drvHdcSendFileEx(signed int user_mode, int peer_node, int peer_devid, const char *file,
+                                      const char *dst_path, void (*progress_notifier)(struct drvHdcProgInfo *));
+
+DLLEXPORT drvError_t DmsGetAllDeviceList(int device_ids[], int count);
+DLLEXPORT drvError_t drvStartContainerServe(void);
+DLLEXPORT drvError_t drvGetVdeviceMode(int *mode);
+DLLEXPORT drvError_t drvSetVdeviceMode(int mode);
+DLLEXPORT drvError_t drvGetDmpStarted(uint32_t devId, uint32_t *dmp_started);
+DLLEXPORT drvError_t halDrvCreateVdevice(unsigned int devid, unsigned int vdev_id, void *vdev_res, void *vdev_result);
+DLLEXPORT drvError_t drvDestroyVdevice(uint32_t devid, uint32_t vdevid);
+DLLEXPORT drvError_t drvGetHostPhyMachFlag(unsigned int device_id, unsigned int *host_flag);
+DLLEXPORT drvError_t drvGetDevProbeNum(uint32_t *num);
+DLLEXPORT drvError_t drvDeviceResetInform(uint32_t devid);
+DLLEXPORT drvError_t drvGetLocalDevIDs(uint32_t *devices, uint32_t len);
+DLLEXPORT drvError_t drvPciePreReset(uint32_t devId);
+DLLEXPORT drvError_t drvPcieRescan(uint32_t devId);
+DLLEXPORT drvError_t DmsSetTrsMode(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, const void *buf,
+                                   unsigned int size);
+DLLEXPORT drvError_t dms_get_basic_info_host(unsigned int dev_id, void *buff, unsigned int sub_cmd, unsigned int size);
+DLLEXPORT drvError_t DmsGetHealthCode(uint32_t devid, uint32_t *phealth);
+DLLEXPORT drvError_t DmsGetEventCode(uint32_t devid, int *event_cnt, uint32_t *event_code, uint32_t code_len);
+DLLEXPORT drvError_t halDmsGetFaultEvent(int dev_id, void *filter, int timeout, void *event);
+DLLEXPORT drvError_t halDmsGetHistoryFaultEvent(int device_id, void *event_buf, int event_buf_size, int *event_cnt);
+DLLEXPORT drvError_t halDrvDeviceGetPcieIdInfo(unsigned int devId, void *pcie_idinfo);
+DLLEXPORT drvError_t halDrvGetDeviceResourceInfo(unsigned int devid, void *para, void *info);
+DLLEXPORT drvError_t halDmsGetDeviceInfoEx(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                           unsigned int *size);
+DLLEXPORT drvError_t halDmsSetDeviceInfoEx(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
+                                           const void *buf, unsigned int size);
+DLLEXPORT drvError_t halDmsSetSignFlag(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
+                                       const void *buf, unsigned int size);
+DLLEXPORT drvError_t halDmsGetSignFlag(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                       unsigned int *size);
+
+DLLEXPORT int dms_run_proc_normal_user(char **arg);
+DLLEXPORT int dmanage_get_container_flag(unsigned int *flag);
+DLLEXPORT int dms_power_hotreset_common(unsigned int dev_id, int ioctl_sub_cmd);
+DLLEXPORT int halUdisGetDeviceInfo(unsigned int dev_id, void *info);
+
+DLLEXPORT void *halHashTableNew(void);
+DLLEXPORT void halHashTableDelete(void *ht);
+DLLEXPORT int halHashTablePut2(void *ht, const char *tag, void *value, void (*free_value)(void *));
+DLLEXPORT void *halHashTableGet(const void *ht, const char *tag);
+DLLEXPORT void halHashTableRm(void *ht, const char *tag);
 
 #ifdef __cplusplus
 }

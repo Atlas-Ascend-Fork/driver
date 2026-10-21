@@ -17,8 +17,7 @@ void mb(void)
 }
 #else
 void mb(void)
-{
-}
+{}
 #endif
 
 void drvFlushCache(uint64_t base, uint32_t len)

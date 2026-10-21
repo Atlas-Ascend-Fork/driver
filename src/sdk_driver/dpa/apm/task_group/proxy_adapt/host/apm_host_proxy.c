@@ -115,7 +115,7 @@ static int apm_host_proxy_msg_set_slave_status(u32 udevid, struct apm_msg_header
     struct apm_msg_set_slave_status *msg = (struct apm_msg_set_slave_status *)(void *)header;
     int ret;
 
-    ret = apm_master_domain_set_slave_status(msg->master_tgid, udevid, msg->slave_tgid, msg->type, msg->status);
+    ret = apm_master_domain_set_slave_status(msg->master_tgid, udevid, msg->slave_tgid, msg->type, msg->status, 0);
     if (ret != 0) {
         return ret;
     }

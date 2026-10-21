@@ -19,29 +19,62 @@
 #include "svm_mm.h"
 #include "pmq.h"
 
-static int _svm_pmq_query_va(ka_vm_area_struct_t *vma, u64 pa, u64 start_va, u64 end_va, u64 *matched_va)
+#ifndef EMU_ST /* Simulation ST ignore pte */
+struct svm_pmq_query_para {
+    u64 target_pa;
+    u64 matched_va;
+};
+
+static int svm_pmq_pte_entry(ka_pte_t *pte, u64 addr, u64 next, enum ka_pte_level level, struct ka_pgwalk *walk)
 {
-    u64 va, tmp_pa, page_size, va_offset, pa_offset;
-    unsigned long stamp = (unsigned long)ka_jiffies;
+    struct svm_pmq_query_para *para = (struct svm_pmq_query_para *)walk->priv;
+    u64 page_size, pa, pfn, offset, range_size;
+    int ret;
 
-    for (va = start_va; va < end_va; va += (page_size - va_offset)) {
-        ka_try_cond_resched(&stamp);
-        if (svm_va_to_pa(vma, va, &tmp_pa, &page_size) != 0) {
-            page_size = KA_MM_PAGE_SIZE;
-            va_offset = va - ka_base_round_down(va, page_size);
-            continue;
-        }
-
-        va_offset = va - ka_base_round_down(va, page_size); /* Resolve start_va misalignment scene. */
-        if ((pa >= tmp_pa) && (pa < (tmp_pa + (page_size - va_offset)))) {
-            pa_offset = pa - tmp_pa;
-            *matched_va = va + pa_offset;
-            return 0;
-        }
+    page_size = ka_pte_level_to_page_size(level);
+    if (page_size == 0ULL) {
+        return 0;
     }
 
-    return -ESRCH; /* Only return this err code when va not found */
+    ret = svm_pte_to_pfn(pte, &pfn);
+    if (ret != 0) {
+        return 0;
+    }
+
+    pa = (unsigned long)KA_MM_PFN_PHYS(pfn);
+    offset = addr - ka_base_round_down(addr, page_size);
+    pa += offset;
+
+    range_size = ka_base_min(next - addr, page_size - offset);
+    if ((para->target_pa >= pa) && (para->target_pa < (pa + range_size))) {
+        para->matched_va = addr + (para->target_pa - pa);
+        return -EEXIST;
+    }
+
+    return 0;
 }
+
+static int _svm_pmq_query_va(ka_vm_area_struct_t *vma, u64 pa, u64 start_va, u64 end_va, u64 *matched_va)
+{
+    struct svm_pmq_query_para para = {
+        .target_pa = pa,
+        .matched_va = 0,
+    };
+    struct ka_pgwalk_ops ops = {NULL};
+
+    ops.pte_entry = svm_pmq_pte_entry;
+
+    (void)ka_walk_page_range(vma, start_va, end_va, &ops, (void *)&para);
+    if (para.matched_va != 0) {
+        *matched_va = para.matched_va;
+        return 0;
+    }
+
+    return -ESRCH;
+}
+#else
+int _svm_pmq_query_va(ka_vm_area_struct_t *vma, u64 pa, u64 start_va, u64 end_va, u64 *matched_va);
+#endif
 
 int svm_pmq_query_va(int tgid, u64 pa, u64 start_va, u64 end_va, u64 *matched_va)
 {

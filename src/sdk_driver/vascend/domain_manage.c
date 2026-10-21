@@ -127,19 +127,24 @@ STATIC void vm_remove_pfn(struct vm_dom_info *vm_dom)
 #endif
 }
 
-/* hold dma_domains_lock before call this function */
+/* Last kref release callback: caller must not hold g_vm_domains_lock. */
 void vm_dom_info_release(ka_kref_t *ref)
 {
     ka_mutex_t *g_vm_domains_lock = get_vm_domains_lock();
     struct vm_dom_info *vm_dom = ka_container_of(ref, typeof(*vm_dom), ref);
 
+    /* Drain down_read holders (hw_vdavinci_get_iova drops cache_lock before
+     * finishing with vm_dom). up_write before kfree is safe: no reader can
+     * reach this semaphore after the caller cleared vdev.domain. */
+    ka_task_down_write(&vm_dom->sem);
     ka_task_mutex_lock(g_vm_domains_lock);
     vm_remove_pfn(vm_dom);
     ka_mm_put_iova_domain(&vm_dom->iovad);
     ka_list_del(&vm_dom->node);
     ka_mm_kfree(vm_dom->ram_info_list);
-    ka_mm_kfree(vm_dom);
     ka_task_mutex_unlock(g_vm_domains_lock);
+    ka_task_up_write(&vm_dom->sem);
+    ka_mm_kfree(vm_dom);
 }
 
 struct vm_dom_info *vm_dom_info_find(const ka_kvm_t *kvm)
@@ -173,7 +178,7 @@ struct vm_dom_info *vm_dom_info_new(ka_kvm_t *kvm)
     }
     vm_dom->pfn_root = KA_RB_ROOT_CACHED;
     vm_dom->kvm = kvm;
-    vm_dom->status = DOMAIN_PIN_STATUS_INVALID;
+    ka_base_atomic_set(&vm_dom->status, DOMAIN_PIN_STATUS_INVALID);
     ka_task_init_rwsem(&vm_dom->sem);
     ka_base_kref_init(&vm_dom->ref);
     KA_INIT_LIST_HEAD(&(vm_dom->ram_info_list->head));

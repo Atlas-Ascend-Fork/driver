@@ -132,6 +132,7 @@ int shr_id_init_module(void)
 
     ret = module_feature_auto_init();
     if (ret != 0) {
+        trs_res_share_proc_ops_register(TRS_NOTIFY, NULL);
         (void)drv_ascend_unregister_sub_module(DAVINCI_INTF_MODULE_TRS_SHR_ID);
         trs_err("Register event update fail. (ret=%d)\n", ret);
         return ret;
@@ -145,6 +146,7 @@ int shr_id_init_module(void)
 void shr_id_exit_module(void)
 {
     module_feature_auto_uninit();
+    trs_res_share_proc_ops_register(TRS_NOTIFY, NULL);
     (void)drv_ascend_unregister_sub_module(DAVINCI_INTF_MODULE_TRS_SHR_ID);
     trs_info("Unregister module success.\n");
 }

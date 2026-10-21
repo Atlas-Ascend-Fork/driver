@@ -94,6 +94,8 @@ typedef struct Blend {
     uint32_t eraseB;
     uint32_t out1en;
     struct BlendGainPara gain;
+    uint32_t alphaMode;
+    uint32_t offsetEn;
 } blend_t;
 
 typedef struct Pyramid {
@@ -250,8 +252,8 @@ typedef struct OsdRegion {
     uint8_t osdAlphaEn;
     uint32_t osdAlpha0;
     uint32_t osdAlpha1;
-    uint32_t osdAlphaRev;      // OSD 图像 alpha值反色开关
-    uint32_t osdRgbRev;        // OSD 图像 rgb像素值反色开关
+    uint32_t osdAlphaRev; // OSD 图像 alpha值反色开关
+    uint32_t osdRgbRev;   // OSD 图像 rgb像素值反色开关
     struct OsdCsc osdCsc;
 } osd_region_t;
 
@@ -286,10 +288,10 @@ typedef struct Lut {
     uint8_t mapValueVorB[256];
     uint8_t posterizeEn;
     uint32_t posterizeValue;
-    uint32_t cutoutEn; // 11:9, 8:6, 5:3, 2:0, 分别控制窗口3,2,1,0的使能
+    uint32_t cutoutEn;        // 11:9, 8:6, 5:3, 2:0, 分别控制窗口3,2,1,0的使能
     uint32_t cutoutValue[12]; // 12：4个窗口 * 3个通道。win0:R,G,B; ... win3:R,G,B
-    uint32_t cutoutWin[16]; // 16: 4个窗口 * 4个坐标。win0:H,V; ... win3:H,V
-    uint8_t  lutSecondaryPointerEn;
+    uint32_t cutoutWin[16];   // 16: 4个窗口 * 4个坐标。win0:H,V; ... win3:H,V
+    uint8_t lutSecondaryPointerEn;
     uint32_t mapYorRAddrHigh;
     uint32_t mapYorRAddrLow;
     uint32_t mapUorGAddrHigh;

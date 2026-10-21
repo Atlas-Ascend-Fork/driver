@@ -43,7 +43,7 @@
 #include "xsmem_feature_check.h"
 
 #define XSHM_HLIST_TABLE_BIT 13
-#define XSHM_HLIST_TABLE_MASK ((0x1 << XSHM_HLIST_TABLE_BIT) - 1)
+#define XSHM_HLIST_TABLE_MASK ((0x1UL << XSHM_HLIST_TABLE_BIT) - 1)
 #define TASK_HASH_TABLE_BIT 10
 #define TASK_HASH_TABLE_MASK ((0x1UL << TASK_HASH_TABLE_BIT) - 1)
 
@@ -486,7 +486,7 @@ static void xsmem_pool_notice_other_task(struct xsm_pool *xp, struct xsm_task_po
         exit_task = xsmem_drv_kmalloc(sizeof(struct xsm_exit_task), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
         if (exit_task == NULL) {
             ka_task_mutex_unlock(&xp->mutex);
-            xsmem_warn("alloc mem %lx not success\n", sizeof(struct xsm_exit_task));
+            xsmem_warn("alloc mem %lx not successful\n", sizeof(struct xsm_exit_task));
             return;
         }
 
@@ -805,7 +805,7 @@ static struct xsm_pool *xsmem_pool_create(struct xsm_pool_algo *algo, struct xsm
     xp->key_len = key_len;
     ret = strncpy_s(xp->key, key_len + 1, key, key_len);
     if (ret != 0) {
-        xsmem_warn("pool name strncpy_s not success\n");
+        xsmem_warn("pool name strncpy_s not successful\n");
     }
     xp->key[key_len] = '\0';
 
@@ -887,7 +887,7 @@ static struct xsm_pool *xsmem_pool_register(struct xsm_pool_algo *algo, struct x
     if (xp != NULL) {
         int create_pid = xp->create_pid;
         ka_task_mutex_unlock(&xsmem_mutex);
-        xsmem_err("pool name %s is exist create_pid %d\n", arg->key, create_pid);
+        xsmem_err("pool name %s exists. (create_pid=%d)\n", arg->key, create_pid);
         return KA_ERR_PTR(-EEXIST);
     }
 
@@ -922,7 +922,7 @@ static void xsmem_pool_unregister(struct xsm_pool *xp)
 static int xsmem_pool_attach(struct xsm_task *task, struct xsm_pool *xp, int timeout)
 {
     struct xsm_task_pool_node *node = NULL;
-    GroupShareAttr attr;
+    GroupShareAttr attr = {0};
     int ret;
 
     ka_task_mutex_lock(&task->mutex);
@@ -987,7 +987,7 @@ static int xsmem_pool_detach(struct xsm_task *task, struct xsm_pool *xp)
 
     node = task_pool_node_find(task, xp);
     if (node == NULL) {
-        xsmem_err("the pool %d has not task %d\n", xp->pool_id, task->pid);
+        xsmem_err("the pool %d has no task %d\n", xp->pool_id, task->pid);
         return -ESRCH;
     }
 
@@ -1181,7 +1181,7 @@ static int ioctl_xsmem_cache_create(struct xsm_task *task, unsigned int cmd, uns
     }
 
     if (xp->algo->xsm_pool_cache_create == NULL) {
-        xsmem_err("Not support cache. (name=%s)\n", xp->algo->name);
+        xsmem_err("Cache is not supported. (name=%s)\n", xp->algo->name);
         xsmem_pool_put(xp);
         return -EOPNOTSUPP;
     }
@@ -1331,7 +1331,7 @@ static int ioctl_xsmem_cache_query(struct xsm_task *task, unsigned int cmd, unsi
     }
 
     if (xp->algo->xsm_pool_cache_query == NULL) {
-        xsmem_err("Not support cache. (name=%s)\n", xp->algo->name);
+        xsmem_err("Cache is not supported. (name=%s)\n", xp->algo->name);
         xsmem_pool_put(xp);
         return -EOPNOTSUPP;
     }
@@ -1424,7 +1424,7 @@ static int ioctl_xsmem_pool_task_common(struct xsm_task *task, unsigned int cmd,
     if (xsmem_is_task_has_admin(task, xp) == false) {
         ka_task_mutex_unlock(&task->mutex);
         xsmem_pool_put(xp);
-        xsmem_err("task %d has no admin attr in pool %d(creat_pid %d).\n", task->pid, proc_arg.pool_id, create_pid);
+        xsmem_err("task %d has no admin attr in pool %d(create_pid %d).\n", task->pid, proc_arg.pool_id, create_pid);
         return -EINVAL;
     }
     ka_task_mutex_unlock(&task->mutex);
@@ -1781,7 +1781,7 @@ static int ioctl_xsmem_block_get(struct xsm_task *task, unsigned int cmd, unsign
         }
     }
     ka_task_mutex_unlock(&task->mutex);
-    xsmem_warn("offset %pK not find\n", (void *)(uintptr_t)block_arg.get.offset);
+    xsmem_warn("offset %pK not found\n", (void *)(uintptr_t)block_arg.get.offset);
     return -ENODEV;
 }
 
@@ -2134,7 +2134,7 @@ static int ioctl_xsmem_pool_va_check(struct xsm_task *task, unsigned int cmd, un
     }
 
     if (xp->algo->xsm_pool_va_check == NULL) {
-        xsmem_err("Not support va check. (name=%s)\n", xp->algo->name);
+        xsmem_err("Va check is not supported. (name=%s)\n", xp->algo->name);
         xsmem_pool_put(xp);
         return -EOPNOTSUPP;
     }
@@ -2148,38 +2148,68 @@ static int ioctl_xsmem_pool_va_check(struct xsm_task *task, unsigned int cmd, un
     return (ret != 0) ? ret : (int)ka_base_put_user(query_arg.result, &usr_arg->result);
 }
 
+static void fill_feature_bitmap(unsigned char *bitmaps, unsigned int ori_feature_num, unsigned int feature_num)
+{
+    unsigned int i, j;
+
+    for (i = 0; i < BUFF_FEATURE_DEV_NUM; i++) {
+        const struct buff_chip_features *feat = buff_get_dev_features(i);
+        if (feat == NULL)
+            continue;
+        for (j = 0; j < feat->feature_count; j++) {
+            if (feat->features[j] < feature_num)
+                bitmaps[i * ori_feature_num + feat->features[j]] = 1;
+        }
+    }
+}
+
 static int ioctl_xsmem_feature_get(struct xsm_task *task, unsigned int cmd, unsigned long arg)
 {
-    struct xsm_feature_get_arg *karg;
-    const struct buff_chip_features *feat;
-    unsigned int i;
-    unsigned int j;
+    unsigned char *bitmaps;
+    unsigned int ori_feature_num, feature_num, bitmap_size;
     int ret;
 
     (void)task;
     (void)cmd;
 
-    karg = xsmem_drv_kzalloc(sizeof(*karg), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-    if (karg == NULL) {
-        xsmem_err("ioctl_xsmem_feature_get: kzalloc failed.\n");
+    /* Read user-space's feature count */
+    ret = copy_from_user_safe(&feature_num, &((struct xsm_feature_get_arg __ka_user *)(uintptr_t)arg)->user_feature_num,
+                              sizeof(feature_num));
+    if (ret != 0) {
+        xsmem_err("ioctl_xsmem_feature_get: copy_from_user failed (ret=%d)\n", ret);
+        return -EFAULT;
+    }
+    if ((feature_num == 0) || (feature_num > BUFF_FEATURE_MAX_LIMIT)) {
+        xsmem_err("invalid param, feature_num is %u, valid range (0, %u].\n", feature_num, BUFF_FEATURE_MAX_LIMIT);
+        return -EFAULT;
+    }
+
+    ori_feature_num = feature_num;
+    if (feature_num > BUFF_FEATURE_MAX)
+        feature_num = BUFF_FEATURE_MAX;
+
+    /* Allocate flat bitmap: rows = BUFF_FEATURE_DEV_NUM, columns = feature_num (user-space size) */
+    bitmap_size = BUFF_FEATURE_DEV_NUM * ori_feature_num;
+    bitmaps = xsmem_drv_kvzalloc(bitmap_size, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    if (bitmaps == NULL) {
+        xsmem_err("ioctl_xsmem_feature_get: kvzalloc failed.\n");
         return -ENOMEM;
     }
 
-    for (i = 0; i < BUFF_FEATURE_DEV_NUM; i++) {
-        feat = buff_get_dev_features(i);
-        if (feat == NULL) {
-            /* No chip config for this dev_id, bitmap stays 0 (all features disabled) */
-            continue;
-        }
-        for (j = 0; j < feat->feature_count; j++) {
-            karg->feature_bitmaps[i] |= (1ULL << feat->features[j]);
-        }
+    fill_feature_bitmap(bitmaps, ori_feature_num, feature_num);
+
+    ret = copy_to_user_safe((struct xsm_feature_get_arg __ka_user *)(uintptr_t)arg, &feature_num, sizeof(feature_num));
+    if (ret != 0) {
+        xsmem_err("ioctl_xsmem_feature_get: copy_to_user user_feature_num failed (ret=%d)\n", ret);
+        xsmem_drv_kvfree(bitmaps);
+        return -EFAULT;
     }
 
-    ret = copy_to_user_safe((struct xsm_feature_get_arg __ka_user *)(uintptr_t)arg, karg, sizeof(*karg));
-    xsmem_drv_kfree(karg);
+    ret = copy_to_user_safe(((struct xsm_feature_get_arg __ka_user *)(uintptr_t)arg)->feature_bitmaps, bitmaps,
+                            bitmap_size);
+    xsmem_drv_kvfree(bitmaps);
     if (ret != 0) {
-        xsmem_err("ioctl_xsmem_feature_get: copy_to_user failed (ret=%d)\n", ret);
+        xsmem_err("ioctl_xsmem_feature_get: copy_to_user feature_bitmaps failed (ret=%d)\n", ret);
         return -EFAULT;
     }
 
@@ -2217,7 +2247,6 @@ STATIC long xsmem_ioctl(ka_file_t *file, unsigned int cmd, unsigned long arg)
     struct xsm_task *task = file->private_data;
     int cmd_nr = _KA_IOC_NR(cmd);
     if ((cmd_nr < 0) || (cmd_nr >= XSMEM_MAX_CMD) || (xsmem_ioctl_handles[cmd_nr] == NULL)) {
-        xsmem_err("unsupported command %x\n", cmd);
         return -EINVAL;
     }
     if (task == NULL) {
@@ -2317,6 +2346,9 @@ STATIC int xsmem_release(ka_inode_t *inode, ka_file_t *file)
 
     proc_fs_del_task(task);
     xsmem_task_prop_del(task->pid);
+
+    xsmem_info("<%s:%d,%d> task %d mmput\n", ka_task_get_current()->comm, ka_task_get_current()->tgid,
+               ka_task_get_current()->pid, task->pid);
     ka_mm_mmput(task->mm);
 
     ka_task_mutex_lock(&task_mutex);

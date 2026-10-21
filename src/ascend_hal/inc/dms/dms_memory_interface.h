@@ -20,15 +20,15 @@ typedef struct dms_soc_device_info_stru {
 
 drvError_t dms_memory_get_ddr_bw_util_rate(unsigned int dev_id, unsigned int *rate);
 drvError_t dms_memory_get_ecc_statistics(unsigned int dev_id, unsigned int dev_type, unsigned int error_type,
-    unsigned int *value, unsigned int len);
+                                         unsigned int *value, unsigned int len);
 drvError_t dms_memory_get_ecc_info_v2(unsigned int dev_id, unsigned int part_id, unsigned int dev_type,
-    unsigned int *value, unsigned int len);
+                                      unsigned int *value, unsigned int len);
 drvError_t dms_memory_get_hbm_bw_util_rate(unsigned int dev_id, unsigned int *value);
 drvError_t dms_memory_get_ddr_freq(unsigned int dev_id, unsigned int *frequency);
 drvError_t dms_get_ddr_freq_v2(dms_soc_device_info_t *soc_device_info, unsigned int *frequency);
-drvError_t dms_memory_get_hbm_temperature(unsigned int dev_id, unsigned int *temperature);
+drvError_t dms_memory_get_hbm_temperature(unsigned int dev_id, unsigned int type, unsigned int *temperature);
 drvError_t dms_memory_get_hbm_ecc_syscnt(unsigned int dev_id, void *buf, unsigned int *size);
 drvError_t dms_memory_get_hbm_freq(unsigned int dev_id, unsigned int *frequency);
-drvError_t dms_memory_get_hbm_medium_capacity(unsigned int dev_id, unsigned long long  *total_size);
+drvError_t dms_memory_get_hbm_medium_capacity(unsigned int dev_id, unsigned long long *total_size);
 
 #endif

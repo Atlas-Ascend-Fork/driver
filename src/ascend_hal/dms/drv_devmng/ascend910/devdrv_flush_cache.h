@@ -10,10 +10,13 @@
 #ifndef DEVDRV_FLUSH_CACHE_H
 #define DEVDRV_FLUSH_CACHE_H
 
-#define rmb()       dsb(ld) /* read fence */
-#define wmb()       dsb(st) /* write fence */
-#define rwmb()      dsb(st) /* write fence */
-#define dsb(opt)    { asm volatile("dsb " #opt : : : "memory"); }
+#define rmb() dsb(ld)  /* read fence */
+#define wmb() dsb(st)  /* write fence */
+#define rwmb() dsb(st) /* write fence */
+#define dsb(opt)                                  \
+    {                                             \
+        asm volatile("dsb " #opt : : : "memory"); \
+    }
 
 void mb(void);
 

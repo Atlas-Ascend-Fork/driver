@@ -26,9 +26,9 @@
 #define DEVICE_NUM_MAX 1
 #endif
 
-#define MAX_RECORD_ECC_ADDR_COUNT   64
-#define UINT32_BIT_SIZE             32
-#define ECC_ERROR_TYPE_COUNT            2
+#define MAX_RECORD_ECC_ADDR_COUNT 64
+#define UINT32_BIT_SIZE 32
+#define ECC_ERROR_TYPE_COUNT 2
 
 #if defined CFG_FEATURE_HBM_ECC_ISOLATION || defined CFG_FEATURE_DDR_ECC_ISOLATION
 struct ecc_statistics_s_all {
@@ -56,11 +56,11 @@ struct ecc_statistics_s_all {
 #endif
 
 #if defined CFG_FEATURE_HBM_FLASH || defined CFG_FEATURE_DDR_FLASH
-#define HIGH_ADDR_SID_BITS_COUNT        4
-#define LOW_ADDR_ROW_BITS_OFFSET        8
+#define HIGH_ADDR_SID_BITS_COUNT 4
+#define LOW_ADDR_ROW_BITS_OFFSET 8
 #else
-#define HIGH_ADDR_COLUMN_BITS_COUNT     14
-#define LOW_ADDR_RANK_BITS_OFFSET       4
+#define HIGH_ADDR_COLUMN_BITS_COUNT 14
+#define LOW_ADDR_RANK_BITS_OFFSET 4
 #endif
 
 #pragma pack(1)
@@ -84,10 +84,10 @@ int dev_ecc_config_get_total_isolated_pages_info(unsigned int dev_id, struct ecc
 int dev_ecc_config_clear_isolated_info(unsigned int dev_id);
 int dev_ecc_config_get_multi_ecc_time_info(unsigned int dev_id, MULTI_ECC_TIMES *multi_eccs_timestamp);
 int dev_ecc_config_get_multi_ecc_info(unsigned int dev_id, unsigned int data_index,
-    struct ecc_common_data_s *ecc_detail_info);
+                                      struct ecc_common_data_s *ecc_detail_info);
 int dev_ecc_config_get_single_ecc_info(unsigned int dev_id, unsigned int data_index,
-    struct ecc_common_data_s *ecc_detail_info);
+                                       struct ecc_common_data_s *ecc_detail_info);
 int dev_ecc_config_get_ecc_addr_count(unsigned int dev_id, unsigned char err_type,
-    unsigned int count_value[ECC_ERROR_TYPE_COUNT]);
+                                      unsigned int count_value[ECC_ERROR_TYPE_COUNT]);
 int dev_ecc_config_get_va_info(unsigned int devId, void *buf, unsigned int *size);
 #endif

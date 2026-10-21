@@ -157,7 +157,20 @@ int svmm_overlap_add_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 
     return ret;
 }
 
-int svmm_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size)
+int svmm_overlap_can_add_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size)
+{
+    struct svm_global_va src_info = {0};
+    struct svmm_overlap_seg *seg = NULL;
+
+    src_info.udevid = SVM_INVALID_UDEVID;
+    pthread_rwlock_rdlock(&svmm_inst->rwlock);
+    seg = svmm_search_overlap_seg(svmm_inst, devid, start, size, &src_info);
+    pthread_rwlock_unlock(&svmm_inst->rwlock);
+
+    return (seg == NULL) ? 0 : DRV_ERROR_REPEATED_INIT;
+}
+
+int svmm_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 size, u64 *svm_flag)
 {
     struct svmm_overlap_seg *seg = NULL;
     struct svm_global_va src_info = {0};
@@ -171,6 +184,9 @@ int svmm_overlap_del_seg(struct svmm_inst *svmm_inst, u32 devid, u64 start, u64 
         return DRV_ERROR_PARA_ERROR;
     }
 
+    if (svm_flag != NULL) {
+        *svm_flag = seg->svm_flag;
+    }
     svmm_remove_overlap_seg(svmm_inst, seg);
     pthread_rwlock_unlock(&svmm_inst->rwlock);
 

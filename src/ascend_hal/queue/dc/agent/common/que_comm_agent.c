@@ -193,8 +193,7 @@ int que_get_peer_proc_info(unsigned int dev_id, unsigned int qid, pid_t *remote_
     return DRV_ERROR_NONE;
 }
 
-int que_set_tjfr_id_and_token(unsigned int dev_id, unsigned int qid, const urma_jfr_id_t *tjfr_id,
-                              const urma_token_t *token)
+int que_save_inter_dev_attach_cfg(unsigned int dev_id, unsigned int qid, const struct que_inter_dev_attach_in_msg *in)
 {
     struct queue_manages *que_manage = NULL;
 
@@ -222,8 +221,9 @@ int que_set_tjfr_id_and_token(unsigned int dev_id, unsigned int qid, const urma_
         return DRV_ERROR_NOT_SUPPORT;
     }
 
-    que_manage->tjfr_id = *tjfr_id;
-    que_manage->token = *token;
+    que_manage->tjfr_id = in->tjfr_id;
+    que_manage->token = in->token;
+    queue_set_local_depth(qid, in->depth);
     que_manage->tjfr_valid_flag = 1;
     queue_put(qid);
     return DRV_ERROR_NONE;

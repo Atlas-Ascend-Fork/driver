@@ -51,9 +51,7 @@ int svm_cur_memcg_change(ka_pid_t pid, ka_mem_cgroup_t **old_cg, ka_mem_cgroup_t
 
 void svm_cur_memcg_reset(ka_mem_cgroup_t *old_cg, ka_mem_cgroup_t *new_cg)
 {
-    if (old_cg != NULL) {
-        (void)svm_set_active_memcg(old_cg);
-    }
+    (void)svm_set_active_memcg(old_cg);
 
     if (new_cg != NULL) {
         ka_mm_mem_cgroup_put(new_cg);

@@ -22,6 +22,6 @@ void devmm_get_dev_mem_dfx(struct devmm_svm_process *svm_pro, u32 mem_type, stru
 int devmm_ipc_page_table_create_process(struct devmm_svm_process *svm_proc, struct devmm_svm_heap *heap,
                                         u32 *page_bitmap, struct devmm_ioctl_arg *arg, void *n_attr);
 #ifndef UVM_OPEN
-int devmm_uvm_ioctl_get_mem_range_attributes(struct devmm_svm_process *svm_pro, struct devmm_ioctl_arg *arg);
+int devmm_uvm_ioctl_get_mem_range_attributes(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg);
 #endif
 #endif /* SVM_MASTER_ADVISE_H */

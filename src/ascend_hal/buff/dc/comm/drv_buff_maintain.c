@@ -116,8 +116,9 @@ drvError_t buff_get_buff_type_info(struct buff_get_info_handle_arg *para_in)
     drvError_t ret;
     int pool_id;
 
-    if (para_in->in == NULL) {
-        buff_err("para invalid, in ptr is null.\n");
+    if ((para_in->in == NULL) || (para_in->in_size < sizeof(void *)) ||
+        (para_in->out_size < sizeof(struct BuffTypeInfo))) {
+        buff_err("para invalid. (in=%p; in_size=%u; out_size=%u)\n", para_in->in, para_in->in_size, para_in->out_size);
         return (int)DRV_ERROR_INVALID_VALUE;
     }
     buff = *((void **)para_in->in);

@@ -83,6 +83,11 @@ static int svm_sync_event_request_handle(u32 udevid, int master_tgid, int slave_
 static int svm_sync_event_response_handle(u32 udevid, int master_tgid, int slave_tgid, struct svm_event_handle *handle,
                                           void *msg, u32 msg_len)
 {
+    if (msg_len < sizeof(int)) {
+        svm_err("Msg len error. (msg_len=%u)\n", msg_len);
+        return -EINVAL;
+    }
+
     if (UM_HANDLE_REPLY_RET(msg) != 0) {
         if (handle->pre_cancel_handle != NULL) {
             handle->pre_cancel_handle(udevid, master_tgid, slave_tgid, UM_HANDLE_REPLY_DATA_PTR(msg),

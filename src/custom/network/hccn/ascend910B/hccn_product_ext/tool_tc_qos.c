@@ -14,12 +14,12 @@
 #include "tool_ops.h"
 
 #define TOOL_TC_QOS_PARAM_TYPE_TCBW 0
-#define TOOL_TC_QOS_PARAM_TYPE_TSA  1
+#define TOOL_TC_QOS_PARAM_TYPE_TSA 1
 
 static int tool_get_tc_qos_info(int argc, char **argv, struct tool_param *param)
 {
     int ret;
-    char tc_qos_info[TOOL_TC_QOS_OUTBUFF_LEN] = { 0 };
+    char tc_qos_info[TOOL_TC_QOS_OUTBUFF_LEN] = {0};
     char tc_bw[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
     char tsa_map[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
     char *ptr = NULL;
@@ -34,7 +34,7 @@ static int tool_get_tc_qos_info(int argc, char **argv, struct tool_param *param)
         roce_err("Failed to get tc qos info. (ret=%d, logic_id=%d)", ret, param->logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
-    
+
     // 找到 TC Bandwidth
     ptr = strstr(tc_qos_info, "TC Bandwidth:");
     if (!ptr) {
@@ -59,7 +59,7 @@ static int tool_get_tc_qos_info(int argc, char **argv, struct tool_param *param)
     }
     // 拼接
     ret = snprintf_s(tc_qos_info, TOOL_TC_QOS_OUTBUFF_LEN, TOOL_TC_QOS_OUTBUFF_LEN - 1,
-        "TC Bandwidth: %s\nTSA_MAP: %s\0", tc_bw, tsa_map);
+                     "TC Bandwidth: %s\nTSA_MAP: %s\0", tc_bw, tsa_map);
     if (ret <= 0) {
         roce_err("snprintf_s fail, ret:%d, dest_len:%d", ret, TOOL_TC_QOS_OUTBUFF_LEN);
         return -ENOMEM;
@@ -76,7 +76,7 @@ static int tool_tc_qos_init_prio_map_info(const char *tc_qos_info, struct tool_t
     char *str;
     char *token;
     char *colon;
-    char prio_map_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = { 0 };
+    char prio_map_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
 
     str = strstr(tc_qos_info, "PRIO_MAP:");
     if (!str) {
@@ -117,7 +117,7 @@ static int tool_tc_qos_init_tc_bw_info(const char *tc_qos_info, struct tool_tc_q
     char *str;
     char *token;
     char *colon;
-    char tc_bw_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = { 0 };
+    char tc_bw_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
 
     str = strstr(tc_qos_info, "TC Bandwidth:");
     if (!str) {
@@ -158,7 +158,7 @@ static int tool_tc_qos_init_tsa_info(const char *tc_qos_info, struct tool_tc_qos
     char *str;
     char *token;
     char *colon;
-    char tsa_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = { 0 };
+    char tsa_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
 
     str = strstr(tc_qos_info, "TSA_MAP:");
     if (!str) {
@@ -202,7 +202,7 @@ static int tool_tc_qos_init_tsa_info(const char *tc_qos_info, struct tool_tc_qos
 static int tool_init_tc_qos_info(int logic_id, struct tool_tc_qos_info *info)
 {
     int ret;
-    char tc_qos_info[TOOL_TC_QOS_OUTBUFF_LEN] = { 0 };
+    char tc_qos_info[TOOL_TC_QOS_OUTBUFF_LEN] = {0};
 
     ret = dsmi_operate_tc_qos_info(logic_id, tc_qos_info, TOOL_TC_QOS_OUTBUFF_LEN, DS_GET_TC_QOS_INFO);
     if (ret) {
@@ -249,8 +249,8 @@ static int tool_tc_qos_check_param_info(struct tool_tc_qos_info *info)
             }
         } else if (info->tsa_map[i] == TSA_ETS) {
             if ((info->tc_bw[i] <= TOOL_TC_QOS_INFG_TC_BW_MIN) || (info->tc_bw[i] > TOOL_TC_QOS_INFG_TC_BW_MAX)) {
-                roce_err("Check tc qos param info failed. Ets mode tc value is invalid. (tc_id=%d, value=%d)",
-                    i, info->tc_bw[i]);
+                roce_err("Check tc qos param info failed. Ets mode tc value is invalid. (tc_id=%d, value=%d)", i,
+                         info->tc_bw[i]);
                 return UDA_PARAM_INVALID_ERR;
             }
             // lldp_tool约束，ets模式的tc的值不能大于优先级中配置的tc最大值
@@ -270,15 +270,15 @@ static int tool_tc_qos_check_param_info(struct tool_tc_qos_info *info)
 
     // 全为strict情况，lldp_tool约束tcbw总和为100，所以此处默认设置tc_bw[7]为100
     if (tsa_sum == 0) {
-        info->tc_bw[7] = TOOL_TC_QOS_INFG_TC_BW_MAX;    // 当前使用tc0~3,此处填写7规避该问题
+        info->tc_bw[7] = TOOL_TC_QOS_INFG_TC_BW_MAX; // 当前使用tc0~3,此处填写7规避该问题
     } else {
-        info->tc_bw[7] = 0;                             // 非全strict场景，需将tcbw[7]中还原为0
+        info->tc_bw[7] = 0; // 非全strict场景，需将tcbw[7]中还原为0
     }
 
     return 0;
 }
 
-static int tool_check_and_set_qos_value(char* value, int param_type, struct tool_tc_qos_info *info, int index)
+static int tool_check_and_set_qos_value(char *value, int param_type, struct tool_tc_qos_info *info, int index)
 {
     char *endptr = NULL;
     long result;
@@ -293,8 +293,8 @@ static int tool_check_and_set_qos_value(char* value, int param_type, struct tool
         }
     } else if (param_type == TOOL_TC_QOS_PARAM_TYPE_TCBW) {
         result = strtol(value, &endptr, STR_TO_INT_TEN);
-        if (*endptr != '\0' || endptr == value ||
-            result < TOOL_TC_QOS_INFG_TC_BW_MIN || result > TOOL_TC_QOS_INFG_TC_BW_MAX) {
+        if (*endptr != '\0' || endptr == value || result < TOOL_TC_QOS_INFG_TC_BW_MIN ||
+            result > TOOL_TC_QOS_INFG_TC_BW_MAX) {
             return UDA_PARAM_INVALID_ERR;
         }
         info->tc_bw[index] = (char)result;
@@ -304,13 +304,13 @@ static int tool_check_and_set_qos_value(char* value, int param_type, struct tool
 
 static int tool_set_tc_qos_parse_and_check_input_param(char *param, struct tool_tc_qos_info *info, int param_type)
 {
-    char* token = NULL;
-    char* colon = NULL;
-    char* value = NULL;
+    char *token = NULL;
+    char *colon = NULL;
+    char *value = NULL;
     int index = -1;
     int ret;
-    int used[TOOL_TC_QOS_INFO_PARAM_COUNT] = { 0 }; // 用于检查数字0~3是否重复
-    char param_temp[TOOL_TC_QOS_INFO_TEMP_LENGTH] = { 0 };
+    int used[TOOL_TC_QOS_INFO_PARAM_COUNT] = {0}; // 用于检查数字0~3是否重复
+    char param_temp[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
     char *temp = NULL;
 
     ret = strncpy_s(param_temp, TOOL_TC_QOS_INFO_TEMP_LENGTH, param, TOOL_TC_QOS_INFO_TEMP_LENGTH - 1);
@@ -387,8 +387,8 @@ static int tool_set_tc_qos_write_conf(int phy_id, int argc, char **argv)
 static int tool_set_tc_qos_info(int argc, char **argv, struct tool_param *param)
 {
     int ret, i;
-    char flag[2] = { 0 };   // Indicates the subcommand settings, total num is 2.
-    struct tool_tc_qos_info info = { 0 };
+    char flag[2] = {0}; // Indicates the subcommand settings, total num is 2.
+    struct tool_tc_qos_info info = {0};
 
     if (argc != ARGC_NUM_2 && argc != ARGC_NUM_4) {
         roce_err("tool_set_tc_qos_info err argc[%d]", argc);
@@ -408,13 +408,13 @@ static int tool_set_tc_qos_info(int argc, char **argv, struct tool_param *param)
             if (ret != 0) {
                 return ret;
             }
-            flag[0] = 1;    // Indicates that the field has been set.
+            flag[0] = 1; // Indicates that the field has been set.
         } else if ((strncmp(argv[i], "tcbw", strlen("tcbw") + 1) == 0) && (flag[1] == 0)) {
             ret = tool_set_tc_qos_parse_and_check_input_param(argv[i + 1], &info, TOOL_TC_QOS_PARAM_TYPE_TCBW);
             if (ret != 0) {
                 return ret;
             }
-            flag[1] = 1;    // Indicates that the field has been set.
+            flag[1] = 1; // Indicates that the field has been set.
         } else {
             roce_err("Invalid operation.)");
             return UDA_PARAM_OP_NOT_SUPPORT_ERR;
@@ -454,8 +454,7 @@ int tool_tc_qos_cmd_execute(int argc, char **argv, struct tool_param *param)
     } else if (!strncmp(argv[0], "-s", strlen("-s") + 1)) {
         ret = tool_set_tc_qos_info(argc - 1, argv + 1, param);
         if (ret) {
-            roce_err("Set the tc qos configuration failed. (ret=%d; logic_id=%d)", \
-                ret, param->logic_id);
+            roce_err("Set the tc qos configuration failed. (ret=%d; logic_id=%d)", ret, param->logic_id);
             return ret;
         }
         ret = tool_set_tc_qos_write_conf(param->phy_id, argc - 1, argv + 1);
@@ -514,10 +513,10 @@ STATIC void tool_tc_qos_info_init(struct tool_tc_qos_info *info)
 int tool_cfg_tc_qos_recovery(struct tool_param *param)
 {
     int ret, count = 0;
-    struct tool_tc_qos_info info = { 0 };
-    char tsa_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = { 0 };
-    char tcbw_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = { 0 };
-    char flag[2] = { 0 };   // Indicates the subcommand settings, total num is 2.
+    struct tool_tc_qos_info info = {0};
+    char tsa_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
+    char tcbw_info[TOOL_TC_QOS_INFO_TEMP_LENGTH] = {0};
+    char flag[2] = {0}; // Indicates the subcommand settings, total num is 2.
 
     ret = tool_cfg_tc_qos_read_cfg(param->phy_id, flag, &count, tsa_info, tcbw_info);
     if (ret) {

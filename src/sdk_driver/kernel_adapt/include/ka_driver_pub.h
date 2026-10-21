@@ -42,9 +42,10 @@
 #include <linux/iommu.h>
 #include <linux/irqbypass.h>
 
+#include <conftest.h>
 #include "ka_common_pub.h"
 
-#ifdef MACRO_TRS_SQ_GET_WQ_FLAG
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0)
 #define KA_WQ_FLAG (WQ_MEM_RECLAIM | WQ_SYSFS)
 #else
 #define KA_WQ_FLAG (__WQ_LEGACY | WQ_MEM_RECLAIM | WQ_SYSFS)
@@ -390,8 +391,37 @@ __u64 ka_eventfd_signal(ka_eventfd_ctx_t *ctx, __u64 n);
 #define KA_VFIO_REGION_INFO_FLAG_READ VFIO_REGION_INFO_FLAG_READ
 #define KA_VFIO_REGION_INFO_FLAG_WRITE VFIO_REGION_INFO_FLAG_WRITE
 
+#ifdef FUNC_IRQ_BYPASS_REGISTER_PRODUCER_ARG3_IS_INT
+#define ka_irq_bypass_register_producer(producer) irq_bypass_register_producer(producer, NULL, 0)
+#else
 #define ka_irq_bypass_register_producer(producer) irq_bypass_register_producer(producer)
+#endif
 #define ka_irq_bypass_unregister_producer(producer) irq_bypass_unregister_producer(producer)
+
+#ifdef TYPE_IRQ_BYPASS_PRODUCER_HAS_MEMBER_TOKEN
+static inline bool ka_irq_bypass_producer_token_is_err(struct irq_bypass_producer *producer)
+{
+    return IS_ERR(producer->token);
+}
+
+static inline void ka_irq_bypass_producer_set_token(struct irq_bypass_producer *producer, void *token)
+{
+    producer->token = token;
+}
+#else
+static inline bool ka_irq_bypass_producer_token_is_err(struct irq_bypass_producer *producer)
+{
+    (void)producer;
+    return false;
+}
+
+static inline void ka_irq_bypass_producer_set_token(struct irq_bypass_producer *producer, void *token)
+{
+    (void)producer;
+    (void)token;
+}
+#endif
+
 #define ka_test_and_clear_bit(nr, p) test_and_clear_bit(nr, p)
 
 #endif

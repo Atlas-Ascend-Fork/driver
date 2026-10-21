@@ -26,6 +26,19 @@
 #include "uvm_master_common.h"
 #include "svm_phy_addr_blk_mng.h"
 
+#ifndef EMU_ST
+static void uvm_log_oom_info(struct devmm_svm_process *svm_proc, uint64_t start, uint64_t page_num)
+{
+    struct ka_sysinfo mem_info = {0};
+    ka_si_meminfo(&mem_info);
+    devmm_drv_err("OOM: Kmalloc for pages failed, out of memory. (hostpid=%d; vfid=%u; va=0x%llx; "
+                  "page_num=%llu; total_mem=0x%llx; free_mem=0x%llx; shared_mem=0x%llx)\n",
+                  svm_proc->process_id.hostpid, svm_proc->process_id.vfid, start, page_num,
+                  (uint64_t)mem_info.totalram << KA_MM_PAGE_SHIFT, (uint64_t)mem_info.freeram << KA_MM_PAGE_SHIFT,
+                  (uint64_t)mem_info.sharedram << KA_MM_PAGE_SHIFT);
+}
+#endif
+
 int uvm_host_alloc_and_map_page(struct devmm_svm_process *svm_proc, struct uvm_page_info *page_info, uint64_t start,
                                 int numa_id, bool is_read_only)
 {
@@ -40,7 +53,7 @@ int uvm_host_alloc_and_map_page(struct devmm_svm_process *svm_proc, struct uvm_p
                                         KA_GFP_KERNEL | __KA_GFP_ACCOUNT | __KA_GFP_ZERO);
     if (pages == NULL) {
 #ifndef EMU_ST
-        devmm_drv_err("Kmalloc for pages failed. (va=0x%llx, page_num=%llu)\n", start, page_num);
+        uvm_log_oom_info(svm_proc, start, page_num);
         return -ENOMEM;
 #endif
     }
@@ -50,7 +63,7 @@ int uvm_host_alloc_and_map_page(struct devmm_svm_process *svm_proc, struct uvm_p
     ret = devmm_master_alloc_huge_pages(&attr, pages, page_num);
     if (ret != 0) {
 #ifndef EMU_ST
-        devmm_drv_err("Can not alloc pages. (ret=%d; pg_num=%llu)\n", ret, page_num);
+        uvm_log_oom_info(svm_proc, start, page_num);
         goto free_tmp_pages;
 #endif
     }
@@ -358,14 +371,14 @@ int set_page_pte_readwrite(struct devmm_svm_process *svm_proc, ka_vm_area_struct
 {
     int ret = 0;
     u64 start = page_info->va_align;
-    page_bitmap_unset_read_mostly(page_info->page_bitmap);
-    KA_MM_UVM_RESET_PTES_OF_HUGEPAGE_HOST(svm_proc, vma, start, false, false);
+    ret = KA_MM_UVM_RESET_PTES_OF_HUGEPAGE_HOST(svm_proc, vma, start, false, false);
     if (ret != 0) {
 #ifndef EMU_ST
         devmm_drv_err("Remap huge pages error. (ret=%d, va=0x%llx)\n", ret, start);
         return DEVMM_FAULT_ERROR;
 #endif
     }
+    page_bitmap_unset_read_mostly(page_info->page_bitmap);
     ret = uvm_free_device_page(svm_proc, page_info, 0, false);
     if (ret) {
 #ifndef EMU_ST

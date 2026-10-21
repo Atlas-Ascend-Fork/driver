@@ -254,4 +254,5 @@ void devdrv_pci_move_msg_chan_slave_sq_tail(void *msg_chan);
 bool devdrv_pci_msg_chan_slave_sq_full_check(void *msg_chan);
 void *devdrv_pci_get_msg_chan_slave_cq_tail(void *msg_chan);
 void devdrv_pci_move_msg_chan_slave_cq_tail(void *msg_chan);
+int devdrv_pci_get_non_trans_chan_capacity(void *msg_chan, u32 *len);
 #endif

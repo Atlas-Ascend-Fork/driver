@@ -17,7 +17,7 @@
 
 #include "trs_pub_def.h"
 #include "pbl_kref_safe.h"
-#include "ubcore_uapi.h"
+#include "uba/ubcore_adapt.h"
 
 #define TRS_UB_PRIORITY_HIGH 10
 
@@ -46,7 +46,7 @@
 struct trs_ub_seg {
     size_t seg_size;
     ka_page_t *seg_pages;
-    struct ubcore_target_seg *target_seg;
+    uba_ubcore_target_seg *target_seg;
 };
 
 struct trs_ub_cq_ctx {
@@ -65,22 +65,22 @@ struct trs_ub_cq_ctx {
 struct trs_jetty_info {
     u32 devid;
     u32 status;
-    struct ubcore_jfc *cq_jfc;
-    struct ubcore_jfc *sq_jfc;
+    uba_ubcore_jfc *cq_jfc;
+    uba_ubcore_jfc *sq_jfc;
 #ifdef TRS_HOST
-    struct ubcore_jfr *cq_jfr;
-    struct ubcore_jfr *sq_jfr;
+    uba_ubcore_jfr *cq_jfr;
+    uba_ubcore_jfr *sq_jfr;
     struct trs_ub_seg cq_seg;
-    struct ubcore_cr cr[TRS_UB_CQ_JFC_CR_EXPERT_NUM];
+    uba_ubcore_cr cr[TRS_UB_CQ_JFC_CR_EXPERT_NUM];
     ka_tasklet_struct_t cq_dispatch_task;
     char cq_id_bucket[TRS_UB_HOST_CQ_MAX];
     u32 cq_id[TRS_UB_HOST_CQ_MAX];
     u32 cq_num;
 #else
-    struct ubcore_jfs *cq_jfs;
-    struct ubcore_jfs *sq_jfs;
-    struct ubcore_tjetty *cq_tjetty;
-    struct ubcore_tjetty *sq_tjetty;
+    uba_ubcore_jfs *cq_jfs;
+    uba_ubcore_jfs *sq_jfs;
+    uba_ubcore_tjetty *cq_tjetty;
+    uba_ubcore_tjetty *sq_tjetty;
     ka_page_t *sq_base_page;
     ka_page_t *cq_base_page;
 #endif
@@ -94,12 +94,12 @@ struct trs_ub_dev {
     u32 func_id;
     u32 token_val;
     struct kref_safe ref;
-    struct ubcore_device *ubc_dev;
-    struct ubcore_eid_info eid_info;
+    uba_ubcore_device *ubc_dev;
+    uba_ubcore_eid_info eid_info;
     struct trs_jetty_info jetty_info[TRS_VF_MAX_NUM];
-    struct ubcore_target_seg *notify_tseg;
-    struct ubcore_target_seg *cnt_notify_tseg;
-    struct ubcore_target_seg *sq_reg_tseg;
+    uba_ubcore_target_seg *notify_tseg;
+    uba_ubcore_target_seg *cnt_notify_tseg;
+    uba_ubcore_target_seg *sq_reg_tseg;
 #ifdef TRS_HOST
     struct trs_ub_seg sq_seg;
     struct trs_ub_cq_ctx cq_ctx[TRS_UB_HOST_CQ_MAX];
@@ -111,10 +111,12 @@ struct trs_ub_dev {
 #else
     u32 db_offset_len;
     uintptr_t db_base_addr;
-    uintptr_t urpc_cqe_addr;
+    void *urpc_cqe_addr;
     void *notify_kva;
     void *cnt_notify_kva;
     void *sq_reg_kva;
+    u32 sq_jetty_id;
+    u32 cq_jetty_id;
 #endif
 };
 
@@ -129,7 +131,7 @@ int trs_device_add_group(struct trs_id_inst *inst, u32 grp_id);
 
 struct trs_ub_dev *trs_get_ub_dev(u32 devid);
 void trs_put_ub_dev(struct trs_ub_dev *ub_dev);
-struct ubcore_device *trs_ub_get_ubcore_dev(u32 dev_id);
+uba_ubcore_device *trs_ub_get_ubcore_dev(u32 dev_id);
 
 int trs_ub_dev_adapt_init(struct trs_ub_dev *ub_dev, u32 vfid);
 void trs_ub_dev_adapt_uninit(struct trs_ub_dev *ub_dev, u32 vfid);

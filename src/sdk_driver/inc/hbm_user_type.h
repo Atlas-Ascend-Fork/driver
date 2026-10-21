@@ -13,7 +13,7 @@
 #ifndef __HBM_USER_TYPE_H__
 #define __HBM_USER_TYPE_H__
 
-#define MAX_RECORD_ECC_ADDR_COUNT   64
+#define MAX_RECORD_ECC_ADDR_COUNT 64
 #pragma pack(1)
 /* Force single byte alignment to return to out of band fetch */
 struct multi_ecc_time_data_s {
@@ -33,7 +33,7 @@ struct single_ecc_data_s {
 
 struct multi_ecc_data_s {
     uint64_t physical_addr;
-    uint8_t resv[4];  /* 4 is resv length */
+    uint8_t resv[4]; /* 4 is resv length */
     uint16_t rank;
     uint16_t module_id;
     uint8_t type;

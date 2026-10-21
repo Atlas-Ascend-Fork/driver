@@ -126,7 +126,7 @@ int devdrv_manager_ioctl_set_vdevinfo(ka_file_t *filep, unsigned int cmd, unsign
     }
 
     if (vinfo.buf_size != sizeof(len_para)) {
-        devdrv_drv_err("Buffer size is error. (dev_id=%u; buf_size=%u;)\n",  vinfo.devid, vinfo.buf_size);
+        devdrv_drv_err("Buffer size is error. (dev_id=%u; buf_size=%u;)\n", vinfo.devid, vinfo.buf_size);
         return -EINVAL;
     }
 
@@ -187,7 +187,7 @@ int devdrv_manager_ioctl_get_svm_vdevinfo(ka_file_t *filep, unsigned int cmd, un
     vinfo.devid = phy_id;
 
     if (vinfo.buf_size != DEVDRV_SVM_VDEV_LEN) {
-        devdrv_drv_err("Buffer size is error. (dev_id=%u; buf_size=%u;)\n",  vinfo.devid, vinfo.buf_size);
+        devdrv_drv_err("Buffer size is error. (dev_id=%u; buf_size=%u;)\n", vinfo.devid, vinfo.buf_size);
         return -EINVAL;
     }
 
@@ -207,7 +207,7 @@ int devdrv_manager_ioctl_get_svm_vdevinfo(ka_file_t *filep, unsigned int cmd, un
 
     ret = copy_to_user_safe((void *)((uintptr_t)arg), &vinfo, sizeof(struct devdrv_svm_vdev_info));
     if (ret != 0) {
-        devdrv_drv_err("devid=%d copy to user failed.,ret = %d\n", vinfo.devid, ret);
+        devdrv_drv_err("copy to user failed. (devid=%d; ret=%d)\n", vinfo.devid, ret);
         return ret;
     }
 

@@ -25,6 +25,7 @@
 #include "drvfault_msg.h"
 #endif
 #include "ascend_hal.h"
+#include "ascend_inpackage_hal.h"
 #include "drv_type.h"
 #include "dsmi_common.h"
 #include "dms_cmd_def.h"
@@ -159,14 +160,14 @@ STATIC void *dsmi_fault_event_thread_func(void *data)
     (void)mmSetCurrentThreadName("fault_event_subscribe");
     ret = dsmi_thread_read_fault_event(thread_para, DSMI_EVENT_WAIT_TIME_ZERO, &event);
     if (ret == (int)DRV_ERROR_NOT_SUPPORT) {
-        thread_para->result = ret;
+        __atomic_store_n(&thread_para->result, ret, __ATOMIC_RELEASE);
         return NULL;
     } else if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED) {
         DEV_MON_ERR("Over max number of process. (device id =%d; ret=%d)\n", thread_para->device_id, ret);
-        thread_para->result = ret;
+        __atomic_store_n(&thread_para->result, ret, __ATOMIC_RELEASE);
         return NULL;
     } else {
-        thread_para->result = DRV_ERROR_NONE;
+        __atomic_store_n(&thread_para->result, DRV_ERROR_NONE, __ATOMIC_RELEASE);
     }
 
     while (dsmi_get_fault_event_thread_state() == THREAD_RUNING) {
@@ -211,6 +212,36 @@ STATIC int dsmi_unsubscribe_fault_event(struct dsmi_fault_event_thread *thread_p
 
 #define DSMI_FAULT_EVENT_THREAD_PRIORITY (10)
 
+STATIC int dsmi_init_and_create_fault_thread(struct dsmi_fault_event_thread *thread_para, pthread_attr_t *attr,
+                                             struct sched_param *sched_param)
+{
+    int ret;
+
+    (void)pthread_attr_init(attr);
+    (void)pthread_attr_setdetachstate(attr, PTHREAD_CREATE_DETACHED);
+    (void)pthread_attr_setscope(attr, PTHREAD_SCOPE_SYSTEM);
+#if (!defined DRV_HOST) && (!defined CFG_FEATURE_DEFAULT_STACK_SIZE)
+    (void)pthread_attr_setstacksize(attr, DSMI_FAULT_EVT_THREAD_STACK_SIZE);
+#endif
+
+    (void)pthread_attr_setschedpolicy(attr, SCHED_RR);
+    sched_param->sched_priority = sched_get_priority_min(SCHED_RR) + DSMI_FAULT_EVENT_THREAD_PRIORITY;
+    (void)pthread_attr_setschedparam(attr, sched_param);
+
+    dsmi_set_fault_event_thread_state(THREAD_RUNING);
+    ret = pthread_create(&thread_para->thread_id, attr, dsmi_fault_event_thread_func, (void *)thread_para);
+    if (ret != 0) {
+        DEV_MON_ERR("Create get_event thread failed. (ret=%d)\n", ret);
+        thread_para->run_flg = false;
+        dsmi_set_fault_event_thread_state(THREAD_STOPPED);
+        (void)pthread_mutex_unlock(&thread_para->thread_lock);
+        (void)pthread_attr_destroy(attr);
+        return DRV_ERROR_INNER_ERR;
+    }
+
+    return 0;
+}
+
 int dsmi_subscribe_fault_event(int device_id, struct dsmi_event_filter filter, fault_event_callback handler)
 {
     struct dsmi_fault_event_thread *thread_para = &g_fault_thread_para;
@@ -218,10 +249,11 @@ int dsmi_subscribe_fault_event(int device_id, struct dsmi_event_filter filter, f
     pthread_attr_t attr;
     int ret;
 
-    DEV_MON_DEBUG("dsmi_subscribe_fault_event begin ***!\n");
+    DEV_MON_EVENT("subscribe fault event. (device_id=%d; uid=%u)\n", device_id, getuid());
 
     if ((device_id < 0) && (device_id != DSMI_READ_FAULT_DEVICE_ALL)) {
-        DEV_MON_ERR("Invalid parameter. (device_id=%d)\n", device_id);
+        DEV_MON_ERR("Invalid parameter. (device_id=%d, valid range=[0, devnum) or DSMI_READ_FAULT_DEVICE_ALL)\n",
+                    device_id);
         return DRV_ERROR_PARA_ERROR;
     }
     if (handler == NULL) {
@@ -238,7 +270,7 @@ int dsmi_subscribe_fault_event(int device_id, struct dsmi_event_filter filter, f
     }
 
     if (pthread_mutex_trylock(&thread_para->thread_lock) != 0) {
-        DEV_MON_ERR("A thread has already been started.\n");
+        DEV_MON_ERR("has started one thread before.\n");
         return DRV_ERROR_RESOURCE_OCCUPIED;
     }
 
@@ -253,33 +285,15 @@ int dsmi_subscribe_fault_event(int device_id, struct dsmi_event_filter filter, f
     thread_para->handler = handler;
     thread_para->filter = filter;
 
-    (void)pthread_attr_init(&attr);
-    (void)pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    (void)pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-#if (!defined DRV_HOST) && (!defined CFG_FEATURE_DEFAULT_STACK_SIZE)
-    (void)pthread_attr_setstacksize(&attr, DSMI_FAULT_EVT_THREAD_STACK_SIZE);
-#endif
-
-    /* set the priority */
-    (void)pthread_attr_setschedpolicy(&attr, SCHED_RR);
-    thread_sched_param.sched_priority = sched_get_priority_min(SCHED_RR) + DSMI_FAULT_EVENT_THREAD_PRIORITY;
-    (void)pthread_attr_setschedparam(&attr, &thread_sched_param);
-
-    dsmi_set_fault_event_thread_state(THREAD_RUNING);
-    ret = pthread_create(&thread_para->thread_id, &attr, dsmi_fault_event_thread_func, (void *)thread_para);
+    ret = dsmi_init_and_create_fault_thread(thread_para, &attr, &thread_sched_param);
     if (ret != 0) {
-        DEV_MON_ERR("Create get_event thread failed. (ret=%d)\n", ret);
-        thread_para->run_flg = false;
-        dsmi_set_fault_event_thread_state(THREAD_STOPPED);
-        (void)pthread_mutex_unlock(&thread_para->thread_lock);
-        (void)pthread_attr_destroy(&attr);
-        return DRV_ERROR_INNER_ERR;
+        return ret;
     }
 
-    while (thread_para->result == DSMI_FAULT_THREAD_INIT_VAL) {
+    while (__atomic_load_n(&thread_para->result, __ATOMIC_ACQUIRE) == DSMI_FAULT_THREAD_INIT_VAL) {
         (void)usleep(DSMI_FAULT_THREAD_SLEEP);
     }
-    ret = thread_para->result;
+    ret = __atomic_load_n(&thread_para->result, __ATOMIC_ACQUIRE);
 
     (void)pthread_mutex_unlock(&thread_para->thread_lock);
     (void)pthread_attr_destroy(&attr);
@@ -384,20 +398,20 @@ int dsmi_get_fault_event(int device_id, int max_event_cnt, struct dsmi_event *ev
     }
 
     if (max_event_cnt <= 0) {
-        DEV_MON_ERR("Invalid parameter. max_event_cnt need to be greater than 0, but now is %d.\n", max_event_cnt);
+        DEV_MON_ERR("Invalid parameter. max_event_cnt needs to be greater than 0. (max_event_cnt=%d)\n", max_event_cnt);
         return DRV_ERROR_PARA_ERROR;
     }
 
     if (input_event_cnt > MAX_EVENT_COUNT_OF_GET_FAULT_EVENT) {
-        DEV_MON_WARNING("Reset max_event_cnt to %d, because it(%d) exceed %d.\n", MAX_EVENT_COUNT_OF_GET_FAULT_EVENT,
-                        input_event_cnt, MAX_EVENT_COUNT_OF_GET_FAULT_EVENT);
+        DEV_MON_WARNING("Reset max_event_cnt because input exceeds limit. (max_event_cnt=%d; input=%d; limit=%d)\n",
+                        MAX_EVENT_COUNT_OF_GET_FAULT_EVENT, input_event_cnt, MAX_EVENT_COUNT_OF_GET_FAULT_EVENT);
         input_event_cnt = MAX_EVENT_COUNT_OF_GET_FAULT_EVENT;
     }
 
 #ifdef DRV_HOST
     ret = dsmi_get_fault_event_on_host(device_id, event_buf, input_event_cnt, event_cnt);
 #else
-    ret = DmsGetHistoryFaultEvent(device_id, event_buf, input_event_cnt, event_cnt);
+    ret = halDmsGetHistoryFaultEvent(device_id, event_buf, input_event_cnt, event_cnt);
 #endif
     if (ret != 0) {
 #ifdef CFG_FEATURE_ERR_CODE_NOT_OPTIMIZATION
@@ -473,7 +487,7 @@ int dsmi_read_fault_event(int device_id, int timeout, struct dsmi_event_filter f
     }
 
     do {
-        ret = DmsGetFaultEvent(device_id, &dms_filter, remain_time, &event_buf);
+        ret = (int)halDmsGetFaultEvent(device_id, &dms_filter, remain_time, &event_buf);
         remain_time = get_remain_time(remain_time, &time_last);
         if (ret == 0) {
             break;

@@ -18,21 +18,29 @@
  * URD interface notification chain, which is used to
  * notify other modules of user process startup and exit events
  */
-static KA_DFX_RAW_NOTIFIER_HEAD(g_urd_notifier_chain);
+static KA_DFX_BLOCKING_NOTIFIER_HEAD(g_urd_notifier_chain);
 
-int urd_notifier_call(u64 mode, void* data)
+int urd_notifier_call(u64 mode, void *data)
 {
-    return ka_dfx_raw_notifier_call_chain(&g_urd_notifier_chain, mode, data);
+    return ka_dfx_blocking_notifier_call_chain(&g_urd_notifier_chain, mode, data);
 }
 
-int urd_register_notifier(ka_notifier_block_t* nb)
+int urd_register_notifier(ka_notifier_block_t *nb)
 {
-    return ka_dfx_raw_notifier_chain_register(&g_urd_notifier_chain, nb);
+    if (nb == NULL) {
+        return -EINVAL;
+    }
+
+    return ka_dfx_blocking_notifier_chain_register(&g_urd_notifier_chain, nb);
 }
 KA_EXPORT_SYMBOL_GPL(urd_register_notifier);
 
-int urd_unregister_notifier(ka_notifier_block_t* nb)
+int urd_unregister_notifier(ka_notifier_block_t *nb)
 {
-    return ka_dfx_raw_notifier_chain_unregister(&g_urd_notifier_chain, nb);
+    if (nb == NULL) {
+        return -EINVAL;
+    }
+
+    return ka_dfx_blocking_notifier_chain_unregister(&g_urd_notifier_chain, nb);
 }
 KA_EXPORT_SYMBOL_GPL(urd_unregister_notifier);

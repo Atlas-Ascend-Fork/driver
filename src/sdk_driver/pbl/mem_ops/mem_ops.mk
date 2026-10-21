@@ -42,6 +42,6 @@ EXTRA_CFLAGS += -Wall -Werror
 ccflags-y += -Wall -Werror -Wtrampolines $(WDATE_TIME) -Wfloat-equal -Wvla -Wundef -funsigned-char -Wformat=2 -Wstack-usage=2048 -Wcast-align -Wextra
 ccflags-y += -Wno-unused-parameter -O2 -Wno-missing-field-initializers -Wno-sign-compare
 
-$(MODULE_NAME)-objs += mem_ops/ka_module_init.o mem_ops/event_notify_proc.o mem_ops/timer/ka_timer.o
+$(MODULE_NAME)-objs += mem_ops/ka_module_init.o mem_ops/timer/ka_timer.o
 $(MODULE_NAME)-objs += mem_ops/ka_memory_mng.o mem_ops/ka_rbtree.o mem_ops/ka_memory.o mem_ops/ka_memory_query.o
 $(MODULE_NAME)-objs += mem_ops/ka_proc_fs.o

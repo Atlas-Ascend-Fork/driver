@@ -13,21 +13,22 @@
 
 #include <stdint.h>
 
-#define PROF_CHANNEL_AICPU                   (143U)
-#define PROF_CHANNEL_CUS_AICPU               (144U)
+#define PROF_CHANNEL_AICPU (143U)
+#define PROF_CHANNEL_CUS_AICPU (144U)
 
-#define PROFILE_BUFFER_NUM                   (16U)
-#define AICPU_BUF_UNIT                       (256U)
-#define HOST_MOVE_AICPU_CHANNEL_COUNT        (1U)
+#define PROFILE_BUFFER_NUM (16U)
+#define AICPU_BUF_UNIT (256U)
+#define HOST_MOVE_AICPU_CHANNEL_COUNT (2U)
 
 #define MEM_PAGE_SIZE (0x1000U)
 
-#define PROF_HOST_STOP_STAGE_PAUSE              1U
-#define PROF_HOST_STOP_STAGE_RELEASE            2U
-#define PROF_HOST_STOP_STAGE_PAUSE_AND_RELEASE  3U
+#define PROF_HOST_STOP_STAGE_PAUSE 1U
+#define PROF_HOST_STOP_STAGE_RELEASE 2U
+#define PROF_HOST_STOP_STAGE_PAUSE_AND_RELEASE 3U
 
 typedef enum {
-    AICPU_CHANNEL_IDX = 0
+    AICPU_CHANNEL_IDX = 0,
+    CUS_AICPU_CHANNEL_IDX = 1
 } host_move_aicpu_channel;
 
 typedef struct aicpu_user_profile_buffer_info_t {

@@ -372,7 +372,14 @@ int hal_kernel_sensorhub_set_module(struct sensorhub_msg_head_stru *para_cfg);
 
 #define QOS_CFG_RESERVED_LEN 8
 #define QOS_MASTER_BITMAP_LEN 4
+#define QOS_GROUP_RESERVED_LEN 7 /* keep both sides of union 32 bytes */
 #define MAX_QOS_MASTER_NODE_NAME_LEN 256
+
+/* master config mode */
+#define QOS_MASTER_MODE_REGS 0U     /* register granularity, original */
+#define QOS_MASTER_MODE_SMMU 1U     /* smmu granularity, reserved */
+#define QOS_MASTER_MODE_SQE 2U      /* sqe granularity, original */
+#define QOS_MASTER_MODE_GROUP_ID 3U /* compute group groupId granularity, new */
 
 enum qos_master_type {
     MASTER_DVPP_VENC = 0,
@@ -420,12 +427,18 @@ enum qos_master_type {
 };
 
 struct qos_master_config_type {
-    enum qos_master_type type;                        /* master type */
-    unsigned int mpamid;                              /* mpam id */
-    unsigned int qos;                                 /* qos */
-    unsigned int pmg;                                 /* pmg */
-    unsigned long long bitmap[QOS_MASTER_BITMAP_LEN]; /* max support 64 * 4  */
-    unsigned int mode;                                /* 0 -- regs vaild, 1 -- smmu vaild, 2 -- sqe vaild */
+    enum qos_master_type type; /* master type */
+    unsigned int mpamid;       /* mpam id */
+    unsigned int qos;          /* qos */
+    unsigned int pmg;          /* pmg */
+    union {
+        unsigned long long bitmap[QOS_MASTER_BITMAP_LEN]; /* mode 0/2: max support 64 * 4 */
+        struct {
+            unsigned int master_group_id; /* mode 3: compute group ID */
+            unsigned int group_reserved[QOS_GROUP_RESERVED_LEN];
+        } group;
+    }; /* both sides of union are 32 bytes, ABI compatible */
+    unsigned int mode; /* 0 -- regs vaild, 1 -- smmu vaild, 2 -- sqe vaild, 3 -- group id vaild */
     unsigned int reserved[QOS_CFG_RESERVED_LEN - 1];
 };
 
@@ -861,7 +874,8 @@ typedef struct devdrv_base_hw_info {
     u8 chip_id;
     u8 multi_chip; /* multi-chip or single-chip */
     u8 multi_die;  /* multi-die or single-die */
-    u8 mainboard_id;
+    u8 rsv;        /* reserved for u16 alignment */
+    u16 mainboard_id;
     u16 addr_mode; /* host and device addressing mode. 0: independent, 1: unified */
     u16 board_id;
 
@@ -925,10 +939,16 @@ typedef enum {
     SOC_TYPE_CLOUD_V3,   /* Ascend910A3 */
     SOC_TYPE_RSVD_5,     /* Reserved */
     SOC_TYPE_CLOUD_V4,   /* Ascend950 */
-    SOC_TYPE_CLOUD_V5,   /* Ascend910_96 */
+    SOC_TYPE_CLOUD_V5,   /* Ascend960 */
     SOC_TYPE_RSVD_6,     /* Reserved */
     SOC_TYPE_RSVD_7,     /* Reserved */
     SOC_TYPE_MINI_V4,    /* Ascend350 */
+    SOC_TYPE_XPU,        /* Keep value aligned, not use in driver */
+    SOC_TYPE_5162A,      /* Keep value aligned, not use in driver */
+    SOC_TYPE_CLOUD_V6,   /* Ascend960PR(David V122) */
+    SOC_TYPE_CLOUD_V7,   /* Ascend970 */
+    SOC_TYPE_MINI_V5_RC, /* Ascend310N_RC */
+    SOC_TYPE_MINI_V5,    /* Ascend310N */
     SOC_TYPE_MAX
 } HAL_KERNEL_SOC_TYPE;
 int hal_kernel_get_soc_type(unsigned int dev_id, unsigned int *soc_type);
@@ -1037,6 +1057,9 @@ struct prof_kernel_data_report_para {
 
 int hal_kernel_prof_sample_data_report(unsigned int dev_id, unsigned int chan_id, unsigned int sub_chan_id,
                                        struct prof_kernel_data_report_para *para);
+
+int hal_kernel_prof_query_avail_len(unsigned int dev_id, unsigned int chan_id, unsigned int sub_chan_id,
+                                    unsigned int *buff_avail_len);
 
 enum devdrv_func_mbox_cmd_type {
     CALC_CQSQ_CREATE = 0x1,
@@ -1166,7 +1189,7 @@ enum txatu_user_module_type {
  * @param [in]  host_addr_size: host physical address size
  * @param [out]  device_phy_addr: device physical address
  * @return   0 Success, others for fail
- * @note Support: Ascend950/Ascend910_96
+ * @note Support: Ascend950/Ascend960
  */
 int hal_kernel_agentdrv_add_tx_atu(u32 udevid, enum txatu_user_module_type type, u64 host_phy_addr, u64 host_addr_size,
                                    u64 *device_phy_addr);
@@ -1179,7 +1202,7 @@ int hal_kernel_agentdrv_add_tx_atu(u32 udevid, enum txatu_user_module_type type,
  * @param [in]  host_phy_addr: host physical address to update
  * @param [in]  host_addr_size: host physical address size
  * @return   0 Success, others for fail
- * @note Support: Ascend950/Ascend910_96
+ * @note Support: Ascend950/Ascend960
  */
 
 int hal_kernel_agentdrv_update_tx_atu(u32 udevid, enum txatu_user_module_type type, u64 host_phy_addr,
@@ -1190,7 +1213,7 @@ int hal_kernel_agentdrv_update_tx_atu(u32 udevid, enum txatu_user_module_type ty
  * @param [in]  udevid: unified device id in device
  * @param [in]  type: txatu_user_module_type
  * @return   0 Success, others for fail
- * @note Support: Ascend950/Ascend910_96
+ * @note Support: Ascend950/Ascend960
  */
 int hal_kernel_agentdrv_del_tx_atu(u32 udevid, enum txatu_user_module_type type);
 

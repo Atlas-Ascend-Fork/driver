@@ -22,11 +22,9 @@
 #ifndef CFG_HOST_ENV
 int hal_kernel_get_device_chip_die_id(u32 dev_id, u32 *chip_id, u32 *die_id)
 {
-    if ((chip_id == NULL) ||
-        (die_id == NULL) ||
-        (!uda_is_udevid_exist(dev_id))) {
-        dms_err("Invalid parameter. (dev_id=%u; chip_id=%s; die_id=%s)\n",
-            dev_id, (chip_id == NULL) ? "NULL" : "OK", (die_id == NULL) ? "NULL" : "OK");
+    if ((chip_id == NULL) || (die_id == NULL) || (!uda_is_udevid_exist(dev_id))) {
+        dms_err("Invalid parameter. (dev_id=%u; chip_id=%s; die_id=%s)\n", dev_id, (chip_id == NULL) ? "NULL" : "OK",
+                (die_id == NULL) ? "NULL" : "OK");
         return -EINVAL;
     }
 
@@ -35,7 +33,8 @@ int hal_kernel_get_device_chip_die_id(u32 dev_id, u32 *chip_id, u32 *die_id)
 KA_EXPORT_SYMBOL_GPL(hal_kernel_get_device_chip_die_id);
 #endif
 
-int __attribute__((weak)) hal_kernel_get_d2d_topology_type(u32 dev_id1, u32 dev_id2, HAL_KERNEL_TOPOLOGY_TYPE *topology_type)
+int __attribute__((weak)) hal_kernel_get_d2d_topology_type(u32 dev_id1, u32 dev_id2,
+                                                           HAL_KERNEL_TOPOLOGY_TYPE *topology_type)
 {
     return -EOPNOTSUPP;
 }

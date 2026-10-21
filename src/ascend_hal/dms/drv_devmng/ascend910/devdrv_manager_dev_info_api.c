@@ -7,7 +7,7 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
- 
+
 #include "securec.h"
 #include "mmpa_api.h"
 #include "devmng_common.h"
@@ -35,7 +35,6 @@
 #include "devdrv_manager_lp.h"
 #include "devdrv_manager_bbox.h"
 
-
 #ifdef STATIC_SKIP
 #define STATIC
 #else
@@ -45,24 +44,20 @@
 typedef struct tag_drv_query_device_info_cmd_st {
     DSMI_MAIN_CMD main_cmd_type;
     unsigned int sub_cmd_type;
-    drvError_t (*callback)(unsigned int dev_id, unsigned int main_cmd,
-        unsigned int sub_cmd, void *buf, unsigned int *size);
+    drvError_t (*callback)(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                           unsigned int *size);
 } drv_query_device_info_cmd;
 
 typedef struct tag_drv_set_device_info_cmd_st {
     DSMI_MAIN_CMD main_cmd_type;
     unsigned int sub_cmd_type;
-    drvError_t (*callback)(unsigned int dev_id, unsigned int sub_cmd,
-        const void *buf, unsigned int size);
+    drvError_t (*callback)(unsigned int dev_id, unsigned int sub_cmd, const void *buf, unsigned int size);
 } drv_set_device_info_cmd;
 
 STATIC void hal_report_invalid_buf(const char *func_name, const char *para_name)
 {
     const char *keys[] = {"func_name", "para_name"};
-    const char *values[] = {
-        func_name,
-        para_name
-    };
+    const char *values[] = {func_name, para_name};
 
     REPORT_PREDEFINED_ERR_MSG("EL0017", keys, values, 2UL);
 }
@@ -81,10 +76,7 @@ drvError_t drvGetDevInfo(uint32_t devId, struct devdrv_device_info *info)
     drv_ioctl_param_init(&dev_info_buf, (void *)&dev_info, sizeof(struct devdrv_manager_hccl_devinfo));
     ret = drv_common_ioctl(&dev_info_buf, DEVDRV_MANAGER_GET_DEVINFO);
     if (ret != 0) {
-        if (ret == DRV_ERROR_RESOURCE_OCCUPIED || ret == DRV_ERROR_BUSY) {
-            if (ret == DRV_ERROR_RESOURCE_OCCUPIED) {
-                hal_report_device_occupied(devId);
-            }
+        if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED || ret == (int)DRV_ERROR_BUSY) {
             DEVDRV_DRV_ERR_EXTEND(ret, DRV_ERROR_BUSY, "The device is busy. (ret=%d)\n", ret);
             return DRV_ERROR_RESOURCE_OCCUPIED;
         } else {
@@ -114,10 +106,12 @@ drvError_t drvGetDevInfo(uint32_t devId, struct devdrv_device_info *info)
     info->die_id = dev_info.die_id;
     info->vector_core_num = dev_info.vector_core_num;
     info->vector_core_freq = (unsigned int)dev_info.vector_core_freq;
+    info->l2_num = dev_info.l2_num;
+    info->hbm_num = dev_info.hbm_num;
     info->addr_mode = dev_info.addr_mode;
     info->mainboard_id = dev_info.mainboard_id;
     info->product_type = dev_info.product_type;
-	info->host_device_connect_type = dev_info.host_device_connect_type;
+    info->host_device_connect_type = dev_info.host_device_connect_type;
     info->aicore_bitmap[0] = dev_info.aicore_bitmap[0];
     info->aicore_bitmap[1] = dev_info.aicore_bitmap[1];
     info->vector_core_bitmap[0] = dev_info.vector_core_bitmap[0];
@@ -136,8 +130,8 @@ drvError_t halGetDeviceInfoByBuff(uint32_t devId, int32_t moduleType, int32_t in
     DEV_INFO_TYPE itype = infoType;
 
     if (devId >= ASCEND_DEV_MAX_NUM || buf == NULL || size == NULL) {
-        DEVDRV_DRV_ERR("invalid parameter. (dev_id=%u, buf%s, size%s)\n",
-            devId, buf==NULL ? "=NULL" : "!=NULL", size==NULL ? "=NULL" : "!=NULL");
+        DEVDRV_DRV_ERR("invalid parameter. (dev_id=%u, buf%s, size%s)\n", devId, buf == NULL ? "=NULL" : "!=NULL",
+                       size == NULL ? "=NULL" : "!=NULL");
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -178,18 +172,21 @@ drvError_t halGetDeviceInfoByBuff(uint32_t devId, int32_t moduleType, int32_t in
             ret = dms_get_ub_info(devId, itype, buf, size);
             break;
 
+        case MODULE_TYPE_PCIE:
+            ret = dms_get_pcie_info(devId, itype, buf, size);
+            break;
+
         default:
             return DRV_ERROR_NOT_SUPPORT;
     }
 
     if (ret != 0) {
-        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret,
-            "halGetDeviceInfoByBuff unsuccessful. (dev_id=%u; ret=%d; moduleType=%d; infoType=%d).\n",
-            devId, ret, mtype, itype);
-        return ret;
+        DEVDRV_DRV_EX_NOTSUPPORT_ERR(
+            ret, "halGetDeviceInfoByBuff unsuccessful. (dev_id=%u; ret=%d; moduleType=%d; infoType=%d).\n", devId, ret,
+            mtype, itype);
     }
 
-    return DRV_ERROR_NONE;
+    return ret;
 }
 
 drvError_t halSetDeviceInfoByBuff(uint32_t devId, int32_t moduleType, int32_t infoType, void *buf, int32_t size)
@@ -203,6 +200,7 @@ drvError_t halSetDeviceInfoByBuff(uint32_t devId, int32_t moduleType, int32_t in
             hal_report_invalid_dev_id("halSetDeviceInfoByBuff", devId, ASCEND_DEV_MAX_NUM - 1);
         } else if (buf == NULL) {
             hal_report_invalid_buf("halSetDeviceInfoByBuff", "buf");
+        } else {
         }
 
         DEVDRV_DRV_ERR("invalid parameter. (dev_id=%u;buf=%d;size=%d)\n", devId, buf != NULL, size);
@@ -227,9 +225,9 @@ drvError_t halSetDeviceInfoByBuff(uint32_t devId, int32_t moduleType, int32_t in
     }
 
     if (ret != 0) {
-        DEVDRV_DRV_EX_NOTSUPPORT_ERR(ret,
-            "halSetDeviceInfoByBuff unsuccessful. (dev_id=%u; ret=%d; moduleType=%d; infoType=%d).\n",
-            devId, ret, mtype, itype);
+        DEVDRV_DRV_EX_NOTSUPPORT_ERR(
+            ret, "halSetDeviceInfoByBuff unsuccessful. (dev_id=%u; ret=%d; moduleType=%d; infoType=%d).\n", devId, ret,
+            mtype, itype);
         return ret;
     }
 
@@ -237,8 +235,8 @@ drvError_t halSetDeviceInfoByBuff(uint32_t devId, int32_t moduleType, int32_t in
 }
 
 #ifdef CFG_FEATURE_FFTS
-STATIC drvError_t hal_get_device_info_cmd(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size)
+STATIC drvError_t hal_get_device_info_cmd(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                          unsigned int *size)
 {
     int ret;
     int64_t val;
@@ -252,7 +250,7 @@ STATIC drvError_t hal_get_device_info_cmd(unsigned int dev_id, unsigned int main
 
     ret = halGetDeviceInfo(dev_id, MODULE_TYPE_TSCPU, INFO_TYPE_FFTS_TYPE, &val);
     if (ret != 0) {
-        DEVDRV_DRV_ERR("halGetDeviceInfo is fail. (dev_id=%u; ret=%d)\n", dev_id, ret);
+        DEVDRV_DRV_ERR("halGetDeviceInfo failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return ret;
     }
 
@@ -262,18 +260,24 @@ STATIC drvError_t hal_get_device_info_cmd(unsigned int dev_id, unsigned int main
 }
 #endif
 
-STATIC drvError_t hal_get_urma_dev_name(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size)
+STATIC drvError_t hal_get_urma_dev_name(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                        unsigned int *size)
 {
+    (void)main_cmd;
+    (void)sub_cmd;
 #if defined(CFG_FEATURE_SUPPORT_UB) && defined(CFG_EDGE_HOST)
+
     return ascend_urma_get_urma_dev_name(dev_id, (char *)buf, size);
 #else
+    (void)dev_id;
+    (void)buf;
+    (void)size;
     return DRV_ERROR_NOT_SUPPORT;
 #endif
 }
 
-drvError_t drvQueryDeviceInfo(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size)
+drvError_t drvQueryDeviceInfo(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                              unsigned int *size)
 {
     drv_query_device_info_cmd query_info_cmd_func[] = {
         {DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_CHIP_ID, hal_get_chip_from_device_cmd},
@@ -316,8 +320,8 @@ drvError_t drvQueryDeviceInfo(unsigned int dev_id, unsigned int main_cmd,
     unsigned int query_cmd_max;
 
     if ((buf == NULL) || (size == NULL) || (dev_id >= ASCEND_DEV_MAX_NUM)) {
-        DEVDRV_DRV_ERR("Parameter is invalid. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n",
-            dev_id, (buf == NULL), (size == NULL));
+        DEVDRV_DRV_ERR("Parameter is invalid. (dev_id=%u; buf_is_null=%d; size_is_null=%d)\n", dev_id, (buf == NULL),
+                       (size == NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -334,8 +338,8 @@ drvError_t drvQueryDeviceInfo(unsigned int dev_id, unsigned int main_cmd,
     return DRV_ERROR_NOT_SUPPORT;
 }
 
-drvError_t drvSetDeviceInfo(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, const void *buf, unsigned int size)
+drvError_t drvSetDeviceInfo(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, const void *buf,
+                            unsigned int size)
 {
     unsigned int i;
     unsigned int query_cmd_max;
@@ -359,17 +363,17 @@ drvError_t drvSetDeviceInfo(unsigned int dev_id, unsigned int main_cmd,
     query_cmd_max = sizeof(set_info_cmd_func) / sizeof(drv_set_device_info_cmd);
     for (i = 0; i < query_cmd_max; i++) {
         if ((set_info_cmd_func[i].main_cmd_type == main_cmd) && (set_info_cmd_func[i].sub_cmd_type == sub_cmd)) {
-            #ifndef DEVDRV_UT
+#ifndef DEVDRV_UT
             return set_info_cmd_func[i].callback(dev_id, sub_cmd, buf, size);
-            #endif
+#endif
         }
     }
 
     return DRV_ERROR_NOT_SUPPORT;
 }
 
-drvError_t drvSetDeviceInfoToDmsHal(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    const void *buf, unsigned int size)
+drvError_t drvSetDeviceInfoToDmsHal(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, const void *buf,
+                                    unsigned int size)
 {
     int module_type = -1;
     int info_type = -1;
@@ -472,6 +476,15 @@ drvError_t halGetDeviceInfo(uint32_t devId, int32_t moduleType, int32_t infoType
         case MODULE_TYPE_HCOM_CPU:
             ret = drv_get_hcom_cpu_info(devId, itype, value);
             break;
+
+        case MODULE_TYPE_L2BUFF:
+            ret = drv_get_l2_info(devId, itype, value);
+            break;
+
+        case MODULE_TYPE_MEMORY:
+            ret = drv_get_memory_info_ex(devId, itype, value);
+            break;
+
         default:
             DEVDRV_DRV_INFO("This version does not support this moduleType. (moduleType=%d)\n", mtype);
             return DRV_ERROR_INVALID_VALUE;
@@ -479,8 +492,8 @@ drvError_t halGetDeviceInfo(uint32_t devId, int32_t moduleType, int32_t infoType
 
     /*  to retain scalability, no error log here */
     if (ret != 0) {
-        DEVDRV_DRV_INFO("Result of call halgetdeviceinfo. (ret=%d; module_type=%d; info_type=%d).\n",
-            ret, mtype, itype);
+        DEVDRV_DRV_INFO("Result of call halgetdeviceinfo. (ret=%d; module_type=%d; info_type=%d).\n", ret, mtype,
+                        itype);
         return ret;
     }
 

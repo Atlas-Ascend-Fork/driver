@@ -36,7 +36,7 @@ static int pcie_th_agent_dma_addr_get(u32 udevid, void *msg, u32 *reply_len)
     }
 
     svm_global_va_pack(uda_get_host_id(), msg_info->tgid, msg_info->va, msg_info->size, &dst_va);
-    ret = svm_dma_addr_get(udevid, msg_info->tgid, &dst_va, &dma_info);
+    ret = svm_dma_addr_get(udevid, msg_info->tgid, &dst_va, &dma_info, NULL);
     if (ret != 0) {
         svm_err("Get dma addr failed. (udevid=%u; tgid=%u; va=0x%llx; size=0x%llx)\n", udevid, msg_info->tgid,
                 msg_info->va, msg_info->size);
@@ -53,7 +53,9 @@ static int pcie_th_agent_dma_addr_get(u32 udevid, void *msg, u32 *reply_len)
 
     msg_info->seg[0].dma_addr = dma_info.seg[0].dma_addr + dma_info.first_seg_offset;
     msg_info->seg[0].size = dma_info.seg[0].size - dma_info.first_seg_offset;
-    msg_info->seg[msg_info->head.extend_num - 1].size = dma_info.last_seg_len;
+    if (msg_info->head.extend_num >= dma_info.dma_addr_seg_num) {
+        msg_info->seg[msg_info->head.extend_num - 1].size = dma_info.last_seg_len;
+    }
 
     *reply_len = sizeof(struct pcie_th_dma_addr_get_msg) + sizeof(struct svm_dma_addr_seg) * msg_info->head.extend_num;
 
@@ -86,8 +88,8 @@ static struct svm_kmc_d2h_recv_handle g_d2h_pcie_th_dma_addr_put_handle = {
 
 int svm_pcie_th_agent_init(void)
 {
-    svm_kmc_d2h_recv_handle_register(SVM_KMC_MSG_HOST_DMA_ADDR_GET, &g_d2h_pcie_th_dma_addr_get_handle);
-    svm_kmc_d2h_recv_handle_register(SVM_KMC_MSG_HOST_DMA_ADDR_PUT, &g_d2h_pcie_th_dma_addr_put_handle);
+    svm_kmc_d2h_recv_handle_register(SVM_KMC_MSG_DMA_ADDR_GET, &g_d2h_pcie_th_dma_addr_get_handle);
+    svm_kmc_d2h_recv_handle_register(SVM_KMC_MSG_DMA_ADDR_PUT, &g_d2h_pcie_th_dma_addr_put_handle);
     return 0;
 }
 DECLAER_FEATURE_AUTO_INIT(svm_pcie_th_agent_init, FEATURE_LOADER_STAGE_3);

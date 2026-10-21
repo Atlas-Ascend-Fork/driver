@@ -132,8 +132,7 @@ static int mem_prof_npu_app_mem_start_func(struct prof_sample_start_para *para)
     }
 
     if (para->dev_id >= MEM_PROF_MAX_DEV_NUM) {
-        DRV_EVENT_LOG_ERR("Devid is out of range. (devid=%u, valid range=[0, %u))\n", para->dev_id,
-                          MEM_PROF_MAX_DEV_NUM);
+        DRV_EVENT_LOG_ERR("Devid is out of range. (devid=%u, max=%u)\n", para->dev_id, MEM_PROF_MAX_DEV_NUM);
         return DRV_ERROR_INVALID_DEVICE;
     }
 
@@ -149,13 +148,13 @@ static int mem_prof_npu_app_mem_sample_para_check(struct prof_sample_para *para)
     }
 
     if (para->buff_len < sizeof(struct mem_prof_sample_data)) {
-        DRV_EVENT_LOG_ERR("Buff len invalid. (len=%u)\n", para->buff_len);
+        DRV_EVENT_LOG_ERR("Buff len invalid. (len=%u, min_len=%u)\n", para->buff_len,
+                          (unsigned int)sizeof(struct mem_prof_sample_data));
         return DRV_ERROR_INVALID_VALUE;
     }
 
     if (para->dev_id >= MEM_PROF_MAX_DEV_NUM) {
-        DRV_EVENT_LOG_ERR("Devid is out of range. (devid=%u, valid range=[0, %u))\n", para->dev_id,
-                          MEM_PROF_MAX_DEV_NUM);
+        DRV_EVENT_LOG_ERR("Devid is out of range. (devid=%u, max=%u)\n", para->dev_id, MEM_PROF_MAX_DEV_NUM);
         return DRV_ERROR_INVALID_DEVICE;
     }
     return 0;

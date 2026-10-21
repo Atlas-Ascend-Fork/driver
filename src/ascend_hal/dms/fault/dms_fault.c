@@ -29,7 +29,6 @@
 #define STATIC static
 #endif
 
-#define MS_PER_SEC 1000
 #define INVALID_NODE_TYPE (0xFFFFFFFFU)
 #define SENSOR_NODE_CFG_MAX_NAME_LEN 20
 #define DMS_FAULT_DEVICE_ALL (-1)
@@ -51,66 +50,6 @@ static inline unsigned long long GetSysCnt(void)
     return syscnt;
 }
 #endif
-
-static void dms_adjust_alarm_raised_time(struct dms_event_para *dms_event)
-{
-#ifdef DRV_HOST
-    int ret;
-    int pre_len = 0;
-    time_t report_time = (time_t)(dms_event->alarm_raised_time / MS_PER_SEC);
-    time_t curr_timestamp = 0;
-    struct tm report_tm = {0};
-
-    char *time_prt = NULL;
-    char *assertion_prt = NULL;
-    char assertion_buff[DMS_MAX_EVENT_NAME_LENGTH] = {0};
-
-    /* 2: DMS_EVENT_TYPE_ONE_TIME, Notification Event, others Event return */
-    if (dms_event->assertion != 2) {
-        return;
-    }
-
-    if (localtime_r(&report_time, &report_tm) == NULL) {
-        DMS_WARN("Unable to invoke the localtime_r.\n");
-        return;
-    }
-
-    /* 1900: localtime start year, 1970: Unix start year */
-    if (1900 + report_tm.tm_year == 1970) {
-        curr_timestamp = time((time_t *)NULL);
-        dms_event->alarm_raised_time = (unsigned long long)curr_timestamp * MS_PER_SEC;
-
-        /* event_name: "xxx, time=xxx, event assertion=xxx.", now need to rewrite the part of "time=". */
-        time_prt = strstr(dms_event->event_name, "time=");
-        if (time_prt == NULL) {
-            DMS_WARN("Unable to invoke the strstr.\n");
-            return;
-        }
-        pre_len = (int)(time_prt - dms_event->event_name);
-
-        assertion_prt = strstr(dms_event->event_name, "event assertion=");
-        if (assertion_prt == NULL) {
-            DMS_WARN("Unable to invoke the strstr.\n");
-            return;
-        }
-        ret = strcpy_s(assertion_buff, DMS_MAX_EVENT_NAME_LENGTH, assertion_prt);
-        if (ret != 0) {
-            DMS_WARN("Unable to invoke the strcpy_s. (ret=%d).\n", ret);
-            return;
-        }
-
-        ret = sprintf_s(dms_event->event_name + pre_len, (size_t)(DMS_MAX_EVENT_NAME_LENGTH - pre_len),
-                        "time=%llu ms, %s", dms_event->alarm_raised_time, assertion_buff);
-        if (ret < 0) {
-            DMS_WARN("Unable to invoke the sprintf_s. (ret=%d).\n", ret);
-            return;
-        }
-    }
-#else
-    (void)dms_event;
-    /* device not check report time */
-#endif
-}
 
 STATIC drvError_t DmsGetEventPara(int dev_id, struct dms_event_filter *filter, int timeout, enum cmd_source cmd_src,
                                   struct dms_event_para *event_para)
@@ -135,11 +74,11 @@ STATIC drvError_t DmsGetEventPara(int dev_id, struct dms_event_filter *filter, i
     ioarg.filter_len = 0;
     ioarg.filter = NULL;
     ioarg.input = (void *)&input;
-    ioarg.input_len = sizeof(struct dms_read_event_ioctl);
+    ioarg.input_len = (unsigned int)sizeof(struct dms_read_event_ioctl);
     ioarg.output = (void *)event_para;
-    ioarg.output_len = sizeof(struct dms_event_para);
+    ioarg.output_len = (unsigned int)sizeof(struct dms_event_para);
 
-    ret = DmsIoctl(DMS_GET_FAULT_EVENT, &ioarg);
+    ret = (int)DmsIoctl((int)DMS_GET_FAULT_EVENT, &ioarg);
     if (ret != 0) {
         if ((ret == ETIMEDOUT) || (ret == ERESTARTSYS)) {
             return ret;
@@ -147,8 +86,6 @@ STATIC drvError_t DmsGetEventPara(int dev_id, struct dms_event_filter *filter, i
         DMS_EX_NOTSUPPORT_ERR(ret, "Get fault event failed. (ret=%d)\n", ret);
         return ret;
     }
-
-    dms_adjust_alarm_raised_time(event_para);
 
 #ifdef CFG_FEATURE_FAULT_EVENT
     DMS_WARN("Get fault event success. (syscnt=%llu)\n", GetSysCnt());
@@ -208,19 +145,20 @@ drvError_t DmsGetFaultEvent(int dev_id, struct dms_event_filter *filter, int tim
         return DRV_ERROR_PARA_ERROR;
     }
 
-    ret = DmsGetEventPara(dev_id, filter, timeout, FROM_DSMI, &event_para);
+    ret = (int)DmsGetEventPara(dev_id, filter, timeout, FROM_DSMI, &event_para);
     if (ret == ETIMEDOUT) {
         return DRV_ERROR_WAIT_TIMEOUT;
-    } else if (ret == DRV_ERROR_RESOURCE_OCCUPIED) {
-        DMS_ERR("Has not pid resource. (ret=%d)\n", ret);
-        return ret;
-    } else if (ret == DRV_ERROR_NOT_SUPPORT) {
-        return ret;
+    } else if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED) {
+        DMS_ERR("has no pid resource. (ret=%d)\n", ret);
+        return (drvError_t)ret;
+    } else if (ret == (int)DRV_ERROR_NOT_SUPPORT) {
+        return (drvError_t)ret;
     } else if (ret == ERESTARTSYS) {
         return DRV_ERROR_NO_EVENT;
     } else if (ret != 0) {
         DMS_ERR("Dms get event parameter failed. (ret=%d)\n", ret);
-        return ret;
+        return (drvError_t)ret;
+    } else {
     }
     DMS_DEBUG("Dms get event parameter success. (dev_id=%u; event_id=0x%x; assertion=%u)\n", event_para.deviceid,
               event_para.event_id, event_para.assertion);
@@ -234,7 +172,7 @@ drvError_t DmsGetFaultEvent(int dev_id, struct dms_event_filter *filter, int tim
         return DRV_ERROR_NO_EVENT;
     }
 
-    ret = dms_event_para_to_dms_event(&event_para, event);
+    ret = (int)dms_event_para_to_dms_event(&event_para, event);
     if (ret != 0) {
         DMS_ERR("Struct EventPara to DmsEvent failed. (dev_id=%u; event_id=0x%x; assertion=%u)\n", event_para.deviceid,
                 event_para.event_id, event_para.assertion);
@@ -242,12 +180,17 @@ drvError_t DmsGetFaultEvent(int dev_id, struct dms_event_filter *filter, int tim
     }
 #if defined(CFG_FEATURE_DRV_EVENT_LOG)
     FAULT_DMS_EVENT("eventName=0x%x; eventId=0x%x; deviceId=%u; nodeId=%u; assertion=%u; osId=%u; severity=%u;"
-                    " eventSerialNum=%d; notifySerialNum=%d; eventRaisedTime=%llu ms; subNodeId=%u.\n",
+                    " eventSerialNum=%d; notifySerialNum=%d; eventArisedTime=%llu ms; subNodeId=%u.\n",
                     event->node_type, event->event_id, event->deviceid, event->node_id, event->assertion, event->os_id,
                     event->severity, event->event_serial_num, event->notify_serial_num, event->alarm_raised_time,
                     event->sub_node_id);
 #endif
     return DRV_ERROR_NONE;
+}
+
+drvError_t halDmsGetFaultEvent(int dev_id, void *filter, int timeout, void *event)
+{
+    return DmsGetFaultEvent(dev_id, (struct dms_event_filter *)filter, timeout, (struct dms_fault_event *)event);
 }
 
 static drvError_t dms_get_history_event_para(int device_id, struct dms_event_para *event_para_buf, int event_buf_size)
@@ -262,7 +205,7 @@ static drvError_t dms_get_history_event_para(int device_id, struct dms_event_par
     ioarg.input_len = sizeof(int);
     ioarg.output = (void *)event_para_buf;
     ioarg.output_len = (unsigned int)(sizeof(struct dms_event_para) * (long unsigned int)event_buf_size);
-    ret = DmsIoctl(DMS_GET_HISTORY_FAULT_EVENT, &ioarg);
+    ret = DmsIoctl((int)DMS_GET_HISTORY_FAULT_EVENT, &ioarg);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "DmsIoctl failed. (ret=%d)\n", ret);
         return DRV_ERROR_IOCRL_FAIL;
@@ -275,6 +218,13 @@ drvError_t DmsGetHistoryFaultEvent(int device_id, struct dsmi_event *event_buf, 
     struct dms_event_para *event_para_buf;
     int ret;
     int i;
+
+    if ((event_buf_size <= 0) || (event_buf == NULL) || (event_cnt == NULL)) {
+        DMS_ERR("Invalid parameter.(event_buf_size=%d; event_buf_is_null=%d; event_cnt_is_null=%d)\n", event_buf_size,
+                (event_buf == NULL), (event_cnt == NULL));
+        return DRV_ERROR_PARA_ERROR;
+    }
+
     event_para_buf = (struct dms_event_para *)malloc(sizeof(struct dms_event_para) * (long unsigned int)event_buf_size);
     if (event_para_buf == NULL) {
         DMS_ERR("malloc struct dms_event_para failed. \n");
@@ -311,6 +261,11 @@ out:
     return ret;
 }
 
+drvError_t halDmsGetHistoryFaultEvent(int device_id, void *event_buf, int event_buf_size, int *event_cnt)
+{
+    return DmsGetHistoryFaultEvent(device_id, (struct dsmi_event *)event_buf, event_buf_size, event_cnt);
+}
+
 drvError_t dms_clear_fault_event(u32 devid)
 {
     struct dms_ioctl_arg ioarg = {0};
@@ -325,7 +280,7 @@ drvError_t dms_clear_fault_event(u32 devid)
     ioarg.output = NULL;
     ioarg.output_len = 0;
 
-    ret = DmsIoctl(DMS_IOCTL_CMD, &ioarg);
+    ret = DmsIoctl(DMS_CLEAR_EVENT, &ioarg);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Clear fault event failed. (devid=%u; ret=%d)\n", devid, ret);
         return ret;
@@ -460,7 +415,7 @@ drvError_t DmsQueryEventStr(u32 devid, u32 event_code, unsigned char *str, int s
     if (ret == DRV_ERROR_NOT_SUPPORT) {
         return DRV_ERROR_NOT_SUPPORT;
     } else if (ret == DRV_ERROR_NO_EVENT) {
-        DMS_WARN("The event code is bbox code. (devid=%u; event_code=0x%x)\n", devid, event_code);
+        DMS_WARN("The event code is bbox code. (devi_id=%u; event_code=0x%x)\n", devid, event_code);
         return DRV_ERROR_NO_EVENT;
     } else if (ret != 0) {
         DMS_ERR("Query event string failed. (devid=%u; event_code=0x%x; ret=%d)\n", devid, event_code, ret);
@@ -491,11 +446,11 @@ drvError_t dms_disable_fault_event(u32 devid, u32 event_code)
     ioarg.output = NULL;
     ioarg.output_len = 0;
 
-    ret = DmsIoctl(DMS_IOCTL_CMD, &ioarg);
+    ret = DmsIoctl(DMS_DISABLE_EVENT, &ioarg);
     if (ret == DRV_ERROR_NOT_SUPPORT) {
         return DRV_ERROR_NOT_SUPPORT;
     } else if (ret == DRV_ERROR_NO_EVENT) {
-        DMS_WARN("Disable event code is invalid. (devid=%u; event_code=0x%x)\n", devid, event_code);
+        DMS_WARN("Disable event code is invalid. (devi_id=%u; event_code=0x%x)\n", devid, event_code);
         return DRV_ERROR_NO_EVENT;
     } else if (ret != 0) {
         DMS_ERR("Disable event code failed. (devid=%u; event_code=0x%x; ret=%d)\n", devid, event_code, ret);
@@ -524,7 +479,7 @@ drvError_t dms_enable_fault_event(u32 devid, u32 event_code)
     ioarg.output = NULL;
     ioarg.output_len = 0;
 
-    ret = DmsIoctl(DMS_IOCTL_CMD, &ioarg);
+    ret = DmsIoctl(DMS_ENABLE_EVENT, &ioarg);
     if (ret == DRV_ERROR_NOT_SUPPORT) {
         return DRV_ERROR_NOT_SUPPORT;
     } else if (ret == DRV_ERROR_NO_EVENT) {
@@ -702,6 +657,8 @@ drvError_t halSensorNodeUpdateState(uint32_t devId, uint64_t handle, int val, ha
     return DRV_ERROR_NONE;
 }
 
+#if defined(CFG_EDGE_HOST) || defined(CFG_FEATURE_GET_CURRENT_EVENTINFO)
+
 STATIC drvError_t dms_event_para_to_event_info(struct dms_event_para *event_para, struct halFaultEventInfo *event)
 {
     int ret;
@@ -739,43 +696,11 @@ STATIC drvError_t dms_event_para_to_event_info(struct dms_event_para *event_para
     event->os_id = 0;
     return DRV_ERROR_NONE;
 }
+#endif
 
-STATIC int dms_filter_one_event(int32_t dev_id, struct halEventFilter *filter, struct halFaultEventInfo *dms_event)
-{
-    int tgid;
-
-    if ((dev_id != DMS_FAULT_DEVICE_ALL) && (dev_id != (int32_t)dms_event->deviceid)) {
-        return DRV_ERROR_NO_EVENT;
-    }
-
-    if (((filter->filter_flag & HAL_EVENT_FILTER_FLAG_EVENT_ID) != 0) && (dms_event->event_id != filter->event_id)) {
-        return DRV_ERROR_NO_EVENT;
-    }
-
-    if ((((filter->filter_flag & HAL_EVENT_FILTER_FLAG_SERVERITY) != 0) && (dms_event->severity < filter->severity))) {
-        return DRV_ERROR_NO_EVENT;
-    }
-
-    if (((filter->filter_flag & HAL_EVENT_FILTER_FLAG_NODE_TYPE) != 0) &&
-        ((dms_event->node_type != filter->node_type) && (dms_event->sub_node_type != filter->node_type))) {
-        return DRV_ERROR_NO_EVENT;
-    }
-
-    if ((filter->filter_flag & HAL_EVENT_FILTER_FLAG_HOST_PID) != 0) {
-        tgid = drvDeviceGetBareTgid();
-        if (tgid <= 0) {
-            DMS_ERR("Get process tgid failed. (dev_id=%u)\n", dev_id);
-            return DRV_ERROR_INNER_ERR;
-        }
-        if (dms_event->tgid != tgid) {
-            return DRV_ERROR_NO_EVENT;
-        }
-    }
-    return DRV_ERROR_NONE;
-}
-
-STATIC int dms_filter_event(uint32_t dev_id, struct halEventFilter *filter, struct devdrv_event_obj_para *event_para,
-                            struct halFaultEventInfo *event_buff, uint32_t *event_count)
+#ifdef CFG_FEATURE_GET_CURRENT_EVENTINFO
+STATIC int dms_fill_event(struct devdrv_event_obj_para *event_para, struct halFaultEventInfo *event_buff,
+                          uint32_t *event_count)
 {
     uint32_t event_num = 0;
     unsigned int i;
@@ -794,58 +719,30 @@ STATIC int dms_filter_event(uint32_t dev_id, struct halEventFilter *filter, stru
                     event_para->dms_event[i].assertion);
             return ret;
         }
-        ret = dms_filter_one_event((int32_t)dev_id, filter, &event_buff[event_num]);
-        if (ret != 0) {
-            continue;
-        }
         event_num++;
     }
 
     *event_count = event_num;
     return DRV_ERROR_NONE;
 }
+#endif
 
-drvError_t halGetFaultEvent(uint32_t devId, struct halEventFilter *filter, struct halFaultEventInfo *event_info,
-                            uint32_t len, uint32_t *event_count)
-{
+struct hal_fault_event_infoes {
+    struct halFaultEventInfo *event_info;
+    uint32_t len;
+};
+
 #ifdef CFG_FEATURE_GET_CURRENT_EVENTINFO
+STATIC drvError_t DmsGetHistoryEventFromKernel(struct dms_ioctl_arg *ioarg, struct halFaultEventInfo *event_buff,
+                                               struct hal_fault_event_infoes *event_infoes, uint32_t *event_count)
+{
     int ret;
     uint32_t i;
+    uint32_t devId = *((uint32_t *)ioarg->input);
+    struct devdrv_event_obj_para *event_para = (struct devdrv_event_obj_para *)ioarg->output;
     uint32_t event_num = 0;
-    struct halFaultEventInfo *event_buff = NULL;
-    struct devdrv_event_obj_para *event_para = NULL;
-    struct dms_ioctl_arg ioarg = {0};
 
-    if (filter == NULL || event_info == NULL || event_count == NULL || devId >= ASCEND_PDEV_MAX_NUM) {
-        DMS_ERR("Invalid parameter. (filter=%s; eventInfo=%s; eventCount=%s; devId=%u)\n",
-                (filter == NULL) ? "NULL" : "OK", (event_info == NULL) ? "NULL" : "OK",
-                (event_count == NULL) ? "NULL" : "OK", devId);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    event_para = (struct devdrv_event_obj_para *)calloc(1, sizeof(struct devdrv_event_obj_para));
-    if (event_para == NULL) {
-        DMS_ERR("Failed to alloc memory for event_para. (devid=%u)\n", devId);
-        return DRV_ERROR_MALLOC_FAIL;
-    }
-
-    event_buff = (struct halFaultEventInfo *)calloc(DMANAGE_ERROR_ARRAY_NUM, sizeof(struct halFaultEventInfo));
-    if (event_buff == NULL) {
-        DMS_ERR("Failed to alloc memory for event_buff. (devid=%u)\n", devId);
-        ret = DRV_ERROR_MALLOC_FAIL;
-        goto FREE_EVENT_PARA;
-    }
-
-    ioarg.main_cmd = DMS_MAIN_CMD_BASIC;
-    ioarg.sub_cmd = DMS_SUBCMD_GET_FAULT_EVENT_OBJ;
-    ioarg.filter_len = 0;
-    ioarg.filter = NULL;
-    ioarg.input = &devId;
-    ioarg.input_len = sizeof(uint32_t);
-    ioarg.output = event_para;
-    ioarg.output_len = sizeof(struct devdrv_event_obj_para);
-
-    ret = DmsIoctl(DMS_IOCTL_CMD, &ioarg);
+    ret = DmsIoctl(DMS_IOCTL_CMD, ioarg);
     if (ret == DRV_ERROR_NOT_SUPPORT) {
         goto FREE_EVENT_BUFF;
     } else if (ret == DRV_ERROR_NO_EVENT) {
@@ -857,18 +754,25 @@ drvError_t halGetFaultEvent(uint32_t devId, struct halEventFilter *filter, struc
         goto FREE_EVENT_BUFF;
     }
 
-    if (event_para->event_count > len) {
-        event_para->event_count = len < DMANAGE_ERROR_ARRAY_NUM ? len : DMANAGE_ERROR_ARRAY_NUM;
+    if (event_para->event_count > DMANAGE_ERROR_ARRAY_NUM) {
+        DMS_WARN("Event count exceeds array limit. (event_count=%u; max=%d)\n", event_para->event_count,
+                 DMANAGE_ERROR_ARRAY_NUM);
+        event_para->event_count = DMANAGE_ERROR_ARRAY_NUM;
     }
 
-    ret = dms_filter_event(devId, filter, event_para, event_buff, &event_num);
+    if (event_para->event_count > event_infoes->len) {
+        event_para->event_count = event_infoes->len < DMANAGE_ERROR_ARRAY_NUM ? event_infoes->len :
+                                                                                DMANAGE_ERROR_ARRAY_NUM;
+    }
+
+    ret = dms_fill_event(event_para, event_buff, &event_num);
     if (ret != 0) {
-        DMS_ERR("Filter fault event failed. (dev_id=%u; ret=%d)\n", devId, ret);
+        DMS_ERR("Fill fault event failed. (dev_id=%u; ret=%d)\n", devId, ret);
         goto FREE_EVENT_BUFF;
     }
 
     for (i = 0; i < event_num; i++) {
-        if (memcpy_s(&event_info[i], sizeof(struct halFaultEventInfo), &event_buff[i],
+        if (memcpy_s(&event_infoes->event_info[i], sizeof(struct halFaultEventInfo), &event_buff[i],
                      sizeof(struct halFaultEventInfo)) != 0) {
             DMS_ERR("memcpy_s failed.\n");
             ret = DRV_ERROR_INNER_ERR;
@@ -882,20 +786,81 @@ drvError_t halGetFaultEvent(uint32_t devId, struct halEventFilter *filter, struc
 FREE_EVENT_BUFF:
     free(event_buff);
     event_buff = NULL;
-
-FREE_EVENT_PARA:
     free(event_para);
     event_para = NULL;
     return ret;
+}
+#endif
+
+STATIC drvError_t DmsGetHistoryEvent(uint32_t devId, unsigned int dms_sub_cmd, struct halEventFilter *filter,
+                                     struct hal_fault_event_infoes *event_infoes, uint32_t *event_count)
+{
+#ifdef CFG_FEATURE_GET_CURRENT_EVENTINFO
+    struct halFaultEventInfo *event_buff = NULL;
+    struct devdrv_event_obj_para *event_para = NULL;
+    struct dms_get_event_ioctl get_event_input = {0};
+    struct dms_ioctl_arg ioarg = {0};
+
+    if (filter == NULL || event_infoes == NULL || event_infoes->event_info == NULL || event_count == NULL ||
+        devId >= ASCEND_PDEV_MAX_NUM) {
+        DMS_ERR("Invalid parameter. (filter=%s; event_infoes=%s; eventInfo=%s; event_count=%s; devId=%u)\n",
+                (filter == NULL) ? "NULL" : "OK", (event_infoes == NULL) ? "NULL" : "OK",
+                (event_infoes == NULL || event_infoes->event_info == NULL) ? "NULL" : "OK",
+                (event_count == NULL) ? "NULL" : "OK", devId);
+        return DRV_ERROR_PARA_ERROR;
+    }
+
+    event_para = (struct devdrv_event_obj_para *)calloc(1, sizeof(struct devdrv_event_obj_para));
+    if (event_para == NULL) {
+        DMS_ERR("Failed to alloc memory for event_para. (devid=%u)\n", devId);
+        return DRV_ERROR_MALLOC_FAIL;
+    }
+
+    event_buff = (struct halFaultEventInfo *)calloc(DMANAGE_ERROR_ARRAY_NUM, sizeof(struct halFaultEventInfo));
+    if (event_buff == NULL) {
+        DMS_ERR("Failed to alloc memory for event_buff. (devid=%u)\n", devId);
+        free(event_para);
+        event_para = NULL;
+        return DRV_ERROR_MALLOC_FAIL;
+    }
+
+    get_event_input.dev_id = devId;
+    get_event_input.filter = *(struct dms_event_filter *)filter;
+
+    ioarg.main_cmd = DMS_MAIN_CMD_BASIC;
+    ioarg.sub_cmd = dms_sub_cmd;
+    ioarg.filter_len = 0;
+    ioarg.filter = NULL;
+    ioarg.input = &get_event_input;
+    ioarg.input_len = sizeof(struct dms_get_event_ioctl);
+    ioarg.output = event_para;
+    ioarg.output_len = sizeof(struct devdrv_event_obj_para);
+
+    return DmsGetHistoryEventFromKernel(&ioarg, event_buff, event_infoes, event_count);
 #else
     (void)devId;
+    (void)dms_sub_cmd;
     (void)filter;
-    (void)event_info;
-    (void)len;
+    (void)event_infoes;
     (void)event_count;
-
     return DRV_ERROR_NOT_SUPPORT;
 #endif
+}
+
+drvError_t halGetFaultEvent(uint32_t devId, struct halEventFilter *filter, struct halFaultEventInfo *eventInfo,
+                            uint32_t len, uint32_t *eventCount)
+{
+    struct hal_fault_event_infoes event_infoes = {eventInfo, len};
+
+    return DmsGetHistoryEvent(devId, DMS_SUBCMD_GET_FAULT_EVENT_OBJ, filter, &event_infoes, eventCount);
+}
+
+drvError_t halGetNotifyEvent(uint32_t devId, struct halEventFilter *filter, struct halFaultEventInfo *eventInfo,
+                             uint32_t len, uint32_t *eventCount)
+{
+    struct hal_fault_event_infoes event_infoes = {eventInfo, len};
+
+    return DmsGetHistoryEvent(devId, DMS_SUBCMD_GET_NOTIFY_EVENT_OBJ, filter, &event_infoes, eventCount);
 }
 
 #ifdef CFG_EDGE_HOST
@@ -918,8 +883,8 @@ static int dms_wait_fault_event(int32_t dev_id, int timeout, struct halEventFilt
     ret = DmsGetEventPara(dev_id, (struct dms_event_filter *)filter, timeout, FROM_HAL, &event_para);
     if ((ret == ETIMEDOUT) || (ret == ERESTARTSYS)) {
         return DRV_ERROR_NO_EVENT;
-    } else if (ret == DRV_ERROR_RESOURCE_OCCUPIED) {
-        DMS_ERR("Has not pid resource. (dev_id=%d; ret=%d)\n", dev_id, ret);
+    } else if (ret == (int)DRV_ERROR_RESOURCE_OCCUPIED) {
+        DMS_ERR("has no pid resource. (dev_id=%d; ret=%d)\n", dev_id, ret);
         return ret;
     } else if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Dms get event parameter failed. (dev_id=%d; ret=%d)\n", dev_id, ret);
@@ -939,7 +904,7 @@ static int dms_wait_fault_event(int32_t dev_id, int timeout, struct halEventFilt
 #endif
 
 drvError_t halReadFaultEvent(int32_t devId, int timeout, struct halEventFilter *filter,
-                             struct halFaultEventInfo *event_info)
+                             struct halFaultEventInfo *eventInfo)
 {
 #ifdef CFG_EDGE_HOST
     struct halFaultEventInfo event_tmp = {0};
@@ -947,9 +912,8 @@ drvError_t halReadFaultEvent(int32_t devId, int timeout, struct halEventFilter *
     int time_out = timeout;
     int ret;
 
-    if (filter == NULL || event_info == NULL) {
-        DMS_ERR("Invalid input. (dev_id=%d; filter=%d; event_info=%d)\n", devId, (filter != NULL),
-                (event_info != NULL));
+    if (filter == NULL || eventInfo == NULL) {
+        DMS_ERR("Invalid input. (dev_id=%d; filter=%d; eventInfo=%d)\n", devId, (filter != NULL), (eventInfo != NULL));
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -962,7 +926,7 @@ drvError_t halReadFaultEvent(int32_t devId, int timeout, struct halEventFilter *
         time_current = get_current_time_ms();
         if (time_current < time_last) {
 #ifndef DMS_UT
-            DMS_WARN("Invalid time. (dev_id=%d; time_current=%ld; time_last=%ld)\n", devId, time_current, time_last);
+            DMS_WARN("Invalid time. (dev_id=%d; time_current=%ld; time_last=%ld ms)\n", devId, time_current, time_last);
 #endif
             break;
         }
@@ -974,7 +938,7 @@ drvError_t halReadFaultEvent(int32_t devId, int timeout, struct halEventFilter *
     } while ((time_out > 0) || (time_out == DMS_READ_FAULT_NO_TIMEOUT_FLAG));
 
     if (ret == 0) {
-        if (memcpy_s(event_info, sizeof(struct halFaultEventInfo), &event_tmp, sizeof(struct halFaultEventInfo)) != 0) {
+        if (memcpy_s(eventInfo, sizeof(struct halFaultEventInfo), &event_tmp, sizeof(struct halFaultEventInfo)) != 0) {
             DMS_ERR("memcpy_s failed. (dev_id=%u)\n", devId);
             return DRV_ERROR_INNER_ERR;
         }
@@ -985,7 +949,7 @@ drvError_t halReadFaultEvent(int32_t devId, int timeout, struct halEventFilter *
     (void)devId;
     (void)timeout;
     (void)filter;
-    (void)event_info;
+    (void)eventInfo;
     return DRV_ERROR_NOT_SUPPORT;
 #endif
 }
@@ -1153,7 +1117,7 @@ drvError_t halSubscribeFaultEvent(int device_id, struct halEventFilter filter, h
     }
 
     if (pthread_mutex_trylock(&thread_para->thread_lock) != 0) {
-        DMS_ERR("A fault event thread has already been started.\n");
+        DMS_ERR("has started one thread before.\n");
         return DRV_ERROR_RESOURCE_OCCUPIED;
     }
 

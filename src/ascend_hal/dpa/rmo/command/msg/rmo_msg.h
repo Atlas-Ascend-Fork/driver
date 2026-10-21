@@ -17,4 +17,21 @@ struct rmo_map_msg {
     unsigned long va;
 };
 
+#define RMO_EVENT_PROC_READ_LEN EVENT_PROC_RSP_LEN
+struct rmo_read_msg {
+    struct res_map_info res_info;
+    unsigned int len;
+};
+
+/* Hardware event scheduler limits msg_len to 40 bytes (TOPIC_SCHED_USER_DATA_PAYLOAD_LEN).
+ * RMO msg_len = sizeof(event_sync_msg)(8) + sizeof(res_map_info)(20) + data[] + sizeof(len)(4).
+ * So max data payload = 40 - 8 - 20 - 4 = 8.
+ */
+#define RMO_EVENT_PROC_WRITE_LEN 8
+struct rmo_write_msg {
+    struct res_map_info res_info;
+    char data[RMO_EVENT_PROC_WRITE_LEN];
+    unsigned int len;
+};
+
 #endif // __RMO_MSG_H__

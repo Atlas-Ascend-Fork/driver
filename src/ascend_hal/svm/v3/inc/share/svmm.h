@@ -45,7 +45,16 @@ static inline void svm_svmm_inst_show(void *svmm_inst)
     svm_flag.attr.pa* is belong to src start, svm_flag.attr.pg* is belong to map dst start
 */
 int svm_svmm_add_seg(void *svmm_inst, u32 devid, u64 start, u64 svm_flag, struct svm_global_va *src_info);
-int svm_svmm_del_seg(void *svmm_inst, u32 devid, u64 start, u64 size, bool force);
+int svm_svmm_can_add_seg(void *svmm_inst, u32 devid, u64 start, u64 size);
+/*
+ * The svm_flag saved when adding a segment may be modified later. Pass a non-NULL svm_flag to get the final state
+ * when deleting the segment. The output is valid only on success.
+ */
+int svm_svmm_del_seg_with_flag(void *svmm_inst, u32 devid, u64 start, u64 size, bool force, u64 *svm_flag);
+static inline int svm_svmm_del_seg(void *svmm_inst, u32 devid, u64 start, u64 size, bool force)
+{
+    return svm_svmm_del_seg_with_flag(svmm_inst, devid, start, size, force, NULL);
+}
 /*
     match va, devid and src_info->udevid
     if all is invalid(va=0, devid=SVM_INVALID_DEVID, src_info->udevid=SVM_INVALID_DEVID), get first segment
@@ -117,9 +126,6 @@ u32 svm_svmm_get_seg_devid(void *seg_handle);
 u64 svm_svmm_get_seg_svm_flag(void *seg_handle);
 void svm_svmm_mod_seg_svm_flag(void *seg_handle, u64 flag);
 void svm_svmm_mod_seg_src_tgid(void *seg_handle, int tgid);
-
-void svm_svmm_set_seg_task_bitmap(void *seg_handle, u32 task_bitmap);
-u32 svm_svmm_get_seg_task_bitmap(void *seg_handle);
 
 void svm_svmm_del_seg_handle(void *svmm_inst, void *seg_handle); /* only support non_overlap */
 

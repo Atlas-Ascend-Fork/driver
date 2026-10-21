@@ -22,7 +22,7 @@ struct prof_data_head {
     uint32_t read_ptr;
     uint32_t write_ptr;
     uint32_t data_buf_len;
-    uint32_t rsv[PROF_DATA_HEAD_RSV_LENGTH];  /* align 4kb */
+    uint32_t rsv[PROF_DATA_HEAD_RSV_LENGTH]; /* align 4kb */
 };
 
 drvError_t prof_buff_init(uint32_t chan_id, uint8_t **buff)
@@ -30,14 +30,14 @@ drvError_t prof_buff_init(uint32_t chan_id, uint8_t **buff)
     uint8_t *buff_addr = NULL;
     struct prof_data_head *data_head = NULL;
     uint32_t buff_len = 0x400000; /* 0x400000: 4MB */
-    size_t alignment = 0x1000; /* align 4kb */
+    size_t alignment = 0x1000;    /* align 4kb */
     int ret;
 
     if (chan_id == CHANNEL_AICPU) {
         buff_len = 0x800000;
     }
 
-    ret = posix_memalign((void**)&buff_addr, alignment, buff_len);
+    ret = posix_memalign((void **)&buff_addr, alignment, buff_len);
     if (ret != 0) {
         PROF_ERR("Failed to alloc mem. (chan_id=%u, ret=%d)\n", chan_id, ret);
         return DRV_ERROR_MALLOC_FAIL;
@@ -99,8 +99,7 @@ drvError_t prof_buff_write(uint8_t *buff, void *data, uint32_t data_len)
     return DRV_ERROR_NONE;
 }
 
-STATIC drvError_t prof_buff_copy(struct prof_data_head *data_head, char *out_buf, uint32_t buf_size,
-    uint32_t data_len)
+STATIC drvError_t prof_buff_copy(struct prof_data_head *data_head, char *out_buf, uint32_t buf_size, uint32_t data_len)
 {
     uint8_t *data_base = NULL;
     int ret;
@@ -215,6 +214,12 @@ uint32_t prof_buff_get_writeptr(uint8_t *buff)
 void prof_buff_update_writeptr(uint8_t *buff, uint32_t write_ptr)
 {
     struct prof_data_head *data_head = (struct prof_data_head *)buff;
+
+    if (write_ptr >= data_head->data_buf_len) {
+        PROF_ERR("Invalid write_ptr.(write_ptr=%u,data_buf_len=%u)\n", write_ptr, data_head->data_buf_len);
+        return;
+    }
+
     ATOMIC_SET(&data_head->write_ptr, write_ptr);
 }
 
@@ -231,14 +236,14 @@ void prof_buff_wait_read_empty(uint8_t *buff, uint32_t dev_id, uint32_t chan_id)
     notifier->poll_report(dev_id, chan_id);
 
     while ((data_len != 0) && (wait_num < 1000)) { /* 1000 */
-        (void)usleep(1000); /* 1000 us */
+        (void)usleep(1000);                        /* 1000 us */
         wait_num++;
         data_len = prof_buff_get_data_len(buff);
     }
 
     if (data_len != 0) {
-        PROF_RUN_INFO("Waiting for read timeout. (dev_id=%u, chan_id=%u, data_len=%u, wait_num=%u)\n",
-            dev_id, chan_id, data_len, wait_num);
+        PROF_WARN("Waiting for read timeout. (dev_id=%u, chan_id=%u, data_len=%u, wait_num=%u)\n", dev_id, chan_id,
+                  data_len, wait_num);
         return;
     }
 

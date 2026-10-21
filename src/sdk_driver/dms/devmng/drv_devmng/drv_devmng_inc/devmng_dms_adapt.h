@@ -21,10 +21,8 @@ int dms_event_subscribe_from_host(u32 devid, void *msg, u32 in_len, u32 *ack_len
 int dms_event_clean_from_host(u32 devid, void *msg, u32 in_len, u32 *ack_len);
 int dms_event_mask_from_host(u32 devid, void *msg, u32 in_len, u32 *ack_len);
 int dms_event_get_exception_from_device(void *msg, u32 *ack_len);
-int dms_get_event_code(u32 devid, u32 fid, u32 *health_code,
-    struct devdrv_error_code_para *code_para);
+int dms_get_event_code(u32 devid, u32 fid, u32 *health_code, struct devdrv_error_code_para *code_para);
 int dms_get_health_code(u32 phyid, u32 fid, u32 *health_code);
-int dms_event_id_to_error_string(u32 devid, u32 event_id,
-    char *event_str, u32 name_len);
+int dms_event_id_to_error_string(u32 devid, u32 event_id, char *event_str, u32 name_len);
 
 #endif

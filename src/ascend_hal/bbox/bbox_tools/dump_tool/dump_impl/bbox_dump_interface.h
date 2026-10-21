@@ -15,7 +15,7 @@
 #include "ascend_hal.h"
 
 #define PCIE_BAR_DDR_MAXLEN 512
-#define DMA_MEMDUMP_MAXLEN  0x100000UL
+#define DMA_MEMDUMP_MAXLEN 0x100000UL
 #define UB_DUMP_MAXLEN 256
 #define BIOS_MAGIC 0xEAEA2020U
 
@@ -36,6 +36,7 @@ typedef enum bbox_dump_data_file {
     BBOX_DUMP_FILE_UEFI_BOOT,
     BBOX_DUMP_FILE_CDR_DDR,
     BBOX_DUMP_FILE_CDR_SRAM,
+    BBOX_DUMP_FILE_CDR_CLINK,
     BBOX_DUMP_FILE_HBM_SRAM,
     BBOX_DUMP_FILE_SRAM_SNAPSHOT,
     BBOX_DUMP_FILE_BIOS_HISS,
@@ -58,22 +59,30 @@ bbox_status bbox_pcie_dump_sram_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_hdr_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_cdr_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_cdr_full_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_dump_cdr_full_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_bbox_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_dump_bbox_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_hboot_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_klog_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_dump_klog_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_ts_log_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_pcie_dump_vmcore_stat_read(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_dump_vmcore_stat_read(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_bbox_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_dump_bbox_data_read(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_cdr_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_dump_cdr_data_read(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_run_dev_os_log_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_debug_dev_os_log_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_debug_dev_log_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_run_event_log_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_sec_log_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_vmcore_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_dma_dump_vmcore_data_read(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dma_dump_ts_log_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 bbox_status bbox_dump_sram_data(u32 phy_id, u32 offset, u32 size, u8 *buf);
 
 bbox_status bbox_pcie_set_kdump_flag(u32 phy_id, u32 offset, u32 size, u8 *buf);
+bbox_status bbox_set_kdump_flag(u32 phy_id, u32 offset, u32 size, u8 *buf);
 
 #endif

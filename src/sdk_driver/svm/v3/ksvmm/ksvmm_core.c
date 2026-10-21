@@ -70,9 +70,9 @@ static int _ksvmm_add_seg(struct ksvmm_ctx *ctx, u64 start, struct svm_global_va
         return -ENOMEM;
     }
 
-    ka_task_down_write(&ctx->rw_sem);
+    ka_task_write_lock_bh(&ctx->lock);
     ret = range_rbtree_insert(&ctx->range_tree, &seg->range_node);
-    ka_task_up_write(&ctx->rw_sem);
+    ka_task_write_unlock_bh(&ctx->lock);
     if (ret != 0) {
         svm_err("Insert failed. (udevid=%u; tgid=%d; start=%llx; size=%llx)\n", ctx->udevid, ctx->tgid, start,
                 src_info->size);
@@ -86,27 +86,27 @@ static int _ksvmm_del_seg(struct ksvmm_ctx *ctx, u64 start)
 {
     struct ksvmm_seg *seg = NULL;
 
-    ka_task_down_write(&ctx->rw_sem);
+    ka_task_write_lock_bh(&ctx->lock);
     seg = ksvmm_seg_search(ctx, start, 1);
     if (seg == NULL) {
-        ka_task_up_write(&ctx->rw_sem);
+        ka_task_write_unlock_bh(&ctx->lock);
         svm_err("Search failed. (udevid=%u; tgid=%d; start=%llx)\n", ctx->udevid, ctx->tgid, start);
         return -EINVAL;
     }
 
     if (seg->range_node.start != start) {
-        ka_task_up_write(&ctx->rw_sem);
+        ka_task_write_unlock_bh(&ctx->lock);
         svm_err("Not add addr. (udevid=%u; tgid=%d; start=%llx)\n", ctx->udevid, ctx->tgid, start);
         return -EINVAL;
     }
 
     if (ka_base_atomic64_read(&seg->refcnt) > 0) {
-        ka_task_up_write(&ctx->rw_sem);
+        ka_task_write_unlock_bh(&ctx->lock);
         return -EBUSY;
     }
 
     range_rbtree_erase(&ctx->range_tree, &seg->range_node);
-    ka_task_up_write(&ctx->rw_sem);
+    ka_task_write_unlock_bh(&ctx->lock);
 
     ksvmm_seg_destroy(seg);
 
@@ -117,17 +117,81 @@ static int _ksvmm_get_seg(struct ksvmm_ctx *ctx, u64 va, u64 *start, struct svm_
 {
     struct ksvmm_seg *seg = NULL;
 
-    ka_task_down_read(&ctx->rw_sem);
+    ka_task_read_lock_bh(&ctx->lock);
     seg = ksvmm_seg_search(ctx, va, 1);
     if (seg == NULL) {
-        ka_task_up_read(&ctx->rw_sem);
+        ka_task_read_unlock_bh(&ctx->lock);
         return -EINVAL;
     }
 
     *start = seg->range_node.start;
     *src_info = seg->src_info;
-    ka_task_up_read(&ctx->rw_sem);
+    ka_task_read_unlock_bh(&ctx->lock);
     return 0;
+}
+
+/* Snapshot all segments under lock, return array + count. Caller must svm_kvfree. */
+static struct ksvmm_seg *ksvmm_seg_snapshot_create(struct ksvmm_ctx *ctx, u32 *out_count)
+{
+    struct ksvmm_seg *snapshots = NULL;
+    struct range_rbtree_node *range_node = NULL;
+    struct range_rbtree_node *next = NULL;
+    u32 actual = 0;
+
+    *out_count = ctx->range_tree.node_num;
+    if (*out_count == 0) {
+        return NULL;
+    }
+
+    snapshots = (struct ksvmm_seg *)svm_kvzalloc((u64)(*out_count) * sizeof(struct ksvmm_seg),
+                                                 KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+    if (snapshots == NULL) {
+        svm_err("Alloc seg snapshot failed. (udevid=%u; tgid=%d; count=%u)\n", ctx->udevid, ctx->tgid, *out_count);
+        return NULL;
+    }
+
+    /* Phase 3: copy segment data under lock (pure struct copy, fast) */
+    ka_task_read_lock_bh(&ctx->lock);
+    ka_base_rbtree_postorder_for_each_entry_safe(range_node, next, &ctx->range_tree.root, node)
+    {
+        struct ksvmm_seg *seg = ka_container_of(range_node, struct ksvmm_seg, range_node);
+        if (actual >= *out_count) {
+            break;
+        }
+        snapshots[actual] = *seg;
+        actual++;
+    }
+    ka_task_read_unlock_bh(&ctx->lock);
+
+    *out_count = actual;
+    return snapshots;
+}
+
+static int _ksvmm_for_each_seg(struct ksvmm_ctx *ctx,
+                               int (*func)(u64 start, struct svm_global_va *src_info, void *priv), void *priv)
+{
+    struct ksvmm_seg *snapshots = NULL;
+    unsigned long stamp;
+    u32 count = 0;
+    int ret = 0;
+    u32 i;
+
+    snapshots = ksvmm_seg_snapshot_create(ctx, &count);
+    if (snapshots == NULL) {
+        return (count == 0) ? 0 : -ENOMEM;
+    }
+
+    stamp = (unsigned long)ka_jiffies;
+    for (i = 0; i < count; i++) {
+        ret = func(snapshots[i].range_node.start, &snapshots[i].src_info, priv);
+        if (ret != 0) {
+            break;
+        }
+        ka_try_cond_resched(&stamp);
+    }
+
+    svm_kvfree(snapshots);
+    return ret;
 }
 
 static int _ksvmm_pin_seg(struct ksvmm_ctx *ctx, u64 va, u64 size)
@@ -135,15 +199,15 @@ static int _ksvmm_pin_seg(struct ksvmm_ctx *ctx, u64 va, u64 size)
     struct ksvmm_seg *seg = NULL;
     int ret = 0;
 
-    ka_task_down_read(&ctx->rw_sem);
+    ka_task_read_lock_bh(&ctx->lock);
     seg = ksvmm_seg_search(ctx, va, size);
     if (seg == NULL) {
-        ka_task_up_read(&ctx->rw_sem);
+        ka_task_read_unlock_bh(&ctx->lock);
         return -EINVAL;
     }
 
     ka_base_atomic64_inc(&seg->refcnt);
-    ka_task_up_read(&ctx->rw_sem);
+    ka_task_read_unlock_bh(&ctx->lock);
 
     return ret;
 }
@@ -153,10 +217,10 @@ static int _ksvmm_unpin_seg(struct ksvmm_ctx *ctx, u64 va, u64 size)
     struct ksvmm_seg *seg = NULL;
     s64 refcnt;
 
-    ka_task_down_read(&ctx->rw_sem);
+    ka_task_read_lock_bh(&ctx->lock);
     seg = ksvmm_seg_search(ctx, va, size);
     if (seg == NULL) {
-        ka_task_up_read(&ctx->rw_sem);
+        ka_task_read_unlock_bh(&ctx->lock);
         svm_err("Search failed. (udevid=%u; tgid=%d; va=%llx; size=%llx)\n", ctx->udevid, ctx->tgid, va, size);
         return -EINVAL;
     }
@@ -164,13 +228,13 @@ static int _ksvmm_unpin_seg(struct ksvmm_ctx *ctx, u64 va, u64 size)
     refcnt = ka_base_atomic64_dec_return(&seg->refcnt);
     if (refcnt < 0) {
         ka_base_atomic64_inc(&seg->refcnt); /* restore refcnt, hold read lock, del can not access refcnt same time */
-        ka_task_up_read(&ctx->rw_sem);
+        ka_task_read_unlock_bh(&ctx->lock);
         svm_err("No pin, can not unpin. (udevid=%u; tgid=%d; va=%llx; size=%llx; refcnt=%lld)\n", ctx->udevid,
                 ctx->tgid, va, size, refcnt);
         return -EINVAL;
     }
 
-    ka_task_up_read(&ctx->rw_sem);
+    ka_task_read_unlock_bh(&ctx->lock);
 
     return 0;
 }
@@ -231,6 +295,11 @@ int ksvmm_check_range(u32 udevid, int tgid, u64 va, u64 size)
     u64 check_va = va;
     u64 end = va + size;
 
+    if (end < check_va) {
+        svm_err("Invalid va. (udevid=%u; tgid=%d; va=%llx; size=%llx)\n", udevid, tgid, va, size);
+        return -EINVAL;
+    }
+
     while (check_va < end) {
         struct svm_global_va src_info;
         u64 start;
@@ -246,6 +315,22 @@ int ksvmm_check_range(u32 udevid, int tgid, u64 va, u64 size)
     return 0;
 }
 
+int ksvmm_for_each_seg(u32 udevid, int tgid, int (*func)(u64 start, struct svm_global_va *src_info, void *priv),
+                       void *priv)
+{
+    struct ksvmm_ctx *ctx = NULL;
+    int ret;
+
+    ctx = ksvmm_ctx_get(udevid, tgid);
+    if (ctx == NULL) {
+        return -EINVAL;
+    }
+
+    ret = _ksvmm_for_each_seg(ctx, func, priv);
+    ksvmm_ctx_put(ctx);
+
+    return ret;
+}
 int ksvmm_pin_seg(u32 udevid, int tgid, u64 va, u64 size)
 {
     struct ksvmm_ctx *ksvmm_ctx = NULL;
@@ -282,24 +367,29 @@ int ksvmm_unpin_seg(u32 udevid, int tgid, u64 va, u64 size)
 
 void ksvmm_seg_show(struct ksvmm_ctx *ctx, ka_seq_file_t *seq)
 {
-    struct range_rbtree_node *range_node = NULL, *next = NULL;
-    int i = 0;
+    unsigned long stamp = (unsigned long)ka_jiffies;
+    struct ksvmm_seg *snapshots = NULL;
+    u32 count;
+    u32 i;
 
-    ka_task_down_read(&ctx->rw_sem);
+    snapshots = ksvmm_seg_snapshot_create(ctx, &count);
+    if (snapshots == NULL) {
+        ka_fs_seq_printf(seq, "ksvmm: udevid %u tgid %d seg num 0\n", ctx->udevid, ctx->tgid);
+        return;
+    }
 
-    ka_fs_seq_printf(seq, "ksvmm: udevid %u tgid %d seg num %u\n", ctx->udevid, ctx->tgid, ctx->range_tree.node_num);
+    ka_fs_seq_printf(seq, "ksvmm: udevid %u tgid %d seg num %u\n", ctx->udevid, ctx->tgid, count);
 
-    ka_base_rbtree_postorder_for_each_entry_safe(range_node, next, &ctx->range_tree.root, node)
-    {
-        struct ksvmm_seg *seg = ka_container_of(range_node, struct ksvmm_seg, range_node);
+    for (i = 0; i < count; i++) {
+        ka_try_cond_resched(&stamp);
         if (i == 0) {
             ka_fs_seq_printf(seq, "   %-5s %-17s %-15s %-5s\n", "id", "va", "size(Bytes)", "refcnt");
         }
-        ka_fs_seq_printf(seq, "   %-5d 0x%-15llx %-15llu %-5llu\n", i++, range_node->start, range_node->size,
-                         (u64)ka_base_atomic64_read(&seg->refcnt));
+        ka_fs_seq_printf(seq, "   %-5d 0x%-15llx %-15llu %-5lld\n", i, snapshots[i].range_node.start,
+                         snapshots[i].range_node.size, (s64)ka_base_atomic64_read(&snapshots[i].refcnt));
     }
 
-    ka_task_up_read(&ctx->rw_sem);
+    svm_kvfree(snapshots);
 }
 
 static int _ksvmm_seg_recycle(struct ksvmm_ctx *ctx)
@@ -311,16 +401,16 @@ static int _ksvmm_seg_recycle(struct ksvmm_ctx *ctx)
         struct ksvmm_seg *seg = NULL;
         struct range_rbtree_node *range_node = NULL;
 
-        ka_task_down_write(&ctx->rw_sem);
+        ka_task_write_lock_bh(&ctx->lock);
         range_node = range_rbtree_get_first(&ctx->range_tree);
         if (range_node == NULL) {
-            ka_task_up_write(&ctx->rw_sem);
+            ka_task_write_unlock_bh(&ctx->lock);
             break;
         }
         recycle_num++;
         seg = ka_container_of(range_node, struct ksvmm_seg, range_node);
         range_rbtree_erase(&ctx->range_tree, range_node);
-        ka_task_up_write(&ctx->rw_sem);
+        ka_task_write_unlock_bh(&ctx->lock);
         ksvmm_seg_destroy(seg);
         ka_try_cond_resched(&stamp);
     } while (1);

@@ -30,7 +30,7 @@
 
 static struct smp_mem_node *smp_mem_node_create(struct smp_ctx *smp_ctx, u64 start, u64 size, u32 flag)
 {
-    struct smp_mem_node *mem_node = svm_vzalloc(sizeof(*mem_node));
+    struct smp_mem_node *mem_node = svm_kzalloc(sizeof(*mem_node), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (mem_node == NULL) {
         svm_err("Alloc mem node failed. (udevid=%u; tgid=%d; start=0x%llx; size=%llu)\n", smp_ctx->udevid,
                 smp_ctx->tgid, start, size);
@@ -53,7 +53,7 @@ static inline void smp_mem_node_destroy(struct smp_mem_node *mem_node)
     if (mem_node->pa_seg != NULL) {
         svm_vfree(mem_node->pa_seg);
     }
-    svm_vfree(mem_node);
+    svm_kfree(mem_node);
 }
 
 static struct smp_mem_node *smp_mem_node_search(struct smp_ctx *smp_ctx, u64 va, u64 size)
@@ -195,7 +195,6 @@ static int _svm_smp_pin_mem(u32 udevid, int tgid, u64 va, u64 size, bool is_dev_
 {
     struct smp_ctx *smp_ctx = NULL;
     int ret;
-
     smp_ctx = smp_ctx_get(udevid, tgid);
     if (smp_ctx == NULL) {
         return -ESRCH;
@@ -271,7 +270,7 @@ static int _svm_smp_unpin_mem(u32 udevid, int tgid, u64 va, u64 size, bool is_de
 
     smp_ctx = smp_ctx_get(udevid, tgid);
     if (smp_ctx == NULL) {
-        svm_warn("Invalid dev task. (udevid=%u; tgid=%d)\n", udevid, tgid);
+        svm_debug("Invalid dev task. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -EINVAL;
     }
 
@@ -307,7 +306,7 @@ static int smp_check_mem(struct smp_ctx *smp_ctx, u64 va, u64 size, bool is_dev_
     }
 
     if (((mem_node->flag & SVM_SMP_FLAG_DEV_CP_ONLY) != 0) != is_dev_cp_only) {
-        svm_err("Flag does not match. (flag=%u; is_dev_cp_only=%d)\n", mem_node->flag, is_dev_cp_only);
+        svm_err("Flag not match. (flag=%u; is_dev_cp_only=%d)\n", mem_node->flag, is_dev_cp_only);
         ret = -EINVAL;
     } else if (mem_node->status == 0) {
         ret = -EOWNERDEAD;
@@ -492,7 +491,7 @@ int svm_smp_set_mem_pa(u32 udevid, int tgid, u64 va, u64 size, struct svm_pa_seg
 static u64 smp_query_pa_seg(struct smp_mem_node *mem_node, u64 va, u64 size, struct svm_pa_seg *pa_seg, u64 seg_num)
 {
     u64 need_seg_num = ka_base_min_t(u64, seg_num, mem_node->seg_num);
-    u64 i, last_seg_index, first_seg_offset = 0, last_seg_offset = 0;
+    u64 i, last_seg_index = 0, first_seg_offset = 0, last_seg_offset = 0;
     u64 cur_off = 0, out_idx = 0;
 
     for (i = 0; (i < mem_node->seg_num) && (out_idx < need_seg_num); i++) {
@@ -530,6 +529,10 @@ static u64 smp_query_pa_seg(struct smp_mem_node *mem_node, u64 va, u64 size, str
     return out_idx;
 }
 
+/* When mem_node exists but pa_seg is not filled (pa query failed during populate),
+   seg_num will be 0. Returning failure is normal in this case; callers will retry
+   or fall back to other query paths. This prevents downstream dma_map from
+   underflowing on pa_seg[seg_num - 1] when seg_num is 0. */
 static int smp_query_mem_pa(struct smp_ctx *smp_ctx, u64 va, u64 size, struct svm_pa_seg *pa_seg, u64 *seg_num)
 {
     struct smp_mem_node *mem_node = NULL;
@@ -553,7 +556,7 @@ static int smp_query_mem_pa(struct smp_ctx *smp_ctx, u64 va, u64 size, struct sv
     svm_debug("Smp node. (udevid=%u; tgid=%d; start=0x%llx; size=%llu; real_seg_num=%llu; need_seg_num=%llu)\n",
               smp_ctx->udevid, smp_ctx->tgid, va, size, mem_node->seg_num, *seg_num);
     ka_task_read_unlock_bh(&smp_ctx->lock);
-    return 0;
+    return (*seg_num == 0) ? -ENODEV : 0;
 }
 
 int svm_smp_query_mem_pa(u32 udevid, int tgid, u64 va, u64 size, struct svm_pa_seg *pa_seg, u64 *seg_num)

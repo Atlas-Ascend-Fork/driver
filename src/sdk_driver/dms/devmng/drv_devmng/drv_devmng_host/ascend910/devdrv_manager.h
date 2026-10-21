@@ -62,14 +62,14 @@ struct devdrv_exception {
 #define DEVDRV_INIT_INSTANCE_TIMEOUT (4 * KA_HZ)
 #define DEVDRV_INIT_RESOURCE_TIMEOUT (180 * (KA_HZ))
 
-#define DEVDRV_VMCORE_MAX_SIZE   0xFFFFFFFF   /* 4GB - 1 */
+#define DEVDRV_VMCORE_MAX_SIZE 0xFFFFFFFF /* 4GB - 1 */
 
 #ifdef CFG_FEATURE_PCIE_BBOX_DUMP
 enum log_slog_mem_type {
     LOG_SLOG_DEBUG_OS = 0,
-    LOG_SLOG_SEC_OS= 1,
+    LOG_SLOG_SEC_OS = 1,
     LOG_SLOG_RUN_OS = 2,
-    LOG_SLOG_RUN_EVENT= 3,
+    LOG_SLOG_RUN_EVENT = 3,
     LOG_SLOG_DEBUG_DEV = 4,
     LOG_SLOG_BBOX_DDR = 5,
     LOG_SLOG_REG_DDR = 6,
@@ -80,7 +80,7 @@ enum log_slog_mem_type {
 struct bbox_dma_dump {
     unsigned int dev_id;
     unsigned int offset;
-    void *dst_buf;
+    void __ka_user *dst_buf;
     unsigned int len;
     enum log_slog_mem_type log_type;
     int data_type;
@@ -135,6 +135,10 @@ typedef enum {
 #define DEVMNG_AMP_MODE 0
 #define DEVMNG_SMP_MODE 1
 
+/* flag for pf or vf */
+#define DEVMNG_PF_DEV 1
+#define DEVMNG_VF_DEV 0
+
 int devdrv_manager_ipc_notify_create(void *context, unsigned long arg, void *notify_ioctl_info);
 int devdrv_manager_ipc_notify_open(void *context, unsigned long arg, void *notify_ioctl_info);
 int devdrv_manager_ipc_notify_close(void *context, void *notify_ioctl_info);
@@ -146,7 +150,7 @@ struct devdrv_manager_info *devdrv_get_manager_info(void);
 u32 devdrv_manager_get_ts_num(struct devdrv_info *dev_info);
 #endif
 int devdrv_manager_send_msg(struct devdrv_info *dev_info, struct devdrv_manager_msg_info *dev_manager_msg_info,
-    int *out_len);
+                            int *out_len);
 extern ka_task_struct_t init_task;
 extern int devdrv_get_pcie_id_info(u32 devid, struct devdrv_pcie_id_info *pcie_id_info);
 int devdrv_agent_sync_msg_send(u32 dev_id, struct devdrv_manager_msg_info *msg_info, u32 payload_len, u32 *out_len);
@@ -154,8 +158,7 @@ u32 devdrv_manager_get_devnum(void);
 struct tsdrv_drv_ops *devdrv_manager_get_drv_ops(void);
 struct devdrv_info *devdrv_get_devdrv_info_array(u32 dev_id);
 int devmng_get_vdavinci_info(u32 vdev_id, u32 *phy_id, u32 *vfid);
-int dev_mnt_vdevice_add_inform(unsigned int vdev_id,
-    vdev_action action, ka_mnt_namespace_t *ns, u64 container_id);
+int dev_mnt_vdevice_add_inform(unsigned int vdev_id, vdev_action action, ka_mnt_namespace_t *ns, u64 container_id);
 void dev_mnt_vdevice_inform(void);
 
 int devdrv_manager_check_capability(u32 dev_id, devdrv_capability_type type);
@@ -169,15 +172,15 @@ void devdrv_manager_unregister(struct devdrv_info *dev_info);
 int devdrv_manager_get_amp_smp_mode(u32 *amp_or_smp);
 int devdrv_manager_shm_info_check(struct devdrv_info *dev_info);
 
-int devmng_dms_get_event_code(u32 devid, u32 *health_code, u32 health_len,
-    struct shm_event_code *event_code, u32 event_len);
+int devmng_dms_get_event_code(u32 devid, u32 *health_code, u32 health_len, struct shm_event_code *event_code,
+                              u32 event_len);
 int devmng_dms_get_health_code(u32 devid, u32 *health_code, u32 health_len);
 #ifdef CFG_FEATURE_CHIP_DIE
 int devdrv_manager_get_random_from_dev_info(u32 devid, char *random_number, u32 random_len);
 #endif
 
-int dms_device_register(struct devdrv_info* dev);
-void dms_device_unregister(struct devdrv_info* dev);
+int dms_device_register(struct devdrv_info *dev);
+void dms_device_unregister(struct devdrv_info *dev);
 int hw_dvt_get_mode(int *mode);
 int hw_dvt_set_mode(int mode);
 int devdrv_wait_device_ready(u32 dev_id, u32 timeout_second);
@@ -189,8 +192,8 @@ void devdrv_check_pid_map_process_sign(ka_pid_t tgid, u64 start_time);
 void devdrv_pid_map_init(void);
 void devdrv_pid_map_uninit(void);
 int devdrv_manager_device_ready(void *msg, u32 *ack_len);
-int dms_get_device_startup_status_form_device(struct devdrv_info *dev_info,
-    unsigned int *dmp_started, unsigned int *device_process_status);
+int dms_get_device_startup_status_form_device(struct devdrv_info *dev_info, unsigned int *dmp_started,
+                                              unsigned int *device_process_status);
 int devdrv_manager_get_accounting_pid(u32 phyid, u32 vfid, struct devdrv_resource_info *dinfo);
 void devdrv_manager_context_uninit(struct devdrv_manager_context *dev_manager_context);
 #endif /* __DEVDRV_MANAGER_H */

@@ -37,9 +37,9 @@ struct ubmm_gen_pool {
     u64 uba_size;
 };
 
-#define UBMM_BYTES_PER_KB              1024ULL
-#define UBMM_BYTES_PER_MB              (1024ULL * UBMM_BYTES_PER_KB)
-#define UBMM_BYTES_PER_GB              (1024ULL * UBMM_BYTES_PER_MB)
+#define UBMM_BYTES_PER_KB 1024ULL
+#define UBMM_BYTES_PER_MB (1024ULL * UBMM_BYTES_PER_KB)
+#define UBMM_BYTES_PER_GB (1024ULL * UBMM_BYTES_PER_MB)
 #define UBMM_UBA_NPAGE_ALIGN_POOL_SIZE (9ULL * UBMM_BYTES_PER_GB)
 
 static struct ubmm_gen_pool g_uba_pool;
@@ -86,7 +86,7 @@ static void ubmm_destroy_sub_pool(struct ubmm_sub_pool *sub_pool)
     total = ka_base_gen_pool_size(sub_pool->uba_pool);
     if (avail != total) {
         ubmm_warn("Leak uba mem in sub pool. (pool_base=0x%lx; avail_size=0x%lx; total_size=0x%lx)\n",
-            sub_pool->pool_data.base, avail, total);
+                  sub_pool->pool_data.base, avail, total);
     }
 
     ka_base_gen_pool_destroy(sub_pool->uba_pool);
@@ -131,7 +131,7 @@ static int _ubmm_uba_pool_create(u64 uba_base, u64 uba_size)
         hpage_align_pool_base = uba_base + UBMM_UBA_NPAGE_ALIGN_POOL_SIZE;
         hpage_align_pool_size = uba_size - UBMM_UBA_NPAGE_ALIGN_POOL_SIZE;
         ret = ubmm_create_sub_pool(&g_uba_pool.hpage_align_pool, hpage_align_pool_base, hpage_align_pool_size,
-            KA_HPAGE_SIZE);
+                                   KA_HPAGE_SIZE);
         if (ret != 0) {
             ubmm_destroy_sub_pool(&g_uba_pool.npage_align_pool);
             return ret;
@@ -187,7 +187,7 @@ static int ubmm_alloc_from_sub_pool(struct ubmm_sub_pool *sub_pool, u64 size, u6
     return 0;
 }
 
-int ubmm_alloc_uba(u64 size, u64 align, u64 *uba)
+int ubmm_alloc_uba(u64 size, u64 prefer_align, u64 *uba)
 {
     int ret;
 
@@ -196,11 +196,11 @@ int ubmm_alloc_uba(u64 size, u64 align, u64 *uba)
     }
 
     if ((size == 0) || (uba == NULL) || (size > g_uba_pool.uba_size)) {
-        ubmm_err("Invalid value. (size=0x%llx; align=0x%llx)\n", size, align);
+        ubmm_err("Invalid value. (size=0x%llx; align=0x%llx)\n", size, prefer_align);
         return -EINVAL;
     }
 
-    if (align == KA_MM_PAGE_SIZE) {
+    if (prefer_align == KA_MM_PAGE_SIZE) {
         ret = ubmm_alloc_from_sub_pool(&g_uba_pool.npage_align_pool, size, uba);
         if (ret != 0) {
             ret = ubmm_alloc_from_sub_pool(&g_uba_pool.hpage_align_pool, size, uba);
@@ -254,9 +254,11 @@ int ubmm_get_uba_pool(u64 *uba_base, u64 *total_size, u64 *avail_size)
     *uba_base = g_uba_pool.uba_base;
     *total_size = g_uba_pool.uba_size;
     *avail_size = (g_uba_pool.npage_align_pool.uba_pool != NULL) ?
-        (u64)ka_base_gen_pool_avail(g_uba_pool.npage_align_pool.uba_pool) : 0;
+                      (u64)ka_base_gen_pool_avail(g_uba_pool.npage_align_pool.uba_pool) :
+                      0;
     *avail_size += (g_uba_pool.hpage_align_pool.uba_pool != NULL) ?
-        (u64)ka_base_gen_pool_avail(g_uba_pool.hpage_align_pool.uba_pool) : 0;
+                       (u64)ka_base_gen_pool_avail(g_uba_pool.hpage_align_pool.uba_pool) :
+                       0;
     return 0;
 }
 KA_EXPORT_SYMBOL_GPL(ubmm_get_uba_pool);

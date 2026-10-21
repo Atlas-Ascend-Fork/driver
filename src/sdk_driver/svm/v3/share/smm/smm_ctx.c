@@ -157,6 +157,11 @@ static int smm_in_server_pa_put(struct smm_ctx *ctx, struct svm_global_va *src_i
     u32 udevid = ctx->udevid;
     int ret;
 
+    if (src_info->udevid >= smm_get_src_max_udev_num()) {
+        svm_err("Invalid src udevid. (src_udevid=%u)\n", src_info->udevid);
+        return -EINVAL;
+    }
+
     ops = ctx->ops[src_info->udevid];
     if (ops == NULL) {
         svm_err("Smm ops not register. (udev=%u; src_udev=%u)\n", udevid, src_info->udevid);
@@ -277,7 +282,7 @@ int smm_ops_init_dev(u32 udevid)
     void *dev_ctx = NULL;
     int ret;
 
-    ctx = (struct smm_ctx *)svm_vzalloc(size);
+    ctx = (struct smm_ctx *)svm_kvzalloc(size, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (ctx == NULL) {
         svm_err("Smm kernel init alloc pa_get_handle failed.\n");
         return -ENOMEM;

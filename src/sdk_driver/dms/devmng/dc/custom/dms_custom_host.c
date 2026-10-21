@@ -418,7 +418,7 @@ int dms_custom_init_device_cert_flag(u32 dev_id)
 
     ret = sprintf_s(file_path, CUSTOM_SIGN_CONF_FILE_PATH_MAX, CUSTOM_SIGN_CONF_FLAG_PATH, dev_id);
     if (ret < 0) {
-        dms_err("Failed to invoke snprintf_s. (dev_id=%u; ret=%d).\n", dev_id, ret);
+        dms_err("Failed to invoke sprintf_s. (dev_id=%u; ret=%d).\n", dev_id, ret);
         return -EINVAL;
     }
 
@@ -486,7 +486,7 @@ int dms_custom_init_device_cert_file(u32 dev_id, CUSTOM_FILE_TYPE file_type)
     }
 
     if (ret < 0) {
-        dms_err("Failed to invoke snprintf_s. (dev_id=%u; file_type=%d; ret=%d).\n", dev_id, file_type, ret);
+        dms_err("Failed to invoke sprintf_s. (dev_id=%u; file_type=%d; ret=%d).\n", dev_id, file_type, ret);
         return -EINVAL;
     }
 
@@ -588,9 +588,9 @@ STATIC int dms_custom_dev_init(u32 udev_id)
 }
 DECLAER_FEATURE_AUTO_INIT_DEV(dms_custom_dev_init, FEATURE_LOADER_STAGE_5);
 
-STATIC void dms_custom_dev_exit(u32 udev_id)
+STATIC void dms_custom_dev_uninit(u32 udev_id)
 {
     dms_info("Dms custom dev exit. (udev_id=%u)\n", udev_id);
     ka_task_mutex_destroy(&g_cert_sync_lock[udev_id]);
 }
-DECLAER_FEATURE_AUTO_UNINIT_DEV(dms_custom_dev_exit, FEATURE_LOADER_STAGE_5);
+DECLAER_FEATURE_AUTO_UNINIT_DEV(dms_custom_dev_uninit, FEATURE_LOADER_STAGE_5);

@@ -22,7 +22,7 @@
 int trs_core_ops_get_proc_num(struct trs_id_inst *inst, u32 *proc_num)
 {
     struct trs_msg_proc_num *proc_num_msg = NULL;
-    struct trs_msg_data msg;
+    struct trs_msg_data msg = {0};
     int ret;
 
     msg.header.tsid = inst->tsid;
@@ -97,7 +97,7 @@ bool trs_host_res_is_belong_to_proc(int master_tgid, int slave_tgid, u32 udevid,
 
     trs_id_inst_pack(&inst, udevid, res_info->id);
     if (trs_res_is_belong_to_proc(&inst, master_tgid, res_addr_type_to_id_type[res_info->res_type], res_id)) {
-        trs_debug("Res id belongs to master process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n", master_tgid,
+        trs_debug("Res id belong to master process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n", master_tgid,
                   slave_tgid, res_info->res_type, res_id);
         return true;
     }
@@ -114,7 +114,7 @@ bool trs_host_res_is_belong_to_proc(int master_tgid, int slave_tgid, u32 udevid,
         if ((priv->flag & TSDRV_FLAG_REMOTE_ID) != 0) {
             if (trs_res_is_belong_to_proc(&remote_inst, master_tgid, res_addr_type_to_id_type[res_info->res_type],
                                           res_id)) {
-                trs_debug("Res id belongs to remote process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n",
+                trs_debug("Res id belong to remote process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n",
                           master_tgid, slave_tgid, res_info->res_type, res_id);
                 return true;
             }
@@ -123,11 +123,11 @@ bool trs_host_res_is_belong_to_proc(int master_tgid, int slave_tgid, u32 udevid,
 #ifndef EMU_ST
     /* res id belongs to cp1 in MC2 */
     if (trs_host_res_id_check(&inst, res_addr_type_to_id_type[res_info->res_type], res_id) == 0) {
-        trs_debug("Res id belongs to cp1 process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n", master_tgid,
+        trs_debug("Res id belong to cp1 process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n", master_tgid,
                   slave_tgid, res_info->res_type, res_id);
         return true;
     }
-    trs_err("Res id does not belong to master process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n", master_tgid,
+    trs_err("Res id not belong to master process. (master_tgid=%d; slave_tgid=%d; type=%d; id=%d)\n", master_tgid,
             slave_tgid, res_info->res_type, res_id);
     return false;
 #endif

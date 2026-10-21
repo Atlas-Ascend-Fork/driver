@@ -77,7 +77,7 @@ static void dms_state_table_parse_node(ka_list_head_t *dms_node_list, ka_device_
         return;
     }
 
-    real_num  = (uint32_t)ret;
+    real_num = (uint32_t)ret;
     if (real_num != num) {
         dms_warn("state table node num not equal, (type=%u; num=%u; real=%u)\n", type, num, real_num);
     }
@@ -129,7 +129,8 @@ static void dms_init_device_state_table(void)
         return;
     }
 
-    ka_driver_for_each_child_of_node(np, child) {
+    ka_driver_for_each_child_of_node(np, child)
+    {
         dms_state_table_parse_node(&dms_node_list, child, &cnt);
     }
     ka_driver_of_node_put(np);
@@ -137,11 +138,12 @@ static void dms_init_device_state_table(void)
     if (cnt == 0) {
         dms_info("dms state table cnt is 0\n");
         return;
-    } 
+    }
     g_dms_state_table.item = ka_mm_vzalloc(sizeof(struct state_item) * cnt);
     if (g_dms_state_table.item == NULL) {
         dms_warn("device state table alloc no mem, (size=%zu)\n", sizeof(struct state_item) * cnt);
-        ka_list_for_each_entry_safe(item_node, temp_node, &dms_node_list, list) {
+        ka_list_for_each_entry_safe(item_node, temp_node, &dms_node_list, list)
+        {
             ka_list_del(&item_node->list);
             ka_mm_kfree(item_node);
         }
@@ -149,7 +151,8 @@ static void dms_init_device_state_table(void)
     }
     g_dms_state_table.num = cnt;
 
-    ka_list_for_each_entry_safe(item_node, temp_node, &dms_node_list, list) {
+    ka_list_for_each_entry_safe(item_node, temp_node, &dms_node_list, list)
+    {
         dms_state_table_entry_init(&g_dms_state_table.item[i], item_node);
         ka_list_del(&item_node->list);
         ka_mm_kfree(item_node);
@@ -175,7 +178,7 @@ struct dms_state_table *dms_get_state_table(void)
 KA_EXPORT_SYMBOL(dms_get_state_table);
 #endif
 
-struct dms_system_ctrl_block* dms_get_sys_ctrl_cb(void)
+struct dms_system_ctrl_block *dms_get_sys_ctrl_cb(void)
 {
     return g_dms_system_ccb;
 }
@@ -208,9 +211,9 @@ DMS_MODE_T dms_get_rc_ep_mode(void)
 }
 KA_EXPORT_SYMBOL(dms_get_rc_ep_mode);
 
-struct dms_dev_ctrl_block* dms_get_dev_cb(int dev_id)
+struct dms_dev_ctrl_block *dms_get_dev_cb(int dev_id)
 {
-    struct dms_system_ctrl_block* cb = dms_get_sys_ctrl_cb();
+    struct dms_system_ctrl_block *cb = dms_get_sys_ctrl_cb();
     int ret;
     if (cb == NULL) {
         dms_err("g_dms_system_ccb is NULL. \n");
@@ -232,12 +235,12 @@ bool dms_is_devid_valid(int dev_id)
     dev_cb = dms_get_dev_cb(dev_id);
     if (dev_cb == NULL) {
         dms_err("Get dev_ctrl block failed. (dev_id=%d)\n", dev_id);
-        return false ;
+        return false;
     }
 
     if (dev_cb->state != DMS_IN_USED) {
-        dms_err("Device state not in used. (dev_id=%d; state=%u)\n", dev_id, dev_cb->state);
-        return false ;
+        dms_err("Device state not in use. (dev_id=%d; state=%u)\n", dev_id, dev_cb->state);
+        return false;
     }
 
     return true;
@@ -247,7 +250,7 @@ KA_EXPORT_SYMBOL(dms_is_devid_valid);
 STATIC int dms_init_dev_cb(void)
 {
     int i;
-    struct dms_dev_ctrl_block* cb;
+    struct dms_dev_ctrl_block *cb;
 
     g_dms_system_ccb = dbl_kzalloc(sizeof(struct dms_system_ctrl_block), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (g_dms_system_ccb == NULL) {
@@ -270,7 +273,7 @@ STATIC int dms_init_dev_cb(void)
 STATIC void dms_uninit_dev_cb(void)
 {
     int i;
-    struct dms_dev_ctrl_block* cb;
+    struct dms_dev_ctrl_block *cb;
 
     cb = &g_dms_system_ccb->base_cb;
     ka_task_mutex_lock(&cb->node_lock);

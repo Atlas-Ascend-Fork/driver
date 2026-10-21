@@ -133,8 +133,7 @@ void que_get_single_export_que_import_stat(unsigned int dev_id, unsigned int qid
 void que_get_all_export_que_import_stat(unsigned int dev_id, unsigned int *status);
 int que_get_peer_proc_info(unsigned int dev_id, unsigned int qid, pid_t *remote_pid, unsigned int *remote_devid,
                            unsigned int *remote_grpid);
-int que_set_tjfr_id_and_token(unsigned int dev_id, unsigned int qid, const urma_jfr_id_t *tjfr_id,
-                              const urma_token_t *token);
+int que_save_inter_dev_attach_cfg(unsigned int dev_id, unsigned int qid, const struct que_inter_dev_attach_in_msg *in);
 drvError_t que_inter_dev_send_f2nf(unsigned int dev_id, unsigned int qid);
 unsigned int que_get_chan_devid(unsigned int devid);
 unsigned int que_get_urma_devid(unsigned int devid, unsigned int peer_devid);

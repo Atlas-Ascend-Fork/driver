@@ -14,7 +14,6 @@
 #include "svm_log.h"
 #include "svm_user_adapt.h"
 #include "mga.h"
-#include "va_gap.h"
 #include "va_reserve.h"
 #include "va_dev_default_allocator.h"
 
@@ -48,6 +47,8 @@ static int _va_dev_default_va_expand(void *mga_inst, u64 fixed_va, u64 *size, u6
     u32 flag = 0;
     int ret;
 
+    SVM_UNUSED(mga_inst);
+
     flag |= SVM_VA_RESERVE_FLAG_WITH_MASTER;
     flag |= SVM_VA_RESERVE_FLAG_WITH_CUSTOM_CP;
     flag |= SVM_VA_RESERVE_FLAG_WITH_HCCP;
@@ -56,9 +57,6 @@ static int _va_dev_default_va_expand(void *mga_inst, u64 fixed_va, u64 *size, u6
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }
-
-    /* avoid alloc a gap va. */
-    *size -= svm_align_up(svm_va_get_gap(), mga_get_max_align_size(mga_inst));
 
     return DRV_ERROR_NONE;
 }
@@ -194,7 +192,7 @@ int va_dev_default_alloc(u32 devid, u64 align, u64 size, u64 *va)
 
     mga_inst = g_dev_default_mga_inst[devid];
     if (mga_inst == NULL) {
-        svm_err("Hasn't been inited. (devid=%u)\n", devid);
+        svm_err("Hasn't inited. (devid=%u)\n", devid);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -212,7 +210,7 @@ int va_dev_default_free(u32 devid, u64 va, u64 size, u64 align)
 
     mga_inst = g_dev_default_mga_inst[devid];
     if (mga_inst == NULL) {
-        svm_warn("Hasn't been inited. (devid=%u)\n", devid);
+        svm_warn("Hasn't inited. (devid=%u)\n", devid);
         return DRV_ERROR_INVALID_VALUE;
     }
 

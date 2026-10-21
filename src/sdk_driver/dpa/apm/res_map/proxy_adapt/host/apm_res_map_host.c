@@ -22,7 +22,7 @@
 
 static int apm_res_map_host_res_map_unmap(enum apm_msg_type msg_type, struct apm_res_map_info *para)
 {
-    struct apm_msg_map_unmap msg;
+    struct apm_msg_map_unmap msg = {0};
     int ret;
 
     apm_msg_fill_header(&msg.header, msg_type);
@@ -82,6 +82,20 @@ static int apm_res_map_host_res_map_query(struct apm_res_map_info *para)
 
     return apm_res_map_host_res_map_unmap(APM_MSG_TYPE_MAP_QUERY, para);
 }
+
+int hal_kernel_apm_vma_check_register(enum drv_module_type type, vma_check_handle func)
+{
+    (void)type;
+    (void)func;
+    return 0;
+}
+KA_EXPORT_SYMBOL_GPL(hal_kernel_apm_vma_check_register);
+
+void hal_kernel_apm_vma_check_unregister(enum drv_module_type type)
+{
+    (void)type;
+}
+KA_EXPORT_SYMBOL_GPL(hal_kernel_apm_vma_check_unregister);
 
 static struct apm_task_res_map_ops host_task_res_map_ops = {
     .res_map = apm_res_map_host_res_map,

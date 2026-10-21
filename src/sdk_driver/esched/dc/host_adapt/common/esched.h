@@ -23,6 +23,7 @@
 #include "ka_hashtable_pub.h"
 #include "ka_list_pub.h"
 #include "ka_base_pub.h"
+#include "esched_event_common.h"
 
 #ifdef CFG_FEATURE_IDENTIFY_CP
 #include "dms/dms_devdrv_manager_comm.h"
@@ -41,9 +42,8 @@
 #include "esched_vf.h"
 #endif
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
 #include "esched_drv.h"
-#endif
+#include "esched_dc_adapt.h"
 
 #define SCHED_VALID 1
 #define SCHED_INVALID 0
@@ -55,27 +55,6 @@
 #define SCHED_SYSFS_PUBLISH_FROM_HW 1
 
 /* In event sched, the meaning of chip is the same as that of device.  */
-#ifdef CFG_FEATURE_EXTERNAL_CDEV
-
-#ifdef CFG_ENV_HOST
-#define SCHED_MAX_CHIP_NUM 2048 /* dc host */
-#else
-#define SCHED_MAX_CHIP_NUM 64 /* dc device */
-#endif
-
-#else
-
-#ifdef CFG_ENV_HOST
-#ifdef CFG_SOC_PLATFORM_CLOUD_V4
-#define SCHED_MAX_CHIP_NUM 65 /* helper host (Independent working mode) + host local virtual dev(64) */
-#else
-#define SCHED_MAX_CHIP_NUM 64
-#endif
-#else
-#define SCHED_MAX_CHIP_NUM 1
-#endif
-
-#endif
 
 #define SCHED_MAX_EVENT_TYPE_NUM EVENT_MAX_NUM // 64
 
@@ -111,23 +90,6 @@
 
 #define SCHED_PROC_HASH_TABLE_BIT 10U
 #define SCHED_PROC_HASH_TABLE_SIZE (0x00000001U << SCHED_PROC_HASH_TABLE_BIT)
-
-/* For efficient queue management, the follows Must be a power of two */
-#ifdef CFG_FEATURE_DEEPER_EVENT_QUE
-#define SCHED_NODE_EVENT_RES_NUM (1024 * 64)
-#define SCHED_CPU_EVENT_RES_NUM (1024 * 32)
-#define SCHED_PUBLISH_EVENT_QUE_DEPTH (1024 * 8)
-#else
-#if defined(CFG_FEATURE_HARDWARE_SCHED) && !defined(CFG_ENV_HOST)
-#define SCHED_NODE_EVENT_RES_NUM 1024
-#define SCHED_CPU_EVENT_RES_NUM 256
-#define SCHED_PUBLISH_EVENT_QUE_DEPTH (1024 * 2)
-#else
-#define SCHED_NODE_EVENT_RES_NUM (1024 * 8)
-#define SCHED_CPU_EVENT_RES_NUM (1024 * 2)
-#define SCHED_PUBLISH_EVENT_QUE_DEPTH (1024 * 16)
-#endif
-#endif
 
 #define SCHED_GROUP_EVENT_LIST_DEPTH 1024 /* non_sched event share the same list in group */
 
@@ -579,9 +541,7 @@ struct sched_cpu_ctx {
     struct sched_numa_node *node;
     struct sched_event *event_base;   /* for free mem of event ring in event_res */
     struct sched_event_que event_res; /* The events posted by this cpu, get event resources from here */
-#ifdef CFG_FEATURE_HARDWARE_SCHED
     struct topic_data_chan *topic_chan;
-#endif
     struct sched_cpu_sample *sample;
     struct sched_cpu_sched_trace *sched_trace;
 };
@@ -744,9 +704,7 @@ struct sched_numa_node {
     ka_mutex_t node_guard_work_mutex;
     struct sched_trace_record_info trace_record;
     struct sched_recv_msg_record curr_msg;
-#ifdef CFG_FEATURE_HARDWARE_SCHED
     struct sched_hard_res hard_res;
-#endif
     /* Priority grouped event list published to this node */
     struct sched_event_list published_event_list[SCHED_MAX_PROC_PRI_NUM][SCHED_MAX_EVENT_PRI_NUM];
     ka_atomic_t cur_event_num;
@@ -760,6 +718,11 @@ struct sched_numa_node {
 /* get cpu tick */
 static inline u64 sched_get_cur_cpu_tick(void)
 {
+#ifdef EMU_ST
+    struct timespec timestamp;
+    (void)clock_gettime(CLOCK_MONOTONIC, &timestamp);
+    return (unsigned long long)((timestamp.tv_sec * USEC_PER_SEC) + (timestamp.tv_nsec / NSEC_PER_USEC));
+#else
 #if defined(__arm__) || defined(__aarch64__) || defined(EVENT_SCHED_UT)
     u64 cnt = 0;
     SCHED_GET_CUR_SYSTEM_COUNTER(cnt);
@@ -768,6 +731,7 @@ static inline u64 sched_get_cur_cpu_tick(void)
     ka_timespec64_t timestamp;
     ka_system_ktime_get_ts64(&timestamp);
     return ((u64)timestamp.tv_sec * KA_USEC_PER_SEC) + ((u64)timestamp.tv_nsec / KA_NSEC_PER_USEC);
+#endif
 #endif
 }
 
@@ -915,33 +879,6 @@ static inline struct sched_proc_ctx *esched_chip_proc_get(u32 chip_id, int32_t p
     return esched_proc_get(node, pid);
 }
 
-static inline bool esched_dst_engine_is_local(u32 dst_engine)
-{
-#ifndef CFG_FEATURE_REMOTE_SUBMIT
-    if ((dst_engine == TS_CPU) || (dst_engine == DVPP_CPU)) {
-        return false;
-    }
-    return true;
-#else
-    if ((dst_engine == ACPU_LOCAL) || (dst_engine == CCPU_LOCAL)) {
-        return true;
-    }
-
-#ifndef CFG_ENV_HOST
-    if ((dst_engine == ACPU_DEVICE) || (dst_engine == CCPU_DEVICE) || (dst_engine == DCPU_DEVICE)) {
-        return true;
-    }
-#else
-    if ((dst_engine == ACPU_HOST) || (dst_engine == CCPU_HOST)) {
-        return true;
-    }
-#endif
-
-    /* set local flag false when dst_engine is TS_CPU or DVPP_CPU */
-    return false;
-#endif
-}
-
 static inline void esched_chip_proc_put(struct sched_proc_ctx *proc_ctx)
 {
     esched_proc_put(proc_ctx);
@@ -1070,7 +1007,6 @@ static inline struct sched_thread_ctx *esched_get_proc_thread_on_cpu(struct sche
 
 bool esched_log_limited(u32 type);
 u32 esched_get_dev_num(void);
-u32 esched_get_numa_node_num(void);
 u32 sched_get_previous_cpu_num(u32 chip_id);
 u32 esched_get_cpuid_in_node(u32 cpuid);
 int32_t sched_grp_add_thread(struct sched_grp_ctx *grp_ctx, u32 tid, u32 cpuid);
@@ -1089,9 +1025,8 @@ void esched_try_cond_resched_by_time(u32 *pre_stamp, u32 time_threshold);
 
 int32_t sched_grp_event_num_update(struct sched_grp_ctx *grp_ctx, u32 event_id);
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
 void esched_setup_dev_hw_ops(struct sched_dev_ops *ops);
-#endif
+
 struct sched_thread_ctx *sched_get_next_thread(struct sched_cpu_ctx *cpu_ctx);
 void sched_cpu_to_idle(struct sched_thread_ctx *thread_ctx, struct sched_cpu_ctx *cpu_ctx);
 void sched_check_sched_task(struct sched_numa_node *node);
@@ -1109,9 +1044,7 @@ extern bool sched_use_vf_cpu_handle_event(struct sched_numa_node *node, u32 vfid
 extern bool sched_vf_has_free_cpu(struct sched_vf_ctx *vf_ctx);
 extern struct sched_vf_ctx *sched_get_vf_ctx(struct sched_numa_node *node, u32 vfid);
 #endif
-#if defined(CFG_FEATURE_VFIO) || (defined(CFG_FEATURE_HARDWARE_MIA) && !defined(CFG_ENV_HOST))
 extern bool sched_is_cpu_belongs_to_vf(struct sched_numa_node *node, u32 vfid, struct sched_cpu_ctx *cpu_ctx);
-#endif
 bool sched_grp_can_handle_event(struct sched_grp_ctx *grp_ctx, struct sched_event *event);
 int32_t sched_publish_event_to_non_sched_grp(struct sched_event *event, struct sched_grp_ctx *grp_ctx);
 int32_t sched_non_sched_event_add_tail(struct sched_event_list *event_list, struct sched_event *event);
@@ -1173,5 +1106,8 @@ void sched_get_cpuid_in_node(struct sched_numa_node *node, u32 *cpuid);
 int32_t _sched_set_sched_cpu(struct sched_numa_node *node, struct sched_sched_cpu_mask *cpu_mask);
 void sched_vf_init(void);
 void sched_vf_uninit(void);
-
+int esched_uda_online_register(void);
+void esched_uda_online_unregister(void);
+void esched_vfio_mia_uninit(void);
+void esched_vfio_mia_init(void);
 #endif

@@ -222,6 +222,7 @@ struct devmm_update_heap_para {
     uint32_t heap_sub_type;
     uint32_t heap_idx;
     uint64_t heap_size;
+    uint32_t is_host_pin; /* 1: heap belongs to host_pin_heaps[], 0: belongs to heaps[] */
 };
 
 struct devmm_query_process_status_para {
@@ -394,6 +395,7 @@ struct devmm_mem_create_para {
     uint32_t pg_type;
     uint32_t mem_type;
     uint64_t pg_num;
+    uint64_t pa_pg_size; /* output */
 };
 
 struct devmm_mem_release_para {
@@ -404,6 +406,12 @@ struct devmm_mem_release_para {
     uint32_t handle_type;
 };
 
+/*
+ * Owner is the physical memory represented by the mapped handle. This flag only records the mapping relation;
+ * the owner's physical pages are mapped when its access is enabled later.
+ */
+#define DEVMM_VMM_MAP_FLAG_OWNER_NO_ACCESS (1ULL << 0)
+
 struct devmm_mem_map_para {
     uint64_t va;
     uint64_t size;
@@ -413,6 +421,8 @@ struct devmm_mem_map_para {
     uint32_t pg_type;
     uint32_t module_id; /* No actual use, just for handle verify. */
     uint64_t pg_num;    /* No actual use, just for handle verify. */
+    uint64_t vmm_map_flag;
+    uint64_t pa_pg_size; /* Source physical-memory granularity used by VMM access. */
 };
 
 struct devmm_mem_unmap_para {
@@ -459,12 +469,13 @@ struct devmm_mem_import_para {
     uint32_t share_phy_devid;        /* input */
     drv_mem_handle_type handle_type; /* input */
 
-    int id;             /* output */
-    uint32_t side;      /* output */
-    uint32_t module_id; /* output */
-    uint32_t pg_type;   /* output */
-    uint64_t pg_num;    /* output */
-    uint32_t mem_type;  /* output */
+    int id;              /* output */
+    uint32_t side;       /* output */
+    uint32_t module_id;  /* output */
+    uint32_t pg_type;    /* output */
+    uint64_t pg_num;     /* output */
+    uint32_t mem_type;   /* output */
+    uint64_t pa_pg_size; /* output */
 };
 
 struct devmm_mem_set_pid_para {
@@ -569,6 +580,11 @@ struct devmm_uvm_prefetch_batch_para {
     uint64_t flags;
 };
 #endif
+struct devmm_pagefault_info_ioctl_para {
+    u32 has_record;               /* [out] 1 = record exists, 0 = no record */
+    struct svmPagefaultInfo info; /* [out] pagefault failure info */
+};
+
 struct devmm_ioctl_arg {
     struct devmm_devid head;
     union {
@@ -660,6 +676,7 @@ struct devmm_ioctl_arg {
         struct devmm_uvm_prefetch_para uvm_prefetch_para;
         struct devmm_uvm_prefetch_batch_para uvm_prefetch_batch_para;
 #endif
+        struct devmm_pagefault_info_ioctl_para pagefault_info_para;
     } data;
 };
 
@@ -721,7 +738,7 @@ struct devmm_ioctl_arg {
 #define DEVMM_SVM_RESERVE_ADDR_INFO_QUERY _IOWR(DEVMM_SVM_MAGIC, 63, struct devmm_ioctl_arg)
 #define DEVMM_SVM_PREPARE_CLOSE_DEVICE _IOW(DEVMM_SVM_MAGIC, 64, struct devmm_ioctl_arg)
 #define DEVMM_SVM_MEMCPY_BATCH _IOW(DEVMM_SVM_MAGIC, 65, struct devmm_ioctl_arg)
-#define DEVMM_SVM_SOMA_POOL_CREATE _IOW(DEVMM_SVM_MAGIC, 66, struct devmm_ioctl_arg)
+#define DEVMM_SVM_SOMA_POOL_CREATE _IOWR(DEVMM_SVM_MAGIC, 66, struct devmm_ioctl_arg)
 #define DEVMM_SVM_SOMA_POOL_DESTROY _IOW(DEVMM_SVM_MAGIC, 67, struct devmm_ioctl_arg)
 #ifndef UVM_OPEN
 #define DEVMM_UVM_ALLOC _IOW(DEVMM_SVM_MAGIC, 68, struct devmm_ioctl_arg)
@@ -739,6 +756,8 @@ struct devmm_ioctl_arg {
 #define DEVMM_SVM_MEM_MAP_CAP _IOWR(DEVMM_SVM_MAGIC, 77, struct devmm_ioctl_arg)
 #define DEVMM_SVM_MEM_HANDLE_SET_ATTR _IOW(DEVMM_SVM_MAGIC, 78, struct devmm_ioctl_arg)
 #define DEVMM_SVM_MEM_HANDLE_GET_ATTR _IOWR(DEVMM_SVM_MAGIC, 79, struct devmm_ioctl_arg)
+#define DEVMM_SVM_PAGEFAULT_INFO_QUERY _IOWR(DEVMM_SVM_MAGIC, 80, struct devmm_ioctl_arg)
+#define DEVMM_SVM_PAGEFAULT_INFO_CLEAR _IOW(DEVMM_SVM_MAGIC, 81, struct devmm_ioctl_arg)
 
 #define DEVMM_SVM_CMD_USE_PRIVATE_MAX_CMD 100 /* above this svm process must inited */
 

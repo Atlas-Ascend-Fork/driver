@@ -33,7 +33,7 @@ STATIC int devmm_get_device_accounting_pids(u32 docker_id, u32 phy_devid, u32 vf
         return -EINVAL;
     }
     if (pids == NULL) {
-        devmm_drv_err("Pids are NULL.\n");
+        devmm_drv_err("Pids is NULL.\n");
         return -EINVAL;
     }
 

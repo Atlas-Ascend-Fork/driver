@@ -19,8 +19,7 @@ int dm_intf_register(DM_CB_S *cb, DM_INTF_S *intf);
 int dm_intf_deregister(DM_INTF_S *intf);
 int dm_send_req(DM_INTF_S *intf, DM_ADDR_ST *addr, unsigned int addr_len, const DM_MSG_ST *msg,
                 DM_MSG_CMD_HNDL_T rsp_hndl, const void *user_data, int data_len);
-int dm_send_rsp(DM_INTF_S *intf, DM_ADDR_ST *addr, unsigned int addr_len, const DM_MSG_ST *msg,
-                signed long seq_no);
+int dm_send_rsp(DM_INTF_S *intf, DM_ADDR_ST *addr, unsigned int addr_len, const DM_MSG_ST *msg, signed long seq_no);
 
 int dm_cmd_register(DM_CB_S *dm_cb, DM_MSG_CMD_HNDL_T hndl, DM_MSG_UNSUP_HNDL_T unsup_hndl, const void *user_data,
                     int data_len);

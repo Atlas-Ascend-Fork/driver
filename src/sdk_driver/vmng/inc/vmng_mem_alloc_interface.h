@@ -40,7 +40,7 @@
                             ka_get_module_id(HAL_MODULE_TYPE_VMNG, KA_SUB_MODULE_TYPE_0))
 #define vmng_mg_sp_alloc(size, sp_flags, spg_id) \
     ka_mg_sp_alloc(size, sp_flags, spg_id, ka_get_module_id(HAL_MODULE_TYPE_VMNG, KA_SUB_MODULE_TYPE_0))
-#define ka_mg_sp_free(addr, id) ka_mg_sp_free(addr, id, module_id)
+#define vmng_mg_sp_free(addr, id) ka_mg_sp_free(addr, id, ka_get_module_id(HAL_MODULE_TYPE_VMNG, KA_SUB_MODULE_TYPE_0))
 
 #define vmng_alloc_pages_exact(size, gfp_mask) \
     ka_alloc_pages_exact(size, gfp_mask, ka_get_module_id(HAL_MODULE_TYPE_VMNG, KA_SUB_MODULE_TYPE_0))

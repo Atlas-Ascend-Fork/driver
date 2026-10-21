@@ -25,7 +25,7 @@
 #include "bbox_adapt.h"
 #include "bbox_comm_adapt.h"
 
-#define TOP_HEAD_DUMP                            "bbox_info.txt"
+#define TOP_HEAD_DUMP "bbox_info.txt"
 
 #define PRINT_VALID_STR(str) (((str) != NULL) ? (str) : "UNKNOWN")
 
@@ -41,20 +41,17 @@ static inline s32 bbox_proxy_is_start_up(u16 type)
  * @param [in]  text:       buffer to write
  * @return      success: 0; fail: other
  */
-STATIC bbox_status bbox_ddr_dump_top_head(const struct rdr_top_head *head,
-                                     const char *log_path,
-                                     struct bbox_data_info *text)
+STATIC bbox_status bbox_ddr_dump_top_head(const struct rdr_top_head *head, const char *log_path,
+                                          struct bbox_data_info *text)
 {
     (void)bbox_data_reinit(text);
     bbox_status ret = bbox_data_print(text,
-                                   "product info:\n"
-                                   "==================================================\n"
-                                   "product version\t 0x%x\n"
-                                   "product name\t %s\n"
-                                   "area number\t 0x%x\n",
-                                   head->version,
-                                   (char *)(uintptr_t)head->product_name,
-                                   head->area_number);
+                                      "product info:\n"
+                                      "==================================================\n"
+                                      "product version\t 0x%x\n"
+                                      "product name\t %s\n"
+                                      "area number\t 0x%x\n",
+                                      head->version, (char *)(uintptr_t)head->product_name, head->area_number);
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return BBOX_FAILURE, "bbox_data_print top head info failed");
     ret = bbox_data_save_to_fs(text, log_path, TOP_HEAD_DUMP);
     BBOX_CHK_EXPR(ret != BBOX_SUCCESS, "save top head info failed");
@@ -68,42 +65,41 @@ STATIC bbox_status bbox_ddr_dump_top_head(const struct rdr_top_head *head,
  * @param [in]  text:    buffer to write
  * @return      success: 0; fail: other
  */
-STATIC bbox_status bbox_ddr_dump_base_info(const struct rdr_base_info *base_info,
-                                      const char *log_path,
-                                      struct bbox_data_info *text,
-                                      bool bcore)
+STATIC bbox_status bbox_ddr_dump_base_info(const struct rdr_base_info *base_info, const char *log_path,
+                                           struct bbox_data_info *text, bool bcore)
 {
     bbox_status ret;
     (void)bbox_data_reinit(text);
     if (bcore == true) {
         ret = bbox_data_print(text,
-                            "\ncore current info:\n"
-                            "==================================================\n"
-                            "exceptionId\t\t 0x%x\n"
-                            "dev\t\t 0x%x\n"
-                            "arg\t\t 0x%x\n"
-                            "core\t\t 0x%x\n"
-                            "eType\t\t 0x%x\n"
-                            "module\t\t %s\n"
-                            "desc\t\t %s\n"
-                            "date\t\t %s UTC\n",
-                            base_info->excepid, base_info->devid, base_info->arg,
-                            base_info->coreid, base_info->e_type,
-                            (char *)(uintptr_t)base_info->module, (char *)(uintptr_t)base_info->desc, base_info->date);
+                              "\ncore current info:\n"
+                              "==================================================\n"
+                              "exceptionId\t\t 0x%x\n"
+                              "dev\t\t 0x%x\n"
+                              "arg\t\t 0x%x\n"
+                              "core\t\t 0x%x\n"
+                              "eType\t\t 0x%x\n"
+                              "module\t\t %s\n"
+                              "desc\t\t %s\n"
+                              "date\t\t %s UTC\n",
+                              base_info->excepid, base_info->devid, base_info->arg, base_info->coreid,
+                              base_info->e_type, (char *)(uintptr_t)base_info->module,
+                              (char *)(uintptr_t)base_info->desc, base_info->date);
     } else {
         ret = bbox_data_print(text,
-                            "\ncurrent info:\n"
-                            "==================================================\n"
-                            "exceptionId\t\t 0x%x\n"
-                            "dev\t\t 0x%x\n"
-                            "arg\t\t 0x%x\n"
-                            "core\t\t 0x%x\n"
-                            "eType\t\t 0x%x\n"
-                            "module\t\t %s\n"
-                            "desc\t\t %s\n"
-                            "date\t\t %s UTC\n",
-                            base_info->excepid, base_info->devid, base_info->arg, base_info->coreid, base_info->e_type,
-                            (char *)(uintptr_t)base_info->module, (char *)(uintptr_t)base_info->desc, base_info->date);
+                              "\ncurrent info:\n"
+                              "==================================================\n"
+                              "exceptionId\t\t 0x%x\n"
+                              "dev\t\t 0x%x\n"
+                              "arg\t\t 0x%x\n"
+                              "core\t\t 0x%x\n"
+                              "eType\t\t 0x%x\n"
+                              "module\t\t %s\n"
+                              "desc\t\t %s\n"
+                              "date\t\t %s UTC\n",
+                              base_info->excepid, base_info->devid, base_info->arg, base_info->coreid,
+                              base_info->e_type, (char *)(uintptr_t)base_info->module,
+                              (char *)(uintptr_t)base_info->desc, base_info->date);
     }
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return BBOX_FAILURE, "bbox_data_print base info failed");
     ret = bbox_data_save_to_fs(text, log_path, TOP_HEAD_DUMP);
@@ -117,14 +113,15 @@ STATIC bbox_status bbox_ddr_dump_base_info(const struct rdr_base_info *base_info
  * @param [out] text:       buffer to write
  * @return      success: 0; fail: other
  */
-static inline bbox_status bbox_ddr_dump_define_exception(const struct rdr_log_buffer *log_buffer, struct bbox_data_info *text)
+static inline bbox_status bbox_ddr_dump_define_exception(const struct rdr_log_buffer *log_buffer,
+                                                         struct bbox_data_info *text)
 {
     const char *module = bbox_get_core_name(log_buffer->record_info.coreid);
     const char *reason = bbox_get_reboot_reason(log_buffer->record_info.e_type);
-    return bbox_data_print(text,
-        "system exception code[0x%08X]: Device[%d], ModuleName[%s], ExceptionReason[%s], TimeStamp [%s].\n",
-        log_buffer->record_info.excepid, log_buffer->record_info.devid,
-        PRINT_VALID_STR(module), PRINT_VALID_STR(reason), log_buffer->record_info.date);
+    return bbox_data_print(
+        text, "system exception code[0x%08X]: Device[%d], ModuleName[%s], ExceptionReason[%s], TimeStamp [%s].\n",
+        log_buffer->record_info.excepid, log_buffer->record_info.devid, PRINT_VALID_STR(module),
+        PRINT_VALID_STR(reason), log_buffer->record_info.date);
 }
 
 /**
@@ -133,12 +130,12 @@ static inline bbox_status bbox_ddr_dump_define_exception(const struct rdr_log_bu
  * @param [out] text:       buffer to write
  * @return      success: 0; fail: other
  */
-static inline bbox_status bbox_ddr_dump_undefine_exception(const struct rdr_log_buffer *log_buffer, struct bbox_data_info *text)
+static inline bbox_status bbox_ddr_dump_undefine_exception(const struct rdr_log_buffer *log_buffer,
+                                                           struct bbox_data_info *text)
 {
-    return bbox_data_print(text,
-        "system undefined exception code[0x%08X]: Device[%d], Arg[0x%x], TimeStamp[%s].\n",
-        log_buffer->record_info.excepid, log_buffer->record_info.devid,
-        log_buffer->record_info.arg, log_buffer->record_info.date);
+    return bbox_data_print(text, "system undefined exception code[0x%08X]: Device[%d], Arg[0x%x], TimeStamp[%s].\n",
+                           log_buffer->record_info.excepid, log_buffer->record_info.devid, log_buffer->record_info.arg,
+                           log_buffer->record_info.date);
 }
 
 /**
@@ -147,14 +144,15 @@ static inline bbox_status bbox_ddr_dump_undefine_exception(const struct rdr_log_
  * @param [out] text:       buffer to write
  * @return      success: 0; fail: other
  */
-static inline bbox_status bbox_ddr_dump_reset_exception(const struct rdr_log_buffer *log_buffer, struct bbox_data_info *text)
+static inline bbox_status bbox_ddr_dump_reset_exception(const struct rdr_log_buffer *log_buffer,
+                                                        struct bbox_data_info *text)
 {
     const char *module = bbox_get_core_name(log_buffer->record_info.coreid);
     const char *reason = bbox_get_reboot_reason(log_buffer->record_info.e_type);
-    return bbox_data_print(text,
-        "system recovery code[0x%08X]: Device[%d], ModuleName[%s], ExceptionReason[%s], TimeStamp [%s].\n",
-        log_buffer->record_info.excepid, log_buffer->record_info.devid,
-        PRINT_VALID_STR(module), PRINT_VALID_STR(reason), log_buffer->record_info.date);
+    return bbox_data_print(
+        text, "system recovery code[0x%08X]: Device[%d], ModuleName[%s], ExceptionReason[%s], TimeStamp [%s].\n",
+        log_buffer->record_info.excepid, log_buffer->record_info.devid, PRINT_VALID_STR(module),
+        PRINT_VALID_STR(reason), log_buffer->record_info.date);
 }
 
 /**
@@ -164,27 +162,25 @@ static inline bbox_status bbox_ddr_dump_reset_exception(const struct rdr_log_buf
  * @param [in]  text:     buffer to write
  * @return      success: 0; fail: other
  */
-STATIC bbox_status bbox_ddr_dump_log_info(const struct rdr_log_info *info,
-                                     const char *log_path,
-                                     struct bbox_data_info *text,
-                                     bool bcore)
+STATIC bbox_status bbox_ddr_dump_log_info(const struct rdr_log_info *info, const char *log_path,
+                                          struct bbox_data_info *text, bool bcore)
 {
     bbox_status ret;
     (void)bbox_data_reinit(text);
     if (bcore == true) {
         ret = bbox_data_print(text,
-                            "\ncore log info (UTC time):\n"
-                            "==================================================\n"
-                            "event flag\t %u\n"
-                            "log num\t\t %u\n",
-                            info->event_flag, info->log_num);
+                              "\ncore log info (UTC time):\n"
+                              "==================================================\n"
+                              "event flag\t %u\n"
+                              "log num\t\t %u\n",
+                              info->event_flag, info->log_num);
     } else {
         ret = bbox_data_print(text,
-                            "\nlog info (UTC time):\n"
-                            "==================================================\n"
-                            "event flag\t %u\n"
-                            "log num\t\t %u\n",
-                            info->event_flag, info->log_num);
+                              "\nlog info (UTC time):\n"
+                              "==================================================\n"
+                              "event flag\t %u\n"
+                              "log num\t\t %u\n",
+                              info->event_flag, info->log_num);
     }
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return BBOX_FAILURE, "bbox_data_print rdr log info failed");
     ret = bbox_data_save_to_fs(text, log_path, TOP_HEAD_DUMP);
@@ -209,8 +205,8 @@ STATIC bbox_status bbox_ddr_dump_log_info(const struct rdr_log_info *info,
             ret = bbox_data_save_to_fs(text, log_path, TOP_HEAD_DUMP);
         }
 
-        BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return BBOX_FAILURE,
-            "save log(%d) failed", (s32)info->log_buffer[next].record_type);
+        BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return BBOX_FAILURE, "save log(%d) failed",
+                           (s32)info->log_buffer[next].record_type);
         next++;
         next %= RDR_LOG_BUFFER_NUM;
     }
@@ -230,9 +226,8 @@ STATIC bbox_status bbox_ddr_dump_areas(const struct rdr_area_info *info, const c
     bbox_status ret = bbox_data_init(&buf, (size_t)TMP_BUFF_B_LEN);
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return BBOX_FAILURE, "bbox_data_init areas info failed.");
 
-    ret = bbox_data_print(&buf,
-                        "\narea info:\n"
-                        "==================================================\n");
+    ret = bbox_data_print(&buf, "\narea info:\n"
+                                "==================================================\n");
     if (ret != BBOX_SUCCESS) {
         (void)bbox_data_clear(&buf);
         BBOX_ERR_CTRL(BBOX_ERR, return BBOX_FAILURE, "bbox_data_print areas info failed");
@@ -242,11 +237,9 @@ STATIC bbox_status bbox_ddr_dump_areas(const struct rdr_area_info *info, const c
     s32 i;
     for (i = 0; i < RDR_AREA_MAXIMUM; i++) {
         if (bbox_core_id_valid(info[i].coreid)) {
-            ret = bbox_data_print(&buf,
-                                "%-15s\t offset:0x%llx\t length:0x%x\n",
-                                bbox_get_core_name(info[i].coreid),
-                                bbox_address_mask(info[i].offset),
-                                info[i].length);
+            ret = bbox_data_print(&buf, "%-15s\t offset:0x%llx\t length:0x%x\n",
+                                  PRINT_VALID_STR(bbox_get_core_name(info[i].coreid)),
+                                  bbox_address_mask(info[i].offset), info[i].length);
             if (ret != BBOX_SUCCESS) {
                 (void)bbox_data_clear(&buf);
                 BBOX_ERR_CTRL(BBOX_ERR, return BBOX_FAILURE, "bbox_data_print areas item failed");
@@ -307,8 +300,7 @@ STATIC void bbox_ddr_dump_rdr(const struct rdr_head *head, const char *log_path)
  */
 bool bbox_ddr_dump_check(const struct rdr_head *head)
 {
-    return ((head != NULL) &&
-            (head->top_head.magic == FILE_MAGIC));
+    return ((head != NULL) && (head->top_head.magic == FILE_MAGIC));
 }
 
 /**
@@ -350,7 +342,10 @@ STATIC bbox_status bbox_parse_ddr_dump_info(s32 b_index, const buff *buffer, str
 {
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(ddr_info, return BBOX_FAILURE);
-    BBOX_CHK_INVALID_PARAM(b_index >= BBOX_MODULE_CTRL_NUM, return BBOX_FAILURE, "%d", b_index);
+    if (b_index >= BBOX_MODULE_CTRL_NUM) {
+        BBOX_ERR("b_index out of range. (b_index=%d, max_num=%d)", b_index, BBOX_MODULE_CTRL_NUM);
+        return BBOX_FAILURE;
+    }
 
     bbox_status ret = BBOX_FAILURE;
     u32 magic = bbox_get_magic(buffer);
@@ -422,7 +417,8 @@ STATIC bbox_status bbox_ddr_dump_data(const char *log_path, u8 coreid, const buf
         if ((ddr_info.len > 0) && (((u64)ddr_info.offset + (u64)ddr_info.len) <= (u64)length)) {
             enum plain_text_table_type type;
             const void *addr = (const void *)(&((const char *)buffer)[ddr_info.offset]);
-            enum data_parse_type data_parse_type = (ddr_info.is_start_up == BBOX_TRUE) ? STARTUP_DATA_TYPE : NORMAL_DATA_TYPE;
+            enum data_parse_type data_parse_type = (ddr_info.is_start_up == BBOX_TRUE) ? STARTUP_DATA_TYPE :
+                                                                                         NORMAL_DATA_TYPE;
             type = bbox_plaintext_get_type(coreid, data_parse_type);
             bbox_plain_text_header(log_path, type, buffer, i);
             err = bbox_plaintext_data(log_path, type, addr, ddr_info.len);
@@ -508,7 +504,7 @@ STATIC s32 bbox_ddr_dump_get_dp(const char *log_path, const buff *buffer, u32 le
 {
     u32 magic = bbox_get_magic(buffer);
     if (magic != DP_MAGIC) {
-        BBOX_INF("os kbox magic[0x%x] invalid, do not parse", magic);
+        BBOX_WAR("os kbox magic[0x%x] invalid, do not parse", magic);
         return BBOX_SUCCESS;
     }
     return bbox_plaintext_data(log_path, PLAINTEXT_TABLE_DP, buffer, length);
@@ -525,7 +521,7 @@ STATIC bbox_status bbox_ddr_dump_get_aos_linux(const char *log_path, const buff 
 {
     u32 magic = bbox_get_magic(buffer);
     if (magic != DP_MAGIC) {
-        BBOX_INF("os kbox magic[0x%x] invalid, do not parse", magic);
+        BBOX_WAR("os kbox magic[0x%x] invalid, do not parse", magic);
         return BBOX_SUCCESS;
     }
     return bbox_plaintext_data(log_path, PLAINTEXT_TABLE_AOS_LINUX, buffer, length);
@@ -542,7 +538,7 @@ STATIC bbox_status bbox_ddr_dump_get_aos_core(const char *log_path, const buff *
 {
     u32 magic = bbox_get_magic(buffer);
     if (magic != DP_MAGIC) {
-        BBOX_INF("aos-core kbox magic[0x%x] invalid, do not parse", magic);
+        BBOX_WAR("aos-core kbox magic[0x%x] invalid, do not parse", magic);
         return BBOX_SUCCESS;
     }
     return bbox_plaintext_data(log_path, PLAINTEXT_TABLE_AOS_CORE, buffer, length);
@@ -663,8 +659,8 @@ s32 bbox_ddr_dump_module(u8 core_id, const u8 *data, u32 len, const char *path)
     BBOX_CHK_NULL_PTR(path, return BBOX_FAILURE);
 
     bbox_status ret = bbox_age_add_folder(path, DIR_BBOXDUMP, bbox_path, DIR_MAXLEN);
-    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE,
-        "path add failed(%d), %s/%s", ret, path, DIR_BBOXDUMP);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s", ret, path,
+                         DIR_BBOXDUMP);
     return bbox_ddr_dump_get_module(bbox_path, core_id, data, len);
 }
 
@@ -693,15 +689,14 @@ STATIC void bbox_ddr_dump_modules(const struct rdr_head *head, u32 len, const ch
     }
 
     if (ap == 0) {
-        BBOX_WAR("no get ap ddr addr.");
+        BBOX_WAR("Ap ddr addr is not obtained.");
         return;
     }
 
     aproot = (const struct ap_root_info *)((uintptr_t)head + RDR_BASEINFO_SIZE);
     for (i = 0; i < RDR_AREA_MAXIMUM; i++) {
         u8 coreid = head->area_info[i].coreid;
-        if (bbox_core_id_valid(coreid) &&
-            (head->area_info[i].offset > ap) &&
+        if (bbox_core_id_valid(coreid) && (head->area_info[i].offset > ap) &&
             ((head->area_info[i].offset - ap) < (len - RDR_BASEINFO_SIZE))) {
             const u8 *vaddr = (const u8 *)(&((const char *)aproot)[head->area_info[i].offset - ap]);
             (void)bbox_ddr_dump_get_module(log_path, coreid, vaddr, head->area_info[i].length);
@@ -724,18 +719,19 @@ bbox_status bbox_ddr_dump(const buff *buffer, u32 len, const char *log_path)
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(log_path, return BBOX_FAILURE);
     BBOX_CHK_EXPR_ACTION((len < (RDR_BASEINFO_SIZE + sizeof(struct ap_root_info))), return BBOX_FAILURE,
-                         "invalid param, length[%u].", len);
+                         "invalid param, length[%u], min_size[%u].", len,
+                         (u32)(RDR_BASEINFO_SIZE + sizeof(struct ap_root_info)));
 
     const struct rdr_head *head = (const struct rdr_head *)buffer;
     if (!bbox_ddr_dump_check(head)) {
-        BBOX_ERR("magic(0x%x) and version(0x%x) is wrong", head->top_head.magic, head->top_head.version);
+        BBOX_ERR("magic(0x%x) and version(0x%x) are wrong", head->top_head.magic, head->top_head.version);
         return BBOX_FAILURE;
     }
 
     // 1.create ddrdump path
     bbox_status ret = bbox_age_add_folder(log_path, DIR_BBOXDUMP, bbox_path, DIR_MAXLEN);
-    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE,
-        "path add failed(%d), %s/%s.", ret, bbox_path, DIR_BBOXDUMP);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s.", ret, bbox_path,
+                         DIR_BBOXDUMP);
 
     // 2.dump bbox data
     bbox_ddr_dump_rdr(head, bbox_path);
@@ -743,8 +739,8 @@ bbox_status bbox_ddr_dump(const buff *buffer, u32 len, const char *log_path)
     // 3.dump ap data
     const void *ap = (const void *)(&((const char *)buffer)[RDR_BASEINFO_SIZE]);
     ret = bbox_age_add_folder(bbox_path, DIR_AP, path, DIR_MAXLEN);
-    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE,
-        "path add failed(%d), %s/%s.", ret, path, DIR_BBOXDUMP);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s.", ret, path,
+                         DIR_BBOXDUMP);
     bbox_ddr_dump_ap((const struct ap_root_info *)ap, (len - RDR_BASEINFO_SIZE), (const char *)path);
 
     // 4.dump module log files
@@ -779,8 +775,7 @@ bbox_status bbox_ddr_dump_joint_dump(const buff *current, buff *out, u64 len)
 
     // joint module information
     for (i = 0; i < RDR_AREA_MAXIMUM; i++) {
-        if (bbox_core_id_valid(rdr->area_info[i].coreid) &&
-            (rdr->area_info[i].offset > ap) &&
+        if (bbox_core_id_valid(rdr->area_info[i].coreid) && (rdr->area_info[i].offset > ap) &&
             ((rdr->area_info[i].offset - ap) < (len - RDR_BASEINFO_SIZE))) {
             u64 offset = RDR_BASEINFO_SIZE + rdr->area_info[i].offset - ap;
             s32 ret = memcpy_s((void *)(&((char *)out)[offset]), (u32)(len - offset),
@@ -803,13 +798,13 @@ bbox_status bbox_hdr_dump(const buff *buffer, u32 len, const char *log_path)
     const u32 hdr_size = 0x80000; // 512k
     BBOX_CHK_NULL_PTR(log_path, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
-    BBOX_CHK_EXPR_ACTION(len != hdr_size, return BBOX_FAILURE,
-        "data len invalid, now is %u, at least %u bytes.", len, hdr_size);
+    BBOX_CHK_EXPR_ACTION(len != hdr_size, return BBOX_FAILURE, "data len invalid, now is %u, at least %u bytes.", len,
+                         hdr_size);
 
     char path[DIR_MAXLEN] = {0};
     bbox_status ret = bbox_age_add_folder(log_path, DIR_SNAPSHOT, path, DIR_MAXLEN);
-    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE,
-        "path add failed(%d), %s/%s", ret, log_path, DIR_SNAPSHOT);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s", ret, log_path,
+                         DIR_SNAPSHOT);
 
     return bbox_plaintext_data(path, PLAINTEXT_TABLE_HDR, buffer, hdr_size);
 }
@@ -826,12 +821,12 @@ bbox_status bbox_cdr_full_dump(enum plain_text_table_type type, const buff *buff
     BBOX_CHK_NULL_PTR(log_path, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
     BBOX_CHK_EXPR_ACTION(len > CDR_DDR_DATA_MAX_LEN, return BBOX_FAILURE,
-        "data len invalid, %u bytes, out of range[1 - %d].", len, (int)CDR_DDR_DATA_MAX_LEN);
+                         "data len invalid, %u bytes, out of range[1 - %d].", len, (int)CDR_DDR_DATA_MAX_LEN);
 
     char path[DIR_MAXLEN] = {0};
     bbox_status ret = bbox_age_add_folder(log_path, DIR_MNTN, path, DIR_MAXLEN);
-    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE,
-        "path add failed(%d), %s/%s", ret, log_path, DIR_MNTN);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s", ret, log_path,
+                         DIR_MNTN);
 
     return bbox_plaintext_data((const char *)path, type, buffer, len);
 }
@@ -846,12 +841,12 @@ bbox_status bbox_cdr_min_dump(enum plain_text_table_type type, const buff *buffe
     BBOX_CHK_NULL_PTR(log_path, return BBOX_FAILURE);
     BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
     BBOX_CHK_EXPR_ACTION(len > CDR_SRAM_DATA_MAX_LEN, return BBOX_FAILURE,
-        "data len invalid, %u bytes, out of range[1 - %d].", len, (int)CDR_SRAM_DATA_MAX_LEN);
+                         "data len invalid, %u bytes, out of range[1 - %d].", len, (int)CDR_SRAM_DATA_MAX_LEN);
 
     char path[DIR_MAXLEN] = {0};
     bbox_status ret = bbox_age_add_folder(log_path, DIR_MNTN, path, DIR_MAXLEN);
-    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE,
-        "path add failed(%d), %s/%s", ret, log_path, DIR_MNTN);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s", ret, log_path,
+                         DIR_MNTN);
 
     return bbox_plaintext_data((const char *)path, type, buffer, len);
 }
@@ -890,8 +885,21 @@ bbox_status bbox_slog_dump(enum plain_text_table_type type, const buff *buffer, 
     BBOX_CHK_EXPR_ACTION(ret == -1, return BBOX_FAILURE, "sprintf_s failed with %d.", ret);
 
     ret = bbox_age_add_folder(log_path, folder, path, DIR_MAXLEN);
-    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE,
-        "path add failed(%d), %s/%s", ret, log_path, DIR_MNTN);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s", ret, log_path,
+                         DIR_MNTN);
+
+    return bbox_plaintext_data((const char *)path, type, buffer, len);
+}
+
+bbox_status bbox_cdr_clink_dump(enum plain_text_table_type type, const buff *buffer, u32 len, const char *log_path)
+{
+    BBOX_CHK_NULL_PTR(log_path, return BBOX_FAILURE);
+    BBOX_CHK_NULL_PTR(buffer, return BBOX_FAILURE);
+
+    char path[DIR_MAXLEN] = {0};
+    bbox_status ret = bbox_age_add_folder(log_path, DIR_MNTN, path, DIR_MAXLEN);
+    BBOX_CHK_EXPR_ACTION(ret != BBOX_SUCCESS, return BBOX_FAILURE, "path add failed(%d), %s/%s", ret, log_path,
+                         DIR_MNTN);
 
     return bbox_plaintext_data((const char *)path, type, buffer, len);
 }

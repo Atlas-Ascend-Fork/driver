@@ -12,15 +12,27 @@
  */
 #include "ka_task_pub.h"
 #include "ka_memory_pub.h"
+#include "securec.h"
 
 #include "pbl/pbl_soc_res.h"
-#include "stars_notify_tbl_c_union_define.h"
 #include "trs_pub_def.h"
 #include "trs_stars_comm.h"
 #include "stars_notify_tbl.h"
 
-static volatile StarsNotifyTblRegsType *stars_notify_table_ns_all_reg[TRS_DEV_MAX_NUM][TRS_TS_MAX_NUM] = {NULL};
 static KA_TASK_DEFINE_RWLOCK(notify_table_all_reg_lock);
+static volatile void *stars_notify_table_ns_all_reg[TRS_DEV_MAX_NUM][TRS_TS_MAX_NUM] = {NULL};
+static struct stars_notify_tbl_ops *notify_tbl_ops[TRS_DEV_MAX_NUM] = {NULL};
+
+void trs_notify_tbl_set_ops(u32 devid, struct stars_notify_tbl_ops *ops)
+{
+    notify_tbl_ops[devid] = ops;
+}
+
+void trs_notify_tbl_clear_ops(u32 devid)
+{
+    notify_tbl_ops[devid] = NULL;
+}
+
 int trs_init_notify_tbl_ns_base_addr(struct trs_id_inst *inst)
 {
     struct soc_reg_base_info io_base;
@@ -61,55 +73,43 @@ void trs_uninit_notify_tbl_ns_base_addr(struct trs_id_inst *inst)
     }
 }
 
-static StarsNotifyTableSlice *trs_get_notify_table(struct trs_id_inst *inst, u32 id)
-{
-    StarsNotifyTblRegsType *tbl_info = (StarsNotifyTblRegsType *)stars_notify_table_ns_all_reg[inst->devid][inst->tsid];
-
-    if (tbl_info != NULL) {
-        return trs_get_stars_notify_tab_slice(tbl_info, id);
-    }
-
-    return NULL;
-}
-
 int trs_stars_get_notify_tbl_flag(struct trs_id_inst *inst, u32 id)
 {
-    StarsNotifyTableSlice *slice = NULL;
+    struct stars_notify_tbl_ops *ops = notify_tbl_ops[inst->devid];
+    void *tbl_info = NULL;
     int tbl_flag = KA_INT_MAX;
 
     ka_task_read_lock(&notify_table_all_reg_lock);
-    slice = trs_get_notify_table(inst, id);
-    if (slice != NULL) {
-        tbl_flag = (int)(slice->bits.notifyTableFlagSlice);
+    tbl_info = (void *)stars_notify_table_ns_all_reg[inst->devid][inst->tsid];
+    if ((ops != NULL) && (ops->get_flag != NULL) && (tbl_info != NULL)) {
+        tbl_flag = ops->get_flag(tbl_info, id);
     }
     ka_task_read_unlock(&notify_table_all_reg_lock);
-
     return tbl_flag;
 }
 
 void trs_stars_set_notify_tbl_flag(struct trs_id_inst *inst, u32 id, u32 status)
 {
-    StarsNotifyTableSlice *slice = NULL;
-    u32 read_status = 0;
+    struct stars_notify_tbl_ops *ops = notify_tbl_ops[inst->devid];
+    void *tbl_info = NULL;
 
     ka_task_read_lock(&notify_table_all_reg_lock);
-    slice = trs_get_notify_table(inst, id);
-    if (slice != NULL) {
-        slice->bits.notifyTableFlagSlice = status;
-        read_status = slice->bits.notifyTableFlagSlice;
+    tbl_info = (void *)stars_notify_table_ns_all_reg[inst->devid][inst->tsid];
+    if ((ops != NULL) && (ops->set_flag != NULL) && (tbl_info != NULL)) {
+        ops->set_flag(tbl_info, id, status);
     }
     ka_task_read_unlock(&notify_table_all_reg_lock);
-    trs_debug("Read after clear. (id=%u; read_status=%u; status=%u)\n", id, read_status, status);
 }
 
 void trs_stars_set_notify_tbl_pending_clr(struct trs_id_inst *inst, u32 id, u32 status)
 {
-    StarsNotifyTableSlice *slice = NULL;
+    struct stars_notify_tbl_ops *ops = notify_tbl_ops[inst->devid];
+    void *tbl_info = NULL;
 
     ka_task_read_lock(&notify_table_all_reg_lock);
-    slice = trs_get_notify_table(inst, id);
-    if (slice != NULL) {
-        slice->bits.notifyTablePendingClrSlice = status;
+    tbl_info = (void *)stars_notify_table_ns_all_reg[inst->devid][inst->tsid];
+    if ((ops != NULL) && (ops->set_pending_clr != NULL) && (tbl_info != NULL)) {
+        ops->set_pending_clr(tbl_info, id, status);
     }
     ka_task_read_unlock(&notify_table_all_reg_lock);
 }

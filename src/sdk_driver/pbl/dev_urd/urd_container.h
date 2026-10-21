@@ -11,7 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
 #ifndef URD_CONTAINER_H
 #define URD_CONTAINER_H
 

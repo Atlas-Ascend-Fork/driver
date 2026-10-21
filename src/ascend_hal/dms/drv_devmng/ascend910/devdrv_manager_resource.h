@@ -15,8 +15,10 @@
 #include "devdrv_user_common.h"
 
 drvError_t drv_get_memory_info(uint32_t devId, int32_t info_type, void *buf, unsigned int *size);
-drvError_t drv_get_svm_vdev_info_cmd(unsigned int dev_id, unsigned int main_cmd,
-    unsigned int sub_cmd, void *buf, unsigned int *size);
+drvError_t drv_get_svm_vdev_info_cmd(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                     unsigned int *size);
 drvError_t drv_get_ts_drv_dev_com_info(struct tsdrv_dev_com_info *dev_com_info);
+
+drvError_t drv_get_memory_info_ex(uint32_t devId, int32_t info_type, int64_t *value);
 
 #endif /* DEVDRV_MANAGER_RESOURCE_H */

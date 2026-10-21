@@ -33,9 +33,10 @@ STATIC int dms_host_high_pri_notifier_init(u32 udevid)
     *(u32 *)dev_manager_msg_info.payload = udevid;
 
     ret = devdrv_common_msg_send(udevid, (void *)&dev_manager_msg_info, sizeof(struct devdrv_manager_msg_info),
-        sizeof(struct devdrv_manager_msg_info), (u32 *)&out_len, DEVDRV_COMMON_MSG_DEVDRV_MANAGER);
+                                 sizeof(struct devdrv_manager_msg_info), (u32 *)&out_len,
+                                 DEVDRV_COMMON_MSG_DEVDRV_MANAGER);
     if (ret != 0) {
-        dms_err("Send msg fail. (dev_id=%u; ret=%d)\n", udevid, ret);
+        dms_err("Send msg failed. (dev_id=%u; ret=%d)\n", udevid, ret);
         return -EAGAIN;
     }
     if (out_len != sizeof(struct devdrv_manager_msg_head)) {
@@ -43,7 +44,7 @@ STATIC int dms_host_high_pri_notifier_init(u32 udevid)
         return -EAGAIN;
     }
     if (dev_manager_msg_info.header.result != 0) {
-        dms_err("Send msg header result fail. (dev_id=%u; result=%u)\n", udevid, dev_manager_msg_info.header.result);
+        dms_err("Send msg header result failed. (dev_id=%u; result=%u)\n", udevid, dev_manager_msg_info.header.result);
         return -EAGAIN;
     }
     return 0;
@@ -65,7 +66,7 @@ STATIC int dms_host_low_pri_notifier_init(u32 udevid)
                                  sizeof(struct devdrv_manager_msg_info), (u32 *)&out_len,
                                  DEVDRV_COMMON_MSG_DEVDRV_MANAGER);
     if (ret != 0) {
-        dms_err("Send msg fail. (dev_id=%u; ret=%d)\n", udevid, ret);
+        dms_err("Send msg failed. (dev_id=%u; ret=%d)\n", udevid, ret);
         return -EAGAIN;
     }
     if (out_len != sizeof(struct devdrv_manager_msg_head)) {
@@ -73,7 +74,7 @@ STATIC int dms_host_low_pri_notifier_init(u32 udevid)
         return -EAGAIN;
     }
     if (dev_manager_msg_info.header.result != 0) {
-        dms_err("Send msg header result fail. (dev_id=%u; result=%u)\n", udevid, dev_manager_msg_info.header.result);
+        dms_err("Send msg header result failed. (dev_id=%u; result=%u)\n", udevid, dev_manager_msg_info.header.result);
         return -EAGAIN;
     }
     return 0;
@@ -140,7 +141,7 @@ STATIC int dms_host_notify_ready_init(void)
 }
 DECLAER_FEATURE_AUTO_INIT(dms_host_notify_ready_init, FEATURE_LOADER_STAGE_5);
 
-STATIC void dms_host_notify_ready_exit(void)
+STATIC void dms_host_notify_ready_uninit(void)
 {
     struct uda_dev_type type;
 
@@ -149,4 +150,4 @@ STATIC void dms_host_notify_ready_exit(void)
     (void)uda_notifier_unregister(DMS_HOST_NOTIFIER_LOW_PRI, &type);
     (void)uda_notifier_unregister(DMS_HOST_NOTIFIER_HIGH_PRI, &type);
 }
-DECLAER_FEATURE_AUTO_UNINIT(dms_host_notify_ready_exit, FEATURE_LOADER_STAGE_5);
+DECLAER_FEATURE_AUTO_UNINIT(dms_host_notify_ready_uninit, FEATURE_LOADER_STAGE_5);

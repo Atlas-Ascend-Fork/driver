@@ -7,14 +7,29 @@
  * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
  * See LICENSE in the root of the software repository for the full text of the License.
  */
+#include <limits>
+
 #include "adx_common_component.h"
 #include "adx_log.h"
 #include "extra_config.h"
 namespace Adx {
+static_assert(sizeof(MsgProto) <= std::numeric_limits<uint32_t>::max(), "MsgProto header length overflow");
+static constexpr uint32_t MSG_PROTO_HEADER_LEN = static_cast<uint32_t>(sizeof(MsgProto));
+
+static bool GetProcessLength(uint32_t sliceLen, uint32_t &processLen)
+{
+    if (sliceLen > (std::numeric_limits<uint32_t>::max() - MSG_PROTO_HEADER_LEN)) {
+        IDE_LOGE("Message length invalid. (sliceLen=%u)", sliceLen);
+        return false;
+    }
+    processLen = sliceLen + MSG_PROTO_HEADER_LEN;
+    return true;
+}
+
 int32_t AdxCommonComponent::Init()
 {
     IDE_CTRL_VALUE_WARN(init_ != nullptr, return IDE_DAEMON_ERROR, "common component %d null init",
-        static_cast<int32_t>(componentType_));
+                        static_cast<int32_t>(componentType_));
     return init_();
 }
 
@@ -31,14 +46,18 @@ ComponentType AdxCommonComponent::GetType()
 int32_t AdxCommonComponent::Process(const CommHandle &handle, const SharedPtr<MsgProto> &proto)
 {
     IDE_CTRL_VALUE_FAILED(process_ != nullptr, return IDE_DAEMON_ERROR, "common component %d process error",
-        static_cast<int32_t>(componentType_));
-    return process_(&handle, proto.get(), sizeof(MsgProto) + proto->sliceLen);
+                          static_cast<int32_t>(componentType_));
+    uint32_t processLen = 0;
+    if (!GetProcessLength(proto->sliceLen, processLen)) {
+        return IDE_DAEMON_ERROR;
+    }
+    return process_(&handle, proto.get(), processLen);
 }
 
 int32_t AdxCommonComponent::UnInit()
 {
     IDE_CTRL_VALUE_WARN(uninit_ != nullptr, return IDE_DAEMON_ERROR, "common component %d null uninit",
-        static_cast<int32_t>(componentType_));
+                        static_cast<int32_t>(componentType_));
     return uninit_();
 }
 
@@ -53,4 +72,4 @@ AdxCommonComponent::~AdxCommonComponent()
     process_ = nullptr;
     uninit_ = nullptr;
 }
-}
+} // namespace Adx

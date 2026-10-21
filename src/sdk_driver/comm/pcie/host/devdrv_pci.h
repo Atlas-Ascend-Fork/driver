@@ -26,6 +26,8 @@
 #include "securec.h"
 #include "devdrv_feature.h"
 #include "devdrv_adapt.h"
+#include "devdrv_vpc.h"
+#include "devdrv_pasid_rbtree.h"
 
 #define PCI_VENDOR_ID_HUAWEI 0x19e5
 #define PCI_VENDOR_ID_HX 0x2092
@@ -41,6 +43,8 @@
 #define CLOUD_V4_DEVICE 0xd806
 #define CLOUD_V5_DEVICE 0xd807
 #define MINI_V4_DEVICE 0xd808
+#define MINI_V5_DEVICE 0xd200
+#define CLOUD_V6_DEVICE 0xd809
 
 #define DEVDRV_RC_MSI_ADDR 0x820
 #define DEVDRV_RC_MSI_UPPER_ADDR 0x824
@@ -476,5 +480,129 @@ void drv_pcie_remove(ka_pci_dev_t *pdev);
 void devdrv_init_hccs_link_info(struct devdrv_pci_ctrl *pci_ctrl);
 void devdrv_shr_para_rebuild(struct devdrv_pci_ctrl *pci_ctrl);
 void devdrv_pre_cfg(struct devdrv_pci_ctrl *pci_ctrl);
+int devdrv_add_davinci_dev(struct devdrv_pci_ctrl *pci_ctrl);
+int devdrv_remove_davinci_dev(struct devdrv_pci_ctrl *pci_ctrl);
+int devdrv_init_interrupt(struct devdrv_pci_ctrl *pci_ctrl);
+int devdrv_notify_uda_remove(struct devdrv_pci_ctrl *pci_ctrl);
+
+/*****************************************************************************************
+ * is_mdev_vf_pm                      : computing group virtual machine PM mode, include mdev full spec vf pm.
+ * is_mdev_vf_vm                      : computing group virtual machine VM mode, include mdev full spec vf vm.
+ * is_p2p_access_cap_supported        : P2P access capability is supported.
+ * is_guard_work_supported            : the DMA copy fallback mechanism is supported to prevent interrupt loss.
+ * mdev_pm_init                       : computing group virtual machine PM mode initialization.
+ * mdev_pm_uninit                     : computing group virtual machine PM mode deinitialization.
+ * mdev_vm_init                       : computing group virtual machine VM mode initialization.
+ * mdev_vm_uninit                     : computing group virtual machine VM mode deinitialization.
+ * add_davinci_dev                    : add davinci dev. In the computing group virtual machine, PM mode only performs
+ *                                      DMA operations and does not require add davinci dev. In container scenario,
+ *                                      add davinci dev will be handled by the vmng module.
+ * remove_davinci_dev                 : remove davinci dev.
+ * init_interrupt                     : init interrupt. In the computing group virtual machine, PM mode only performs
+ *                                      DMA operations and does not require init interrupt.
+ * uninit_interrupt                   : uninit interrupt.
+ * dma_pasid_valid_check              : pasid valid check, since pasid is insecure under VM, the check is unnecessary.
+
+ *****************************************************************************************/
+
+// clang-format off
+
+// physical machine mode
+#define DEVDRV_PHY_BOOT_OPS                                                                    \
+    .is_mdev_vf_pm = false,                                                                    \
+    .is_mdev_vf_vm = false,                                                                    \
+    .is_p2p_access_cap_supported = true,                                                       \
+    .is_guard_work_supported = true,                                                           \
+    .mdev_pm_init = NULL,                                                                      \
+    .mdev_pm_uninit = NULL,                                                                    \
+    .mdev_vm_init = NULL,                                                                      \
+    .mdev_vm_uninit = NULL,                                                                    \
+    .add_davinci_dev = devdrv_add_davinci_dev,                                                 \
+    .remove_davinci_dev = devdrv_remove_davinci_dev,                                           \
+    .init_interrupt = devdrv_init_interrupt,                                                   \
+    .uninit_interrupt = devdrv_uninit_interrupt,                                               \
+    .dma_pasid_valid_check = devdrv_dma_pasid_valid_check,
+
+// docker mode
+#define DEVDRV_SRIOV_VF_BOOT_OPS                                                               \
+    .is_mdev_vf_pm = false,                                                                    \
+    .is_mdev_vf_vm = false,                                                                    \
+    .is_p2p_access_cap_supported = true,                                                       \
+    .is_guard_work_supported = true,                                                           \
+    .mdev_pm_init = NULL,                                                                      \
+    .mdev_pm_uninit = NULL,                                                                    \
+    .mdev_vm_init = NULL,                                                                      \
+    .mdev_vm_uninit = NULL,                                                                    \
+    .add_davinci_dev = NULL,                                                                   \
+    .remove_davinci_dev = devdrv_notify_uda_remove,                                            \
+    .init_interrupt = devdrv_init_interrupt,                                                   \
+    .uninit_interrupt = devdrv_uninit_interrupt,                                               \
+    .dma_pasid_valid_check = devdrv_dma_pasid_valid_check,
+
+// mdev computing group 1:1 physical machine mode
+#define DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT_OPS                                                   \
+    .is_mdev_vf_pm = true,                                                                     \
+    .is_mdev_vf_vm = false,                                                                    \
+    .is_p2p_access_cap_supported = true,                                                       \
+    .is_guard_work_supported = false,                                                          \
+    .mdev_pm_init = devdrv_mdev_pm_init,                                                       \
+    .mdev_pm_uninit = devdrv_mdev_pm_uninit,                                                   \
+    .mdev_vm_init = NULL,                                                                      \
+    .mdev_vm_uninit = NULL,                                                                    \
+    .add_davinci_dev = NULL,                                                                   \
+    .remove_davinci_dev = devdrv_notify_uda_remove,                                            \
+    .init_interrupt = NULL,                                                                    \
+    .uninit_interrupt = NULL,                                                                  \
+    .dma_pasid_valid_check = devdrv_dma_pasid_valid_check,
+
+// mdev computing group 1:1 virtual machine mode
+#define DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT_OPS                                                   \
+    .is_mdev_vf_pm = false,                                                                    \
+    .is_mdev_vf_vm = true,                                                                     \
+    .is_p2p_access_cap_supported = true,                                                       \
+    .is_guard_work_supported = true,                                                           \
+    .mdev_pm_init = NULL,                                                                      \
+    .mdev_pm_uninit = NULL,                                                                    \
+    .mdev_vm_init = devdrv_mdev_vm_init,                                                       \
+    .mdev_vm_uninit = devdrv_mdev_vm_uninit,                                                   \
+    .add_davinci_dev = devdrv_add_davinci_dev,                                                 \
+    .remove_davinci_dev = devdrv_remove_davinci_dev,                                           \
+    .init_interrupt = devdrv_init_interrupt,                                                   \
+    .uninit_interrupt = devdrv_uninit_interrupt,                                               \
+    .dma_pasid_valid_check = NULL,
+
+// mdev computing group non-1:1 physical machine mode
+#define DEVDRV_MDEV_VF_PM_BOOT_OPS                                                             \
+    .is_mdev_vf_pm = true,                                                                     \
+    .is_mdev_vf_vm = false,                                                                    \
+    .is_p2p_access_cap_supported = true,                                                       \
+    .is_guard_work_supported = false,                                                          \
+    .mdev_pm_init = devdrv_mdev_pm_init,                                                       \
+    .mdev_pm_uninit = devdrv_mdev_pm_uninit,                                                   \
+    .mdev_vm_init = NULL,                                                                      \
+    .mdev_vm_uninit = NULL,                                                                    \
+    .add_davinci_dev = NULL,                                                                   \
+    .remove_davinci_dev = devdrv_notify_uda_remove,                                            \
+    .init_interrupt = NULL,                                                                    \
+    .uninit_interrupt = NULL,                                                                  \
+    .dma_pasid_valid_check = devdrv_dma_pasid_valid_check,
+
+// mdev computing group non-1:1 virtual machine mode
+#define DEVDRV_MDEV_VF_VM_BOOT_OPS                                                             \
+    .is_mdev_vf_pm = false,                                                                    \
+    .is_mdev_vf_vm = true,                                                                     \
+    .is_p2p_access_cap_supported = false,                                                      \
+    .is_guard_work_supported = true,                                                           \
+    .mdev_pm_init = NULL,                                                                      \
+    .mdev_pm_uninit = NULL,                                                                    \
+    .mdev_vm_init = devdrv_mdev_vm_init,                                                       \
+    .mdev_vm_uninit = devdrv_mdev_vm_uninit,                                                   \
+    .add_davinci_dev = devdrv_add_davinci_dev,                                                 \
+    .remove_davinci_dev = devdrv_remove_davinci_dev,                                           \
+    .init_interrupt = devdrv_init_interrupt,                                                   \
+    .uninit_interrupt = devdrv_uninit_interrupt,                                               \
+    .dma_pasid_valid_check = NULL,
+
+// clang-format on
 
 #endif

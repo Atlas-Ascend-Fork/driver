@@ -17,7 +17,7 @@
 #include "drv_type.h"
 
 #ifdef CFG_FEATURE_SUPPORT_UB_CONNECTION
-#include "ubcore_types.h"
+#include "uba/ubcore_adapt.h"
 #endif
 
 /* trs_msg.h */
@@ -61,6 +61,8 @@ enum trs_msg_cmd_type {
     TRS_MSG_SET_TS_STATUS,
     TRS_MSG_FLUSH_RES_ID,
     TRS_MSG_RES_ID_CHECK,
+    TRS_MSG_RES_ID_GET,
+    TRS_MSG_RES_ID_PUT,
     TRS_MSG_SQ_RSVMEM_MAP,
     TRS_MSG_SQ_RSVMEM_UNMAP,
     TRS_MSG_INIT_JETTY,
@@ -84,6 +86,13 @@ struct trs_msg_res_id_check {
     u32 hpid;
     int id_type;
     u32 res_id;
+};
+
+struct trs_msg_res_id_get {
+    u32 hpid;
+    int id_type;
+    u32 res_id;
+    u32 seq; /* global sequence for idempotency of remote get/put */
 };
 
 struct trs_msg_id_sync_head {
@@ -165,12 +174,12 @@ struct trs_msg_proc_recycle {
 struct trs_msg_jetty_info {
     u32 cq_jfr_id;
     u32 sq_jfr_id;
-    struct ubcore_seg cq_seg;
-    struct ubcore_seg sq_seg;
-    struct ubcore_eid_info eid_info;
-    struct ubcore_seg notify_seg;
-    struct ubcore_seg cnt_notify_seg;
-    struct ubcore_seg sq_reg_seg;
+    uba_ubcore_seg cq_seg;
+    uba_ubcore_seg sq_seg;
+    uba_ubcore_eid_info eid_info;
+    uba_ubcore_seg notify_seg;
+    uba_ubcore_seg cnt_notify_seg;
+    uba_ubcore_seg sq_reg_seg;
     u32 die_id;
     u32 func_id;
     u32 vfid;
@@ -703,6 +712,8 @@ struct trs_sq_switch_stream_info {
 
     u32 cnt;
     struct trs_sq_switch_stream_node nodes[TRS_MAX_SWITCH_NODE_CNT];
+    u8 is_virtual[TRS_MAX_SWITCH_NODE_CNT];
+    u8 rsv;
 };
 #pragma pack()
 /* trs_mailbox_def.h end */

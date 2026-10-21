@@ -25,5 +25,5 @@ struct svm_kmc_h2d_recv_handle {
 
 void svm_kmc_h2d_recv_handle_register(enum svm_kmc_msg_id msg_id, struct svm_kmc_h2d_recv_handle *handle);
 int svm_kmc_d2h_send(u32 udevid, void *msg, u32 in_len, u32 out_len, u32 *real_out_len);
-
+u32 svm_kmc_d2h_get_max_msg_len(void);
 #endif

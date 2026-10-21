@@ -28,21 +28,23 @@
 #include "pbl_mem_alloc_interface.h"
 #include "dms_timer.h"
 
-#define TIMER_INVALID_ID    0xFFFF
+#define TIMER_INVALID_ID 0xFFFF
 struct dms_sched_task_timer {
     ka_list_head_t node_list;
     ka_mutex_t node_lock;
     ka_hrtimer_t timer;
     ka_workqueue_struct_t *workqueue;
-    u32    task_nums;
-    u16    ids[MAX_TASK_NUMS];
+    u32 task_nums;
+    u16 ids[MAX_TASK_NUMS];
 };
 static struct dms_sched_task_timer g_timer = {{0}};
+static ka_workqueue_struct_t *g_free_workqueue = NULL;
 
 struct devdrv_sched_task_node {
     ka_list_head_t list;
     ka_rcu_head_t rcu;
-    u32 expire_count;       // time period: ms / TIMER_STEP_MS
+    ka_work_struct_t free_work;
+    u32 expire_count; // time period: ms / TIMER_STEP_MS
     u32 cur_count;
     u32 node_id;
     u64 run_time;
@@ -58,7 +60,8 @@ STATIC ka_hrtimer_restart_t dms_timer_irq_handler(ka_hrtimer_t *htr)
     struct devdrv_sched_task_node *node = NULL;
 
     ka_task_rcu_read_lock();
-    ka_list_for_each_entry_rcu(node, &g_timer.node_list, list) {
+    ka_list_for_each_entry_rcu(node, &g_timer.node_list, list)
+    {
         if (node->cur_count > 1) {
             node->cur_count--;
             continue;
@@ -124,6 +127,19 @@ STATIC u32 dms_timer_get_valid_node_id(void)
     return node_id;
 }
 
+STATIC void dms_timer_node_free_work(ka_work_struct_t *work)
+{
+    struct devdrv_sched_task_node *node = ka_container_of(work, struct devdrv_sched_task_node, free_work);
+
+    if (node->workqueue != NULL) {
+        ka_task_flush_workqueue(node->workqueue);
+        ka_task_destroy_workqueue(node->workqueue);
+        node->workqueue = NULL;
+    }
+    dbl_kfree(node);
+    node = NULL;
+}
+
 STATIC int dms_timer_node_init(const struct dms_timer_task *task, struct devdrv_sched_task_node *node)
 {
     u32 node_id;
@@ -150,6 +166,7 @@ STATIC int dms_timer_node_init(const struct dms_timer_task *task, struct devdrv_
     node->run_time = 0;
     node->workqueue = NULL;
     KA_TASK_INIT_WORK(&node->work_data, dms_timer_callback_delay);
+    KA_TASK_INIT_WORK(&node->free_work, dms_timer_node_free_work);
     if ((task->handler_mode != INDEPENDENCE_WORK) && (task->handler_mode != HIGH_PRI_WORK)) {
         return 0;
     }
@@ -183,6 +200,10 @@ int dms_timer_task_register(const struct dms_timer_task *task, u32 *node_id)
 
     if ((task == NULL) || (node_id == NULL) || task->exec_task == NULL) {
         dms_err("Timer task param invalid. node or task is null.\n");
+        return -EINVAL;
+    }
+    if (task->handler_mode > HIGH_PRI_WORK) {
+        dms_err("Timer task param invalid. handler_mode(%u) out of range.\n", task->handler_mode);
         return -EINVAL;
     }
     if (task->expire_ms < TIMER_STEP_MS) {
@@ -221,28 +242,34 @@ int dms_timer_task_register(const struct dms_timer_task *task, u32 *node_id)
 }
 KA_EXPORT_SYMBOL(dms_timer_task_register);
 
+STATIC void dms_timer_node_rcu_free(ka_rcu_head_t *head)
+{
+    struct devdrv_sched_task_node *node = ka_container_of(head, struct devdrv_sched_task_node, rcu);
+
+#ifndef CFG_HOST_ENV
+    queue_work_affinity(g_free_workqueue, &node->free_work);
+#else
+    ka_task_queue_work(g_free_workqueue, &node->free_work);
+#endif
+}
 
 int dms_timer_task_unregister(u32 node_id)
 {
     struct devdrv_sched_task_node *node = NULL;
 
     ka_task_mutex_lock(&g_timer.node_lock);
-    ka_list_for_each_entry(node, &g_timer.node_list, list) {
+    ka_list_for_each_entry(node, &g_timer.node_list, list)
+    {
         if (node->node_id == node_id) {
             g_timer.task_nums--;
             ka_list_del_rcu(&node->list);
-            ka_system_synchronize_rcu();
-
             // clean workqueue
-            if (node->workqueue != NULL) {
-                ka_task_flush_workqueue(node->workqueue);
-                ka_task_destroy_workqueue(node->workqueue);
-            } else {
+            if (node->workqueue == NULL) {
                 ka_task_flush_workqueue(g_timer.workqueue);
             }
             dms_timer_clear_node_id(node_id);
             ka_task_mutex_unlock(&g_timer.node_lock);
-            dbl_kfree(node);
+            ka_system_call_rcu(&node->rcu, dms_timer_node_rcu_free);
             dms_info("Timer unregister success. (node_id=%u)\n", node_id);
             return 0;
         }
@@ -277,8 +304,11 @@ int dms_timer_init(void)
 
     KA_INIT_LIST_HEAD_RCU(&g_timer.node_list);
     ka_task_mutex_init(&g_timer.node_lock);
+#if defined(CFG_HOST_ENV)
     ka_system_hrtimer_init(&g_timer.timer, KA_CLOCK_MONOTONIC, KA_HRTIMER_MODE_REL);
-
+#else
+    ka_system_hrtimer_init(&g_timer.timer, KA_CLOCK_MONOTONIC, KA_HRTIMER_MODE_REL_PINNED);
+#endif
     for (i = 0; i < MAX_TASK_NUMS; i++) {
         g_timer.ids[i] = TIMER_INVALID_ID;
     }
@@ -293,13 +323,26 @@ int dms_timer_init(void)
         dms_err("Timer task work queue is NULL.\n");
         return -ENOMEM;
     }
+#if defined(CFG_FEATURE_WORK_QUEUE_BIND_CORE)
+    g_free_workqueue = ka_task_alloc_workqueue("dms_timer_free", WQ_UNBOUND, 1);
+#else
+    g_free_workqueue = ka_task_create_workqueue("dms_timer_free");
+#endif
+    if (g_free_workqueue == NULL) {
+        ka_task_destroy_workqueue(g_timer.workqueue);
+        dms_err("Timer free work queue is NULL.\n");
+        return -ENOMEM;
+    }
 
 #if defined(CFG_FEATURE_WORK_QUEUE_BIND_CORE)
     dms_set_timer_workqueue_affinity(g_timer.workqueue);
+    dms_set_timer_workqueue_affinity(g_free_workqueue);
 #endif
-
+#if defined(CFG_HOST_ENV)
     ka_system_hrtimer_start(&g_timer.timer, ka_system_ms_to_ktime(TIMER_STEP_MS), KA_HRTIMER_MODE_REL);
-
+#else
+    ka_system_hrtimer_start(&g_timer.timer, ka_system_ms_to_ktime(TIMER_STEP_MS), KA_HRTIMER_MODE_REL_PINNED);
+#endif
     dms_info("Dms timer init success, start timer.\n");
     return 0;
 }
@@ -313,10 +356,13 @@ void dms_timer_uninit(void)
     (void)ka_system_hrtimer_cancel(&g_timer.timer);
     dms_info("Dms timer uninit success, cancel timer.\n");
 
-    ka_system_synchronize_rcu();
+    ka_system_rcu_barrier();
     ka_task_flush_workqueue(g_timer.workqueue);
     ka_task_destroy_workqueue(g_timer.workqueue);
-    ka_list_for_each_entry_safe(node, next, &g_timer.node_list, list) {
+    ka_task_flush_workqueue(g_free_workqueue);
+    ka_task_destroy_workqueue(g_free_workqueue);
+    ka_list_for_each_entry_safe(node, next, &g_timer.node_list, list)
+    {
         if (node->workqueue != NULL) {
             ka_task_flush_workqueue(node->workqueue);
             ka_task_destroy_workqueue(node->workqueue);

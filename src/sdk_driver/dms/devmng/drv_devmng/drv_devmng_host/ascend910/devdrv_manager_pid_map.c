@@ -459,7 +459,7 @@ STATIC int devdrv_pid_map_sync_result_check(int ret, struct devdrv_manager_msg_i
     }
 
     if (out_len != (sizeof(struct devdrv_pid_map_sync) + sizeof(struct devdrv_manager_msg_head))) {
-        devdrv_drv_warn("receive length not equal expected. (out_len=%d; exp_len=%ld)\n", out_len,
+        devdrv_drv_warn("receive length is not equal to expected. (out_len=%d; exp_len=%ld)\n", out_len,
                         (sizeof(struct devdrv_ioctl_para_query_pid) + sizeof(struct devdrv_manager_msg_head)));
         return -EINVAL;
     }
@@ -1079,7 +1079,7 @@ static int devdrv_release_single_devpid(ka_pid_t host_pid, ka_pid_t dev_pid, uns
         goto release_exit;
     } else {
         ka_task_spin_unlock_bh(&d_info->proc_hash_table_lock);
-        devdrv_drv_info("Find process sign is abnormal. (dev_pid=%d)\n",
+        devdrv_drv_info("Find process sign, slave_pid is not DEVMNG_PID_INVALID. (dev_pid=%d; slave_pid=%d)\n", dev_pid,
                         d_sign_check->devpid[dev_id][vf_id][cp_type].slave_pid);
         ret = -EINVAL;
         goto release_exit;
@@ -1258,6 +1258,7 @@ int devdrv_pid_map_sync_proc(u32 devid, void *msg, u32 in_len, u32 *ack_len)
         dev_manager_msg_info->header.result = devdrv_pid_map_sync_del(sync);
     } else {
         devdrv_drv_err("Invalid op value:%d\n", sync->op);
+        return -EINVAL;
     }
     dev_manager_msg_info->header.valid = DEVDRV_MANAGER_MSG_VALID;
     *ack_len = sizeof(struct devdrv_pid_map_sync) + sizeof(struct devdrv_manager_msg_head);
@@ -1460,7 +1461,7 @@ int devdrv_query_master_location(const devdrv_pid_map_info_t *q_info, unsigned i
 
     if ((location == NULL) || (q_info == NULL) || (d_info == NULL)) {
         devdrv_drv_err("null ptr. (location_is_null=%d; q_info_is_null=%d; d_info_is_null=%d)\n", (location == NULL),
-                       (q_info == NULL), (q_info == NULL));
+                       (q_info == NULL), (d_info == NULL));
         return -EINVAL;
     }
 
@@ -1519,7 +1520,7 @@ int apm_query_master_info_by_slave(int slave_tgid, int *master_tgid, u32 *udevid
     }
 
     *mode = 1; /* online support online */
-    *proc_type_bitmap = 0x1 << cp_type;
+    *proc_type_bitmap = 0x1U << cp_type;
 
     return 0;
 }

@@ -178,7 +178,8 @@ static int apm_fops_bind_unbind(u32 cmd, unsigned long arg)
     if (ret != 0) {
         ka_task_up_write(&apm_bind_query_sem);
         apm_err_if(
-            (ret != -EBUSY),
+            ((ret != -EBUSY) && (ret != -EOPNOTSUPP) &&
+             (ret != -EAGAIN)), /* -EAGAIN:will retry bind when slave_pid is still exiting */
             "Bind or unbind failed. (cmd=%d; ret=%d; devid=%u; proc_type=%d; mode=%d; slave_pid=%d; master_pid=%d)\n",
             _KA_IOC_NR(cmd), ret, para.devid, para.proc_type, para.mode, para.slave_pid, para.master_pid);
         return ret;
@@ -382,7 +383,7 @@ static int apm_slave_domain_task_set_status(int tgid, int type, int status)
         return ret;
     }
 
-    return slave_ops[mode]->set_status(master_tgid, udevid, tgid, type, status);
+    return slave_ops[mode]->set_status(master_tgid, udevid, tgid, type, status, 1);
 }
 
 void apm_try_to_set_slave_oom(int tgid, int oom_status)
@@ -410,15 +411,21 @@ static int apm_slave_domain_task_exit_notifier(ka_notifier_block_t *self, unsign
 {
     int tgid = apm_get_exit_tgid(val);
     int stage = apm_get_exit_stage(val);
+
+    if (stage > (APM_STAGE_MAX - 1)) {
+        goto exit;
+    }
+
     if (apm_slave_domain_task_set_status(tgid, SLAVE_STATUS_EXIT, stage) != 0) {
         apm_warn("Notice master warn. (tgid=%d; stage=%d)\n", tgid, stage);
     }
 
-    if (stage == APM_STAGE_RECYCLE_RES) {
+    if (stage == (APM_STAGE_MAX - 1)) {
         apm_try_unbind_all(tgid);
         apm_slave_ctx_destroy(slave_domain, tgid);
     }
 
+exit:
     apm_info("Slave exit notifier. (tgid=%d; stage=%d)\n", tgid, stage);
     return KA_NOTIFY_OK;
 }
@@ -458,11 +465,11 @@ void apm_slave_domain_task_exit(u32 udevid, int tgid, struct task_start_time *st
 {
     int ret = 0;
 
-    apm_mem_stats_unbind_all(tgid);
     ret = apm_slave_check_set_exit_status(slave_domain, tgid, start_time, APM_SLAVE_CHECK_EXIT_FROM_APM);
     if ((ret == -EEXIST) || ret == -ESRCH) {
         return;
     }
+    apm_mem_stats_unbind_all(tgid);
 
     if (ret == 0) {
         apm_info("Slave task exit. (slave_tgid=%d)\n", tgid);

@@ -12,7 +12,7 @@
 #define SRC_DRIVER_NETWORK_HCCN_DSMI_DS_NET_STRUCT_EXT_H
 
 #define DS_LANE_MAX_NUM 4
-#define BOOST_VALS_NUM  9
+#define BOOST_VALS_NUM 9
 
 #include <stdbool.h>
 
@@ -77,14 +77,14 @@ struct hilink_info {
     unsigned int rx_ctle_st1_agc;
 
     // cdr
-    unsigned int cdrphscodeout;     // 补码
+    unsigned int cdrphscodeout; // 补码
     unsigned int cdrphasegain;
     unsigned int cdrvcogain;
     unsigned int cdr2ndlpcfg;
     unsigned int cdrfreqgain;
     unsigned int cursorconfig;
 
-    unsigned int integrator_out;  // 补码
+    unsigned int integrator_out; // 补码
 
     unsigned int cs_calib_en_api;
     unsigned int cs_calib_status_api;
@@ -117,26 +117,26 @@ struct ds_serdes_info {
     struct hilink_info ds_info[DS_LANE_MAX_NUM];
 };
 
-#define INFO_PAYLOAD_LEN                 1000
+#define INFO_PAYLOAD_LEN 1000
 /* PFC风暴检测watchdog配置项未修改占位符 */
 
 #define PFC_STORM_CFG_NOT_CHANGE (~0U)
 #define PFC_STORM_CFG_CHANGE (0U)
-#define PFC_STORM_WATCHDOG_CLOSE_TIME_MIN     0
-#define PFC_STORM_WATCHDOG_CLOSE_TIME_MAX     100
-#define PFC_STORM_WATCHDOG_DETECT_PERIOD_MIN  10
-#define PFC_STORM_WATCHDOG_DETECT_PERIOD_MAX  100
-#define PFC_STORM_WARN_THRD_MIN               40
-#define PFC_STORM_WARN_THRD_MAX               80
-#define PFC_STORM_ERR_THRD_MIN                60
-#define PFC_STORM_ERR_THRD_MAX                100
-#define PFC_100MS_TO_S                        10
-#define PFC_100MS_TO_MS                       100
+#define PFC_STORM_WATCHDOG_CLOSE_TIME_MIN 0
+#define PFC_STORM_WATCHDOG_CLOSE_TIME_MAX 100
+#define PFC_STORM_WATCHDOG_DETECT_PERIOD_MIN 10
+#define PFC_STORM_WATCHDOG_DETECT_PERIOD_MAX 100
+#define PFC_STORM_WARN_THRD_MIN 40
+#define PFC_STORM_WARN_THRD_MAX 80
+#define PFC_STORM_ERR_THRD_MIN 60
+#define PFC_STORM_ERR_THRD_MAX 100
+#define PFC_100MS_TO_S 10
+#define PFC_100MS_TO_MS 100
 /* PFC风暴检测watchdog的三种检测模式 */
 
-#define PFC_STORM_WATCHDOG_MODE_0  0X0
-#define PFC_STORM_WATCHDOG_MODE_1  0X1
-#define PFC_STORM_WATCHDOG_MODE_2  0X2
+#define PFC_STORM_WATCHDOG_MODE_0 0X0
+#define PFC_STORM_WATCHDOG_MODE_1 0X1
+#define PFC_STORM_WATCHDOG_MODE_2 0X2
 #define PFC_STORM_WATCHDOG_MODE_NUM 3
 /* PFC风暴watchdog的参数取值范围是0 -100 */
 
@@ -146,10 +146,10 @@ struct ds_serdes_info {
 #define MAX_PFC_STORM_WATCHDOG_PARAM_NUM 5
 struct pfc_storm_cfg_param {
     unsigned int mode;
-    unsigned int close_time; // ms
+    unsigned int close_time;    // ms
     unsigned int detect_period; // s
-    unsigned int warn_thrd; // ms
-    unsigned int err_thrd; // ms
+    unsigned int warn_thrd;     // ms
+    unsigned int err_thrd;      // ms
 };
 struct pfc_storm_cfg_info {
     struct pfc_storm_cfg_param user_cfg_param;
@@ -162,7 +162,7 @@ struct ds_optical_mode_info {
 };
 
 enum optical_cmd {
-    CMD_HARD_RESET  = 0,
+    CMD_HARD_RESET = 0,
     CMD_SOFT_RESET,
     CMD_LOW_POWER,
     CMD_HIGH_POWER,
@@ -171,7 +171,7 @@ enum optical_cmd {
 };
 
 enum tool_optical_status {
-    TOOL_OPTICAL_ABSENT  = 0,
+    TOOL_OPTICAL_ABSENT = 0,
     TOOL_OPTICAL_PRESENT,
     TOOL_OPTICAL_INVALID,
 };
@@ -197,11 +197,11 @@ enum dsmi_ping_result {
 struct prbs_adapt_mode_info;
 
 struct ds_diag_mode_params {
-    int duration_min;                               // 设置时使用：持续时间（分钟）
-    char is_enabled;                                // 设置时使用：ON/OFF
-    unsigned long long remaining_seconds;           // 查询时返回：剩余时间（秒）
-    int configured_duration_min;                    // 查询时返回：配置时长
-    int operation;                                  // 设置时使用：操作类型write/read
+    int duration_min;                     // 设置时使用：持续时间（分钟）
+    char is_enabled;                      // 设置时使用：ON/OFF
+    unsigned long long remaining_seconds; // 查询时返回：剩余时间（秒）
+    int configured_duration_min;          // 查询时返回：配置时长
+    int operation;                        // 设置时使用：操作类型write/read
 };
 
 enum ip_rule_dir {
@@ -212,25 +212,25 @@ enum ip_rule_dir {
 struct ip_rule_cmd_info {
     enum ip_rule_dir dir;
     unsigned int ip_address;
-    unsigned int table_id;     /* 0~255 */
-    char cmd_type;             /* g-get s-add d-del */
+    unsigned int table_id; /* 0~255 */
+    char cmd_type;         /* g-get s-add d-del */
 };
 
 struct ip_route_cmd_info {
     unsigned int eth_id;
     unsigned int ip_address;
-    unsigned int ip_mask;      /* 0~32 */
+    unsigned int ip_mask; /* 0~32 */
     unsigned int via_address;
-    unsigned int table_id;     /* 0~255 */
-    char cmd_type;             /* g-get s-add d-del */
+    unsigned int table_id; /* 0~255 */
+    char cmd_type;         /* g-get s-add d-del */
 };
 
 struct reserve_mem_info {
-    unsigned int type;           /* 内存预留类型 */
-    unsigned int mem_size;       /* 当前生效的内存大小，单位：MB */
-    unsigned int page_size;      /* 页面大小，单位：KB */
-    unsigned int result;         /* 返回结果，参考 enum reserve_mem_result */
-    unsigned int rebooted_size;  /* 重启后生效的内存大小，单位：MB */
+    unsigned int type;          /* 内存预留类型 */
+    unsigned int mem_size;      /* 当前生效的内存大小，单位：MB */
+    unsigned int page_size;     /* 页面大小，单位：KB */
+    unsigned int result;        /* 返回结果，参考 enum reserve_mem_result */
+    unsigned int rebooted_size; /* 重启后生效的内存大小，单位：MB */
 };
 
 enum reserve_mem_type {
@@ -244,15 +244,13 @@ struct mem_reserve_type_map {
     const char *type_str;
 };
 
-static const struct mem_reserve_type_map g_mem_reserve_type_map[] = {
-    {RESERVE_MEM_TYPE_PDCCL, "pdccl"}
-};
+static const struct mem_reserve_type_map g_mem_reserve_type_map[] = {{RESERVE_MEM_TYPE_PDCCL, "pdccl"}};
 
 enum reserve_mem_result {
-    RESERVE_MEM_RESULT_SUCCESS = 0,             // 配置下发成功，无需重启。适用于首次下发配置，或者二次下发相同配置的场景。
-    RESERVE_MEM_RESULT_REBOOT_REQUIRED = 1,     // 配置下发成功，需要重启生效。适用于二次下发不同配置的场景。
-    RESERVE_MEM_RESULT_CANCEL_REBOOT = 2,       // 配置取消下发成功，需要重启生效。适用于下发配置后再下发size=0的场景。
-    RESERVE_MEM_RESULT_CANCEL_SUCCESS = 3,      // 配置取消下发成功，无需重启。适用于首次即下发size=0的场景。
+    RESERVE_MEM_RESULT_SUCCESS = 0, // 配置下发成功，无需重启。适用于首次下发配置，或者二次下发相同配置的场景。
+    RESERVE_MEM_RESULT_REBOOT_REQUIRED = 1, // 配置下发成功，需要重启生效。适用于二次下发不同配置的场景。
+    RESERVE_MEM_RESULT_CANCEL_REBOOT = 2, // 配置取消下发成功，需要重启生效。适用于下发配置后再下发size=0的场景。
+    RESERVE_MEM_RESULT_CANCEL_SUCCESS = 3, // 配置取消下发成功，无需重启。适用于首次即下发size=0的场景。
 };
 
 int dsmi_clear_pfc_storm(int logic_id, int mode);

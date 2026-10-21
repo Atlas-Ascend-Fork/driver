@@ -16,6 +16,7 @@
 #include "xsmem_framework_log.h"
 #include "xsmem_framework.h"
 #include "xsmem_algo_vma.h"
+#include "ka_barrier_pub.h"
 #include "xsmem_algo_cache_vma.h"
 
 struct cache_vma_ctrl {
@@ -59,7 +60,16 @@ static int cache_vma_algo_pool_free(struct xsm_pool *xp)
 static int cache_vma_algo_cache_create(struct xsm_pool *xp, struct xsm_cache_create_arg *arg)
 {
     struct cache_vma_ctrl *cache_ctrl = (struct cache_vma_ctrl *)xp->private;
+    if (arg->mem_size == 0) {
+        xsmem_err("Invalid mem_size (mem_size=0x%llu)\n", arg->mem_size);
+        return -EINVAL;
+    }
+    if (cache_ctrl->cache_alloc_flag != 0) {
+        xsmem_err("Cache already created. \n");
+        return -EEXIST;
+    }
     cache_ctrl->size = arg->mem_size;
+    ka_smp_wmb();
     cache_ctrl->cache_alloc_flag = 1;
 
     xsmem_info("Vma cache create. (size=0x%llx)\n", cache_ctrl->size);

@@ -18,6 +18,7 @@
 #include <stdbool.h>
 
 #include "securec.h"
+#include "drv_current.h"
 
 #define TRS_IS_ALIGNED(x, a) (((x) & ((typeof(x))(a) - 1)) == 0)
 
@@ -66,6 +67,7 @@
 #endif
 #define trs_info(fmt, ...) DRV_INFO(HAL_MODULE_TYPE_TS_DRIVER, fmt, ##__VA_ARGS__)
 #define trs_debug(fmt, ...) DRV_DEBUG(HAL_MODULE_TYPE_TS_DRIVER, fmt, ##__VA_ARGS__)
+#define trs_run_info(fmt, ...) DRV_RUN_INFO(HAL_MODULE_TYPE_TS_DRIVER, fmt, ##__VA_ARGS__)
 
 #define trs_err_hex_dump(buf, len, fmt) DRV_ERR_HEX_DUMP(HAL_MODULE_TYPE_DEVMM, buf, len, fmt)
 
@@ -98,10 +100,11 @@
 #endif
 
 #define TRS_OPERATION_NOT_SUPPORTED_ERR_MSG_ARG_NUM 2
-#define TRS_REPORT_ERR_MSG_STR_LEN 256
+#define TRS_REPORT_ERR_MSG_STR_LEN 512
 
-static inline void trs_operation_not_supported_err_msg(const char *func_name, const char *type)
+static inline void trs_event_operation_not_supported_err_msg(void)
 {
+    const char *func_name = drv_current->hal_api_name;
     char func_name_str[TRS_REPORT_ERR_MSG_STR_LEN] = {0};
     char reason_str[TRS_REPORT_ERR_MSG_STR_LEN] = {0};
     const char *key[] = {"func_name", "reason"};
@@ -113,9 +116,33 @@ static inline void trs_operation_not_supported_err_msg(const char *func_name, co
         return;
     }
     ret = snprintf_s(reason_str, sizeof(reason_str), sizeof(reason_str) - 1,
-                     "The process where the shared %s resides is not added to the trustlist. "
-                     "Add the process to the trustlist or disable trustlist verification",
-                     type);
+                     "The current process is not in the PID trustlist of the shared event and the access is denied");
+    if (ret < 0) {
+        return;
+    }
+    TRS_REPORT_PREDEFINED_ERR_MSG("EL0021", key, value, TRS_OPERATION_NOT_SUPPORTED_ERR_MSG_ARG_NUM);
+}
+
+static inline void trs_notify_operation_not_supported_err_msg(const char *name)
+{
+    const char *func_name = drv_current->hal_api_name;
+    char reason_str[TRS_REPORT_ERR_MSG_STR_LEN] = {0};
+    char func_name_str[TRS_REPORT_ERR_MSG_STR_LEN] = {0};
+    const char *key[] = {"func_name", "reason"};
+    const char *value[] = {func_name_str, reason_str};
+    int ret;
+
+    ret = snprintf_s(func_name_str, sizeof(func_name_str), sizeof(func_name_str) - 1, "%s", func_name);
+    if (ret < 0) {
+        return;
+    }
+    ret = snprintf_s(reason_str, sizeof(reason_str), sizeof(reason_str) - 1,
+                     "The current process is not in the PID trustlist of the shared notify %s and the access is "
+                     "denied. Call aclrtNotifySetImportPid by the notify creation process to add the current "
+                     "process to the trustlist, or call aclrtNotifyGetExportKey to set "
+                     "ACL_RT_NOTIFY_EXPORT_FLAG_DISABLE_PID_VALIDATION to disable PID trustlist verification "
+                     "when generating the shared notify",
+                     name);
     if (ret < 0) {
         return;
     }

@@ -30,9 +30,9 @@ typedef struct _devdrv_chip_dev_node {
 
 typedef struct _devdrv_chip_node {
     unsigned int chip_id;
-    unsigned int dev_num; /* device number belong to this chip */
-    ka_list_head_t dev_head;   /* link list head for devices of one chip */
-    ka_list_head_t chip_node_list;  /* link node for chips */
+    unsigned int dev_num;          /* device number belong to this chip */
+    ka_list_head_t dev_head;       /* link list head for devices of one chip */
+    ka_list_head_t chip_node_list; /* link node for chips */
 } devdrv_chip_node_t;
 
 typedef struct _devdrv_chip_dev_map {

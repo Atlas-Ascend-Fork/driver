@@ -72,8 +72,8 @@ STATIC int tool_context_exec(struct command_context *ctx)
     CHK_PRT_RETURN(ctx->cmd_args == NULL, hccn_err("ctx->cmd_args is NULL"), TOOL_PRIVATE_ARGS_NUM_ERR);
 
     ctx->result = (char *)ctx_res;
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context),
-        (char *)ctx->cmd_args, sizeof(struct context_cmd_args), ctx->result, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args,
+                   sizeof(struct context_cmd_args), ctx->result, &size);
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_CONTEXT, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("get context failed, ret:%d", ret), ret);
 
@@ -91,12 +91,12 @@ STATIC void tool_context_print_help(struct command_context *ctx, unsigned int mo
             TOOL_PRINT_CMD("-g", "-context", "get the context info");
             tool_print_npu_info(DEV_DEV_ATTR);
             tool_print_dev_info(DEV_UDMA_DEV);
-            TOOL_PRINT_OPT("-aeqc <aeq_id>", "get the specify aeqc context info, range [0, 0]");
+            TOOL_PRINT_OPT("-aeqc <aeq_id>", "get the specified aeqc context info, range [0, 0]");
 
             TOOL_PRINT_CMD("-g", "-context", "get the context info");
             tool_print_npu_info(DEV_DEV_ATTR);
             tool_print_dev_info(DEV_UDMA_DEV);
-            TOOL_PRINT_OPT("-ceqc <ceq_id>", "get the specify ceqc context info, range [0, 0]");
+            TOOL_PRINT_OPT("-ceqc <ceq_id>", "get the specified ceqc context info, range [0, 0]");
             break;
         default:
             break;
@@ -105,9 +105,8 @@ STATIC void tool_context_print_help(struct command_context *ctx, unsigned int mo
 
 STATIC struct sub_option_entry show_res_opts_param[] = {
     {"-resource_type", ARG_TYPE_INT, parse_int, MODE_GET, MODE_GET, true,
-        .range.int_range = {5, 11}}, // range decided by urma_admin, MIN:5(JFS), MAX:11(SEG)
-    {"-key_id",        ARG_TYPE_INT, parse_int, MODE_GET, MODE_GET}
-};
+     .range.int_range = {5, 11}}, // range decided by urma_admin, MIN:5(JFS), MAX:11(SEG)
+    {"-key_id", ARG_TYPE_INT, parse_int, MODE_GET, MODE_GET}};
 
 STATIC void get_show_res_sub_opts(struct sub_option_entry **sub_opts, unsigned int *count)
 {
@@ -142,7 +141,7 @@ STATIC int tool_show_res_exec(struct command_context *ctx)
 
     ctx->result = (char *)show_res_out;
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), ctx->cmd_args, sizeof(struct show_res_cmd_args),
-        ctx->result, &size);
+                   ctx->result, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_RES_ATTR, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("get resource attr failed, ret:%d", ret), ret);
@@ -170,10 +169,8 @@ STATIC void tool_show_res_help(struct command_context *ctx, unsigned int mode)
     }
 }
 
-STATIC struct sub_option_entry set_link_opts_param[] = {
-    {"-up",   ARG_TYPE_NONE, parse_none, MODE_SET, 0},
-    {"-down", ARG_TYPE_NONE, parse_none, MODE_SET, 0}
-};
+STATIC struct sub_option_entry set_link_opts_param[] = {{"-up", ARG_TYPE_NONE, parse_none, MODE_SET, 0},
+                                                        {"-down", ARG_TYPE_NONE, parse_none, MODE_SET, 0}};
 
 STATIC void get_link_sub_opts(struct sub_option_entry **sub_opts, unsigned int *count)
 {
@@ -251,18 +248,19 @@ STATIC int tool_set_link_exec(struct command_context *ctx, bool skip_double_chec
     CHK_PRT_RETURN(link_args == NULL, hccn_err("link_args is NULL"), TOOL_PRIVATE_ARGS_NUM_ERR);
 
     LOG_PROMPT(ctx, "start to set link status:%s, logic_id:%d dev_name:%s",
-        ((link_args->type == SET_LINK_UP) ? "up" : "down"), ctx->npu_info.logic_id, ctx->dev_name);
+               ((link_args->type == SET_LINK_UP) ? "up" : "down"), ctx->npu_info.logic_id, ctx->dev_name);
 
     if (link_args->type == SET_LINK_DOWN && !skip_double_check) {
-        ret = tool_double_check(
-            "Running this command will result in the loss of the gateway and arp.\n"
-            "Are you sure you want to continue?");
+        ret = tool_double_check("Running this command will result in the loss of the gateway and arp.\n"
+                                "Are you sure you want to continue?");
         CHK_PRT_RETURN(ret != 0, hccn_info("User aborts command"), ret);
     }
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     CHK_PRT_RETURN(!hccn_check_is_uboe_dev(ctx->dev_name), hccn_err("only eth_dev or bond_ndev is allowed"), -EINVAL);
 
@@ -270,8 +268,8 @@ STATIC int tool_set_link_exec(struct command_context *ctx, bool skip_double_chec
         CHECK_BOND_DEV_RETURN(ctx->dev_name, ctx->slot_id);
     }
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), ctx->cmd_args, sizeof(struct set_link_args),
-        NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), ctx->cmd_args, sizeof(struct set_link_args), NULL,
+                   &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_LINK_STATUS, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("set link status failed, ret:%d", ret), ret);
@@ -279,7 +277,7 @@ STATIC int tool_set_link_exec(struct command_context *ctx, bool skip_double_chec
     if (link_args->type == SET_LINK_UP) {
         ret = tool_set_link_up_recovery(ctx, link_args);
         CHK_PRT_RETURN(ret != 0, hccn_err("tool gateway or arp recovery failed, ret:%d", ret),
-            TOOL_GATEWAY_OR_ARP_RECOVERY_ERR);
+                       TOOL_GATEWAY_OR_ARP_RECOVERY_ERR);
     }
 
     return 0;
@@ -287,15 +285,15 @@ STATIC int tool_set_link_exec(struct command_context *ctx, bool skip_double_chec
 
 STATIC int tool_link_exec(struct command_context *ctx)
 {
-    if(ctx->mode == MODE_GET) {
+    if (ctx->mode == MODE_GET) {
         CHK_PRT_RETURN(ctx->dev_mask != DEV_PORT_TYPE,
-            hccn_err("invalid param, dev_mask:0x%x != 0x%x", ctx->dev_mask, DEV_PORT_TYPE),
-            TOOL_PUBLIC_ARGS_MISMATCH_CMD_ERR);
+                       hccn_err("invalid param, dev_mask:0x%x != 0x%x", ctx->dev_mask, DEV_PORT_TYPE),
+                       TOOL_PUBLIC_ARGS_MISMATCH_CMD_ERR);
         return tool_get_link_exec(ctx);
     } else {
         CHK_PRT_RETURN(ctx->dev_mask != DEV_DEV_ATTR,
-            hccn_err("invalid param, dev_mask:0x%x != 0x%x", ctx->dev_mask, DEV_DEV_ATTR),
-            TOOL_PUBLIC_ARGS_MISMATCH_CMD_ERR);
+                       hccn_err("invalid param, dev_mask:0x%x != 0x%x", ctx->dev_mask, DEV_DEV_ATTR),
+                       TOOL_PUBLIC_ARGS_MISMATCH_CMD_ERR);
         return tool_set_link_exec(ctx, false);
     }
 }
@@ -337,8 +335,9 @@ STATIC int tool_get_netdev_interface_status(struct command_context *ctx, int *in
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, ctx->result, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_INTERFACE_STATUS, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi get net_dev interface status failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("dsmi get net_dev interface status failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     return 0;
 }
@@ -349,8 +348,8 @@ STATIC int tool_set_link_for_exec_func(struct command_context *ctx, int interfac
     struct command_context link_ctx = {0};
 
     if (interface_status == INTERFACE_STATUS_DOWN) {
-        hccn_info("logic_id:%d, net_dev's original interface status is down, not need to execute link op:%d",
-            ctx->npu_info.logic_id, link_op);
+        hccn_info("logic_id:%d, net_dev's original interface status is down, no need to execute link op:%d",
+                  ctx->npu_info.logic_id, link_op);
         return 0;
     }
 
@@ -361,33 +360,37 @@ STATIC int tool_set_link_for_exec_func(struct command_context *ctx, int interfac
 }
 
 int tool_exec_with_link_status(struct command_context *ctx, int (*exec_func)(struct command_context *ctx),
-    bool double_check_flag)
+                               bool double_check_flag)
 {
     int interface_status, cmd_ret, ret;
 
     ret = tool_get_netdev_interface_status(ctx, &interface_status);
-    CHK_PRT_RETURN(ret != 0, hccn_err("tool get netdev interface failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("tool get netdev interface failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     if (double_check_flag && interface_status != INTERFACE_STATUS_DOWN) {
         ret = tool_double_check("Running this command will trigger bond_dev link down and then recover the link.\n"
-            "Are you sure you want to continue?");
+                                "Are you sure you want to continue?");
         CHK_PRT_RETURN(ret != 0, hccn_info("User aborts command"), ret);
     }
 
     ret = tool_set_link_for_exec_func(ctx, interface_status, SET_LINK_DOWN);
-    CHK_PRT_RETURN(ret != 0, hccn_err("set net_dev link down failed before executing func, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("set net_dev link down failed before executing func, ret:%d, logic_id:%d", ret,
+                            ctx->npu_info.logic_id),
+                   ret);
 
     cmd_ret = exec_func(ctx);
     if (cmd_ret != 0) {
-        hccn_err("cmd:%s execute failed, dev_name:%s , cmd_ret:%d, logic_id:%d",
-            ctx->match_cmd->name, ctx->dev_name, cmd_ret, ctx->npu_info.logic_id);
+        hccn_err("cmd:%s execute failed, dev_name:%s , cmd_ret:%d, logic_id:%d", ctx->match_cmd->name, ctx->dev_name,
+                 cmd_ret, ctx->npu_info.logic_id);
     }
 
     ret = tool_set_link_for_exec_func(ctx, interface_status, SET_LINK_UP);
-    CHK_PRT_RETURN(ret != 0, hccn_err("set net_dev link up failed after executing func, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("set net_dev link up failed after executing func, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+        ret);
 
     return cmd_ret;
 }
@@ -578,8 +581,8 @@ STATIC int tool_status_exec(struct command_context *ctx)
 
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info.bond_info.slaves_ifname[i], strlen(ndev_info.bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info.bond_info.slaves_ifname[i],
+                        strlen(ndev_info.bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         ret = tool_get_netdev_status(ctx);
@@ -707,13 +710,15 @@ STATIC int tool_eth_test_exec(struct command_context *ctx)
     CHECK_BOND_DEV_RETURN(ctx->dev_name, ctx->slot_id);
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     ret = tool_double_check("Running this command may cause errors to other programs"
-        " that are using the ETH network port. Ensure that all other programs"
-        " are stopped before proceeding with this command.\n"
-        "Are you sure you want to continue?");
+                            " that are using the ETH network port. Ensure that all other programs"
+                            " are stopped before proceeding with this command.\n"
+                            "Are you sure you want to continue?");
     CHK_PRT_RETURN(ret != 0, hccn_info("User aborts command"), ret);
 
     ret = tool_get_bond_slaves(ctx, &ndev_info);
@@ -721,8 +726,8 @@ STATIC int tool_eth_test_exec(struct command_context *ctx)
 
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info.bond_info.slaves_ifname[i], strlen(ndev_info.bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info.bond_info.slaves_ifname[i],
+                        strlen(ndev_info.bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         ret = tool_get_eth_test(ctx);
@@ -810,11 +815,12 @@ int tool_bond_attr_set(struct command_context *ctx)
     int ret = 0;
 
     CHK_PRT_RETURN(bond_attr_args == NULL, hccn_err("bond_attr_args is NULL"), TOOL_PRIVATE_ARGS_NUM_ERR);
-    CHK_PRT_RETURN(hccn_check_usr_identify() != 0, hccn_err("permission denied: only root user is allowed, logic_id:%d",
-        ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(hccn_check_usr_identify() != 0,
+                   hccn_err("permission denied: only root user is allowed, logic_id:%d", ctx->npu_info.logic_id),
+                   TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)bond_attr_args,
-        sizeof(struct bond_attr_cmd_args), NULL, &size);
+                   sizeof(struct bond_attr_cmd_args), NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_BOND_ATTR, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set bond attr failed, ret:%d", ret), ret);
@@ -827,8 +833,10 @@ STATIC int tool_update_bond_attr_cfg(struct command_context *ctx)
     int ret;
 
     ret = tool_write_conf(ctx->slot_id, "bond_attr", (bond_attr_args->lacp_rate == 0) ? "0" : "1");
-    CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     return 0;
 }
@@ -845,8 +853,10 @@ STATIC int tool_bond_attr_exec(struct command_context *ctx)
         ret = tool_exec_with_link_status(ctx, tool_bond_attr_set, true);
         if (ret == 0) {
             ret = tool_update_bond_attr_cfg(ctx);
-            CHK_PRT_RETURN(ret != 0, hccn_err("update bond attr cfg failed, ret:%d, slot_id:%d, logic_id:%d",
-            ret, ctx->slot_id, ctx->npu_info.logic_id), ret);
+            CHK_PRT_RETURN(ret != 0,
+                           hccn_err("update bond attr cfg failed, ret:%d, slot_id:%d, logic_id:%d", ret, ctx->slot_id,
+                                    ctx->npu_info.logic_id),
+                           ret);
         }
         return ret;
     }
@@ -906,8 +916,8 @@ STATIC int tool_lldp_exec(struct command_context *ctx)
 
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info.bond_info.slaves_ifname[i], strlen(ndev_info.bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info.bond_info.slaves_ifname[i],
+                        strlen(ndev_info.bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         ret = tool_get_lldp_eth_info(ctx);
@@ -1038,8 +1048,10 @@ STATIC int tool_stat_exec(struct command_context *ctx)
         tool_display_stat_info(&stat_info);
     } else {
         ret = hccn_check_usr_identify();
-        CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-            ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+            TOOL_PUBLIC_ROOT_UNSUPPORT);
 
         ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_CLEAR_PACKET_STATISTICS, &info);
         CHK_PRT_RETURN(ret != 0, hccn_err("dsmi clear stat failed, ret:%d", ret), ret);
@@ -1118,8 +1130,7 @@ STATIC int gateway_assign(void *args, struct sub_option_entry *opt, value_union 
     int ret = 0;
 
     if (strcmp(opt->name, "-address") == 0) {
-        ret = memcpy_s(&gw_args->gw_addr, sizeof(gw_args->gw_addr),
-                       &type_val->ip, sizeof(type_val->ip));
+        ret = memcpy_s(&gw_args->gw_addr, sizeof(gw_args->gw_addr), &type_val->ip, sizeof(type_val->ip));
     } else {
         return -EINVAL;
     }
@@ -1138,8 +1149,10 @@ STATIC int tool_get_mtu_exec(struct command_context *ctx)
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, mtu_size, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_MTU_SIZE, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("get mtu size failed, logic_id:%d dev_name:%s ret:%d",
-        ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("get mtu size failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret),
+        ret);
 
     newline_pos = strchr(mtu_size, '\n');
     if (newline_pos != NULL) {
@@ -1161,14 +1174,17 @@ int tool_set_mtu_exec(struct command_context *ctx)
     LOG_PROMPT(ctx, "start to set mtu:%d, logic_id:%d", mtu_args->mtu_size, ctx->npu_info.logic_id);
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d dev_name:%s",
-        ret, ctx->npu_info.logic_id, ctx->dev_name), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d dev_name:%s", ret,
+                            ctx->npu_info.logic_id, ctx->dev_name),
+                   TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)mtu_args, sizeof(struct mtu_cmd_args),
-        NULL, &size);
+                   NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_MTU_SIZE, &info);
-    CHK_PRT_RETURN(ret != 0,
+    CHK_PRT_RETURN(
+        ret != 0,
         hccn_err("set mtu failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
 
     return 0;
@@ -1192,8 +1208,10 @@ STATIC int tool_mtu_exec(struct command_context *ctx)
         CHK_PRT_RETURN(ret <= 0, hccn_err("snprintf_s mtu val failed, ret:%d", ret), -EIO);
 
         ret = tool_write_conf(ctx->slot_id, "mtu", mtu_val);
-        CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-            ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id),
+            TOOL_WRITE_CONF_ERR);
 
         return 0;
     }
@@ -1269,7 +1287,7 @@ int tool_inet_pton_ipv4_address(const char *str, unsigned int *ip)
 
     ret = inet_pton(AF_INET, str, &addr);
     if (ret <= 0) {
-        hccn_err("\"%s\" is a invalid IPv4 address! ret:%d, errno[%d]", str, ret, errno);
+        hccn_err("\"%s\" is an invalid IPv4 address! ret:%d, errno[%d]", str, ret, errno);
         return -1;
     }
 
@@ -1331,16 +1349,16 @@ STATIC int tool_ip_get_gateway_conf(struct command_context *ctx, unsigned int *g
         if (ret == FILE_OPT_SYS_RD_FILE_NOT_FOUND) {
             return FILE_OPT_SYS_RD_FILE_NOT_FOUND;
         }
-        hccn_err("tool_read_conf failed! slot_id:%d logic_id:%d ret:%d len:%zu",
-            ctx->slot_id, ctx->npu_info.logic_id, ret, sizeof(gw));
+        hccn_err("tool_read_conf failed! slot_id:%d logic_id:%d ret:%d len:%zu", ctx->slot_id, ctx->npu_info.logic_id,
+                 ret, sizeof(gw));
         return ret;
     }
 
     ret = tool_inet_pton_ipv4_address(gw, &gw_ip);
     if (ret) {
         TOOL_PRINT_ERR("The gateway is invalid!");
-        hccn_err("tool_inet_pton_ipv4_address failed! ret:%d logic_id:%d gw:%s gw_ip:0x%x",
-                 ret, ctx->npu_info.logic_id, gw, gw_ip);
+        hccn_err("tool_inet_pton_ipv4_address failed! ret:%d logic_id:%d gw:%s gw_ip:0x%x", ret, ctx->npu_info.logic_id,
+                 gw, gw_ip);
         return ret;
     }
 
@@ -1425,8 +1443,9 @@ STATIC int tool_ip_sync_hw_gateway_to_conf(struct command_context *ctx, unsigned
     }
 
     ret = tool_write_conf(ctx->slot_id, "gateway", gw_str);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id), ret);
 
     return ret;
 }
@@ -1441,11 +1460,12 @@ int tool_ip_set_gateway(struct command_context *ctx)
     bool hw_has_gw = true;
     int ret;
 
-    LOG_PROMPT(ctx, "start to set default gateway addr:%s, logic_id:%d",
-        gw_args->gw_addr.str_ip, ctx->npu_info.logic_id);
+    LOG_PROMPT(ctx, "start to set default gateway addr:%s, logic_id:%d", gw_args->gw_addr.str_ip,
+               ctx->npu_info.logic_id);
 
     ret = tool_ip_sync_hw_gateway_to_conf(ctx, &gw_ip);
-    CHK_PRT_RETURN(ret != 0,
+    CHK_PRT_RETURN(
+        ret != 0,
         hccn_err("sync hw gateway to conf failed logic_id[%d] slot_id[%d] ret[%d]", logic_id, ctx->slot_id, ret), ret);
 
     if (gw_ip == INVALID_GW) {
@@ -1453,7 +1473,7 @@ int tool_ip_set_gateway(struct command_context *ctx)
     }
 
     if (hw_has_gw && gw_ip == gw_args->gw_addr.ip_addr) {
-        hccn_info("cfg logic_id[%d] gw[0x%x] exist", logic_id, gw_args->gw_addr.ip_addr);
+        hccn_info("cfg logic_id[%d] gw[0x%x] exists", logic_id, gw_args->gw_addr.ip_addr);
         return 0;
     }
 
@@ -1461,8 +1481,10 @@ int tool_ip_set_gateway(struct command_context *ctx)
                    sizeof(struct gateway_cmd_args), NULL, &size);
 
     ret = dsmi_exe_get_info(logic_id, DS_SET_DEFAULT_GATEWAY, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("set default gateway failed, logic_id:%d dev_name:%s ret:%d",
-        ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("set default gateway failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id,
+                            ctx->dev_name, ret),
+                   ret);
 
     if (hw_has_gw) {
         ret = tool_del_gateway_exec(ctx, gw_ip);
@@ -1484,29 +1506,39 @@ int tool_set_gateway_exec(struct command_context *ctx)
     int ret = 0;
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     ret = tool_read_conf(slot_id, "address", ip, sizeof(ip));
-    CHK_PRT_RETURN(ret != 0, hccn_err("read address failed! ret:%d slot_id:%d logic_id:%d:",
-        ret, slot_id, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("read address failed! ret:%d slot_id:%d logic_id:%d:", ret, slot_id, ctx->npu_info.logic_id),
+        ret);
 
     ret = tool_read_conf(slot_id, "netmask", mask, sizeof(mask));
-    CHK_PRT_RETURN(ret != 0, hccn_err("read netmask failed! ret:%d slot_id:%d logic_id:%d",
-        ret, slot_id, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("read netmask failed! ret:%d slot_id:%d logic_id:%d", ret, slot_id, ctx->npu_info.logic_id),
+                   ret);
 
     ret = tool_check_ip_net_segment(ip, gateway, mask);
-    CHK_PRT_RETURN(ret != 0, hccn_err("not the same net segment! ret:%d logic_id:%d ip:%s gateway:%s mask:%s",
-        ret, ctx->npu_info.logic_id, ip, gateway, mask), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("not the same net segment! ret:%d logic_id:%d ip:%s gateway:%s mask:%s", ret,
+                            ctx->npu_info.logic_id, ip, gateway, mask),
+                   ret);
 
     ret = tool_ip_set_gateway(ctx);
-    CHK_PRT_RETURN(ret != 0, hccn_err("tool_ip_set_gateway failed! ret:%d logic_id:%d gateway:%s",
-        ret, ctx->npu_info.logic_id, gateway), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("tool_ip_set_gateway failed! ret:%d logic_id:%d gateway:%s", ret, ctx->npu_info.logic_id, gateway),
+        ret);
 
     if (!tool_check_conf_udhcpc_enable(slot_id)) {
         ret = tool_write_conf(slot_id, "gateway", gateway);
-        CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-            ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id),
+            TOOL_WRITE_CONF_ERR);
     }
 
     return ret;
@@ -1571,16 +1603,19 @@ STATIC int lb_assign(void *args, struct sub_option_entry *opt, value_union *type
         lb_args->mode = LOOPBACK_SET_CLEAR;
     } else if (strcmp(opt->name, "-mode") == 0 && lb_args->mode == LOOPBACK_SET_NONE) {
         lb_args->mode = LOOPBACK_SET_ENABLE;
-        ret = strncpy_s(lb_args->lb_mode_name, MAX_LOOPBACK_MODE_NAME - 1,
-            type_val->str_val, strlen(type_val->str_val));
+        ret = strncpy_s(lb_args->lb_mode_name, MAX_LOOPBACK_MODE_NAME - 1, type_val->str_val,
+                        strlen(type_val->str_val));
         CHK_PRT_RETURN(ret != 0,
-            hccn_err("strncpy_s lb_mode_name failed! ret:%d, str_len:%zu", ret, strlen(type_val->str_val)), ret);
+                       hccn_err("strncpy_s lb_mode_name failed! ret:%d, str_len:%zu", ret, strlen(type_val->str_val)),
+                       ret);
 
         CHK_PRT_RETURN(strcmp(lb_args->lb_mode_name, RXMAC2TXMAC) != 0 &&
-            strcmp(lb_args->lb_mode_name, TXMAC2RXMAC) != 0 &&
-            strcmp(lb_args->lb_mode_name, TXPCS2RXPCS) != 0,
-            TOOL_PRINT_ERR("Option -mode <loopback_mode> supports one of the following loopback modes: "
-                "%s, %s, %s.", RXMAC2TXMAC, TXMAC2RXMAC, TXPCS2RXPCS), TOOL_PRIVATE_ARGS_VALUE_ERR);
+                           strcmp(lb_args->lb_mode_name, TXMAC2RXMAC) != 0 &&
+                           strcmp(lb_args->lb_mode_name, TXPCS2RXPCS) != 0,
+                       TOOL_PRINT_ERR("Option -mode <loopback_mode> supports one of the following loopback modes: "
+                                      "%s, %s, %s.",
+                                      RXMAC2TXMAC, TXMAC2RXMAC, TXPCS2RXPCS),
+                       TOOL_PRIVATE_ARGS_VALUE_ERR);
     } else {
         TOOL_PRINT_ERR("Option -mode and -clear conflict with each other.");
         return TOOL_PRIVATE_ARGS_CONFLICT_ERR;
@@ -1618,12 +1653,12 @@ STATIC int tool_set_lb_exec(struct command_context *ctx)
     int ret = 0;
 
     CHK_PRT_RETURN(lb_args == NULL, TOOL_PRINT_ERR("Option -clear or -mode <loopback_mode> is required but missing."),
-        TOOL_PRIVATE_ARGS_VALUE_ERR);
+                   TOOL_PRIVATE_ARGS_VALUE_ERR);
 
     cmd_opcode = (lb_args->mode == LOOPBACK_SET_ENABLE) ? DS_SET_LOOPBACK_STATE : DS_CLEAR_LOOPBACK_STATE;
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args,
-        sizeof(struct lb_cmd_args), NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args, sizeof(struct lb_cmd_args),
+                   NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, cmd_opcode, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set lb state failed, ret:%d", ret), ret);
@@ -1640,8 +1675,10 @@ STATIC int tool_lb_exec(struct command_context *ctx)
         CHK_PRT_RETURN(ret != 0, hccn_err("tool_get_lb_exec failed, ret:%d", ret), ret);
     } else {
         ret = hccn_check_usr_identify();
-        CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-            ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+            TOOL_PUBLIC_ROOT_UNSUPPORT);
 
         ret = tool_set_lb_exec(ctx);
         CHK_PRT_RETURN(ret != 0, hccn_err("tool_set_lb_exec failed, ret:%d", ret), ret);
@@ -1754,7 +1791,7 @@ out:
 }
 
 STATIC int tool_prepare_arp_table_cfg(char match_list[][CONFLINE_LENGTH], struct command_context *ctx,
-    struct arp_cmd_args *arp_args)
+                                      struct arp_cmd_args *arp_args)
 {
     int ret = 0;
 
@@ -1768,7 +1805,7 @@ STATIC int tool_prepare_arp_table_cfg(char match_list[][CONFLINE_LENGTH], struct
 }
 
 STATIC int tool_fill_add_arp_conf_cmd(char cmd_buf[], unsigned int cmd_buf_len, struct command_context *ctx,
-    struct arp_cmd_args *arp_args)
+                                      struct arp_cmd_args *arp_args)
 {
     char *cmd_arg_buf = NULL;
     int ret = 0;
@@ -1776,8 +1813,8 @@ STATIC int tool_fill_add_arp_conf_cmd(char cmd_buf[], unsigned int cmd_buf_len, 
     cmd_arg_buf = (char *)calloc(CFG_INFO_PAYLOAD_LEN, sizeof(char));
     CHK_PRT_RETURN(cmd_arg_buf == NULL, hccn_err("tool add arp calloc in buf failed"), -ENOMEM);
 
-    ret = sprintf_s(cmd_arg_buf, INFO_PAYLOAD_LEN, "-s %s %02x:%02x:%02x:%02x:%02x:%02x",
-        arp_args->ip.str_ip, MAC_ADDR_ARGS(arp_args->mac.mac_pieces));
+    ret = sprintf_s(cmd_arg_buf, INFO_PAYLOAD_LEN, "-s %s %02x:%02x:%02x:%02x:%02x:%02x", arp_args->ip.str_ip,
+                    MAC_ADDR_ARGS(arp_args->mac.mac_pieces));
     if (ret <= 0) {
         hccn_err("tool add arp construct cmdline failed, ret:%d", ret);
         ret = -EIO;
@@ -1835,7 +1872,7 @@ STATIC bool is_valid_arp_set_args(struct command_context *ctx, struct arp_cmd_ar
         return false;
     }
     if (arp_args->mode == ARP_SET_MODE_DEL && (ctx->sub_opt_mask & SUB_OPT_MAC_MASK) != 0) {
-        TOOL_PRINT_ERR("Option -mac <mac_address> is not required but including.");
+        TOOL_PRINT_ERR("Option -mac <mac_address> is not required but was provided.");
         return false;
     }
     if (arp_args->mode == ARP_SET_MODE_NONE) {
@@ -1854,14 +1891,16 @@ int tool_arp_set(struct command_context *ctx)
 
     CHK_PRT_RETURN(arp_args == NULL, hccn_err("arp_args is NULL"), TOOL_PRIVATE_ARGS_NUM_ERR);
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
     if (!is_valid_arp_set_args(ctx, arp_args)) {
         return TOOL_PRIVATE_ARGS_VALUE_ERR;
     }
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)arp_args, sizeof(struct arp_cmd_args),
-        NULL, &size);
+                   NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_ARP_TABLE, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set arp table config failed, ret:%d", ret), ret);
@@ -1882,8 +1921,10 @@ STATIC int tool_arp_exec(struct command_context *ctx)
     ret = tool_arp_set(ctx);
     if (ret == 0) {
         ret = tool_update_arp_table_cfg(ctx);
-        CHK_PRT_RETURN(ret != 0, hccn_err("update arp table cfg failed, ret:%d, slot_id:%d, logic_id:%d",
-            ret, ctx->slot_id, ctx->npu_info.logic_id), ret);
+        CHK_PRT_RETURN(ret != 0,
+                       hccn_err("update arp table cfg failed, ret:%d, slot_id:%d, logic_id:%d", ret, ctx->slot_id,
+                                ctx->npu_info.logic_id),
+                       ret);
     }
     return ret;
 }
@@ -1955,8 +1996,10 @@ STATIC int tool_get_mac_exec(struct command_context *ctx)
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, (char *)&mac_address, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_MAC_ADDR, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("get mac addr failed, logic_id:%d dev_name:%s ret:%d",
-        ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("get mac addr failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret),
+        ret);
 
     TOOL_PRINT_INFO("mac addr: %02x:%02x:%02x:%02x:%02x:%02x", MAC_ADDR_ARGS(mac_address.mac_pieces));
     return 0;
@@ -1971,26 +2014,32 @@ STATIC int tool_set_mac_exec(struct command_context *ctx)
     int ret = 0;
 
     LOG_PROMPT(ctx, "start to set mac addr:%02x:%02x:%02x:%02x:%02x:%02x, logic_id:%d",
-        MAC_ADDR_ARGS(mac_args->mac_pieces), ctx->npu_info.logic_id);
+               MAC_ADDR_ARGS(mac_args->mac_pieces), ctx->npu_info.logic_id);
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args,
-        sizeof(struct mac_val), NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args, sizeof(struct mac_val),
+                   NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_MAC_ADDR, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("set mac addr failed, logic_id:%d dev_name:%s ret:%d",
-        ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("set mac addr failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret),
+        ret);
 
-    ret = snprintf_s(mac_addr_string, MAC_STR_LEN + 1, MAC_STR_LEN,
-        "%02x:%02x:%02x:%02x:%02x:%02x", MAC_ADDR_ARGS(mac_args->mac_pieces));
+    ret = snprintf_s(mac_addr_string, MAC_STR_LEN + 1, MAC_STR_LEN, "%02x:%02x:%02x:%02x:%02x:%02x",
+                     MAC_ADDR_ARGS(mac_args->mac_pieces));
     CHK_PRT_RETURN(ret <= 0, hccn_err("snprintf_s mac_addr_string failed"), -EIO);
 
     ret = tool_write_conf(ctx->slot_id, "mac_addr", mac_addr_string);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     return 0;
 }
@@ -2000,9 +2049,9 @@ STATIC int tool_mac_exec(struct command_context *ctx)
     CHECK_BOND_DEV_RETURN(ctx->dev_name, ctx->slot_id);
 
     if (ctx->mode == MODE_GET) {
-        return(tool_get_mac_exec(ctx));
+        return (tool_get_mac_exec(ctx));
     } else {
-        return(tool_set_mac_exec(ctx));
+        return (tool_set_mac_exec(ctx));
     }
 }
 
@@ -2053,11 +2102,9 @@ STATIC int ip_assign(void *args, struct sub_option_entry *opt, value_union *type
     int ret = 0;
 
     if (strcmp(opt->name, "-address") == 0) {
-        ret = memcpy_s(&ip_args->ip, sizeof(ip_args->ip),
-                       &type_val->ip, sizeof(type_val->ip));
+        ret = memcpy_s(&ip_args->ip, sizeof(ip_args->ip), &type_val->ip, sizeof(type_val->ip));
     } else if (strcmp(opt->name, "-netmask") == 0) {
-        ret = memcpy_s(&ip_args->netmask, sizeof(ip_args->netmask),
-                       &type_val->ip, sizeof(type_val->ip));
+        ret = memcpy_s(&ip_args->netmask, sizeof(ip_args->netmask), &type_val->ip, sizeof(type_val->ip));
     } else {
         return -EINVAL;
     }
@@ -2098,12 +2145,16 @@ STATIC int tool_write_ip_conf(struct command_context *ctx, const char *address, 
     int ret;
 
     ret = tool_write_conf(ctx->slot_id, "address", address);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write address cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("write address cfg error, ret:%d slot_id:%d logic_id:%d", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     ret = tool_write_conf(ctx->slot_id, "netmask", netmask);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write netmask cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("write netmask cfg error, ret:%d slot_id:%d logic_id:%d", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     return 0;
 }
@@ -2166,15 +2217,17 @@ STATIC int tool_set_ip_exec(struct command_context *ctx)
     unsigned int size = 0;
     int ret = 0;
 
-    LOG_PROMPT(ctx, "start to set ip addr:%s and netmask_ip:%s, logic_id:%d",
-        ip_args->ip.str_ip, ip_args->netmask.str_ip, ctx->npu_info.logic_id);
+    LOG_PROMPT(ctx, "start to set ip addr:%s and netmask_ip:%s, logic_id:%d", ip_args->ip.str_ip,
+               ip_args->netmask.str_ip, ctx->npu_info.logic_id);
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d dev_name:%s",
-        ret, ctx->npu_info.logic_id, ctx->dev_name), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d dev_name:%s", ret,
+                            ctx->npu_info.logic_id, ctx->dev_name),
+                   TOOL_PUBLIC_ROOT_UNSUPPORT);
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ip_args, sizeof(struct ip_cmd_args),
-        NULL, &size);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ip_args, sizeof(struct ip_cmd_args), NULL,
+                   &size);
 
     if (is_ipaddr_conflict(ctx)) {
         hccn_err("ipaddr conflict, address[%s] netmask[%s]", ip_str, mask_str);
@@ -2182,13 +2235,16 @@ STATIC int tool_set_ip_exec(struct command_context *ctx)
     }
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_IP, &info);
-    CHK_PRT_RETURN(ret != 0,
-        hccn_err("set ip failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("set ip failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret),
+        ret);
 
     if (!tool_check_conf_udhcpc_enable(ctx->slot_id)) {
         ret = tool_write_ip_conf(ctx, ip_str, mask_str);
-        CHK_PRT_RETURN(ret != 0, hccn_err("write ip cfg error! ret:%d logic_id:%d addr:%s netmask:%s",
-            ret, ctx->npu_info.logic_id, ip_str, mask_str), ret);
+        CHK_PRT_RETURN(ret != 0,
+                       hccn_err("write ip cfg error! ret:%d logic_id:%d addr:%s netmask:%s", ret,
+                                ctx->npu_info.logic_id, ip_str, mask_str),
+                       ret);
     }
 
     return 0;
@@ -2250,14 +2306,15 @@ STATIC int pfc_assign(void *args, struct sub_option_entry *opt, value_union *typ
     int ret = 0;
 
     if (strcmp(opt->name, "-bitmap") == 0) {
-        CHK_PRT_RETURN(strlen(type_val->str_val) != PFC_CFG_STR_LEN,
+        CHK_PRT_RETURN(
+            strlen(type_val->str_val) != PFC_CFG_STR_LEN,
             hccn_err("input pfc_cfg bitmap length %zu, expect %d", strlen(type_val->str_val), PFC_CFG_STR_LEN),
             TOOL_PRIVATE_ARGS_NUM_ERR);
 
         ret = strncpy_s(pfc_args->pfc_enabled, PFC_CFG_STR_LEN + 1, type_val->str_val, strlen(type_val->str_val));
         CHK_PRT_RETURN(ret != 0,
-            hccn_err("strncpy_s pfc_enabled failed! ret:%d, str_len:%zu", ret, strlen(type_val->str_val)),
-            TOOL_PRIVATE_ARGS_PARSE_ERR);
+                       hccn_err("strncpy_s pfc_enabled failed! ret:%d, str_len:%zu", ret, strlen(type_val->str_val)),
+                       TOOL_PRIVATE_ARGS_PARSE_ERR);
     }
     return 0;
 }
@@ -2272,8 +2329,10 @@ STATIC int tool_get_pfc_info(struct command_context *ctx)
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, pfc_enabled, &size_out);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_PFC_CFG, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi get pfc info failed, logic_id:%d dev_name:%s ret:%d",
-        ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("dsmi get pfc info failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id,
+                            ctx->dev_name, ret),
+                   ret);
 
     TOOL_PRINT_INFO("[dev_name:%s]", ctx->dev_name);
     TOOL_PRINT_INFO("priority   0 1 2 3 4 5 6 7");
@@ -2291,8 +2350,8 @@ STATIC int tool_get_pfc_exec(struct command_context *ctx, struct netdev_info *nd
 
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info->bond_info.slaves_ifname[i], strlen(ndev_info->bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info->bond_info.slaves_ifname[i],
+                        strlen(ndev_info->bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         ret = tool_get_pfc_info(ctx);
@@ -2308,7 +2367,7 @@ STATIC int tool_get_pfc_exec(struct command_context *ctx, struct netdev_info *nd
 
 STATIC int tool_pfc_str2char(const char pfc_str[], char pfc_enabled[PRIORITY_NUM])
 {
-#define PFC_CONF_INDEX  2
+#define PFC_CONF_INDEX 2
     int priority_i = 0;
     int str_i = 0;
 
@@ -2318,12 +2377,12 @@ STATIC int tool_pfc_str2char(const char pfc_str[], char pfc_enabled[PRIORITY_NUM
                 continue;
             }
             CHK_PRT_RETURN((pfc_str[str_i] >= '0') && (pfc_str[str_i] <= '9'),
-                TOOL_PRINT_ERR("Option -bitmap value range [0, 1]"), TOOL_PRIVATE_ARGS_VALUE_ERR);
-            CHK_PRT_RETURN(pfc_str[str_i] != ',',
-                TOOL_PRINT_ERR("Option -bitmap must be separated by comma"), TOOL_PRIVATE_ARGS_VALUE_ERR);
+                           TOOL_PRINT_ERR("Option -bitmap value range [0, 1]"), TOOL_PRIVATE_ARGS_VALUE_ERR);
+            CHK_PRT_RETURN(pfc_str[str_i] != ',', TOOL_PRINT_ERR("Option -bitmap must be separated by comma"),
+                           TOOL_PRIVATE_ARGS_VALUE_ERR);
         } else if ((str_i % PFC_CONF_INDEX == 0) && (pfc_str[str_i] != '0') && (pfc_str[str_i] != '1')) {
-            CHK_PRT_RETURN(pfc_str[str_i] == ',',
-                TOOL_PRINT_ERR("Option -bitmap contains redundant comma"), TOOL_PRIVATE_ARGS_VALUE_ERR);
+            CHK_PRT_RETURN(pfc_str[str_i] == ',', TOOL_PRINT_ERR("Option -bitmap contains redundant comma"),
+                           TOOL_PRIVATE_ARGS_VALUE_ERR);
 
             TOOL_PRINT_ERR("Option -bitmap value range [0, 1], [%c] is invalid", pfc_str[str_i]);
             return TOOL_PRIVATE_ARGS_VALUE_ERR;
@@ -2344,8 +2403,10 @@ int tool_set_pfc_exec(struct command_context *ctx, struct netdev_info *ndev_info
     int ret = 0;
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     ret = tool_pfc_str2char((char *)ctx->cmd_args, pfc_enabled);
     CHK_PRT_RETURN(ret != 0, hccn_err("invalid input pfc cfg"), ret);
@@ -2353,8 +2414,8 @@ int tool_set_pfc_exec(struct command_context *ctx, struct netdev_info *ndev_info
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         size_out = 0;
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info->bond_info.slaves_ifname[i], strlen(ndev_info->bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info->bond_info.slaves_ifname[i],
+                        strlen(ndev_info->bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), pfc_enabled, PRIORITY_NUM, NULL, &size_out);
@@ -2384,8 +2445,10 @@ STATIC int tool_pfc_exec(struct command_context *ctx)
         CHK_PRT_RETURN(ret != 0, TOOL_PRINT_ERR("[dev_name:%s] set the pfc_cfg failed!", ctx->dev_name), ret);
 
         ret = tool_write_conf(ctx->slot_id, "bitmap", pfc_args->pfc_enabled);
-        CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-            ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id),
+            TOOL_WRITE_CONF_ERR);
     }
 
     return 0;
@@ -2436,13 +2499,13 @@ STATIC int prio_tc_assign(void *args, struct sub_option_entry *opt, value_union 
 
     if (strcmp(opt->name, "-map") == 0) {
         CHK_PRT_RETURN(strlen(type_val->str_val) != PFC_CFG_STR_LEN,
-            hccn_err("input prio_tc map length %zu, expect %d", strlen(type_val->str_val), PFC_CFG_STR_LEN),
-            TOOL_PRIVATE_ARGS_NUM_ERR);
+                       hccn_err("input prio_tc map length %zu, expect %d", strlen(type_val->str_val), PFC_CFG_STR_LEN),
+                       TOOL_PRIVATE_ARGS_NUM_ERR);
 
         ret = strncpy_s(prio_tc_args->map, PFC_CFG_STR_LEN + 1, type_val->str_val, strlen(type_val->str_val));
         CHK_PRT_RETURN(ret != 0,
-            hccn_err("strncpy_s prio_tc map failed! ret:%d, str_len:%zu", ret, strlen(type_val->str_val)),
-            TOOL_PRIVATE_ARGS_PARSE_ERR);
+                       hccn_err("strncpy_s prio_tc map failed! ret:%d, str_len:%zu", ret, strlen(type_val->str_val)),
+                       TOOL_PRIVATE_ARGS_PARSE_ERR);
     }
     return 0;
 }
@@ -2457,8 +2520,10 @@ STATIC int tool_get_prio_tc_info(struct command_context *ctx)
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, prio_tc, &size_out);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_PRIO_TC_INFO, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("get prio_tc info failed, logic_id:%d dev_name:%s ret:%d",
-        ctx->npu_info.logic_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("get prio_tc info failed, logic_id:%d dev_name:%s ret:%d", ctx->npu_info.logic_id, ctx->dev_name, ret),
+        ret);
 
     TOOL_PRINT_INFO("[dev_name:%s]", ctx->dev_name);
     TOOL_PRINT_INFO("priority   0 1 2 3 4 5 6 7");
@@ -2476,8 +2541,8 @@ STATIC int tool_get_prio_tc_exec(struct command_context *ctx, struct netdev_info
 
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info->bond_info.slaves_ifname[i], strlen(ndev_info->bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info->bond_info.slaves_ifname[i],
+                        strlen(ndev_info->bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         ret = tool_get_prio_tc_info(ctx);
@@ -2493,7 +2558,7 @@ STATIC int tool_get_prio_tc_exec(struct command_context *ctx, struct netdev_info
 
 STATIC int tool_prio_tc_str2char(const char prio_tc_str[], char prio_tc[PRIORITY_NUM])
 {
-#define PRIO_TC_CONF_INDEX  2
+#define PRIO_TC_CONF_INDEX 2
 #define MIN_TC_INDEX 0
 #define MAX_TC_INDEX 3
     int priority_i = 0;
@@ -2501,16 +2566,17 @@ STATIC int tool_prio_tc_str2char(const char prio_tc_str[], char prio_tc[PRIORITY
 
     for (str_i = 0; str_i < PFC_CFG_STR_LEN && priority_i < PRIORITY_NUM; str_i++) {
         if (str_i % PRIO_TC_CONF_INDEX == 0) {
-            CHK_PRT_RETURN(prio_tc_str[str_i] == ',',
-                TOOL_PRINT_ERR("Option -map contains redundant comma"), TOOL_PRIVATE_ARGS_VALUE_ERR);
+            CHK_PRT_RETURN(prio_tc_str[str_i] == ',', TOOL_PRINT_ERR("Option -map contains redundant comma"),
+                           TOOL_PRIVATE_ARGS_VALUE_ERR);
 
             CHK_PRT_RETURN((prio_tc_str[str_i] < '0') || (prio_tc_str[str_i] > '9'),
-                TOOL_PRINT_ERR("Option -map contains invalid char[%c]", prio_tc_str[str_i]),
-                TOOL_PRIVATE_ARGS_VALUE_ERR);
+                           TOOL_PRINT_ERR("Option -map contains invalid char[%c]", prio_tc_str[str_i]),
+                           TOOL_PRIVATE_ARGS_VALUE_ERR);
 
             CHK_PRT_RETURN(prio_tc_str[str_i] > '3',
-                TOOL_PRINT_ERR("Option -map value range [%d, %d], [%c] is invalid",
-                MIN_TC_INDEX, MAX_TC_INDEX, prio_tc_str[str_i]), TOOL_PRIVATE_ARGS_VALUE_ERR);
+                           TOOL_PRINT_ERR("Option -map value range [%d, %d], [%c] is invalid", MIN_TC_INDEX,
+                                          MAX_TC_INDEX, prio_tc_str[str_i]),
+                           TOOL_PRIVATE_ARGS_VALUE_ERR);
 
             prio_tc[priority_i++] = prio_tc_str[str_i];
         } else if (str_i % PRIO_TC_CONF_INDEX == 1) {
@@ -2518,11 +2584,11 @@ STATIC int tool_prio_tc_str2char(const char prio_tc_str[], char prio_tc[PRIORITY
                 continue;
             }
             CHK_PRT_RETURN((prio_tc_str[str_i] >= '0') && (prio_tc_str[str_i] <= '9'),
-                TOOL_PRINT_ERR("Option -map value is out of range [%d, %d]", MIN_TC_INDEX, MAX_TC_INDEX),
-                TOOL_PRIVATE_ARGS_VALUE_ERR);
+                           TOOL_PRINT_ERR("Option -map value is out of range [%d, %d]", MIN_TC_INDEX, MAX_TC_INDEX),
+                           TOOL_PRIVATE_ARGS_VALUE_ERR);
 
-            CHK_PRT_RETURN(prio_tc_str[str_i] != ',',
-                TOOL_PRINT_ERR("Option -map must be separated by comma"), TOOL_PRIVATE_ARGS_VALUE_ERR);
+            CHK_PRT_RETURN(prio_tc_str[str_i] != ',', TOOL_PRINT_ERR("Option -map must be separated by comma"),
+                           TOOL_PRIVATE_ARGS_VALUE_ERR);
         }
     }
 
@@ -2538,8 +2604,10 @@ int tool_set_prio_tc_exec(struct command_context *ctx, struct netdev_info *ndev_
     int ret = 0;
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     ret = tool_prio_tc_str2char((char *)ctx->cmd_args, prio_tc);
     CHK_PRT_RETURN(ret != 0, hccn_err("invalid input prio_tc cfg"), ret);
@@ -2547,8 +2615,8 @@ int tool_set_prio_tc_exec(struct command_context *ctx, struct netdev_info *ndev_
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         size_out = 0;
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info->bond_info.slaves_ifname[i], strlen(ndev_info->bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info->bond_info.slaves_ifname[i],
+                        strlen(ndev_info->bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), prio_tc, PRIORITY_NUM, NULL, &size_out);
@@ -2578,8 +2646,10 @@ STATIC int tool_prio_tc_exec(struct command_context *ctx)
         CHK_PRT_RETURN(ret != 0, TOOL_PRINT_ERR("[dev_name:%s] set the prio_tc map failed!", ctx->dev_name), ret);
 
         ret = tool_write_conf(ctx->slot_id, "prio_tc", prio_tc_args->map);
-        CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-            ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id),
+            TOOL_WRITE_CONF_ERR);
     }
 
     return 0;
@@ -2610,7 +2680,7 @@ STATIC void tool_prio_tc_print_help(struct command_context *ctx, unsigned int mo
 
 STATIC struct sub_option_entry udhcpc_opts_param[] = {
     {"-timeout", ARG_TYPE_INT, parse_int, MODE_GET, 0, true, .range.int_range = {1, MAX_UDHCPC_TIMEOUT}},
-    {"-quit",    ARG_TYPE_NONE, parse_none, MODE_GET, 0},
+    {"-quit", ARG_TYPE_NONE, parse_none, MODE_GET, 0},
     {"-release", ARG_TYPE_NONE, parse_none, MODE_SET, MODE_SET},
 };
 
@@ -2680,7 +2750,7 @@ int tool_get_udhcpc_exec(struct command_context *ctx)
 
     ctx->cmd_args = udhcpc_args;
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)udhcpc_args,
-        sizeof(struct udhcpc_cmd_args), ctx->result, &size);
+                   sizeof(struct udhcpc_cmd_args), ctx->result, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_ACQUIRE_DHCP_IP, &info);
     if (ret == TOOL_DHCPC_PROCESS_EXIST_ERR) {
@@ -2705,8 +2775,10 @@ STATIC int tool_set_udhcpc_exec(struct command_context *ctx)
     LOG_PROMPT(ctx, "start to release dhcp ip, logic_id:%d", ctx->npu_info.logic_id);
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     ctx->result = dhcp_res;
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), NULL, 0, ctx->result, &size);
@@ -2729,8 +2801,10 @@ STATIC int tool_add_udhcpc_conf(struct command_context *ctx)
     CHK_PRT_RETURN(ret <= 0, hccn_err("udhcpc enable info sprintf failed, ret:%d", ret), -EIO);
 
     ret = tool_write_conf(ctx->slot_id, "udhcpc_enable", udhcpc_enable);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("write cfg error, ret:%d slot_id:%d logic_id:%d)", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     return ret;
 }
@@ -2751,7 +2825,7 @@ STATIC int tool_udhcpc_exec(struct command_context *ctx)
     char dhcp_res[OUTBUF_LEN_5120] = {0};
     int ret = 0;
 
-    if(ctx->mode == MODE_GET) {
+    if (ctx->mode == MODE_GET) {
         ctx->result = dhcp_res;
         ret = tool_get_udhcpc_exec(ctx);
         if (ret != 0) {
@@ -2844,12 +2918,13 @@ STATIC int tool_get_dscp_map_info(struct command_context *ctx)
         dscp_tc_args->get_all_flag = true;
     }
 
-    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context),
-        (char *)dscp_tc_args, sizeof(struct dscp_to_tc_args), dscp_map_info, &size_out);
+    DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)dscp_tc_args,
+                   sizeof(struct dscp_to_tc_args), dscp_map_info, &size_out);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_DSCP_MAP_INFO, &info);
-    CHK_PRT_RETURN(ret != 0,
-        hccn_err("get dscp_map info failed, slot_id:%d dev_name:%s ret:%d", ctx->slot_id, ctx->dev_name, ret), ret);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("get dscp_map info failed, slot_id:%d dev_name:%s ret:%d", ctx->slot_id, ctx->dev_name, ret),
+        ret);
 
     TOOL_PRINT_INFO("[dev_name:%s]", ctx->dev_name);
     TOOL_PRINT_INFO("%s\t%s", "dscp", "tc");
@@ -2865,8 +2940,8 @@ STATIC int tool_get_dscp_to_tc_exec(struct command_context *ctx, struct netdev_i
 
     for (i = 0; i < DEV_INFO_DEFAULT_BOND_SLAVE_NUM; i++) {
         (void)memset_s(ctx->dev_name, MAX_DEV_NAME_LEN, 0, MAX_DEV_NAME_LEN);
-        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN,
-            ndev_info->bond_info.slaves_ifname[i], strlen(ndev_info->bond_info.slaves_ifname[i]));
+        ret = strncpy_s(ctx->dev_name, MAX_DEV_NAME_LEN, ndev_info->bond_info.slaves_ifname[i],
+                        strlen(ndev_info->bond_info.slaves_ifname[i]));
         CHK_PRT_RETURN(ret != 0, hccn_err("copy slave_name to ctx->dev_name failed, ret:%d", ret), ret);
 
         ret = tool_get_dscp_map_info(ctx);
@@ -2903,7 +2978,7 @@ STATIC void tool_dscp_to_tc_print_help(struct command_context *ctx, unsigned int
             TOOL_PRINT_CMD("-g", "-dscp_to_tc", "get dscp to tc map info");
             tool_print_npu_info(DEV_DEV_ATTR);
             tool_print_dev_info(DEV_BOND_DEV);
-            TOOL_PRINT_OPT("[-dscp <dscp_val>]", "get the specify dscp of tc map info, range [0, 63]");
+            TOOL_PRINT_OPT("[-dscp <dscp_val>]", "get the specified dscp of tc map info, range [0, 63]");
             break;
         default:
             break;
@@ -2964,8 +3039,8 @@ STATIC int tool_get_tc_stat_exec(struct command_context *ctx)
             TOOL_PRINT_INFO("tc_tx_pkt_num: %u", tc_stat.packet_stat[i].tx_num);
             TOOL_PRINT_INFO("tc_rx_pkt_num: %u", tc_stat.packet_stat[i].rx_num);
         } else {
-            TOOL_PRINT_INFO("[dev_name: %s] get tc_id %u packet stat failed!",
-                tc_stat.packet_stat[i].dev_name, tc_stat.tc_id);
+            TOOL_PRINT_ERR("[dev_name: %s] get tc_id %u packet stat failed!", tc_stat.packet_stat[i].dev_name,
+                           tc_stat.tc_id);
         }
     }
 
@@ -2980,16 +3055,16 @@ STATIC int tool_set_tc_stat_exec(struct command_context *ctx)
     int ret = 0;
 
     CHK_PRT_RETURN(tc_args == NULL, TOOL_PRINT_ERR("Option -clear or -tc_id <tc_id> is required but missing."),
-        TOOL_PRIVATE_ARGS_VALUE_ERR);
+                   TOOL_PRIVATE_ARGS_VALUE_ERR);
 
     if (tc_args->mode == TC_SET_ENABLE) {
         ret = tool_double_check("Running this command will reset the tc packet statistics to zero.\n"
-            "Are you sure you want to continue?");
+                                "Are you sure you want to continue?");
         CHK_PRT_RETURN(ret != 0, hccn_info("User aborts command"), ret);
     }
 
     DSMI_FILL_INFO(info, (char *)ctx, sizeof(struct command_context), (char *)ctx->cmd_args,
-        sizeof(struct tc_stat_cmd_args), NULL, &size);
+                   sizeof(struct tc_stat_cmd_args), NULL, &size);
 
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_TC_PACKET_STATISTICS, &info);
     CHK_PRT_RETURN(ret != 0, hccn_err("dsmi set tc packet failed, ret:%d", ret), ret);
@@ -3007,8 +3082,10 @@ STATIC int tool_tc_stat_exec(struct command_context *ctx)
         return tool_get_tc_stat_exec(ctx);
     } else {
         ret = hccn_check_usr_identify();
-        CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-            ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+        CHK_PRT_RETURN(
+            ret != 0,
+            hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+            TOOL_PUBLIC_ROOT_UNSUPPORT);
 
         return tool_set_tc_stat_exec(ctx);
     }
@@ -3045,157 +3122,306 @@ STATIC void tool_tc_stat_print_help(struct command_context *ctx, unsigned int mo
     }
 }
 
-
 STATIC struct cmd_entry g_shell_cmds[] = {
     {
-        "-link", get_link_sub_opts, MODE_BOTH,
-        alloc_link_args_init, set_link_assign, tool_link_exec,
-        {DEV_PORT_TYPE, DEV_DEV_ATTR}, tool_link_print_help,
-        NULL, 0,
+        "-link",
+        get_link_sub_opts,
+        MODE_BOTH,
+        alloc_link_args_init,
+        set_link_assign,
+        tool_link_exec,
+        {DEV_PORT_TYPE, DEV_DEV_ATTR},
+        tool_link_print_help,
+        NULL,
+        0,
     },
     {
-        "-process", NULL, MODE_GET,
-        NULL, NULL, tool_process_exec,
-        {DEV_NPU_ATTR}, tool_process_print_help,
-        NULL, 0,
+        "-process",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_process_exec,
+        {DEV_NPU_ATTR},
+        tool_process_print_help,
+        NULL,
+        0,
     },
     {
-        "-bit_err", NULL, MODE_GET,
-        NULL, NULL, tool_bit_err_exec,
-        {DEV_PORT_TYPE}, tool_bit_err_print_help,
-        NULL, 0,
+        "-bit_err",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_bit_err_exec,
+        {DEV_PORT_TYPE},
+        tool_bit_err_print_help,
+        NULL,
+        0,
     },
     {
-        "-show_res", get_show_res_sub_opts, MODE_GET,
-        alloc_show_res_args_init, show_res_assign, tool_show_res_exec,
-        {DEV_DEV_ATTR}, tool_show_res_help,
-        NULL, 0,
+        "-show_res",
+        get_show_res_sub_opts,
+        MODE_GET,
+        alloc_show_res_args_init,
+        show_res_assign,
+        tool_show_res_exec,
+        {DEV_DEV_ATTR},
+        tool_show_res_help,
+        NULL,
+        0,
     },
     {
-        "-show_list", NULL, MODE_GET,
-        NULL, NULL, tool_show_list_exec,
-        {DEV_DEV_ATTR}, tool_show_list_print_help,
-        NULL, 0,
+        "-show_list",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_show_list_exec,
+        {DEV_DEV_ATTR},
+        tool_show_list_print_help,
+        NULL,
+        0,
     },
     {
-        "-context", get_context_sub_opts, MODE_GET,
-        alloc_context_args_init, context_assign, tool_context_exec,
-        {DEV_DEV_ATTR}, tool_context_print_help,
-        NULL, 0,
+        "-context",
+        get_context_sub_opts,
+        MODE_GET,
+        alloc_context_args_init,
+        context_assign,
+        tool_context_exec,
+        {DEV_DEV_ATTR},
+        tool_context_print_help,
+        NULL,
+        0,
     },
     {
-        "-version", NULL, MODE_GET,
-        NULL, NULL, tool_version_exec,
-        {DEV_NPU_ATTR}, tool_version_print_help,
-        NULL, 0,
+        "-version",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_version_exec,
+        {DEV_NPU_ATTR},
+        tool_version_print_help,
+        NULL,
+        0,
     },
     {
-        "-status", NULL, MODE_GET,
-        NULL, NULL, tool_status_exec,
-        {DEV_DEV_ATTR}, tool_status_print_help,
-        NULL, 0,
+        "-status",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_status_exec,
+        {DEV_DEV_ATTR},
+        tool_status_print_help,
+        NULL,
+        0,
     },
     {
-        "-port_info", NULL, MODE_GET,
-        NULL, NULL, tool_port_info_exec,
-        {DEV_PORT_TYPE}, tool_port_info_print_help,
-        NULL, 0,
+        "-port_info",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_port_info_exec,
+        {DEV_PORT_TYPE},
+        tool_port_info_print_help,
+        NULL,
+        0,
     },
     {
-        "-eth_test", get_eth_test_sub_opts, MODE_TEST,
-        alloc_eth_test_init, eth_test_assign, tool_eth_test_exec,
-        {DEV_DEV_ATTR}, tool_eth_test_print_help,
-        NULL, 0,
+        "-eth_test",
+        get_eth_test_sub_opts,
+        MODE_TEST,
+        alloc_eth_test_init,
+        eth_test_assign,
+        tool_eth_test_exec,
+        {DEV_DEV_ATTR},
+        tool_eth_test_print_help,
+        NULL,
+        0,
     },
     {
-        "-stat", get_stat_sub_opts, MODE_BOTH,
-        alloc_stat_args_init, stat_assign, tool_stat_exec,
-        {DEV_PORT_TYPE}, tool_stat_print_help,
-        NULL, 0,
+        "-stat",
+        get_stat_sub_opts,
+        MODE_BOTH,
+        alloc_stat_args_init,
+        stat_assign,
+        tool_stat_exec,
+        {DEV_PORT_TYPE},
+        tool_stat_print_help,
+        NULL,
+        0,
     },
     {
-        "-peak_bw", get_bandwidth_sub_opts, MODE_GET,
-        alloc_bandwidth_args_init, bandwidth_assign, tool_peak_bw_exec,
-        {DEV_PORT_TYPE}, tool_peak_bw_print_help,
-        NULL, 0,
+        "-peak_bw",
+        get_bandwidth_sub_opts,
+        MODE_GET,
+        alloc_bandwidth_args_init,
+        bandwidth_assign,
+        tool_peak_bw_exec,
+        {DEV_PORT_TYPE},
+        tool_peak_bw_print_help,
+        NULL,
+        0,
     },
     {
-        "-mtu", get_mtu_sub_opts, MODE_BOTH,
-        alloc_mtu_args_init, set_mtu_assign, tool_mtu_exec,
-        {DEV_DEV_ATTR}, tool_mtu_print_help,
-        NULL, 0,
+        "-mtu",
+        get_mtu_sub_opts,
+        MODE_BOTH,
+        alloc_mtu_args_init,
+        set_mtu_assign,
+        tool_mtu_exec,
+        {DEV_DEV_ATTR},
+        tool_mtu_print_help,
+        NULL,
+        0,
     },
     {
-        "-ip", get_ip_sub_opts, MODE_BOTH,
-        alloc_ip_args_init, ip_assign, tool_ip_exec,
-        {DEV_DEV_ATTR}, tool_ip_print_help,
-        NULL, 0,
+        "-ip",
+        get_ip_sub_opts,
+        MODE_BOTH,
+        alloc_ip_args_init,
+        ip_assign,
+        tool_ip_exec,
+        {DEV_DEV_ATTR},
+        tool_ip_print_help,
+        NULL,
+        0,
     },
     {
-        "-gateway", get_gateway_sub_opts, MODE_BOTH,
-        alloc_gateway_args_init, gateway_assign, tool_gateway_exec,
-        {DEV_DEV_ATTR}, tool_gateway_print_help,
-        NULL, 0,
+        "-gateway",
+        get_gateway_sub_opts,
+        MODE_BOTH,
+        alloc_gateway_args_init,
+        gateway_assign,
+        tool_gateway_exec,
+        {DEV_DEV_ATTR},
+        tool_gateway_print_help,
+        NULL,
+        0,
     },
     {
-        "-loopback", get_lb_sub_opts, MODE_BOTH,
-        alloc_lb_args_init, lb_assign, tool_lb_exec,
-        {DEV_PORT_TYPE}, tool_lb_print_help,
-        NULL, 0,
+        "-loopback",
+        get_lb_sub_opts,
+        MODE_BOTH,
+        alloc_lb_args_init,
+        lb_assign,
+        tool_lb_exec,
+        {DEV_PORT_TYPE},
+        tool_lb_print_help,
+        NULL,
+        0,
     },
     {
-        "-arp", get_arp_sub_opts, MODE_BOTH,
-        alloc_arp_args_init, arp_assign, tool_arp_exec,
-        {DEV_DEV_ATTR}, tool_arp_print_help,
-        NULL, 0,
+        "-arp",
+        get_arp_sub_opts,
+        MODE_BOTH,
+        alloc_arp_args_init,
+        arp_assign,
+        tool_arp_exec,
+        {DEV_DEV_ATTR},
+        tool_arp_print_help,
+        NULL,
+        0,
     },
     {
-        "-mac", get_mac_sub_opts, MODE_BOTH,
-        alloc_mac_args_init, set_mac_assign, tool_mac_exec,
-        {DEV_DEV_ATTR}, tool_mac_print_help,
-        NULL, 0,
+        "-mac",
+        get_mac_sub_opts,
+        MODE_BOTH,
+        alloc_mac_args_init,
+        set_mac_assign,
+        tool_mac_exec,
+        {DEV_DEV_ATTR},
+        tool_mac_print_help,
+        NULL,
+        0,
     },
     {
-        "-bond_attr", get_bond_attr_sub_opts, MODE_BOTH,
-        alloc_bond_attr_args_init, bond_attr_assign, tool_bond_attr_exec,
-        {DEV_DEV_ATTR}, tool_bond_attr_print_help,
-        NULL, 0,
+        "-bond_attr",
+        get_bond_attr_sub_opts,
+        MODE_BOTH,
+        alloc_bond_attr_args_init,
+        bond_attr_assign,
+        tool_bond_attr_exec,
+        {DEV_DEV_ATTR},
+        tool_bond_attr_print_help,
+        NULL,
+        0,
     },
     {
-        "-lldp", NULL, MODE_GET,
-        NULL, NULL, tool_lldp_exec,
-        {DEV_DEV_ATTR}, tool_lldp_print_help,
-        NULL, 0,
+        "-lldp",
+        NULL,
+        MODE_GET,
+        NULL,
+        NULL,
+        tool_lldp_exec,
+        {DEV_DEV_ATTR},
+        tool_lldp_print_help,
+        NULL,
+        0,
     },
     {
-        "-pfc", get_pfc_sub_opts, MODE_BOTH,
-        alloc_pfc_args_init, pfc_assign, tool_pfc_exec,
-        {DEV_DEV_ATTR}, tool_pfc_print_help,
-        NULL, 0,
+        "-pfc",
+        get_pfc_sub_opts,
+        MODE_BOTH,
+        alloc_pfc_args_init,
+        pfc_assign,
+        tool_pfc_exec,
+        {DEV_DEV_ATTR},
+        tool_pfc_print_help,
+        NULL,
+        0,
     },
     {
-        "-prio_tc", get_prio_tc_sub_opts, MODE_BOTH,
-        alloc_prio_tc_args_init, prio_tc_assign, tool_prio_tc_exec,
-        {DEV_DEV_ATTR}, tool_prio_tc_print_help,
-        NULL, 0,
+        "-prio_tc",
+        get_prio_tc_sub_opts,
+        MODE_BOTH,
+        alloc_prio_tc_args_init,
+        prio_tc_assign,
+        tool_prio_tc_exec,
+        {DEV_DEV_ATTR},
+        tool_prio_tc_print_help,
+        NULL,
+        0,
     },
     {
-        "-udhcpc", get_udhcpc_sub_opts, MODE_BOTH,
-        alloc_udhcpc_args_init, udhcpc_assign, tool_udhcpc_exec,
-        {DEV_DEV_ATTR}, tool_udhcpc_print_help,
-        NULL, 0,
+        "-udhcpc",
+        get_udhcpc_sub_opts,
+        MODE_BOTH,
+        alloc_udhcpc_args_init,
+        udhcpc_assign,
+        tool_udhcpc_exec,
+        {DEV_DEV_ATTR},
+        tool_udhcpc_print_help,
+        NULL,
+        0,
     },
     {
-        "-dscp_to_tc", get_dscp_to_tc_sub_opts, MODE_GET,
-        alloc_dscp_to_tc_args_init, dscp_to_tc_assign, tool_dscp_to_tc_exec,
-        {DEV_DEV_ATTR}, tool_dscp_to_tc_print_help,
-        NULL, 0,
+        "-dscp_to_tc",
+        get_dscp_to_tc_sub_opts,
+        MODE_GET,
+        alloc_dscp_to_tc_args_init,
+        dscp_to_tc_assign,
+        tool_dscp_to_tc_exec,
+        {DEV_DEV_ATTR},
+        tool_dscp_to_tc_print_help,
+        NULL,
+        0,
     },
     {
-        "-tc_stat", get_tc_stat_sub_opts, MODE_BOTH,
-        alloc_tc_stat_args_init, tc_stat_assign, tool_tc_stat_exec,
-        {DEV_DEV_ATTR}, tool_tc_stat_print_help,
-        NULL, 0,
+        "-tc_stat",
+        get_tc_stat_sub_opts,
+        MODE_BOTH,
+        alloc_tc_stat_args_init,
+        tc_stat_assign,
+        tool_tc_stat_exec,
+        {DEV_DEV_ATTR},
+        tool_tc_stat_print_help,
+        NULL,
+        0,
     },
 };
 

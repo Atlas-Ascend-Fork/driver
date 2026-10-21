@@ -270,7 +270,7 @@ drvError_t prof_user_sample_start_check(struct prof_user_chan_priv *chan_priv, s
     }
 
     if ((para->sample_period < PROF_PERIOD_MIN) || (para->sample_period > PROF_PERIOD_MAX)) {
-        PROF_ERR("Invalid sample period. (dev_id=%u, chan_id=%u, sample_period=%ums, valid range=[%u, %u])\n",
+        PROF_ERR("Invalid sample period. (dev_id=%u, chan_id=%u, sample_period=%ums, min=%ums, max=%ums)\n",
                  chan_priv->dev_id, chan_priv->chan_id, para->sample_period, PROF_PERIOD_MIN, PROF_PERIOD_MAX);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -305,7 +305,7 @@ drvError_t prof_user_sample_pre_start(struct prof_user_chan_priv *chan_priv, str
             return DRV_ERROR_INVALID_HANDLE;
         }
         if (start_para.out_data_len > PROF_START_OUTDATA_SIZE_MAX) {
-            PROF_ERR("out_data_len exceeds the limit. (dev_id=%u, chan_id=%u, out_data_len=%u, max=%u)\n",
+            PROF_ERR("out_data_len exceeds the limit. (dev_id=%u, chan_id=%u, out_data_len=%u, limit=%u)\n",
                      chan_priv->dev_id, chan_priv->chan_id, start_para.out_data_len, PROF_START_OUTDATA_SIZE_MAX);
             return DRV_ERROR_INVALID_VALUE;
         }
@@ -376,7 +376,7 @@ STATIC void *prof_user_sample_thread(void *arg)
     if (chan_priv->support_host_sample) {
         buff_len = chan_priv->sample_buff_size;
         if (buff_len == 0) {
-            PROF_ERR("Invalid buff len. (dev_id=%u, chan_id=%u, buff_len=%u)\n", dev_id, chan_id, buff_len);
+            PROF_ERR("Invalid buff len. (dev_id=%u, chan_id=%u, buff_len=%u, min=%u)\n", dev_id, chan_id, buff_len, 1U);
             return NULL;
         }
     }

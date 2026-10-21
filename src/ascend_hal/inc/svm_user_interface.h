@@ -28,6 +28,12 @@ bool svm_support_get_user_malloc_attr(uint32_t dev_id);
 bool svm_support_vmm_normal_granularity(uint32_t dev_id);
 bool svm_support_mem_host_uva(uint32_t dev_id);
 bool svm_support_mem_register_query_and_get_attr(uint32_t dev_id);
+#ifdef CFB_BUILD_DEBUG
+DLLEXPORT bool svm_feature_is_support(uint32_t devid, drvFeature_t type);
+#else
+bool svm_feature_is_support(uint32_t devid, drvFeature_t type);
+#endif
+bool svm_support_mem_register_host_pinned(uint32_t dev_id);
 
 drvError_t drvMemDeviceOpenInner(uint32_t devid, halDevOpenIn *in, halDevOpenOut *out);
 drvError_t drvMemDeviceCloseInner(uint32_t devid, halDevCloseIn *in);

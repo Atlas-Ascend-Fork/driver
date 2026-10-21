@@ -51,7 +51,7 @@ STATIC int rx_msg_common_msg_process(void *msg_chan, void *data, u32 in_data_len
 
     msg_desc = ka_container_of(data, struct devdrv_non_trans_msg_desc, data);
     if (msg_desc->msg_type >= (u32)DEVDRV_COMMON_MSG_TYPE_MAX) {
-        devdrv_err("Msg type is not support yet. (dev_id=%u;msg_type=%u)\n", chan->msg_dev->pci_ctrl->dev_id,
+        devdrv_err("Msg type is not supported yet. (dev_id=%u;msg_type=%u)\n", chan->msg_dev->pci_ctrl->dev_id,
                    msg_desc->msg_type);
         return -EOPNOTSUPP;
     }
@@ -71,7 +71,7 @@ STATIC int rx_msg_common_msg_process(void *msg_chan, void *data, u32 in_data_len
     }
     if (cost_time > DEVDRV_COMMON_WORK_RESQ_TIME) {
         chan->msg_dev->common_msg.com_msg_stat[msg_desc->msg_type].rx_work_delay_cnt++;
-        devdrv_info("(dev_id=%u; msg_type=%d; cost_time=%ums)\n", chan->msg_dev->pci_ctrl->dev_id, msg_desc->msg_type,
+        devdrv_info("(dev_id=%u;msg_type=%d;cost_time=%ums)\n", chan->msg_dev->pci_ctrl->dev_id, msg_desc->msg_type,
                     cost_time);
     }
 
@@ -169,7 +169,7 @@ int devdrv_pci_register_common_msg_client(const struct devdrv_common_msg_client 
     u32 i;
 
     if (msg_client == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (msg_client_is_null=%d;)\n", (msg_client == NULL));
         return -EINVAL;
     }
 
@@ -224,14 +224,14 @@ int devdrv_pci_unregister_common_msg_client(u32 index_id, const struct devdrv_co
     }
 
     if (msg_client->type >= DEVDRV_COMMON_MSG_TYPE_MAX) {
-        devdrv_err("Msg client type is not support yet. (index_id=%u;msg_client_type=%d)\n", index_id,
+        devdrv_err("Msg client type is not supported yet. (index_id=%u;msg_client_type=%d)\n", index_id,
                    (int)msg_client->type);
         return -EOPNOTSUPP;
     }
 
     ctrl = devdrv_get_bottom_half_devctrl_by_id(index_id);
-    if (ctrl == NULL) {
-        devdrv_info("Device is offline. (index_id=%u; msg_client_type=%d)\n", index_id, (int)msg_client->type);
+    if ((ctrl == NULL) || (ctrl->priv == NULL)) {
+        devdrv_info("Device is offline. (index_id=%u;msg_client_type=%d)\n", index_id, (int)msg_client->type);
         return -EINVAL;
     }
     pci_ctrl = ctrl->priv;
@@ -279,7 +279,7 @@ void devdrv_free_common_msg_queue(struct devdrv_pci_ctrl *pci_ctrl)
     }
     ret = devdrv_pcimsg_free_non_trans_queue_inner((void *)(pci_ctrl->msg_dev->common_msg.msg_chan));
     if (ret != 0) {
-        devdrv_info("No need to free common msg_queue. (dev_id=%u; ret=%d)\n", pci_ctrl->dev_id, ret);
+        devdrv_info("No need to free common msg_queue. (dev_id=%u;ret=%d)\n", pci_ctrl->dev_id, ret);
     }
     devdrv_info("Free common msg_queue success. (dev_id=%u)\n", pci_ctrl->dev_id);
     pci_ctrl->msg_dev->common_msg.msg_chan = NULL;

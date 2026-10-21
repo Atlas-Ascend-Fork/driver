@@ -9,11 +9,11 @@
  */
 #include <sys/ioctl.h>
 #include "dms/dms_misc_interface.h"
+#include "devdrv_user_common.h"
 #include "dms_device_info.h"
 #include "dms_cmd_def.h"
 #include "ascend_kernel_hal.h"
 #include "dms_user_common.h"
-#include "ascend_dev_num.h"
 #include "dms/dms_qos_interface.h"
 
 int DmsGetQosInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size)
@@ -33,9 +33,9 @@ int drv_get_qos_config(uint32_t devId, void *buf, unsigned int *size)
     struct QosProfileInfo *qos_info = NULL;
     struct dms_ioctl_arg ioarg = {0};
 
-    if (devId >= ASCEND_PDEV_MAX_NUM || buf == NULL || size == NULL) {
-        DMS_ERR("Invalid parameters. (dev_id=%u, buf%s, size%s)\n",
-            devId, buf == NULL ? "=NULL" : "!=NULL", size == NULL ? "=NULL" : "!=NULL");
+    if (devId >= DEVDRV_PF_DEV_MAX_NUM || buf == NULL || size == NULL) {
+        DMS_ERR("Invalid parameters. (dev_id=%u, buf%s, size%s)\n", devId, buf == NULL ? "=NULL" : "!=NULL",
+                size == NULL ? "=NULL" : "!=NULL");
         return DRV_ERROR_INVALID_VALUE;
     }
     if (*size != sizeof(struct QosProfileInfo)) {
@@ -53,10 +53,9 @@ int drv_get_qos_config(uint32_t devId, void *buf, unsigned int *size)
     ioarg.input_len = sizeof(struct QosProfileInfo);
     ioarg.output = qos_info;
     ioarg.output_len = *size;
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl(DMS_GET_QOS_CONFIG_INFO, &ioarg));
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "drv_get_qos_config failed. (dev_id=%u, ret=%d)", devId, ret);
     }
     return ret;
 }
-

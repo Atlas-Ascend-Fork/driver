@@ -21,7 +21,7 @@ int __init SecureCModuleInit(void)
 
 void __exit SecureCModuleExit(void)
 {
-   return;
+    return;
 }
 
 module_init(SecureCModuleInit);

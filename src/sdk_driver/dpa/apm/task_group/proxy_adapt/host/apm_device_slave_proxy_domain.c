@@ -196,7 +196,7 @@ static int apm_device_slave_proxy_domain_fops_query_master_pid(u32 cmd, unsigned
     tgid = para.slave_pid;
     ret = apm_slave_query_master_self_exit_check(domain, tgid, &para);
     if (ret != 0) {
-        apm_info("Query not succ. (ret=%d; slave_pid=%d)\n", ret, para.slave_pid);
+        apm_info("Query completed. (ret=%d; slave_pid=%d)\n", ret, para.slave_pid);
         return ret;
     }
 

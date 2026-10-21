@@ -58,8 +58,8 @@ STATIC int devdrv_manager_get_dev_resource_info(struct devdrv_resource_info *din
     info.owner_id = dinfo->owner_id;
     ret = hvdevmng_get_dev_resource(phy_id, dinfo->tsid, &info);
     if (ret) {
-        devdrv_drv_err("get resource info failed, devid(%u), resource type (%u) ret(%d).\n",
-            dinfo->devid, dinfo->resource_type, ret);
+        devdrv_drv_err("get resource info failed, devid(%u), resource type (%u) ret(%d).\n", dinfo->devid,
+                       dinfo->resource_type, ret);
         return ret;
     }
     *((u64 *)dinfo->buf) = info.value;
@@ -99,8 +99,8 @@ STATIC int devdrv_manager_get_process_memory(u32 fid, u32 phyid, struct devdrv_r
 
     ret = devdrv_manager_get_hostpid(dinfo->owner_id, &hostpid);
     if (ret != 0) {
-        devdrv_drv_err("devdrv_manager_get_hostpid failed. (owner_id=%d; hostpid=%d; ret=%d;)\n",
-            dinfo->owner_id, hostpid, ret);
+        devdrv_drv_err("devdrv_manager_get_hostpid failed. (owner_id=%d; hostpid=%d; ret=%d;)\n", dinfo->owner_id,
+                       hostpid, ret);
         return -EINVAL;
     }
 
@@ -110,7 +110,7 @@ STATIC int devdrv_manager_get_process_memory(u32 fid, u32 phyid, struct devdrv_r
     ret = devdrv_manager_h2d_query_resource_info(phyid, &resource_info);
     if (ret) {
         devdrv_drv_ex_notsupport_err(ret, "h2d_query_resource_info failed. (devid=%u; info_type=%d; ret=%d)\n",
-            dinfo->devid, dinfo->resource_type, ret);
+                                     dinfo->devid, dinfo->resource_type, ret);
         return ret;
     }
     *((u64 *)dinfo->buf) = resource_info.value;
@@ -155,8 +155,8 @@ STATIC int devdrv_manager_get_process_resource_info(struct devdrv_resource_info 
     }
 
     if (ret) {
-        devdrv_drv_ex_notsupport_err(ret, "devdrv_manager_get_process_resource_info failed. (ret=%d; type=%d)\n",
-            ret, dinfo->resource_type);
+        devdrv_drv_ex_notsupport_err(ret, "devdrv_manager_get_process_resource_info failed. (ret=%d; type=%d)\n", ret,
+                                     dinfo->resource_type);
     }
     return ret;
 }
@@ -188,7 +188,7 @@ int devdrv_manager_ioctl_get_dev_resource_info(ka_file_t *filep, unsigned int cm
     ret = dmanage_get_resource_handler[dinfo.owner_type](&dinfo);
     if (ret) {
         devdrv_drv_ex_notsupport_err(ret, "get dev resource info failed devid(%u) owner_type(%u), ret = %d.\n",
-            dinfo.devid, dinfo.owner_type, ret);
+                                     dinfo.devid, dinfo.owner_type, ret);
         return ret;
     }
 
@@ -230,7 +230,8 @@ STATIC int devdrv_manager_get_container_pid(ka_pid_t hostpid, ka_pid_t *containe
     ka_task_struct_t *tsk = NULL;
 
     ka_task_rcu_read_lock();
-    ka_for_each_process(tsk) {
+    ka_for_each_process(tsk)
+    {
         if ((tsk != NULL) && (tsk->pid == hostpid)) {
             pgrp = ka_task_task_pid(tsk);
             if (pgrp == NULL) {
@@ -258,7 +259,7 @@ STATIC int devdrv_trans_ordinary_container_pid(u32 docker_id, int out_cnt, struc
             ret = devdrv_manager_get_container_pid(((ka_pid_t *)dinfo->buf)[i], &pid);
             if (ret != 0) {
                 devdrv_drv_err("devdrv_manager_get_container_pid failed. (devid=%u; hostpid=%d; ret=%d)\n",
-                    dinfo->devid, ((u32 *)dinfo->buf)[i], ret);
+                               dinfo->devid, ((u32 *)dinfo->buf)[i], ret);
                 return ret;
             }
             ((ka_pid_t *)dinfo->buf)[i] = pid;
@@ -279,7 +280,7 @@ STATIC int devdrv_trans_admin_container_pid(u32 docker_id, int out_cnt, struct d
             ret = devdrv_manager_get_container_pid(((ka_pid_t *)dinfo->buf)[i], &pid);
             if (ret != 0) {
                 devdrv_drv_err("devdrv_manager_get_container_pid failed. (devid=%u; hostpid=%d; ret=%d)\n",
-                    dinfo->devid, ((u32 *)dinfo->buf)[i], ret);
+                               dinfo->devid, ((u32 *)dinfo->buf)[i], ret);
                 return ret;
             }
             ((ka_pid_t *)dinfo->buf)[i] = pid;
@@ -302,7 +303,7 @@ int devdrv_manager_get_accounting_pid(u32 phyid, u32 vfid, struct devdrv_resourc
     ret = devdrv_manager_get_docker_id(&docker_id);
     if (ret) {
         devdrv_drv_err("The devdrv_manager_container_get_docker_id failed. (devid=%u; docker_id=%d; ret=%d)\n",
-            dinfo->devid, docker_id, ret);
+                       dinfo->devid, docker_id, ret);
         return ret;
     }
 
@@ -313,12 +314,12 @@ int devdrv_manager_get_accounting_pid(u32 phyid, u32 vfid, struct devdrv_resourc
         return -EINVAL;
     }
 
-    out_cnt = get_device_pids_from_devmm(docker_id, phyid, vfid,
-        (ka_pid_t *)dinfo->buf, (dinfo->buf_len / sizeof(ka_pid_t)));
+    out_cnt = get_device_pids_from_devmm(docker_id, phyid, vfid, (ka_pid_t *)dinfo->buf,
+                                         (dinfo->buf_len / sizeof(ka_pid_t)));
     if (out_cnt < 0) {
         ka_task_mutex_unlock(&devmm_get_pids_mutex);
         devdrv_drv_err("Failed to obtain the PID list of the process from SVM. (devid=%u; docker_id=%d; count=%d)\n",
-            dinfo->devid, docker_id, out_cnt);
+                       dinfo->devid, docker_id, out_cnt);
         return -EINVAL;
     }
     ka_task_mutex_unlock(&devmm_get_pids_mutex);
@@ -337,7 +338,7 @@ int devdrv_manager_get_accounting_pid(u32 phyid, u32 vfid, struct devdrv_resourc
 
     if (ret != 0) {
         devdrv_drv_err("Failed to convert container pid. (devid=%u; docker_id=%d; resource_type=%d; ret=%d)\n",
-            dinfo->devid, docker_id, dinfo->resource_type, ret);
+                       dinfo->devid, docker_id, dinfo->resource_type, ret);
         return ret;
     }
 
@@ -345,4 +346,3 @@ int devdrv_manager_get_accounting_pid(u32 phyid, u32 vfid, struct devdrv_resourc
 
     return 0;
 }
-

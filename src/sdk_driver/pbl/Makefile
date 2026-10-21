@@ -77,6 +77,7 @@ else
         include ${DRIVER_SOURCE_DIR}/pbl/msg_chan/msg_chan.mk
         include ${DRIVER_SOURCE_DIR}/pbl/chip_config/chip_config.mk
     endif
+    include ${DRIVER_SOURCE_DIR}/pbl/feature/feature.mk
     EXTRA_CFLAGS += -DCFG_ENV_HOST
 endif
 

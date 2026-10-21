@@ -36,7 +36,6 @@ struct urd_cmd_para {
 #define DMS_ACC_MANAGE_USER (DMS_ACC_ROOT | DMS_ACC_DM_USER)
 #define DMS_ACC_ROOT_ONLY (DMS_ACC_ROOT)
 
-
 #define DMS_RUN_ENV_MASK 0X00F0U
 /* Runtime environment */
 /* Support physical */

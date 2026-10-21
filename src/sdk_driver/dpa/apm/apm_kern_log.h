@@ -60,6 +60,12 @@ void apm_share_log_run_info(const char *fmt, ...);
             apm_err(fmt, ##__VA_ARGS__); \
     } while (0)
 
+#define apm_info_if(cond, fmt, ...)       \
+    do {                                  \
+        if (cond)                         \
+            apm_info(fmt, ##__VA_ARGS__); \
+    } while (0)
+
 #define apm_debug_if(cond, fmt, ...)       \
     do {                                   \
         if (cond)                          \

@@ -69,12 +69,13 @@ static long rmo_ioctl(ka_file_t *file, u32 cmd, unsigned long arg)
         return -EINVAL;
     }
     if (_KA_IOC_NR(cmd) >= RMO_MAX_CMD) {
-        rmo_err("The command is invalid, which is out of range. (cmd=%u)\n", _KA_IOC_NR(cmd));
+        rmo_err("The command is invalid, out of range. (cmd=%u; valid range=[0, %u])\n", _KA_IOC_NR(cmd),
+                (u32)(RMO_MAX_CMD - 1));
         return -EINVAL;
     }
 
     if (rmo_ioctl_handler[_KA_IOC_NR(cmd)] == NULL) {
-        rmo_warn("The command is not support. (cmd=%u)\n", _KA_IOC_NR(cmd));
+        rmo_warn("The command is not supported. (cmd=%u)\n", _KA_IOC_NR(cmd));
         return -EOPNOTSUPP;
     }
 

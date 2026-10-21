@@ -64,7 +64,7 @@ static int trs_core_ts_inst_init(struct trs_core_ts_inst *ts_inst)
 
     ret = trs_shm_sqcq_init(ts_inst);
     if (ret != 0) {
-        trs_err("Logic cq init failed. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
+        trs_err("Shm sqcq init failed. (devid=%u; tsid=%u)\n", inst->devid, inst->tsid);
         goto logic_cq_uninit;
     }
 

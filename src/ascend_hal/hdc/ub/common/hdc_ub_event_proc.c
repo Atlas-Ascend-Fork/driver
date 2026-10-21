@@ -18,6 +18,16 @@
 #include "hdc_ub_drv.h"
 #include "hdc_core.h"
 
+struct hdc_process_thread_info {
+    mmMutex_t lock;
+    pthread_t thread;
+    bool exist_flag;
+    int ref;
+};
+
+struct hdc_process_thread_info g_hdc_thread_info[HDC_MAX_UB_DEV_CNT] = {
+    [0 ... HDC_MAX_UB_DEV_CNT - 1] = {.lock = PTHREAD_MUTEX_INITIALIZER, .ref = 0, .exist_flag = false}};
+
 // process hdc remote connect request, equal to crtl_msg_connect in pcie
 drvError_t hdc_connect_event_proc(uint32_t dev_id, void *msg, uint32_t msg_len)
 {
@@ -25,6 +35,8 @@ drvError_t hdc_connect_event_proc(uint32_t dev_id, void *msg, uint32_t msg_len)
     struct hdc_server_head *p_server_head = NULL;
     int serviceType;
     mmSsize_t num;
+    int ts_fail = 0;
+    struct hdc_pipe_event_msg pipe_msg = {0};
 
     (void)msg_len;
     serviceType = conn_msg->connect_msg.service_type;
@@ -37,26 +49,30 @@ drvError_t hdc_connect_event_proc(uint32_t dev_id, void *msg, uint32_t msg_len)
         HDC_LOG_ERR("service type is invalid.(service type=%d)\n", serviceType);
         return DRV_ERROR_INVALID_VALUE;
     }
+
     p_server_head = (struct hdc_server_head *)g_hdcConfig.server_list[dev_id][serviceType];
     if (p_server_head == NULL) {
-        HDC_LOG_WARN("server not be found. maybe the server has destroyed.(service type=%d)\n", serviceType);
+        HDC_LOG_WARN("server was not found, maybe the server has been destroyed.(service type=%d)\n", serviceType);
         return 0;
     }
 
     /* Send a receiving notification to the accept thread through the pipe. */
     if (p_server_head->conn_notify == -1) {
-        HDC_LOG_WARN("maybe the server has destroyed.(dev_id=%d; service_type=\"%s\")\n", dev_id,
+        HDC_LOG_WARN("maybe the server has been destroyed.(dev_id=%d; service_type=\"%s\")\n", dev_id,
                      hdc_get_sevice_str(serviceType));
         return HDCDRV_SESSION_HAS_CLOSED;
     }
-    num = mm_write_file(p_server_head->conn_notify, (void *)conn_msg, sizeof(struct hdcdrv_event_msg));
-    if (num != (mmSsize_t)sizeof(struct hdcdrv_event_msg)) {
+    pipe_msg.event_msg = *conn_msg;
+    hdc_get_time_record(&pipe_msg.pipe_write_start, &ts_fail);
+
+    num = mm_write_file(p_server_head->conn_notify, &pipe_msg, sizeof(pipe_msg));
+    if (num != (mmSsize_t)sizeof(pipe_msg)) {
         HDC_LOG_ERR("send connection event message data failed.(dev_id=%d; service_type=\"%s\")\n", dev_id,
                     hdc_get_sevice_str(serviceType));
         return HDCDRV_SEND_CTRL_MSG_FAIL;
     }
-    HDC_LOG_DEBUG("received a connection. (device id=%u, serviceType=%d)\n", dev_id, serviceType);
 
+    HDC_LOG_DEBUG("received a connection. (device id=%u, serviceType=%d)\n", dev_id, serviceType);
     hdc_touch_connect_notify((int)dev_id, conn_msg->connect_msg.client_pid, serviceType);
 
     return 0;
@@ -105,16 +121,6 @@ static drvError_t (*g_hdc_event_proc[HDCDRV_NOTIFY_MSG_MAX])(uint32_t dev_id, vo
     [HDCDRV_NOTIFY_MSG_CLOSE] = hdc_remote_close_proc,
     [HDCDRV_NOTIFY_MSG_DFX] = hdc_dfx_query_event_proc,
 };
-
-struct hdc_process_thread_info {
-    mmMutex_t lock;
-    pthread_t thread;
-    bool exist_flag;
-    int ref;
-};
-
-struct hdc_process_thread_info g_hdc_thread_info[HDC_MAX_UB_DEV_CNT] = {
-    [0 ... HDC_MAX_UB_DEV_CNT - 1] = {.lock = PTHREAD_MUTEX_INITIALIZER, .ref = 0, .exist_flag = false}};
 
 struct hdc_process_para {
     mmProcess fd;
@@ -181,7 +187,8 @@ STATIC void *hdc_process_thread_handle(void *arg)
             if (g_hdc_event_proc[event_msg.type] != NULL) {
                 ret = g_hdc_event_proc[event_msg.type](dev_id, wait_msg->msg_buf, wait_msg->msg_len);
                 if (ret != 0) {
-                    HDC_LOG_WARN("g_hdc_event_proc unsuccess.(dev_id=%u; type=%d)\n", dev_id, event_msg.type);
+                    HDC_LOG_WARN("g_hdc_event_proc execute not successfully.(dev_id=%u; type=%d)\n", dev_id,
+                                 event_msg.type);
                 }
             }
         } else if ((ret == DRV_ERROR_NO_PROCESS) || (ret == DRV_ERROR_DEVICE_NOT_READY) ||
@@ -207,7 +214,7 @@ STATIC void *hdc_process_thread_handle(void *arg)
     return NULL;
 }
 
-int hdc_process_thread_init(unsigned int dev_id)
+int hdc_process_thread_init(unsigned int dev_id, const char *func_name)
 {
     int ret;
     pthread_attr_t attr;
@@ -224,7 +231,7 @@ int hdc_process_thread_init(unsigned int dev_id)
     para = (struct hdc_process_para *)malloc(sizeof(struct hdc_process_para));
     if (para == NULL) {
         ret = DRV_ERROR_OUT_OF_MEMORY;
-        hdc_report_out_of_mem_err_msg(sizeof(struct hdc_process_para));
+        hdc_report_out_of_mem_err_msg(func_name, sizeof(struct hdc_process_para));
         goto process_init_exit;
     }
 

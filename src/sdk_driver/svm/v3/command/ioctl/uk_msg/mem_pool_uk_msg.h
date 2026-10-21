@@ -32,4 +32,10 @@ struct mem_pool_get_attr_msg {
     u64 value;   /* output: attribute value */
 };
 
+struct mem_pool_mem_free_msg {
+    u64 pool_id; /* input */
+    u64 va;      /* input */
+    u64 size;    /* input */
+};
+
 #endif

@@ -42,7 +42,7 @@ STATIC int hw_vdavinci_rw_bar0(struct hw_vdavinci *vdavinci, struct position *p,
     if (ka_unlikely(vdavinci->iodev == NULL)) {
         ret = hw_vdavinci_register_iodev(vdavinci, bar_start, DOORBELL_MAX * DOORBELL_SIZE, index);
         if (ret != 0) {
-            vascend_warn(vdavinci_to_dev(vdavinci), "vdavinci iodev is not support, ret: %d\n", ret);
+            vascend_warn(vdavinci_to_dev(vdavinci), "vdavinci iodev is not supported, ret: %d\n", ret);
             vdavinci->iodev = KA_ERR_PTR(ret);
         }
     }
@@ -64,6 +64,9 @@ STATIC int _hw_vdavinci_rw(struct hw_vdavinci *vdavinci, struct position *p, cha
     uint64_t pos = p->pos;
     size_t count = p->count;
 
+    if (ka_unlikely(vdavinci == NULL || !hw_dvt_is_vdavinci_active(vdavinci))) {
+        return -EINVAL;
+    }
     switch (index) {
         case VFIO_PCI_CONFIG_REGION_INDEX:
             if (write) {

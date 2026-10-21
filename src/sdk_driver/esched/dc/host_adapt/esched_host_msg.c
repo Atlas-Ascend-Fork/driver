@@ -22,9 +22,10 @@
 #include "esched_fops.h"
 #include "esched_host_msg.h"
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
 #include "esched_drv_adapt.h"
-#endif
+
+#include "esched_feature_check.h"
+#include "esched_adapt_platform.h"
 
 STATIC void esched_convert_dst_engine(struct sched_published_event_info *event_info)
 {
@@ -146,7 +147,7 @@ STATIC int sched_query_gid_proxy(u32 devid, struct esched_ctrl_msg *msg)
 
 int sched_query_remote_task_gid_msg_send(u32 chip_id, u32 dst_chip_id, int pid, const char *grp_name, u32 *gid)
 {
-    struct esched_ctrl_msg msg;
+    struct esched_ctrl_msg msg = {0};
     int ret, real_devid;
 
     sched_remote_msg_head_init(&msg.head, ESCHED_MSG_TYPE_REMOTE_QUERY_GID);
@@ -193,7 +194,7 @@ STATIC int32_t sched_dispatch_param_check(u32 src_devid, u32 dst_devid, u32 src_
     }
 
     if (src_device_master_pid != dst_device_master_pid) {
-        sched_err("Pid not match. (src_devid=%u; dst_devid=%u; src_pid=%u; dst_pid=%u; src_master_pid=%u; "
+        sched_err("Pid does not match. (src_devid=%u; dst_devid=%u; src_pid=%u; dst_pid=%u; src_master_pid=%u; "
                   "dst_master_pid=%u)\n",
                   src_devid, dst_devid, src_pid, dst_pid, src_device_master_pid, dst_device_master_pid);
         return DRV_ERROR_INNER_ERR;
@@ -229,10 +230,9 @@ STATIC int sched_dispatch_event_to_remote(u32 devid, struct esched_publish_msg *
     return esched_host_msg_send(dst_devid, (void *)&msg_local, total_len);
 }
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
 STATIC int esched_drv_remote_config_pid(u32 dev_id, u32 msg_type, u32 host_ctrl_pid, u32 pid_type, u32 pid)
 {
-    struct esched_ctrl_msg msg;
+    struct esched_ctrl_msg msg = {0};
     int ret;
 
     sched_remote_msg_head_init(&msg.head, msg_type);
@@ -264,7 +264,7 @@ int esched_drv_remote_del_pid(u32 dev_id, u32 host_ctrl_pid, u32 pid)
 
 int esched_drv_remote_add_pool(u32 dev_id, u32 cpu_type)
 {
-    struct esched_ctrl_msg msg;
+    struct esched_ctrl_msg msg = {0};
     int ret;
 
     sched_remote_msg_head_init(&msg.head, ESCHED_MSG_TYPE_ADD_POOL);
@@ -281,7 +281,7 @@ int esched_drv_remote_add_pool(u32 dev_id, u32 cpu_type)
 
 int esched_drv_remote_get_cpu_mbid(u32 dev_id, u32 cpu_type, u32 *mb_id, u32 *wait_mb_id)
 {
-    struct esched_ctrl_msg msg;
+    struct esched_ctrl_msg msg = {0};
     int ret;
 
     sched_remote_msg_head_init(&msg.head, ESCHED_MSG_TYPE_GET_CPU_MBID);
@@ -301,7 +301,7 @@ int esched_drv_remote_get_cpu_mbid(u32 dev_id, u32 cpu_type, u32 *mb_id, u32 *wa
 
 int esched_drv_remote_config_intr(u32 dev_id, u32 irq)
 {
-    struct esched_ctrl_msg msg;
+    struct esched_ctrl_msg msg = {0};
     int ret;
 
     sched_remote_msg_head_init(&msg.head, ESCHED_MSG_TYPE_CONF_INTR);
@@ -309,7 +309,7 @@ int esched_drv_remote_config_intr(u32 dev_id, u32 irq)
     msg.intr_msg.irq = irq;
     ret = esched_host_msg_send(dev_id, (void *)&msg, sizeof(msg));
     if (ret != 0) {
-        sched_debug("Invoke the esched_host_msg_send not success. "
+        sched_debug("Invoke the esched_host_msg_send not successful. "
                     "(dev_id=%u; irq=%u; deal_code=%d; ret=%d)\n",
                     dev_id, irq, msg.head.error_code, ret);
         return -EFAULT;
@@ -320,7 +320,7 @@ int esched_drv_remote_config_intr(u32 dev_id, u32 irq)
 
 int esched_drv_remote_add_mb(u32 dev_id, u32 vf_id)
 {
-    struct esched_ctrl_msg msg;
+    struct esched_ctrl_msg msg = {0};
     int ret;
 
     sched_remote_msg_head_init(&msg.head, ESCHED_MSG_TYPE_ADD_MB);
@@ -340,7 +340,7 @@ int esched_drv_remote_add_mb(u32 dev_id, u32 vf_id)
 #ifndef EMU_ST
 int esched_drv_remote_get_pool_id(u32 dev_id, u32 *pool_id)
 {
-    struct esched_ctrl_msg msg;
+    struct esched_ctrl_msg msg = {0};
     int ret;
 
     sched_remote_msg_head_init(&msg.head, ESCHED_MSG_TYPE_GET_POOL_ID);
@@ -354,7 +354,6 @@ int esched_drv_remote_get_pool_id(u32 dev_id, u32 *pool_id)
     *pool_id = msg.pool_id_msg.pool_id;
     return 0;
 }
-#endif
 #endif
 
 STATIC int esched_ctrl_msg_para_check(u32 devid, void *data, u32 in_data_len, u32 *real_out_len)
@@ -377,7 +376,7 @@ STATIC int esched_ctrl_msg_para_check(u32 devid, void *data, u32 in_data_len, u3
         }
 
         msg = (struct esched_publish_msg *)data;
-        if (in_data_len < (ctrl_len + msg->submit_msg.event_info.msg_len)) {
+        if ((in_data_len - ctrl_len) < msg->submit_msg.event_info.msg_len) {
             sched_err("In_data_len is invalid. (devid=%u; in_data_len=%u; msg_len=%u; ctrl_len=%u)\n", devid,
                       in_data_len, msg->submit_msg.event_info.msg_len, ctrl_len);
             return -EINVAL;
@@ -427,8 +426,8 @@ STATIC int esched_ctrl_msg_recv(u32 devid, void *data, u32 in_data_len, u32 out_
     }
 
     if ((ret != 0) && !((msg->type == ESCHED_MSG_TYPE_REMOTE_QUERY_GID) && (ret == DRV_ERROR_UNINIT))) {
-        sched_warn("invoke the sched_publish_event_proxy not success. (devid=%u; type=%d; ret=%d)\n", devid, msg->type,
-                   ret);
+        sched_warn("invoke the sched_publish_event_proxy not successful. (devid=%u; type=%d; ret=%d)\n", devid,
+                   msg->type, ret);
     }
     node->curr_msg.msg_type = ESCHED_MSG_TYPE_MAX_NUM;
     msg->error_code = ret;
@@ -446,11 +445,17 @@ STATIC int esched_init_instance(u32 dev_id)
     struct sched_dev_ops ops;
     int ret;
 
-#ifdef CFG_FEATURE_HARDWARE_SCHED
-    esched_setup_dev_hw_ops(&ops);
-#else
-    esched_setup_dev_soft_ops(&ops);
-#endif
+    ret = esched_feature_init_by_devid(dev_id);
+    if (ret != 0) {
+        sched_err("Failed to init feature by devid %u, ret=%d\n", dev_id, ret);
+        return ret;
+    }
+
+    if (esched_has_feature(dev_id, ESCHED_FEATURE_HARDWARE_SCHED)) {
+        esched_setup_dev_hw_ops(&ops);
+    } else {
+        esched_setup_dev_soft_ops(&ops);
+    }
 
     ret = esched_create_dev(dev_id, &ops);
     if (ret != 0) {
@@ -495,16 +500,18 @@ static int esched_host_notifier_func(u32 udevid, enum uda_notified_action action
         case UDA_UNINIT:
             ret = esched_uninit_instance(udevid);
             break;
-#if defined(CFG_FEATURE_HARDWARE_MIA)
         case UDA_TO_MIA:
-            (void)esched_drv_reset_phy_dev(udevid);
-            sched_info("Enable dev_id %u sriov\n", udevid);
+            if (esched_adapt_has_hardware_mia(udevid)) {
+                (void)esched_drv_reset_phy_dev(udevid);
+                sched_info("Enable dev_id %u sriov\n", udevid);
+            }
             break;
         case UDA_TO_SIA:
-            esched_drv_restore_phy_dev(udevid);
-            sched_info("Disable dev_id %u sriov\n", udevid);
+            if (esched_adapt_has_hardware_mia(udevid)) {
+                esched_drv_restore_phy_dev(udevid);
+                sched_info("Disable dev_id %u sriov\n", udevid);
+            }
             break;
-#endif
         default:
             /* Ignore other actions. */
             return 0;

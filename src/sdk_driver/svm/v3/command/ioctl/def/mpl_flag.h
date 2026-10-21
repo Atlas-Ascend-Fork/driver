@@ -13,6 +13,9 @@
 #define SVM_MPL_FLAG_FIXED_NUMA (1U << 7U)
 #define SVM_MPL_FLAG_CONTIGUOUS_PER_2M (1U << 8U)
 #define SVM_MPL_FLAG_NO_REMOTE_OPS (1U << 9U)
+#define SVM_MPL_FLAG_DEV_PRIVATE (1U << 10U)
+/* Identifies the MPL_NO_PIN event. */
+#define SVM_MPL_FLAG_NO_PIN (1U << 11U)
 
 /* numa id: bit24~31 */
 #define SVM_MPL_FLAG_NUMA_ID_BIT 24U

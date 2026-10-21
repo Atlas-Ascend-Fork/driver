@@ -20,8 +20,10 @@
 #include "res_drv_cloud_v1.h"
 #include "res_drv_cloud_v2.h"
 #include "res_drv_cloud_v4.h"
+#include "res_drv_cloud_v6.h"
 #include "res_drv_mini_v2.h"
 #include "res_drv_mini_v3.h"
+#include "res_drv_mini_v5.h"
 #include "devdrv_adapt.h"
 
 const ka_pci_device_id_t g_devdrv_tbl[] = {
@@ -36,7 +38,9 @@ const ka_pci_device_id_t g_devdrv_tbl[] = {
     {KA_PCI_VDEVICE(HUAWEI, MINI_V3_DEVICE), HISI_MINI_V3},
     {KA_PCI_VDEVICE(HUAWEI, CLOUD_V4_DEVICE), HISI_CLOUD_V4},
     {KA_PCI_VDEVICE(HUAWEI, CLOUD_V5_DEVICE), HISI_CLOUD_V5},
+    {KA_PCI_VDEVICE(HUAWEI, CLOUD_V6_DEVICE), HISI_CLOUD_V6},
     {KA_PCI_VDEVICE(HUAWEI, MINI_V4_DEVICE), HISI_MINI_V4},
+    {KA_PCI_VDEVICE(HUAWEI, MINI_V5_DEVICE), HISI_MINI_V5},
     {DEVDRV_PCI_SUBSYS_PRIVATE_VENDOR_HK, MINI_V2_DEVICE, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, HISI_MINI_V2},
     {DEVDRV_PCI_SUBSYS_PRIVATE_VENDOR_KL, MINI_V2_DEVICE, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, HISI_MINI_V2},
     {DEVDRV_PCI_SUBSYS_PRIVATE_VENDOR_HK, CLOUD_V2_DEVICE, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, HISI_CLOUD_V2},
@@ -60,6 +64,8 @@ int (*devdrv_res_init_func[HISI_CHIP_NUM])(struct devdrv_pci_ctrl *pci_ctrl) = {
     [HISI_CLOUD_V4] = devdrv_cloud_v4_res_init,
     [HISI_CLOUD_V5] = devdrv_cloud_v4_res_init,
     [HISI_MINI_V4] = devdrv_cloud_v4_res_init,
+    [HISI_CLOUD_V6] = devdrv_cloud_v6_res_init,
+    [HISI_MINI_V5] = devdrv_mini_v5_res_init,
 };
 // clang-format on
 
@@ -169,7 +175,7 @@ STATIC ka_pci_ers_result_t devdrv_slot_reset(ka_pci_dev_t *pdev)
 
     ka_pci_set_master(pdev);
 
-    devdrv_err("The resume of top business(vnic/hdc/devmm) still need to do.\n");
+    devdrv_err("The resume of top business (vnic/hdc/devmm) still needs to be done.\n");
 
     return KA_PCI_ERS_RESULT_RECOVERED;
 }
@@ -235,7 +241,7 @@ STATIC void devdrv_feature_set_ops_bitmap(u32 *bitmap, u32 val, u32 feat, u32 *o
     (*offset)++;
 }
 
-STATIC devdrv_feature_ops_bitmap_t devdrv_feature_get_rescfg_bitmap(struct devdrv_pci_ctrl *pci_ctrl)
+devdrv_feature_ops_bitmap_t devdrv_feature_get_rescfg_bitmap(struct devdrv_pci_ctrl *pci_ctrl)
 {
     devdrv_feature_ops_bitmap_t bitmap = 0;
     u32 offset = 0;
@@ -246,15 +252,21 @@ STATIC devdrv_feature_ops_bitmap_t devdrv_feature_get_rescfg_bitmap(struct devdr
     devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->virtfn_flag, DEVDRV_SRIOV_TYPE_VF, &offset);
     devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->connect_protocol, CONNECT_PROTOCOL_PCIE, &offset);
     devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->connect_protocol, CONNECT_PROTOCOL_HCCS, &offset);
+    devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->env_boot_mode, DEVDRV_PHY_BOOT, &offset);
+    devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->env_boot_mode, DEVDRV_SRIOV_VF_BOOT, &offset);
+    devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->env_boot_mode, DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT, &offset);
+    devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->env_boot_mode, DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT, &offset);
+    devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->env_boot_mode, DEVDRV_MDEV_VF_PM_BOOT, &offset);
+    devdrv_feature_set_ops_bitmap(&bitmap, pci_ctrl->env_boot_mode, DEVDRV_MDEV_VF_VM_BOOT, &offset);
 
     return bitmap;
 }
 
-struct res_config *devdrv_feature_get_res_cfg(struct devdrv_pci_ctrl *pci_ctrl, struct res_config *res_cfg,
-                                              size_t res_cfg_size)
+struct res_config *devdrv_feature_get_res_cfg(struct res_config *res_cfg, size_t res_cfg_size,
+                                              devdrv_feature_ops_bitmap_t mode)
 {
     u32 i;
-    devdrv_feature_ops_bitmap_t mode = devdrv_feature_get_rescfg_bitmap(pci_ctrl);
+
     for (i = 0; i < res_cfg_size; i++) {
         if (res_cfg[i].mode == mode) {
             return &res_cfg[i];

@@ -22,41 +22,42 @@
 #include "ka_base_pub.h"
 #include "ascend_dev_num.h"
 
-#define DAVINIC_NONE_ROOT_ACCESS    (0640)
+#define DAVINIC_NONE_ROOT_ACCESS (0640)
 
 #ifndef ASSERT_RET
-#define ASSERT_RET(a, ret) {                      \
+#define ASSERT_RET(a, ret) \
+    {                      \
         if (!(a)) {        \
             return (ret);  \
         }                  \
     }
 #endif
 
-#define DAVINIC_NOT_INIT_BY_OPENCMD    (-1)
-#define DAVINIC_FREE_LIST_NOT_INIT    (-1)
+#define DAVINIC_NOT_INIT_BY_OPENCMD (-1)
+#define DAVINIC_FREE_LIST_NOT_INIT (-1)
 
-#define DAVINIC_INTF_INVAILD_DEVICE_ID    (0xffffffffU)
+#define DAVINIC_INTF_INVAILD_DEVICE_ID (0xffffffffU)
 
-#define DAVINIC_NOT_CONFIRM_USER_ID    (0xffffffffU)
-#define DAVINIC_ROOT_USER_ID           (0x0)
+#define DAVINIC_NOT_CONFIRM_USER_ID (0xffffffffU)
+#define DAVINIC_ROOT_USER_ID (0x0)
 /* max time 60s */
-#define DAVINIC_CONFIRM_MAX_TIME    (6000)
+#define DAVINIC_CONFIRM_MAX_TIME (6000)
 
-#define DAVINIC_CONFIRM_EACH_TIME    (10)
+#define DAVINIC_CONFIRM_EACH_TIME (10)
 
-#define DAVINIC_CONFIRM_WARN_MASK    (1000)
+#define DAVINIC_CONFIRM_WARN_MASK (1000)
 
-#define DAVINIC_FREE_WAIT_MAX_TIME    (3600000)
-#define DAVINIC_FREE_WAIT_EACH_TIME    (1)
+#define DAVINIC_FREE_WAIT_MAX_TIME (3600000)
+#define DAVINIC_FREE_WAIT_EACH_TIME (1)
 
-#define DAVINIC_CONFIRM_USER_NUM    (3)
+#define DAVINIC_CONFIRM_USER_NUM (3)
 
-#define DAVINIC_UNINIT_FILE    "uninit"
+#define DAVINIC_UNINIT_FILE "uninit"
 
-#define DAVINIC_FREE_IN_PARALLEL            (1)
-#define DAVINIC_FREE_IN_ORDER               (2)
-#define DAVINCI_INTF_FULL_DEV_NAME          "/dev/davinci_manager"
-#define DAVINCI_INTF_NPU_DEV_CUST_NAME      "npu_device_cust"
+#define DAVINIC_FREE_IN_PARALLEL (1)
+#define DAVINIC_FREE_IN_ORDER (2)
+#define DAVINCI_INTF_FULL_DEV_NAME "/dev/davinci_manager"
+#define DAVINCI_INTF_NPU_DEV_CUST_NAME "npu_device_cust"
 
 #define MODULE_NAME_MAX_LEN 384
 
@@ -90,7 +91,7 @@ struct davinci_intf_process_stru {
     ka_list_head_t file_list;
     ka_mutex_t res_lock;
     ka_atomic_t work_count;
-    unsigned int  status;
+    unsigned int status;
     TASK_TIME_TYPE start_time;
     struct davinci_intf_free_list_stru *free_list;
 };
@@ -152,8 +153,7 @@ struct davinci_intf_private_stru {
 
 void release_file_free_list(struct davinci_intf_free_list_stru *file_free_list);
 void drv_ascend_release_work(struct davinci_intf_free_list_stru *free_list);
-void drv_intf_trans_free_list_nodes(struct davinci_intf_process_stru *proc,
-    ka_file_t *file, unsigned int free_index);
+void drv_intf_trans_free_list_nodes(struct davinci_intf_process_stru *proc, ka_file_t *file, unsigned int free_index);
 void free_uninit_file_pos(struct davinci_intf_process_stru *proc, ka_file_t *file);
 void drv_ascend_free_file_node(ka_file_t *file);
 int drv_ascend_add_release_list_all(struct davinci_intf_process_stru *proc, ka_file_t *file);

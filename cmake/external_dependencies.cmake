@@ -8,18 +8,25 @@
 # See LICENSE in the root of the software repository for the full text of the License.
 # ------------------------------------------------------------------------------------------------------------
 
-if(NOT CANN_3RD_LIB_PATH)
-    set(CANN_3RD_LIB_PATH ${PROJECT_SOURCE_DIR}/../..)
-endif()
-if(NOT CANN_3RD_PKG_PATH)
-    set(CANN_3RD_PKG_PATH ${PROJECT_SOURCE_DIR}/../..)
-endif()
-
 set(EXTERN_DEPEND_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/third_party)
 set(EXTERN_DEPEND_DOWNLOAD_DIR ${CMAKE_CURRENT_BINARY_DIR}/third_party/download)
-
 file(MAKE_DIRECTORY "${EXTERN_DEPEND_SOURCE_DIR}")
 file(MAKE_DIRECTORY "${EXTERN_DEPEND_DOWNLOAD_DIR}")
+
+if(NOT CANN_3RD_LIB_PATH)
+    set(_DEFAULT_CANN_3RD_LIB_PATH ${PROJECT_SOURCE_DIR}/../..)
+    get_filename_component(_DEFAULT_CANN_3RD_LIB_PATH_ABS "${_DEFAULT_CANN_3RD_LIB_PATH}" ABSOLUTE)
+    if(EXISTS "${_DEFAULT_CANN_3RD_LIB_PATH_ABS}" AND NOT "${_DEFAULT_CANN_3RD_LIB_PATH_ABS}" STREQUAL "/")
+        set(CANN_3RD_LIB_PATH "${_DEFAULT_CANN_3RD_LIB_PATH_ABS}")
+        message(STATUS "CANN_3RD_LIB_PATH not set, using default: ${CANN_3RD_LIB_PATH}")
+    else()
+        set(CANN_3RD_LIB_PATH "${EXTERN_DEPEND_SOURCE_DIR}")
+        message(STATUS "CANN_3RD_LIB_PATH not set and default (${_DEFAULT_CANN_3RD_LIB_PATH}) is invalid. "
+                       "Redirecting to build dir: ${CANN_3RD_LIB_PATH}. Dependencies will be fetched from remote.")
+    endif()
+    unset(_DEFAULT_CANN_3RD_LIB_PATH)
+    unset(_DEFAULT_CANN_3RD_LIB_PATH_ABS)
+endif()
 
 include(${PROJECT_SOURCE_DIR}/cmake/third_party/secure_c.cmake)
 

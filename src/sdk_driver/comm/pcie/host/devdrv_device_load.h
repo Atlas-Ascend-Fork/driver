@@ -110,6 +110,9 @@ extern struct devdrv_black_callback g_black_box;
 #define DEVDRV_PCIE_BAR5_CFG_REG 0X24
 #define DEVDRV_BAR_CFG_OFFSET 32
 
+#define DEVDRV_WRITE_BLOCK_INFO_RETRY_TIMES 3
+#define DEVDRV_WRITE_BLOCK_INFO_WAIT_TIME 10
+
 enum devdrv_load_wait_mode {
     DEVDRV_LOAD_WAIT_INTERVAL = 0x0,
     DEVDRV_LOAD_WAIT_FOREVER,

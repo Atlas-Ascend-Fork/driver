@@ -9,6 +9,7 @@
  */
 
 #include <sys/ioctl.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "svm_ioctl_ex.h"
@@ -36,17 +37,18 @@ int svm_mpl_populate(u32 devid, u64 va, u64 size, u32 flag)
     return ret;
 }
 
-int svm_mpl_depopulate(u32 devid, u64 va, u64 size)
+int svm_mpl_depopulate(u32 devid, u64 va, u64 size, u32 flag)
 {
     struct svm_mpl_depopulate_para para = {0};
     int ret;
 
     para.va = va;
     para.size = size;
+    para.flag = flag;
 
     ret = svm_cmd_ioctl(devid, SVM_MPL_DEPOPULATE, (void *)&para);
     if ((ret != 0) && (ret != DRV_ERROR_BUSY)) {
-        svm_err("Svm ioctl mem depopulate failed. (ret=%d; va=0x%llx; size=%llu)\n", ret, va, size);
+        svm_err("Svm ioctl mem depopulate failed. (ret=%d; va=0x%llx; size=%llu; flag=%u)\n", ret, va, size, flag);
     }
 
     return ret;

@@ -77,6 +77,7 @@ typedef struct file_operations ka_file_operations_t;
 #define ka_fs_init_f_release(f_release) .release = f_release,
 #define ka_fs_init_f_get_unmapped_area(f_get_unmapped_area) .get_unmapped_area = f_get_unmapped_area,
 #define ka_fs_init_f_check_flags(f_check_flags) .check_flags = f_check_flags,
+#define ka_fs_init_f_early_release(f_early_release) .early_release = f_early_release,
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 typedef struct proc_ops ka_procfs_ops_t;

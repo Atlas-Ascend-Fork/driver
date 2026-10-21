@@ -41,7 +41,7 @@ static struct {
     char str[DEVDRV_STR_NAME_LEN];
 } devdrv_msg_client_type_str[devdrv_msg_client_max + 1] = {
     {"msg_client_vnic"},       /* devdrv_msg_client_pcivnic */
-    {"msg_client_smmu"},       /* devdrv_msg_client_smmu */
+    {"msg_client_pasid"},      /* devdrv_msg_client_pasid */
     {"msg_client_devmm"},      /* devdrv_msg_client_devmm */
     {"msg_client_common"},     /* devdrv_msg_client_common */
     {"msg_client_devmanager"}, /* devdrv_msg_client_devmanager */
@@ -49,6 +49,8 @@ static struct {
     {"msg_client_hdc"},        /* devdrv_msg_client_hdc */
     {"msg_client_queue"},      /* devdrv_msg_client_queue */
     {"msg_client_s2s"},        /* devdrv_msg_client_s2s */
+    {"msg_client_tablesync"},  /* devdrv_msg_client_tablesync */
+    {"msg_client_esched"},     /* devdrv_msg_client_esched */
 };
 
 static struct {
@@ -67,6 +69,7 @@ static struct {
     {"common_msg_dpmng"},      /* DEVDRV_COMMON_MSG_DP_PROC_MNG */
     {"common_msg_test"},       /* DEVDRV_COMMON_MSG_TEST */
     {"common_msg_udis"},       /* DEVDRV_COMMON_MSG_UDIS */
+    {"common_msg_bbox"},       /* DEVDRV_COMMON_MSG_BBOX */
     {"common_msg"},            /* DEVDRV_COMMON_MSG_TYPE_MAX; must be last */
 };
 
@@ -124,8 +127,8 @@ STATIC void devdrv_non_trans_tx_profiling_info(struct devdrv_msg_chan *msg_chan)
     struct devdrv_profiling_info *profiling_info = &msg_chan->profiling_info;
 
     devdrv_info(
-        "non_trans tx time. (seq_num=%llu; dev_id=%u; total_duration=%lluns; write_bar_t=%lluns; "
-        "wait_irq_begin_t=%lluns; wait_peer_recv_t=%lluns; chan_id=%u; msg_type=%u; in_data_len=%u; out_data_len=%u)\n",
+        "non_trans tx time. (seq_num=%llu;dev_id=%u;total_duration=%lluns;write_bar_t=%lluns;"
+        "wait_irq_begin_t=%lluns;wait_peer_recv_t=%lluns;chan_id=%u;msg_type=%u;in_data_len=%u;out_data_len=%u)\n",
         profiling_info->tx_seq_num, msg_chan->msg_dev->pci_ctrl->dev_id, profiling_info->tx_total_duration,
         profiling_info->tx_intervals[DEVDRV_PROFILING_TX_WRITE_BAR].duration,
         profiling_info->tx_intervals[DEVDRV_PROFILING_TX_WAIT_IRQ_BEGIN].duration,
@@ -137,8 +140,8 @@ STATIC void devdrv_non_trans_rx_profiling_info(struct devdrv_msg_chan *msg_chan)
 {
     struct devdrv_profiling_info *profiling_info = &msg_chan->profiling_info;
 
-    devdrv_info("non_trans rx time. (seq_num=%llu; dev_id=%u; total_duration=%lluns; into_work_t=%lluns; "
-                "sche_cb_t=%lluns; write_bar_t=%lluns; chan_id=%u; msg_type=%u; in_data_len=%u; out_data_len=%u)\n",
+    devdrv_info("non_trans rx time. (seq_num=%llu;dev_id=%u;total_duration=%lluns;into_work_t=%lluns;"
+                "sche_cb_t=%lluns;write_bar_t=%lluns;chan_id=%u;msg_type=%u;in_data_len=%u;out_data_len=%u)\n",
                 profiling_info->rx_seq_num, msg_chan->msg_dev->pci_ctrl->dev_id, profiling_info->rx_total_duration,
                 profiling_info->rx_intervals[DEVDRV_PROFILING_RX_QUEUE_WORK].duration,
                 profiling_info->rx_intervals[DEVDRV_PROFILING_RX_SCHEDULE_CB].duration,
@@ -289,7 +292,7 @@ STATIC u32 devdrv_msg_alloc_slave_mem(struct devdrv_msg_dev *msg_dev, u32 len)
             devdrv_debug("Slave memory alloc. (dev_id=%d; len=0x%x; remain=0x%x)\n", msg_dev->pci_ctrl->dev_id, len,
                          msg_dev->slave_mem.len);
         } else {
-            devdrv_err("Slave memory is used up. dev_id=%d; len=0x%x; remain=0x%x)\n", msg_dev->pci_ctrl->dev_id, len,
+            devdrv_err("Slave memory is used up. (dev_id=%d; len=0x%x; remain=0x%x)\n", msg_dev->pci_ctrl->dev_id, len,
                        msg_dev->slave_mem.len);
         }
     }
@@ -1165,7 +1168,7 @@ STATIC void devdrv_non_trans_rx_msg_task_resq_record(struct devdrv_msg_chan *msg
     }
     if (cost_time > DEVDRV_MSG_TIME_VOERFLOW) {
         msg_chan->chan_stat.rx_work_delay_cnt++;
-        devdrv_info("Get host schedule msg work time. (msg_type=\"%s\"; cost_time=%ums)\n",
+        devdrv_info("Get host schedule msg work time. (msg_type=\"%s\";cost_time=%ums)\n",
                     devdrv_msg_type_str(msg_chan->msg_type, DEVDRV_COMMON_MSG_TYPE_MAX), cost_time);
     }
 }
@@ -1221,7 +1224,7 @@ STATIC void devdrv_non_trans_rx_msg_handle(struct devdrv_msg_chan *msg_chan)
     dev_id = (int)msg_chan->msg_dev->pci_ctrl->dev_id;
     seq_num = bd_desc->seq_num;
     if (seq_num == msg_chan->seq_num) {
-        devdrv_warn("seq_num is no change. (dev_id=%d; msg_type=\"%s\"; seq_num=%lld)\n", dev_id,
+        devdrv_warn("seq_num does not change. (dev_id=%d; msg_type=\"%s\"; seq_num=%lld)\n", dev_id,
                     devdrv_msg_type_str(msg_type_tmp, bd_desc->msg_type), seq_num);
     }
     msg_chan->seq_num = seq_num;
@@ -1236,7 +1239,7 @@ STATIC void devdrv_non_trans_rx_msg_handle(struct devdrv_msg_chan *msg_chan)
         devdrv_record_rx_profiling_time(msg_chan);
         resq_time = ka_system_jiffies_to_msecs(ka_jiffies - call_start);
         if (resq_time > DEVDRV_NON_TRANS_CB_TIME) {
-            devdrv_info("Get resq_time. (dev_id=%u; msg_type=\"%s\"; resq_time=%llums; cpu=%d)\n", dev_id,
+            devdrv_info("Get resq_time. (dev_id=%u;msg_type=\"%s\";resq_time=%llums;cpu=%d)\n", dev_id,
                         devdrv_msg_type_str(msg_type_tmp, bd_desc->msg_type), resq_time,
                         ka_system_raw_smp_processor_id());
         }
@@ -1323,7 +1326,7 @@ STATIC void devdrv_non_trans_rx_msg_task(ka_work_struct_t *p_work)
     dev_id = (int)msg_chan->msg_dev->pci_ctrl->dev_id;
 
     if (msg_chan->status == DEVDRV_DISABLE) {
-        devdrv_err("msg_chan is disable. (dev_id=%d; msg_type=\"%s\"; msg_chan=%d)\n", dev_id,
+        devdrv_err("msg_chan is disabled. (dev_id=%d; msg_type=\"%s\"; msg_chan=%d)\n", dev_id,
                    devdrv_msg_type_str(msg_type_tmp, DEVDRV_COMMON_MSG_TYPE_MAX), msg_chan->chan_id);
         ka_task_mutex_unlock(&msg_chan->rx_mutex);
         ka_base_atomic_set(&msg_chan->sched_status.state, DEVDRV_MSG_HANDLE_STATE_INIT);
@@ -1342,7 +1345,7 @@ STATIC ka_irqreturn_t devdrv_rx_msg_notify_handler(int irq, void *data)
     void *handle = NULL;
 
     if (msg_chan->status == DEVDRV_DISABLE) {
-        devdrv_err_spinlock("msg_chan is disable. (dev_id=%u; chan_id=%u; msg_type=\"%s\"; queue_type=%u)\n",
+        devdrv_err_spinlock("msg_chan is disabled. (dev_id=%u; chan_id=%u; msg_type=\"%s\"; queue_type=%u)\n",
                             msg_chan->msg_dev->pci_ctrl->dev_id, msg_chan->chan_id,
                             devdrv_msg_type_str(msg_chan->msg_type, DEVDRV_COMMON_MSG_TYPE_MAX),
                             (u32)msg_chan->queue_type);
@@ -1375,7 +1378,7 @@ STATIC ka_irqreturn_t devdrv_tx_fnsh_notify_handler(int irq, void *data)
     void *handle = NULL;
 
     if (msg_chan->status == DEVDRV_DISABLE) {
-        devdrv_err_spinlock("msg_chan is disable. (chan_id=%d)\n", msg_chan->chan_id);
+        devdrv_err_spinlock("msg_chan is disabled. (chan_id=%d)\n", msg_chan->chan_id);
         return KA_IRQ_HANDLED;
     }
 
@@ -1755,7 +1758,7 @@ int devdrv_sync_non_trans_msg_send(struct devdrv_msg_chan *msg_chan, void *data,
     if (devdrv_device_status_abnormal_check_inner(msg_chan) != 0) {
         chan_stat->tx_status_abnormal_err++;
         devdrv_device_mutex_unlock(msg_chan);
-        devdrv_info("Device is abnormal. (dev_id=%u; msg_type=\"%s\")\n", msg_chan->msg_dev->pci_ctrl->dev_id,
+        devdrv_info("Device is abnormal. (dev_id=%u;msg_type=\"%s\")\n", msg_chan->msg_dev->pci_ctrl->dev_id,
                     devdrv_msg_type_str(msg_type_tmp, msg_type));
         return -ENODEV;
     }
@@ -1824,7 +1827,7 @@ int devdrv_pci_sync_msg_send(void *msg_chan, void *data, u32 in_data_len, u32 ou
     ret = devdrv_sync_non_trans_msg_send(chan, data, in_data_len, out_data_len, real_out_len,
                                          DEVDRV_COMMON_MSG_TYPE_MAX);
     if (ret == -ENODEV) {
-        devdrv_info("Device is abnormal. (dev_id=%u; chan_id=%d; in_data_len=%d; ret=%d)\n",
+        devdrv_info("Device is abnormal. (dev_id=%u;chan_id=%d;in_data_len=%d;ret=%d)\n",
                     chan->msg_dev->pci_ctrl->dev_id, chan->chan_id, in_data_len, ret);
     } else if (ret != 0) {
         devdrv_err("Send failed. (dev_id=%u; chan_id=%d; in_data_len=%d; ret=%d)\n", chan->msg_dev->pci_ctrl->dev_id,
@@ -1846,8 +1849,8 @@ STATIC bool devdrv_is_need_secure_comm(const void *cmd, enum devdrv_admin_msg_op
 STATIC void devdrv_admin_record_wait_time(int dev_id, u32 opcode, u32 time_use, u32 time_log)
 {
     if (time_use > time_log) {
-        devdrv_info("Record wait time. (dev_id=%d; opcode=%u; time_use=%dus; time_log=%dus)\n", dev_id, opcode,
-                    time_use, time_log);
+        devdrv_info("Record wait time. (dev_id=%d;opcode=%u;time_use=%dus;time_log=%dus)\n", dev_id, opcode, time_use,
+                    time_log);
     }
 }
 
@@ -1866,7 +1869,7 @@ STATIC int devdrv_admin_wait_recv_resp(struct devdrv_msg_chan *msg_chan, int *ti
         ka_system_usleep_range(DEVDRV_ADMIN_MSG_WAIT_MIN_TIME, DEVDRV_ADMIN_MSG_WAIT_MAX_TIME);
 
         if (devdrv_device_status_abnormal_check_inner(msg_chan) != 0) {
-            devdrv_info("Device is abnormal. (dev_id=%u; msg_type=%d)\n", dev_id, (int)msg_chan->msg_type);
+            devdrv_info("Device is abnormal. (dev_id=%u;msg_type=%d)\n", dev_id, (int)msg_chan->msg_type);
             return -ENODEV;
         }
 
@@ -1919,7 +1922,7 @@ STATIC int devdrv_admin_send_wait_resq(struct devdrv_msg_chan *msg_chan, int *ti
     timeout = total_time - (DEVDRV_ADMIN_MSG_IRQ_TIMEOUT - timeout);
     while (timeout > 0) {
         if (devdrv_device_status_abnormal_check_inner(msg_chan) != 0) {
-            devdrv_info("Device is abnormal. (dev_id=%u; msg_type=%d)\n", dev_id, (int)msg_chan->msg_type);
+            devdrv_info("Device is abnormal. (dev_id=%u;msg_type=%d)\n", dev_id, (int)msg_chan->msg_type);
             return -ENODEV;
         }
 
@@ -1964,7 +1967,7 @@ int devdrv_admin_msg_chan_send(struct devdrv_msg_dev *msg_dev, enum devdrv_admin
     enum devdrv_msg_client_type msg_type_tmp = msg_chan->msg_type;
 
     if (size > DEVDRV_ADMIN_MSG_DATA_LEN) {
-        devdrv_err("Input parameter is invalid. (dev_id=%u; size=%lu)\n", dev_id, size);
+        devdrv_err("Input parameter size is invalid. (dev_id=%u; size=%lu)\n", dev_id, size);
         return -EINVAL;
     }
 
@@ -1973,7 +1976,7 @@ int devdrv_admin_msg_chan_send(struct devdrv_msg_dev *msg_dev, enum devdrv_admin
         if (devdrv_get_product() != HOST_PRODUCT_DC) {
             return 0; // suspend scene doesn't need log
         }
-        devdrv_info("Device is reset, opcode needn't send. (dev_id=%u; opcode=%d)\n", dev_id, (int)opcode);
+        devdrv_info("Device is reset, opcode needn't send. (dev_id=%u;opcode=%d)\n", dev_id, (int)opcode);
         return 0;
     }
     devdrv_debug("Opcode start. (dev_id=%u; opcode=%d)\n", dev_id, opcode);
@@ -2023,8 +2026,9 @@ int devdrv_admin_msg_chan_send(struct devdrv_msg_dev *msg_dev, enum devdrv_admin
         ret = 0;
     } else {
         msg_reply = (struct devdrv_admin_msg_reply *)msg_head->data;
-        if (msg_reply->len - sizeof(struct devdrv_admin_msg_reply) > reply_size) {
-            devdrv_info("msg_reply_len is invalid. (dev_id=%u; opcode=%d; msg_reply_len=%u; buf_size=%lu)\n", dev_id,
+        if ((msg_reply->len > DEVDRV_ADMIN_MSG_DATA_LEN) ||
+            ((msg_reply->len - sizeof(struct devdrv_admin_msg_reply)) > reply_size)) {
+            devdrv_info("msg_reply_len is invalid. (dev_id=%u;opcode=%d;msg_reply_len=%u;buf_size=%lu)\n", dev_id,
                         (int)opcode, msg_reply->len, reply_size);
         } else if (memcpy_s(reply, reply_size, msg_reply->data,
                             msg_reply->len - sizeof(struct devdrv_admin_msg_reply)) == 0) {
@@ -2248,7 +2252,7 @@ struct devdrv_msg_chan *devdrv_alloc_trans_queue(void *priv, struct devdrv_trans
     struct devdrv_msg_chan *msg_chan = NULL;
 
     if (chan_info->msg_type >= devdrv_msg_client_max) {
-        devdrv_err("Msg type is not support yet. (msg_type=%d)\n", (int)chan_info->msg_type);
+        devdrv_err("Msg type is not supported yet. (msg_type=%d)\n", (int)chan_info->msg_type);
         return NULL;
     }
 
@@ -2287,7 +2291,7 @@ struct devdrv_msg_chan *devdrv_alloc_non_trans_queue(void *priv, struct devdrv_n
     struct devdrv_msg_chan *msg_chan = NULL;
 
     if (chan_info->msg_type >= devdrv_msg_client_max) {
-        devdrv_err("Msg type is not support yet. (msg_type=%d)\n", (int)chan_info->msg_type);
+        devdrv_err("Msg type is not supported yet. (msg_type=%d)\n", (int)chan_info->msg_type);
         return NULL;
     }
 
@@ -2354,7 +2358,8 @@ int devdrv_notify_dma_err_irq(void *drvdata, u32 dma_chan_id, int err_irq)
     ret = devdrv_admin_msg_chan_send(pci_ctrl->msg_dev, DEVDRV_NOTIFY_DMA_ERR_IRQ, &cmd_data, sizeof(cmd_data), NULL,
                                      0);
     if (ret != 0) {
-        devdrv_err("Message send failed. (dev_id=%u; cmd=%d; ret=%d)\n", dma_chan_id, DEVDRV_NOTIFY_DMA_ERR_IRQ, ret);
+        devdrv_err("Message send failed. (dma_chan_id=%u; cmd=%d; ret=%d)\n", dma_chan_id, DEVDRV_NOTIFY_DMA_ERR_IRQ,
+                   ret);
     }
 
     return ret;
@@ -2412,7 +2417,7 @@ int devdrv_get_support_msg_chan_cnt_inner(u32 index_id, enum devdrv_msg_client_t
     int chan_cnt = -1;
 
     if (((int)module_type < 0) || (module_type >= devdrv_msg_client_max)) {
-        devdrv_err("Msg type is not support yet. (module_type=%d)\n", module_type);
+        devdrv_err("Msg type is not supported yet. (module_type=%d)\n", module_type);
         return -EOPNOTSUPP;
     }
 
@@ -2490,7 +2495,7 @@ int devdrv_msg_chan_init(struct devdrv_msg_dev *msg_dev, int chan_start, int cha
         msg_chan->irq_rx_msg_notify = irq_base + (i - chan_start) * DEVDRV_MSG_CHAN_IRQ_NUM;
         msg_chan->irq_tx_finish_notity = irq_base + (i - chan_start) * DEVDRV_MSG_CHAN_IRQ_NUM + 1;
 
-        devdrv_debug("msg_chan init. (dev_id=%u; db_io_base=%pK; rx_msg_notify=%d; tx_finish_notity=%d)\n",
+        devdrv_debug("msg_chan init. (dev_id=%u; db_io_base=%pK; rx_msg_notify=%d; tx_finish_notify=%d)\n",
                      msg_dev->pci_ctrl->dev_id, msg_chan->io_base, msg_chan->irq_rx_msg_notify,
                      msg_chan->irq_tx_finish_notity);
 
@@ -2512,7 +2517,8 @@ STATIC void devdrv_msg_work_queue_uninit(struct devdrv_pci_ctrl *pci_ctrl, struc
     }
 
     if (max_msg_chan_cnt > DEVDRV_MAX_MSG_CHAN_NUM) {
-        devdrv_warn("Real cnt greater than max num. (dev_id=%u, chan_cnt=%d)\n", pci_ctrl->dev_id, max_msg_chan_cnt);
+        devdrv_warn("Real cnt greater than max num. (dev_id=%u;chan_cnt=%d;max_num=%d)\n", pci_ctrl->dev_id,
+                    max_msg_chan_cnt, DEVDRV_MAX_MSG_CHAN_NUM);
         return;
     }
 
@@ -2534,7 +2540,8 @@ STATIC int devdrv_msg_work_queue_init(struct devdrv_pci_ctrl *pci_ctrl, struct d
     }
 
     if (max_msg_chan_cnt > DEVDRV_MAX_MSG_CHAN_NUM) {
-        devdrv_err("Real cnt greater than max num. (dev_id=%u, chan_cnt=%d)\n", pci_ctrl->dev_id, max_msg_chan_cnt);
+        devdrv_err("Real cnt greater than max num. (dev_id=%u, chan_cnt=%d, max_num=%d)\n", pci_ctrl->dev_id,
+                   max_msg_chan_cnt, DEVDRV_MAX_MSG_CHAN_NUM);
         return -EINVAL;
     }
 
@@ -2577,8 +2584,8 @@ int devdrv_msg_init(struct devdrv_pci_ctrl *pci_ctrl)
         chan_cnt = (chan_cnt > devdrv_pf_max_msg_chan_cnt) ? devdrv_pf_max_msg_chan_cnt : chan_cnt;
     }
 
-    devdrv_info("Message init start. (msix_irq_num=%d; irq_num=%d; irq2_num=%d; chan_cnt=%d)\r\n",
-                pci_ctrl->msix_irq_num, irq_num, irq2_num, chan_cnt);
+    devdrv_info("Message init start. (msix_irq_num=%d;irq_num=%d;irq2_num=%d;chan_cnt=%d)\r\n", pci_ctrl->msix_irq_num,
+                irq_num, irq2_num, chan_cnt);
 
     msg_dev = devdrv_kzalloc(sizeof(struct devdrv_msg_dev), KA_GFP_KERNEL);
     if (msg_dev == NULL) {
@@ -2676,4 +2683,32 @@ void devdrv_msg_exit(struct devdrv_pci_ctrl *pci_ctrl)
     devdrv_kfree(msg_dev);
     pci_ctrl->msg_dev = NULL;
     devdrv_info("Call devdrv_msg_exit success. (dev_id=%u)\n", pci_ctrl->dev_id);
+}
+
+int devdrv_pci_get_non_trans_chan_capacity(void *msg_chan, u32 *len)
+{
+    struct devdrv_msg_chan *chan;
+    u32 capacity_len;
+
+    if ((msg_chan == NULL) || (len == NULL)) {
+        devdrv_err("Input len or msg_chan is NULL.\n");
+        return -EINVAL;
+    }
+
+    chan = devdrv_get_msg_chan(msg_chan);
+    if (chan == NULL) {
+        devdrv_err("Can not find chan.\n");
+        return -EINVAL;
+    }
+
+    capacity_len = chan->sq_info.desc_size - (u32)DEVDRV_NON_TRANS_MSG_HEAD_LEN;
+    if (capacity_len > chan->sq_info.desc_size) {
+        devdrv_err("Chan len has problem. (chan_len=%u; desc_len=%u)\n", chan->sq_info.desc_size,
+                   (u32)DEVDRV_NON_TRANS_MSG_HEAD_LEN);
+        devdrv_put_msg_chan(chan);
+        return -EINVAL;
+    }
+    *len = capacity_len;
+    devdrv_put_msg_chan(chan);
+    return 0;
 }

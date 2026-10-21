@@ -32,5 +32,16 @@ typedef struct urma_target_seg {
 typedef enum urma_opcode {
     URMA_OPC_STUB
 } urma_opcode_t;
+
+#define SVM_STUB_URMA_TOKEN_ID_SIZE 40ULL
+typedef struct urma_token_id {
+    char val[SVM_STUB_URMA_TOKEN_ID_SIZE];
+} urma_token_id_t;
+
+#define SVM_STUB_URMA_TOKEN_SIZE 32ULL
+typedef struct urma_token {
+    char val[SVM_STUB_URMA_TOKEN_SIZE];
+} urma_token_t;
 #endif
+
 #endif

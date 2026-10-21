@@ -20,6 +20,7 @@ struct context_private_data {
     ka_list_head_t node_list_head;
     ka_task_spinlock_t lock;
     int hdc_session[MAX_DEVICE];
+    ka_mutex_t hdc_session_mutex;
 };
 
 #endif

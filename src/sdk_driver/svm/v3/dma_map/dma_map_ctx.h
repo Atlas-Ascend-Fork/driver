@@ -36,6 +36,7 @@ struct dma_map_node {
         struct range_rbtree_node range_node;
     };
     ka_atomic_t refcnt;
+    ka_kref_t kref;
 
     u32 udevid;
     int tgid;
@@ -51,6 +52,7 @@ struct dma_map_node {
     bool is_mpl_va;
     bool is_pfn_map;
     bool is_local_mem;
+    bool is_remapping;
 
     ka_page_t **pages;
     struct svm_dma_addr_info addr_info;

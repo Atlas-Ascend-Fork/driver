@@ -9,6 +9,7 @@
  */
 
 #include <sys/ioctl.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "ascend_hal_error.h"
@@ -33,6 +34,7 @@ int svm_smm_mmap(u32 devid, u64 *va, u64 size, u32 flag, struct svm_global_va *s
     para.dst_size = size;
     para.flag = flag;
     para.src_info = *src_info;
+    para.src_va = src_info->va;
 
     ret = svm_cmd_ioctl(devid, SVM_SMM_MAP, (void *)&para);
     if (ret != DRV_ERROR_NONE) {

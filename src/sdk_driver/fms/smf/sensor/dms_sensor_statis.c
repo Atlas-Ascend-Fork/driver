@@ -16,7 +16,6 @@
 #include "dms_sensor_general.h"
 #include "dms_sensor_statis.h"
 
-
 unsigned int dms_sensor_class_init_statis(struct dms_sensor_object_cb *psensor_obj)
 {
     psensor_obj->class_cb.statistic_cb.alarm_clear_times = 0;
@@ -27,11 +26,12 @@ unsigned int dms_sensor_class_init_statis(struct dms_sensor_object_cb *psensor_o
     return 0;
 }
 unsigned int dms_process_statis_result_report(struct dms_node_sensor_cb *node_sensor_cb,
-    struct dms_sensor_object_cb *psensor_obj_cb, struct dms_sensor_event_data *pevent_data)
+                                              struct dms_sensor_object_cb *psensor_obj_cb,
+                                              struct dms_sensor_event_data *pevent_data)
 {
     /* Whether the sensor has a status change flag */
     unsigned int status, result;
-    struct dms_sensor_event_data_item event_item;
+    struct dms_sensor_event_data_item event_item = {0};
     unsigned char event_data[4];
     unsigned int severity = 0;
     int rec;
@@ -41,7 +41,7 @@ unsigned int dms_process_statis_result_report(struct dms_node_sensor_cb *node_se
     status = DMS_SENSOR_STATUS_NO_CHANGE;
 
     rec = memcpy_s(psensor_obj_cb->event_paras, DMS_MAX_EVENT_DATA_LENGTH, pevent_data->sensor_data[0].event_data,
-        pevent_data->sensor_data[0].data_size);
+                   pevent_data->sensor_data[0].data_size);
     if (rec != DRV_ERROR_NONE) {
         dms_err("memcpy_s failed. (ret=%d)\n", rec);
         return false;
@@ -53,7 +53,7 @@ unsigned int dms_process_statis_result_report(struct dms_node_sensor_cb *node_se
     result = dms_process_stat_sensor_check_result(psensor_obj_cb, &status, event_data);
     if (result != DRV_ERROR_NONE) {
         dms_err("dms_process_statis_result_report: Sensor Check Time Result Process Failed! (sensor_type=%u)\n",
-            psensor_obj_cb->sensor_object_cfg.sensor_type);
+                psensor_obj_cb->sensor_object_cfg.sensor_type);
         return false;
     }
     event_item.current_value = event_data[0];
@@ -61,7 +61,7 @@ unsigned int dms_process_statis_result_report(struct dms_node_sensor_cb *node_se
         (pevent_data->sensor_data[0].data_size < DMS_MAX_EVENT_DATA_LENGTH)) {
         event_item.data_size = pevent_data->sensor_data[0].data_size;
         rec = memcpy_s(event_item.event_data, DMS_MAX_EVENT_DATA_LENGTH, pevent_data->sensor_data[0].event_data,
-            pevent_data->sensor_data[0].data_size);
+                       pevent_data->sensor_data[0].data_size);
         if (rec != DRV_ERROR_NONE) {
             dms_err("memcpy_s failed. (ret=%d)\n", rec);
             return false;
@@ -78,18 +78,18 @@ unsigned int dms_process_statis_result_report(struct dms_node_sensor_cb *node_se
         }
         /* the event is mask */
         if (!dms_sensor_check_mask_enable(psensor_obj_cb->sensor_object_cfg.assert_event_mask,
-            (unsigned int)event_data[0])) {
+                                          (unsigned int)event_data[0])) {
             return DRV_ERROR_NONE;
         }
         /* Ìí¼ÓÐÂµÄÊÂ¼þ */
         rec = dms_get_event_severity(psensor_obj_cb->owner_node_type, psensor_obj_cb->sensor_object_cfg.sensor_type,
-            pevent_data->sensor_data[0].current_value, &severity);
+                                     pevent_data->sensor_data[0].current_value, &severity);
         if (rec != DRV_ERROR_NONE) {
             dms_err("dms_add_one_sensor_event report event failed. (ret=%u; severity=%u)\n", rec, severity);
             return rec;
         }
-        psensor_obj_cb->fault_status =
-            psensor_obj_cb->fault_status > severity ? psensor_obj_cb->fault_status : severity;
+        psensor_obj_cb->fault_status = psensor_obj_cb->fault_status > severity ? psensor_obj_cb->fault_status :
+                                                                                 severity;
         (void)dms_add_one_sensor_event(psensor_obj_cb, &event_item);
     }
     return 0;
@@ -130,8 +130,9 @@ static unsigned int dms_sensor_class_check_statis_occur_thres(struct dms_statist
         if ((psensor_statis->occur_stat_time > psensor_statis->max_stat_time) ||
             (psensor_statis->occur_stat_time < psensor_statis->min_stat_time)) {
             /* ´òÓ¡´íÎóÐÅÏ¢:²úÉúÃÅÏÞÍ³¼ÆÖÜÆÚ·Ç·¨ */
-            dms_err("dms_sensor_class_check_statis:  Invalid Occur Threshold Statistic Time - %u\n",
-                psensor_statis->occur_stat_time);
+            dms_err("dms_sensor_class_check_statis: Invalid Occur Threshold Statistic Time. (occur_stat_time=%u; "
+                    "min_stat_time=%u; max_stat_time=%u)\n",
+                    psensor_statis->occur_stat_time, psensor_statis->min_stat_time, psensor_statis->max_stat_time);
             return DRV_ERROR_PARA_ERROR;
         }
         /* ×î´ó²úÉúÃÅÏÞ´óÓÚ²úÉúÃÅÏÞÍ³¼ÆÖÜÆÚÒ²ÊÇÒ»ÖÖ·Ç·¨Çé¿ö */
@@ -174,7 +175,9 @@ static unsigned int dms_sensor_class_check_statis_resume_thres(struct dms_statis
     if ((psensor_statis->resume_thres > psensor_statis->max_resume_thres) ||
         (psensor_statis->resume_thres < psensor_statis->min_resume_thres)) {
         /* ´òÓ¡´íÎóÐÅÏ¢:Ö÷°å»Ö¸´ÃÅÏÞ·Ç·¨ */
-        dms_err("dms_sensor_class_check_statis: Invalid Master Resume Threshold - %u\n", psensor_statis->resume_thres);
+        dms_err("dms_sensor_class_check_statis: Invalid Master Resume Threshold. (resume_thres=%u; "
+                "min_resume_thres=%u; max_resume_thres=%u)\n",
+                psensor_statis->resume_thres, psensor_statis->min_resume_thres, psensor_statis->max_resume_thres);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -183,8 +186,9 @@ static unsigned int dms_sensor_class_check_statis_resume_thres(struct dms_statis
         if ((psensor_statis->resume_stat_time > psensor_statis->max_stat_time) ||
             (psensor_statis->resume_stat_time < psensor_statis->min_stat_time)) {
             /* ´òÓ¡´íÎóÐÅÏ¢:»Ö¸´ÃÅÏÞÍ³¼ÆÖÜÆÚ·Ç·¨ */
-            dms_err("dms_sensor_class_check_statis: Invalid Resume Threshold Statistic Time - %u\n",
-                psensor_statis->resume_stat_time);
+            dms_err("dms_sensor_class_check_statis: Invalid Resume Threshold Statistic Time. (resume_stat_time=%u; "
+                    "min_stat_time=%u; max_stat_time=%u)\n",
+                    psensor_statis->resume_stat_time, psensor_statis->min_stat_time, psensor_statis->max_stat_time);
             return DRV_ERROR_PARA_ERROR;
         }
         /* ×î´ó»Ö¸´ÃÅÏÞ´óÓÚ»Ö¸´ÃÅÏÞÍ³¼ÆÖÜÆÚÒ²ÊÇÒ»ÖÖ·Ç·¨Çé¿ö */
@@ -214,7 +218,7 @@ unsigned int dms_sensor_class_check_statis(struct dms_sensor_object_cfg *psensor
         (psensor_statis->attribute != DMS_SENSOR_ATTRIB_THRES_NONE)) {
         /* ´òÓ¡´íÎóÐÅÏ¢:ÊôÐÔ·Ç·¨ */
         dms_err("dms_sensor_class_check_statis: Invalid Sensor Attribute - %u SensorType is %u\n",
-            psensor_statis->attribute, psensor_obj_cfg->sensor_type);
+                psensor_statis->attribute, psensor_obj_cfg->sensor_type);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -227,7 +231,7 @@ unsigned int dms_sensor_class_check_statis(struct dms_sensor_object_cfg *psensor
             (psensor_statis->min_stat_time > psensor_statis->max_stat_time)) {
             /* ´òÓ¡´íÎóÐÅÏ¢:Í³¼ÆÖÜÆÚ·Ç·¨ */
             dms_err("dms_sensor_class_check_statis:  Invalid Statistic Time! SensorType is %u\n",
-                psensor_obj_cfg->sensor_type);
+                    psensor_obj_cfg->sensor_type);
             dms_err("Max Statistic Time - %u\n", psensor_statis->max_stat_time);
             dms_err("Min Statistic Time - %u\n", psensor_statis->min_stat_time);
             return DRV_ERROR_PARA_ERROR;
@@ -250,7 +254,7 @@ unsigned int dms_sensor_class_check_statis(struct dms_sensor_object_cfg *psensor
 }
 
 unsigned int dms_process_stat_sensor_check_result(struct dms_sensor_object_cb *pobject, unsigned int *status,
-    unsigned char *event_type)
+                                                  unsigned char *event_type)
 {
     *status = DMS_SENSOR_STATUS_CHANGED;
     return DRV_ERROR_NONE;

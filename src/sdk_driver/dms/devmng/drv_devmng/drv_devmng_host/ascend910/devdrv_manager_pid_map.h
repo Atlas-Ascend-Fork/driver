@@ -124,7 +124,7 @@ int devdrv_query_slave_by_map_info(const devdrv_pid_map_info_t *q_info, ka_pid_t
 int devdrv_get_dev_process(ka_pid_t devpid);
 void devdrv_put_dev_process(ka_pid_t devpid);
 void devdrv_release_pid_with_start_time(struct devdrv_process_sign *d_sign, ka_pid_t devpid, u64 start_time,
-    ka_list_head_t *free_list, int *release_flag);
+                                        ka_list_head_t *free_list, int *release_flag);
 void devdrv_release_try_to_sync_to_peer(ka_pid_t slave_pid);
 void bind_cost_print(struct bind_cost_statistics *cost_stat);
 #endif

@@ -181,7 +181,7 @@ static inline void set_all_device_present(device_bitmap *bitmap)
 }
 
 /* Query which devices have the virtual address (atomic operation) */
-static inline int get_present_devices(device_bitmap *bitmap, int *device_ids)
+static inline int get_present_devices(device_bitmap *bitmap, int *device_ids, int max_count)
 {
     int count = 0;
     int device_id = 0;
@@ -193,6 +193,9 @@ static inline int get_present_devices(device_bitmap *bitmap, int *device_ids)
         bit = device_id % DEVICE_BITMAP_BIT_NUM;
 
         if (ka_base_atomic_read(&(*bitmap)[index]) & BIT_ULL(bit)) {
+            if (count >= max_count) {
+                break;
+            }
             device_ids[count++] = device_id;
         }
     }
@@ -242,28 +245,16 @@ static inline void clear_all_devices(device_bitmap *bitmap)
     }
 }
 
-static inline bool uvm_test_and_set_bit(page_bitmap_t mask_bit, page_bitmap_t *p)
-{
-    int old;
-    int mask = (int)mask_bit;
-
-    if ((KA_READ_ONCE(*p) & mask) != 0) {
-        return 1;
-    }
-    old = ka_base_atomic_fetch_or(mask, (ka_atomic_t *)p);
-    return ((old & mask) != 0);
-}
-
 static inline void uvm_page_bitmap_lock(page_bitmap_t *bitmap)
 {
-    while (uvm_test_and_set_bit(UVM_PAGE_BITMAP_IS_LOCKED_MASK, bitmap) != 0) {
+    while (ka_base_test_and_set_bit(UVM_PAGE_BITMAP_IS_LOCKED_BIT, (unsigned long *)bitmap)) {
         ka_system_cpu_relax();
     }
 }
 
 static inline void uvm_page_bitmap_unlock(page_bitmap_t *bitmap)
 {
-    ka_base_atomic_clear_mask(UVM_PAGE_BITMAP_IS_LOCKED_MASK, (unsigned long *)bitmap);
+    ka_base_clear_bit(UVM_PAGE_BITMAP_IS_LOCKED_BIT, (unsigned long *)bitmap);
 }
 
 static inline void page_bitmap_set_unlocked(page_bitmap_t *b, uint64_t mask)
@@ -426,11 +417,13 @@ static inline uint16_t page_bitmap_get_field_entry(page_bitmap_t *b, uint64_t en
                                                    uint64_t valid_mask)
 {
     uint16_t id;
+    uvm_page_bitmap_lock(b);
     if (!page_bitmap_get_unlocked(b, valid_mask)) {
         id = UVM_INVALID_DEVICE_ID;
     } else {
         id = (uint16_t)page_bitmap_get_field_unlocked(b, entry_mask, entry_shift);
     }
+    uvm_page_bitmap_unlock(b);
     return id;
 }
 /* preferred op */

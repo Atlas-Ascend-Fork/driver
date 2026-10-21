@@ -371,6 +371,7 @@ int devmm_ioctl_mem_create(struct devmm_svm_process *svm_proc, struct devmm_ioct
 {
     struct devmm_mem_create_para *para = &arg->data.mem_create_para;
     struct devmm_phy_addr_attr attr = {0};
+    u64 pa_pg_size;
     int ret;
 
     ret = devmm_ioctl_mem_create_para_check(para, arg->head.devid);
@@ -380,7 +381,7 @@ int devmm_ioctl_mem_create(struct devmm_svm_process *svm_proc, struct devmm_ioct
 
     devmm_mem_create_phy_addr_attr_pack(arg, &attr);
     if (para->side == MEM_HOST_SIDE || para->side == MEM_HOST_NUMA_SIDE) {
-        return devmm_master_mem_create(svm_proc, &attr, para->size, &para->pg_num, &para->id);
+        ret = devmm_master_mem_create(svm_proc, &attr, para->size, &para->pg_num, &para->id);
     } else {
         ret = devmm_agent_mem_create(svm_proc, &attr, para->size, &para->pg_num, &para->id);
         if (ret != 0) {
@@ -391,6 +392,13 @@ int devmm_ioctl_mem_create(struct devmm_svm_process *svm_proc, struct devmm_ioct
             devmm_get_dev_mem_dfx(svm_proc, mem_type, arg);
             devmm_dev_mem_stats_log_show(arg->head.logical_devid);
         }
-        return ret;
     }
+
+    pa_pg_size = (attr.pg_type == MEM_NORMAL_PAGE_TYPE) ? devmm_svm->device_page_size : devmm_svm->device_hpage_size;
+    if (para->side == MEM_HOST_SIDE || para->side == MEM_HOST_NUMA_SIDE) {
+        pa_pg_size = (attr.pg_type == MEM_NORMAL_PAGE_TYPE) ? KA_MM_PAGE_SIZE : SVM_MASTER_HUGE_PAGE_SIZE;
+        pa_pg_size = attr.is_giant_page ? SVM_MASTER_GIANT_PAGE_SIZE : pa_pg_size;
+    }
+    para->pa_pg_size = (ret == 0) ? pa_pg_size : 0;
+    return ret;
 }

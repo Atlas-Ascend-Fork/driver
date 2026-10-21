@@ -44,6 +44,11 @@ STATIC int hw_vdavinci_rwsem_trylock(struct hw_vdavinci *vdavinci, struct rw_sem
         if (wait_mins != 0 && wait_time >= wait_mins * VDAVINCI_LOCK_WARN_INTERVAL) {
             return -EAGAIN;
         }
+        /* Without this, wait_mins == 0 spins forever and the caller cannot be
+         * interrupted or killed (stuck D state). */
+        if (ka_task_signal_pending_state(KA_TASK_INTERRUPTIBLE, ka_task_get_current())) {
+            return -EINTR;
+        }
         ka_task_set_current_state(KA_TASK_INTERRUPTIBLE);
         ka_task_schedule_timeout((long)ka_system_msecs_to_jiffies(VDAVINCI_LOCK_INTERVAL));
         wait_time += VDAVINCI_LOCK_INTERVAL;
@@ -441,33 +446,15 @@ STATIC void dma_dom_pool_unpin(struct hw_vdavinci *vdavinci, struct vm_dom_info 
         ka_mm_kfree(ram_info);
     }
 
-    vm_dom->status = DOMAIN_PIN_STATUS_INVALID;
+    ka_base_atomic_set(&vm_dom->status, DOMAIN_PIN_STATUS_INVALID);
 }
 
-/**
- * do unpin pages alone
- */
-void hw_vdavinci_unpin_pages(struct hw_vdavinci *vdavinci)
-{
-    struct vm_dom_info *vm_dom = (struct vm_dom_info *)vdavinci->vdev.domain;
-    ka_device_t *dev = vdavinci_get_device(vdavinci);
-
-    ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
-    if (vm_dom && vm_dom->status != DOMAIN_PIN_STATUS_INVALID) {
-        vascend_info(dev, "dma pool unpin pages start\n");
-        ka_task_down_write(&vm_dom->sem);
-        dma_dom_pool_unpin(vdavinci, vm_dom);
-        ka_task_up_write(&vm_dom->sem);
-        vascend_info(dev, "dma pool unpin pages end\n");
-    }
-    ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
-}
+STATIC void dma_dom_pool_ensure_unmapped(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom);
 
 void hw_vdavinci_dma_pool_uninit(struct hw_vdavinci *vdavinci)
 {
     struct vm_dom_info *vm_dom = (struct vm_dom_info *)vdavinci->vdev.domain;
     ka_device_t *dev = vdavinci_get_device(vdavinci);
-    struct dev_dom_info *dev_dom = NULL;
 
     if (!vm_dom) {
         vascend_err(dev, "dma pool uninit failed\n");
@@ -475,18 +462,7 @@ void hw_vdavinci_dma_pool_uninit(struct hw_vdavinci *vdavinci)
     }
     vascend_info(dev, "dma pool uninit start\n");
     ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
-    ka_task_down_write(&vm_dom->sem);
-    dev_dom = dev_dom_info_find(vm_dom, vdavinci);
-    if (!dev_dom) {
-        vascend_info(dev, "dma pool had already uninited\n");
-        ka_task_up_write(&vm_dom->sem);
-        ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
-        return;
-    }
-    ka_task_up_write(&vm_dom->sem);
-
-    dev_dom_info_put(dev_dom, vdavinci);
-
+    dma_dom_pool_ensure_unmapped(vdavinci, vm_dom);
     ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
     vascend_info(dev, "dma pool uninit success\n");
 }
@@ -657,7 +633,7 @@ STATIC int dma_dom_pool_pin(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm
     ka_list_for_each_safe(pos, next, &(slot_ram_list))
     {
         ram_info = ka_list_entry(pos, struct ram_range_info, list);
-        pfn = g_hw_kvmdt_ops.gfn_to_mfn(vdavinci->handle, ram_info->base_gfn);
+        pfn = g_hw_kvmdt_ops.gfn_to_mfn(vdavinci, ram_info->base_gfn);
         if (!dom_pfn_is_ram(pfn)) {
             vascend_warn(vdavinci_to_dev(vdavinci), "page is not ram, npage: %lu", ram_info->npages);
             continue;
@@ -679,7 +655,7 @@ STATIC int dma_dom_pool_pin(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm
         return -EFAULT;
     }
 
-    vm_dom->status = DOMAIN_PIN_STATUS_READY;
+    ka_base_atomic_set(&vm_dom->status, DOMAIN_PIN_STATUS_READY);
     return 0;
 }
 
@@ -701,16 +677,22 @@ STATIC void hw_vdavinci_set_dev_dom_ops(struct dev_dom_info *dom, bool is_passth
     }
 }
 
-STATIC int hw_vdavinci_dma_pool_init_locked(struct hw_vdavinci *vdavinci)
+STATIC void dma_dom_pool_ensure_unpinned(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom)
 {
-    int ret = 0;
-    struct ram_range_info *ram_info = NULL;
-    struct vm_dom_info *vm_dom = vdavinci->vdev.domain;
-    struct dev_dom_info *dev_dom = NULL;
-    ka_list_head_t *pos = NULL, *next = NULL;
-    ka_device_t *dev = vdavinci_get_device(vdavinci);
+    if (vdavinci == NULL || vm_dom == NULL) {
+        return;
+    }
+    vascend_info(vdavinci_to_dev(vdavinci), "dma pool unpin pages start\n");
+    ka_task_down_write(&vm_dom->sem);
+    dma_dom_pool_unpin(vdavinci, vm_dom);
+    ka_task_up_write(&vm_dom->sem);
+    vascend_info(vdavinci_to_dev(vdavinci), "dma pool unpin pages end\n");
+}
 
-    vascend_info(dev, "dma pool init start\n");
+STATIC int dma_dom_pool_ensure_pinned(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom, bool *pinned_by_self)
+{
+    ka_device_t *dev = vdavinci_get_device(vdavinci);
+    int ret = 0;
 
     ret = hw_vdavinci_rwsem_trylock(vdavinci, &vm_dom->sem, 0, true);
     if (ret) {
@@ -718,60 +700,172 @@ STATIC int hw_vdavinci_dma_pool_init_locked(struct hw_vdavinci *vdavinci)
         return ret;
     }
 
-    if (vm_dom->status == DOMAIN_PIN_STATUS_INVALID) {
+    *pinned_by_self = (ka_base_atomic_read(&vm_dom->status) == DOMAIN_PIN_STATUS_INVALID);
+    if (*pinned_by_self) {
         ret = dma_dom_pool_pin(vdavinci, vm_dom);
         if (ret) {
             vascend_err(dev, "vm pin page failed, ret : %d", ret);
-            goto unpin;
         }
+    }
+    hw_vdavinci_rwsem_unlock(vdavinci, &vm_dom->sem, true);
+
+    return ret;
+}
+
+void hw_vdavinci_unpin_pages(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom)
+{
+    ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
+    if (vm_dom && ka_base_atomic_read(&vm_dom->status) != DOMAIN_PIN_STATUS_INVALID) {
+        dma_dom_pool_ensure_unpinned(vdavinci, vm_dom);
+    }
+    ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
+}
+
+/*
+ * Get (or create) this vdavinci's dev_dom and reserve the passthrough
+ * iova window. Runs entirely under the write lock so the reserve and the
+ * ram list snapshot it validates stay consistent. Returns the dev_dom or
+ * an ERR_PTR.
+ */
+STATIC struct dev_dom_info *dma_dom_pool_get_dev_dom(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom)
+{
+    struct dev_dom_info *dev_dom = NULL;
+    ka_device_t *dev = vdavinci_get_device(vdavinci);
+    int ret = 0;
+
+    ret = hw_vdavinci_rwsem_trylock(vdavinci, &vm_dom->sem, 0, true);
+    if (ret) {
+        vascend_err(dev, "get down write lock failed, ret: %d", ret);
+        return KA_ERR_PTR(ret);
     }
 
     dev_dom = dev_dom_info_get(vm_dom, vdavinci);
-    if (!dev_dom) {
+    if (dev_dom == NULL) {
+        vascend_err(dev, "dev get dma domain failed, ret : %d", -ENOMEM);
         ret = -ENOMEM;
-        vascend_err(dev, "dev get dma domian failed, ret : %d", ret);
-        goto unpin;
+        goto unlock;
     }
     hw_vdavinci_set_dev_dom_ops(dev_dom, vdavinci->is_passthrough);
+
     ret = vm_reserve_iova(vdavinci, vm_dom);
     if (ret) {
         vascend_err(dev, "reserve iova failed, ret : %d", ret);
-        goto dom;
+        dev_dom_info_put(dev_dom, vdavinci);
     }
-    hw_vdavinci_rwsem_unlock(vdavinci, &vm_dom->sem, true);
-    if (dev_dom->status == DOMAIN_MAP_STATUS_INVALID) {
-        if (vdavinci->is_passthrough) {
-            ret = hw_vdavinci_iommu_attach_group(vdavinci);
-            if (ret) {
-                vascend_err(dev, "dev attach new group failed, ret : %d", ret);
-                goto unmap;
-            }
-        }
-        KA_INIT_LIST_HEAD(&(vdavinci->vdev.dev_dma_info_list_head));
-        ka_list_for_each_safe(pos, next, &(vm_dom->ram_info_list->head))
-        {
-            ram_info = ka_list_entry(pos, struct ram_range_info, list);
-            ret = dev_dom->ops.dev_dma_map_ram_range(vdavinci, ram_info);
-            if (ret) {
-                vascend_err(dev, "dev dma map failed, ret : %d", ret);
-                goto unmap;
-            }
-        }
 
-        dev_dom->status = DOMAIN_MAP_STATUS_READY;
+unlock:
+    hw_vdavinci_rwsem_unlock(vdavinci, &vm_dom->sem, true);
+    return ret != 0 ? KA_ERR_PTR(ret) : dev_dom;
+}
+
+/*
+ * Build the dma mappings of a freshly prepared dev_dom on top of the shared
+ * pool. Runs without vm_dom->sem held: attach and map are slow and must not
+ * block get_iova readers. Idempotent for an already-mapped dev_dom.
+ */
+STATIC int dma_dom_pool_map_dev_dom(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom,
+                                    struct dev_dom_info *dev_dom)
+{
+    struct ram_range_info *ram_info = NULL;
+    ka_list_head_t *pos = NULL, *next = NULL;
+    ka_device_t *dev = vdavinci_get_device(vdavinci);
+    int ret = 0;
+
+    if (dev_dom->status != DOMAIN_MAP_STATUS_INVALID) {
+        return 0;
+    }
+    if (vdavinci->is_passthrough) {
+        ret = hw_vdavinci_iommu_attach_group(vdavinci);
+        if (ret) {
+            vascend_err(dev, "dev attach new group failed, ret : %d", ret);
+            return ret;
+        }
+    }
+    ka_list_for_each_safe(pos, next, &(vm_dom->ram_info_list->head))
+    {
+        ram_info = ka_list_entry(pos, struct ram_range_info, list);
+        ret = dev_dom->ops.dev_dma_map_ram_range(vdavinci, ram_info);
+        if (ret) {
+            vascend_err(dev, "dev dma map failed, ret : %d", ret);
+            return ret;
+        }
+    }
+    dev_dom->status = DOMAIN_MAP_STATUS_READY;
+
+    return 0;
+}
+
+STATIC int dma_dom_pool_ensure_mapped(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom)
+{
+    struct dev_dom_info *dev_dom = NULL;
+    int ret = 0;
+
+    dev_dom = dma_dom_pool_get_dev_dom(vdavinci, vm_dom);
+    if (KA_IS_ERR(dev_dom)) {
+        return KA_PTR_ERR(dev_dom);
+    }
+
+    ret = dma_dom_pool_map_dev_dom(vdavinci, vm_dom, dev_dom);
+    if (ret != 0) {
+        ka_task_down_write(&vm_dom->sem);
+        dev_dom_info_put(dev_dom, vdavinci);
+        ka_task_up_write(&vm_dom->sem);
+        return ret;
+    }
+
+    return 0;
+}
+
+/*
+ * Reverse of dma_dom_pool_get_dev_dom + dma_dom_pool_map_dev_dom: drop this
+ * vdavinci's dev_dom; the last reference unmaps the ram ranges, detaches
+ * the iommu group and frees the dev_dom. Idempotent: nothing to do when
+ * the paired init never completed. The put runs under the write lock so
+ * the release callback (list_del on the shared dev_dom list, unmap of the
+ * ram ranges) stays mutually exclusive with the lockless-on-cache_lock
+ * dev_dom_info_find readers of the other vdavincis. The shared pool
+ * itself is kept so a following dma_pool_init (VM reset path) reuses it.
+ */
+STATIC void dma_dom_pool_ensure_unmapped(struct hw_vdavinci *vdavinci, struct vm_dom_info *vm_dom)
+{
+    struct dev_dom_info *dev_dom = NULL;
+
+    ka_task_down_write(&vm_dom->sem);
+    dev_dom = dev_dom_info_find(vm_dom, vdavinci);
+    if (dev_dom == NULL) {
+        ka_task_up_write(&vm_dom->sem);
+        vascend_info(vdavinci_get_device(vdavinci), "dma pool had already uninited\n");
+        return;
+    }
+
+    dev_dom_info_put(dev_dom, vdavinci);
+    ka_task_up_write(&vm_dom->sem);
+}
+
+STATIC int hw_vdavinci_dma_pool_init_locked(struct hw_vdavinci *vdavinci)
+{
+    struct vm_dom_info *vm_dom = vdavinci->vdev.domain;
+    ka_device_t *dev = vdavinci_get_device(vdavinci);
+    bool pinned_by_self = false;
+    int ret = 0;
+
+    vascend_info(dev, "dma pool init start\n");
+
+    ret = dma_dom_pool_ensure_pinned(vdavinci, vm_dom, &pinned_by_self);
+    if (ret) {
+        return ret;
+    }
+
+    ret = dma_dom_pool_ensure_mapped(vdavinci, vm_dom);
+    if (ret) {
+        if (pinned_by_self) {
+            dma_dom_pool_ensure_unpinned(vdavinci, vm_dom);
+        }
+        return ret;
     }
 
     vascend_info(dev, "dma pool init success\n");
     return 0;
-
-unmap:
-    (void)hw_vdavinci_rwsem_trylock(vdavinci, &vm_dom->sem, 0, true);
-dom:
-    dev_dom_info_put(dev_dom, vdavinci);
-unpin:
-    dma_dom_pool_unpin(vdavinci, vm_dom);
-    hw_vdavinci_rwsem_unlock(vdavinci, &vm_dom->sem, true);
-    return ret;
 }
 
 int hw_vdavinci_dma_pool_init(struct hw_vdavinci *vdavinci)
@@ -824,10 +918,14 @@ void hw_vdavinci_unplug_ram(struct hw_vdavinci *vdavinci, unsigned long start_gf
     struct dev_dom_info *dev_dom = NULL;
     struct vm_dom_info *vm_dom = (struct vm_dom_info *)vdavinci->vdev.domain;
 
+    if (vm_dom == NULL) {
+        vascend_warn(vdavinci_to_dev(vdavinci), "vm's domain is null\n");
+        return;
+    }
     ka_task_down_write(&vm_dom->sem);
     ram_info = get_ram_range_by_gfn(vm_dom, start_gfn, size);
     if (ram_info == NULL) {
-        vascend_warn(vdavinci_to_dev(vdavinci), "ram range has already been unpluged, size %lu\n", size);
+        vascend_warn(vdavinci_to_dev(vdavinci), "ram range has already been unplugged, size %lu\n", size);
         ka_task_up_write(&vm_dom->sem);
         return;
     }

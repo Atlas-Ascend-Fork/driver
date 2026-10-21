@@ -21,20 +21,6 @@
 
 #ifndef DRV_UT
 
-#define DEVDRV_PCIE_LINK_DOWN_STATE 0xFFFFFFFF
-#define DEVDRV_PCIE_LINK_INFO_OFFSET 0x50
-#define DEVDRV_CLOUD_V4_LINK_INFO_SPEED_SHIFT 16
-#define DEVDRV_CLOUD_V4_LINK_INFO_SPEED_MASK 0xF
-#define DEVDRV_CLOUD_V4_LINK_INFO_WIDTH_SHIFT 20
-#define DEVDRV_CLOUD_V4_LINK_INFO_WIDTH_MASK 0x3F
-#define DEVDRV_CLOUD_V4_LINK_STATUS_NORMAL 0x10
-
-#define DEVDRV_HCCS_CACHELINE_SIZE 128
-#define DEVDRV_HCCS_CACHELINE_MASK (DEVDRV_HCCS_CACHELINE_SIZE - 1)
-
-#define DEVDRV_WAIT_MODE_SWITCH_RETRY_COUNT 300
-#define DEVDRV_WAIT_MODE_SWITCH_TIME 100 /* 100ms */
-
 #define DEVDRV_CLOUD_V4_P2P_SUPPORT_MAX_DEVICE 16
 
 #define DEVDRV_CLOUD_V4_2DIE_DEVID_STRIDE_2 2
@@ -244,7 +230,6 @@ STATIC u64 g_reserver_mem_msg_offset = DEVDRV_RESERVE_MEM_MSG_OFFSET;
 #define DEVDRV_DMA_CH_SQ_DESC_RSV 0x400
 
 #define CLOUD_V4_MODULE_NUM 5
-#define CLOUD_V4_VF_VM_MODULE_NUM 0
 #define DEVDRV_MAX_MSG_PF_CHAN_CNT 46
 #define DEVDRV_MAX_MSG_VF_CHAN_CNT 16
 /* msg chan cnt for modules */
@@ -256,6 +241,7 @@ STATIC u64 g_reserver_mem_msg_offset = DEVDRV_RESERVE_MEM_MSG_OFFSET;
 #define DEVDRV_TSDRV_MSG_CHAN_CNT_MAX 1       /* non_trans:1 */
 #define DEVDRV_DEV_HDC_PF_MSG_CHAN_CNT_MAX 32 /* trans:31 non_trans:1 */
 #define DEVDRV_QUEUE_MSG_CHAN_CNT_MAX 1       /* non_trans:1 */
+#define DEVDRV_ESCHED_MSG_CHAN_CNT_MAX 1      /* non_trans:1 */
 #define DEVDRV_S2S_MSG_CHAN_CNT_MAX 1         /* non_trans:1 */
 
 #define DEVDRV_DEV_HDC_VF_MSG_CHAN_CNT_MAX 3 /* trans:2 non_trans:1 */
@@ -273,6 +259,8 @@ STATIC unsigned int devdrv_pf_msg_chan_cnt_cloud_v4[devdrv_msg_client_max] = {
     DEVDRV_DEV_HDC_PF_MSG_CHAN_CNT_MAX,  /* used for hdc */
     DEVDRV_QUEUE_MSG_CHAN_CNT_MAX,       /* used for queue */
     DEVDRV_S2S_MSG_CHAN_CNT_MAX,         /* used for s2s */
+    0,                                   /* dc not use tablesync */
+    DEVDRV_ESCHED_MSG_CHAN_CNT_MAX,      /* used for esched */
 };
 
 STATIC unsigned int devdrv_vf_msg_chan_cnt_cloud_v4[devdrv_msg_client_max] = {
@@ -284,6 +272,9 @@ STATIC unsigned int devdrv_vf_msg_chan_cnt_cloud_v4[devdrv_msg_client_max] = {
     DEVDRV_TSDRV_MSG_CHAN_CNT_MAX,       /* used for tsdrv */
     DEVDRV_DEV_HDC_VF_MSG_CHAN_CNT_MAX,  /* used for hdc */
     DEVDRV_QUEUE_MSG_CHAN_CNT_MAX,       /* used for queue */
+    0,                                   /* vf not support s2s */
+    0,                                   /* dc not use tablesync */
+    DEVDRV_ESCHED_MSG_CHAN_CNT_MAX,      /* used for esched */
 };
 
 #define CLOUD_V4_BLOCKS_NUM 9
@@ -337,25 +328,58 @@ STATIC struct devdrv_load_file_cfg cloud_v4_file[CLOUD_V4_BLOCKS_NUM] = {
     },
 };
 
+#if !defined(CFG_PLATFORM_ESL) && !defined(CFG_PLATFORM_FPGA)
+#define CLOUD_V5_BLOCKS_NUM 9
+#else
 #define CLOUD_V5_BLOCKS_NUM 4
+#endif
 
 /* load file adapt */
 STATIC struct devdrv_load_file_cfg cloud_v5_file[CLOUD_V5_BLOCKS_NUM] = {
+#if !defined(CFG_PLATFORM_ESL) && !defined(CFG_PLATFORM_FPGA)
     {
-        .file_name = "/driver/device/ascend_910_96.image",
+        .file_name = "/driver/device/ascend960_tee.bin",
+        .file_type = DEVDRV_CRITICAL_FILE,
+        .fail_mode = DEVDRV_NON_NOTICE,
+    },
+#endif
+    {
+        .file_name = "/driver/device/ascend960.image",
         .file_type = DEVDRV_CRITICAL_FILE,
         .fail_mode = DEVDRV_NON_NOTICE,
     },
     {
-        .file_name = "/driver/device/ascend_910_96.cpio.gz",
+        .file_name = "/driver/device/ascend960.cpio.gz",
         .file_type = DEVDRV_CRITICAL_FILE,
         .fail_mode = DEVDRV_NON_NOTICE,
     },
     {
-        .file_name = "/driver/device/ascend_910_96_dt.img",
+        .file_name = "/driver/device/ascend960_dt.img",
         .file_type = DEVDRV_CRITICAL_FILE,
         .fail_mode = DEVDRV_NON_NOTICE,
     },
+#if !defined(CFG_PLATFORM_ESL) && !defined(CFG_PLATFORM_FPGA)
+    {
+        .file_name = "/driver/device/ascend960_imu.bin",
+        .file_type = DEVDRV_CRITICAL_FILE,
+        .fail_mode = DEVDRV_NON_NOTICE,
+    },
+    {
+        .file_name = "/driver/device/ascend960_imp.bin",
+        .file_type = DEVDRV_CRITICAL_FILE,
+        .fail_mode = DEVDRV_NON_NOTICE,
+    },
+    {
+        .file_name = "/driver/device/ascend960_lp.bin",
+        .file_type = DEVDRV_CRITICAL_FILE,
+        .fail_mode = DEVDRV_NON_NOTICE,
+    },
+    {
+        .file_name = "/driver/device/ascend960_ubcfg.bin",
+        .file_type = DEVDRV_CRITICAL_FILE,
+        .fail_mode = DEVDRV_NON_NOTICE,
+    },
+#endif
     {
         .file_name = "/driver/device/ascend_cloud_v5.crl",
         .file_type = DEVDRV_NON_CRITICAL_FILE,
@@ -363,7 +387,7 @@ STATIC struct devdrv_load_file_cfg cloud_v5_file[CLOUD_V5_BLOCKS_NUM] = {
     },
 };
 
-#define MINI_V4_BLOCKS_NUM 16
+#define MINI_V4_BLOCKS_NUM 15
 /* load file adapt */
 STATIC struct devdrv_load_file_cfg mini_v4_file[MINI_V4_BLOCKS_NUM] = {
     {
@@ -423,11 +447,6 @@ STATIC struct devdrv_load_file_cfg mini_v4_file[MINI_V4_BLOCKS_NUM] = {
     },
     {
         .file_name = "/driver/device/ascend_350_device_config.bin",
-        .file_type = DEVDRV_CRITICAL_FILE,
-        .fail_mode = DEVDRV_NON_NOTICE,
-    },
-    {
-        .file_name = "/driver/device/ascend_350_imu.bin",
         .file_type = DEVDRV_CRITICAL_FILE,
         .fail_mode = DEVDRV_NON_NOTICE,
     },
@@ -515,7 +534,7 @@ void devdrv_cloud_v4_init_vf_bar_addr_info(struct devdrv_pci_ctrl *pci_ctrl)
     pci_ctrl->res.load_sram.addr = pci_ctrl->io_phy_base + DEVDRV_VF_IO_LOAD_SRAM_OFFSET;
     pci_ctrl->res.load_sram.size = DEVDRV_VF_IO_LOAD_SRAM_SIZE;
 
-    if (pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) {
+    if (pci_ctrl->ops.is_mdev_vf_vm) {
         pci_ctrl->res.vpc.addr = pci_ctrl->mdev_rsv_mem_phy_base + DEVDRV_VF_MDEV_VPC_OFFSET;
         pci_ctrl->res.vpc.size = DEVDRV_VF_MDEV_VPC_SIZE;
 
@@ -563,7 +582,7 @@ void devdrv_cloud_v4_init_vf_intr_info(struct devdrv_pci_ctrl *pci_ctrl)
 {
     struct devdrv_intr_info *intr = &pci_ctrl->res.intr;
 
-    if (pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) { // in vm
+    if (pci_ctrl->ops.is_mdev_vf_vm) { // in vm
         intr->min_vector = DEVDRV_MSI_X_MDEV_VF_MIN_VECTORS;
         intr->max_vector = DEVDRV_MSI_X_MDEV_VF_MAX_VECTORS;
     } else { // vf in pm or container or vm direct
@@ -605,7 +624,7 @@ void devdrv_cloud_v4_init_pf_dma_info(struct devdrv_pci_ctrl *pci_ctrl)
     pci_ctrl->res.dma_res.sq_rsv_num = DEVDRV_DMA_CH_SQ_DESC_RSV;
     pci_ctrl->res.dma_res.cq_depth = DEVDRV_MAX_DMA_CH_CQ_DEPTH;
 
-    devdrv_info("pf dma info. (func_id=%u; func_num=%u; chan_num=%u)\n", pci_ctrl->func_id, total_func_num,
+    devdrv_info("pf dma info. (func_id=%u;func_num=%u;chan_num=%u)\n", pci_ctrl->func_id, total_func_num,
                 pci_ctrl->res.dma_res.dma_chan_num);
 }
 
@@ -621,7 +640,7 @@ void devdrv_cloud_v4_init_vf_dma_info(struct devdrv_pci_ctrl *pci_ctrl)
         idx = (u32)ka_base_find_next_bit(&host_bitmap, DEVDRV_DMA_MAX_CHAN_NUM, idx);
         if (idx >= DMA_CHAN_REMOTE_USED_START_INDEX) {
             pci_ctrl->res.dma_res.use_chan[i] = idx - DMA_CHAN_REMOTE_USED_START_INDEX;
-            devdrv_info("vf dma info. (i=%u; use_chan=%u; chan_num=%u; vfid=%u; bitmap=0x%lx)\n", i,
+            devdrv_info("vf dma info. (i=%u;use_chan=%u;chan_num=%u;vfid=%u;bitmap=0x%lx)\n", i,
                         pci_ctrl->res.dma_res.use_chan[i], pci_ctrl->res.dma_res.dma_chan_num,
                         pci_ctrl->shr_para->vf_id, (unsigned long)pci_ctrl->shr_para->dma_bitmap);
         }
@@ -646,6 +665,9 @@ void devdrv_cloud_v4_init_load_file_info(struct devdrv_pci_ctrl *pci_ctrl)
     if (pci_ctrl->chip_type == HISI_CLOUD_V5) {
         pci_ctrl->res.load_file.load_file_num = CLOUD_V5_BLOCKS_NUM;
         pci_ctrl->res.load_file.load_file_cfg = cloud_v5_file;
+    } else if (pci_ctrl->chip_type == HISI_MINI_V4) {
+        pci_ctrl->res.load_file.load_file_num = MINI_V4_BLOCKS_NUM;
+        pci_ctrl->res.load_file.load_file_cfg = mini_v4_file;
     } else {
         pci_ctrl->res.load_file.load_file_num = CLOUD_V4_BLOCKS_NUM;
         pci_ctrl->res.load_file.load_file_cfg = cloud_v4_file;
@@ -654,13 +676,12 @@ void devdrv_cloud_v4_init_load_file_info(struct devdrv_pci_ctrl *pci_ctrl)
 
 void devdrv_cloud_v4_init_depend_module_info(struct devdrv_pci_ctrl *pci_ctrl)
 {
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT)) {
-        pci_ctrl->res.depend_info.module_num = CLOUD_V4_VF_VM_MODULE_NUM;
+    if (pci_ctrl->ops.is_mdev_vf_vm) {
+        pci_ctrl->res.depend_info.module_num = 0;
         pci_ctrl->res.depend_info.module_list = NULL;
-    } else if (pci_ctrl->chip_type == HISI_MINI_V4) {
-        pci_ctrl->res.load_file.load_file_num = MINI_V4_BLOCKS_NUM;
-        pci_ctrl->res.load_file.load_file_cfg = mini_v4_file;
+    } else if (pci_ctrl->chip_type == HISI_CLOUD_V5) {
+        pci_ctrl->res.depend_info.module_num = 0;
+        pci_ctrl->res.depend_info.module_list = NULL;
     } else {
         pci_ctrl->res.depend_info.module_num = CLOUD_V4_MODULE_NUM;
         pci_ctrl->res.depend_info.module_list = cloud_v4_module;
@@ -713,7 +734,8 @@ STATIC int devdrv_get_cloud_v4_pcie_card_devid(struct devdrv_pci_ctrl *pci_ctrl)
     struct devdrv_ctrl *p_ctrls = get_devdrv_ctrl();
 
     if ((pci_ctrl == NULL) || (pci_ctrl->pdev == NULL) || (ka_pci_get_bus(pci_ctrl->pdev) == NULL)) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (pci_ctrl_is_null=%d;pdev_is_null=%d;bus_is_null=%d;)\n",
+                   (pci_ctrl == NULL), (pci_ctrl->pdev == NULL), (ka_pci_get_bus(pci_ctrl->pdev) == NULL));
         return dev_id;
     }
 
@@ -759,7 +781,7 @@ STATIC int devdrv_sriov_cloud_v4_alloc_vf_devid(struct devdrv_pci_ctrl *pci_ctrl
     }
     dev_id = pf_dev_id * MAX_VF_CNT_OF_PF + (vf_dev_id - 1) + DEVDRV_SRIOV_VF_DEVID_START;
 
-    devdrv_info("Get vf devid, (pf_dev_id=%d, vf_dev_id=%d, dev_id=%d)\n", pf_dev_id, vf_dev_id, dev_id);
+    devdrv_info("Get vf devid, (pf_dev_id=%d;vf_dev_id=%d;dev_id=%d)\n", pf_dev_id, vf_dev_id, dev_id);
     return dev_id;
 }
 
@@ -774,7 +796,7 @@ int devdrv_cloud_v4_alloc_devid(struct devdrv_ctrl *ctrl_this)
         return dev_id;
     }
 
-    if (pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) {
+    if (pci_ctrl->ops.is_mdev_vf_vm) {
         return devdrv_alloc_devid_inturn(0, 1);
     }
 
@@ -782,7 +804,7 @@ int devdrv_cloud_v4_alloc_devid(struct devdrv_ctrl *ctrl_this)
         return devdrv_sriov_cloud_v4_alloc_vf_devid(pci_ctrl);
     }
 
-    devdrv_info("Get share para value. (board_type=%d; node_id=%d; chip_id=%d; slot_id=%d)\n",
+    devdrv_info("Get share para value. (board_type=%d;node_id=%d;chip_id=%d;slot_id=%d)\n",
                 pci_ctrl->shr_para->board_type, pci_ctrl->shr_para->node_id, pci_ctrl->shr_para->chip_id,
                 pci_ctrl->shr_para->slot_id);
     value.id = g_hw_info.mainboard_id0.id;
@@ -804,14 +826,14 @@ u32 devdrv_cloud_v4_get_p2p_support_max_devnum(void)
 int devdrv_cloud_v4_is_p2p_access_cap(struct devdrv_pci_ctrl *pci_ctrl, struct devdrv_pci_ctrl *peer_pci_ctrl)
 {
     if ((pci_ctrl->virtfn_flag == DEVDRV_SRIOV_TYPE_VF) || (peer_pci_ctrl->virtfn_flag == DEVDRV_SRIOV_TYPE_VF)) {
-        devdrv_info("devid and peer_devid is vf, not support p2p. (dev_id=%u; peer_devid=%u)\n", pci_ctrl->dev_id,
+        devdrv_info("devid and peer_devid is vf, not support p2p. (dev_id=%u;peer_devid=%u)\n", pci_ctrl->dev_id,
                     peer_pci_ctrl->dev_id);
         return DEVDRV_P2P_ACCESS_DISABLE;
     }
 
     if ((KA_PCI_FUNC(ka_pci_get_devfn(pci_ctrl->pdev)) > 0) ||
         (KA_PCI_FUNC(ka_pci_get_devfn(peer_pci_ctrl->pdev)) > 0)) {
-        devdrv_info("devid and peer_devid is 1pf2die's die1, not support p2p. (dev_id=%u; peer_devid=%u)\n",
+        devdrv_info("devid and peer_devid are die1 of 1pf2die, p2p is not supported. (dev_id=%u;peer_devid=%u)\n",
                     pci_ctrl->dev_id, peer_pci_ctrl->dev_id);
         return DEVDRV_P2P_ACCESS_DISABLE;
     }
@@ -827,7 +849,7 @@ bool devdrv_cloud_v4_is_mdev_vm_full_spec(struct devdrv_pci_ctrl *pci_ctrl)
 void devdrv_cloud_v4_set_dev_shr_info(struct devdrv_pci_ctrl *pci_ctrl)
 {
     /* vf's vm not set host_dev_id, use host_dev_id on vf's pm */
-    if (pci_ctrl->env_boot_mode != DEVDRV_MDEV_VF_VM_BOOT) {
+    if (pci_ctrl->ops.is_mdev_vf_vm == false) {
         pci_ctrl->shr_para->host_dev_id = (int)pci_ctrl->dev_id;
     }
     pci_ctrl->shr_para->host_mem_bar_base = (u64)pci_ctrl->mem_phy_base;
@@ -889,7 +911,7 @@ int devdrv_cloud_v4_set_udevid_reorder_para(struct devdrv_pci_ctrl *pci_ctrl)
         }
     }
     uda_set_udevid_reorder_flag(reorder_flag);
-    devdrv_info("udevid reorder flag=%u,(index_id=%u)\n", reorder_flag, pci_ctrl->dev_id);
+    devdrv_info("udevid reorder flag=%u;(index_id=%u)\n", reorder_flag, pci_ctrl->dev_id);
 
     return 0;
 }
@@ -1039,6 +1061,8 @@ int devdrv_cloud_v4_init_vf_bar_info(struct devdrv_pci_ctrl *pci_ctrl)
 
     if (pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) {
         rsv_vpc_mem_offset = DEVDRV_VF_MDEV_RESERVE_MEM_SIZE;
+        pci_ctrl->mdev_rsv_mem_phy_base = (phys_addr_t)ka_pci_resource_start(pci_ctrl->pdev, PCI_BAR_RSV_MEM);
+        pci_ctrl->mdev_rsv_mem_phy_size = DEVDRV_VF_MDEV_RESERVE_MEM_SIZE;
     }
 
     offset = ka_pci_resource_start(pci_ctrl->pdev, PCI_BAR_RSV_MEM) + DEVDRV_VF_MEM_MSG_OFFSET + rsv_vpc_mem_offset;
@@ -1049,11 +1073,6 @@ int devdrv_cloud_v4_init_vf_bar_info(struct devdrv_pci_ctrl *pci_ctrl)
         devdrv_err("Ioremap mem_base failed. (size=%lu)\n", size);
         devdrv_res_uninit(pci_ctrl);
         return -ENOMEM;
-    }
-
-    if (pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) {
-        pci_ctrl->mdev_rsv_mem_phy_base = (phys_addr_t)ka_pci_resource_start(pci_ctrl->pdev, PCI_BAR_RSV_MEM);
-        pci_ctrl->mdev_rsv_mem_phy_size = DEVDRV_VF_MDEV_RESERVE_MEM_SIZE;
     }
 
     pci_ctrl->rsv_mem_phy_base = (phys_addr_t)ka_pci_resource_start(pci_ctrl->pdev, PCI_BAR_RSV_MEM) +
@@ -1102,91 +1121,104 @@ void devdrv_cloud_v4_init_vf_setup_runtime_info(struct devdrv_pci_ctrl *pci_ctrl
 }
 #endif
 
-static const devdrv_feature_bitmap_t cloud_v4_features = (1ULL << DEVDRV_FEATURE_DMA_COPY_SVA) |
-                                                         (1ULL << DEVDRV_FEATURE_PCIE_PROTO_DIP);
-
-static const devdrv_feature_bitmap_t cloud_v5_features = (1ULL << DEVDRV_FEATURE_PCIE_PROTO_DIP);
-
 // clang-format off
-#define DEVDRV_CLOUD_V4_OPS \
-    .init_load_file_info = devdrv_cloud_v4_init_load_file_info, \
-    .init_depend_module_info = devdrv_cloud_v4_init_depend_module_info, \
-    .alloc_devid = devdrv_cloud_v4_alloc_devid, \
-    .is_p2p_access_cap = devdrv_cloud_v4_is_p2p_access_cap, \
-    .get_load_wait_mode = devdrv_cloud_v4_get_load_wait_mode, \
-    .get_pf_max_msg_chan_cnt = devdrv_cloud_v4_get_pf_msg_chan_cnt, \
-    .get_vf_max_msg_chan_cnt = devdrv_cloud_v4_get_vf_msg_chan_cnt, \
-    .get_p2p_support_max_devnum = devdrv_cloud_v4_get_p2p_support_max_devnum, \
-    .set_dev_shr_info = devdrv_cloud_v4_set_dev_shr_info, \
-    .get_nvme_low_level_db_irq_num = devdrv_cloud_v4_get_nvme_low_level_db_irq_num, \
-    .get_nvme_db_irq_strde = devdrv_cloud_v4_get_nvme_db_irq_strde, \
-    .get_vf_dma_info = devdrv_cloud_v4_init_vf_dma_info, \
-    .is_mdev_vm_full_spec = devdrv_cloud_v4_is_mdev_vm_full_spec, \
-    .get_p2p_addr = NULL, \
-    .get_server_id = NULL, \
-    .get_max_server_num = NULL, \
-    .init_virt_info = NULL, \
-    .init_link_info = NULL, \
-    .set_udevid_reorder_para = devdrv_cloud_v4_set_udevid_reorder_para, \
-    .devdrv_deal_suspend_handshake = NULL, \
-    .check_ep_suspend_status = NULL, \
-    .single_fault_init = NULL, \
+static const devdrv_feature_bitmap_t cloud_v4_features =
+    (1ULL << DEVDRV_FEATURE_DMA_COPY_SVA) |
+    (1ULL << DEVDRV_FEATURE_PCIE_PROTO_DIP);
+
+static const devdrv_feature_bitmap_t cloud_v5_features =
+#ifndef CFG_PLATFORM_ESL
+    (1ULL << DEVDRV_FEATURE_DMA_COPY_SVA) |
+#endif
+    (1ULL << DEVDRV_FEATURE_PCIE_PROTO_DIP);
+
+#define DEVDRV_CLOUD_V4_OPS                                                                           \
+    .init_load_file_info = devdrv_cloud_v4_init_load_file_info,                                       \
+    .init_depend_module_info = devdrv_cloud_v4_init_depend_module_info,                               \
+    .alloc_devid = devdrv_cloud_v4_alloc_devid,                                                       \
+    .is_p2p_access_cap = devdrv_cloud_v4_is_p2p_access_cap,                                           \
+    .get_load_wait_mode = devdrv_cloud_v4_get_load_wait_mode,                                         \
+    .get_pf_max_msg_chan_cnt = devdrv_cloud_v4_get_pf_msg_chan_cnt,                                   \
+    .get_vf_max_msg_chan_cnt = devdrv_cloud_v4_get_vf_msg_chan_cnt,                                   \
+    .get_p2p_support_max_devnum = devdrv_cloud_v4_get_p2p_support_max_devnum,                         \
+    .set_dev_shr_info = devdrv_cloud_v4_set_dev_shr_info,                                             \
+    .get_nvme_low_level_db_irq_num = devdrv_cloud_v4_get_nvme_low_level_db_irq_num,                   \
+    .get_nvme_db_irq_strde = devdrv_cloud_v4_get_nvme_db_irq_strde,                                   \
+    .get_vf_dma_info = devdrv_cloud_v4_init_vf_dma_info,                                              \
+    .is_mdev_vm_full_spec = devdrv_cloud_v4_is_mdev_vm_full_spec,                                     \
+    .get_p2p_addr = NULL,                                                                             \
+    .get_server_id = NULL,                                                                            \
+    .get_max_server_num = NULL,                                                                       \
+    .init_virt_info = NULL,                                                                           \
+    .init_link_info = NULL,                                                                           \
+    .set_udevid_reorder_para = devdrv_cloud_v4_set_udevid_reorder_para,                               \
+    .devdrv_deal_suspend_handshake = NULL,                                                            \
+    .check_ep_suspend_status = NULL,                                                                  \
+    .single_fault_init = NULL,                                                                        \
     .single_fault_uninit = NULL,
 
-#define DEVDRV_CLOUD_V4_PF_OPS \
-    .init_bar_info = devdrv_cloud_v4_init_pf_bar_info, \
-    .init_bar_addr_info = devdrv_cloud_v4_init_pf_bar_addr_info, \
-    .init_msg_cnt = devdrv_cloud_v4_init_pf_msg_cnt, \
-    .boot_mode_rebuild = NULL, \
-    .init_dma_info = devdrv_cloud_v4_init_pf_dma_info, \
+#define DEVDRV_CLOUD_V4_PF_OPS                                                                        \
+    .init_bar_info = devdrv_cloud_v4_init_pf_bar_info,                                                \
+    .init_bar_addr_info = devdrv_cloud_v4_init_pf_bar_addr_info,                                      \
+    .init_msg_cnt = devdrv_cloud_v4_init_pf_msg_cnt,                                                  \
+    .boot_mode_rebuild = NULL,                                                                        \
+    .init_dma_info = devdrv_cloud_v4_init_pf_dma_info,                                                \
     .init_setup_runtime_info = devdrv_cloud_v4_init_pf_setup_runtime_info,
 
-#define DEVDRV_CLOUD_V4_VF_OPS \
-    .init_bar_info = devdrv_cloud_v4_init_vf_bar_info, \
-    .init_bar_addr_info = devdrv_cloud_v4_init_vf_bar_addr_info, \
-    .init_msg_cnt = devdrv_cloud_v4_init_vf_msg_cnt, \
-    .boot_mode_rebuild = devdrv_cloud_v4_vf_boot_mode_rebuild, \
-    .init_dma_info = NULL, \
+#define DEVDRV_CLOUD_V4_VF_OPS                                                                        \
+    .init_bar_info = devdrv_cloud_v4_init_vf_bar_info,                                                \
+    .init_bar_addr_info = devdrv_cloud_v4_init_vf_bar_addr_info,                                      \
+    .init_msg_cnt = devdrv_cloud_v4_init_vf_msg_cnt,                                                  \
+    .boot_mode_rebuild = devdrv_cloud_v4_vf_boot_mode_rebuild,                                        \
+    .init_dma_info = NULL,                                                                            \
     .init_setup_runtime_info = devdrv_cloud_v4_init_vf_setup_runtime_info,
 
-#define DEVDRV_CLOUD_V4_PCIE_OPS \
-    .flush_cache = NULL, \
-    .get_peh_link_info = NULL, \
-    .link_speed_slow_to_normal = NULL,
-
-#define DEVDRV_CLOUD_V4_PF_INIT_INTR_OPS \
+#define DEVDRV_CLOUD_V4_PF_INIT_INTR_OPS                                                              \
     .init_intr_info = devdrv_cloud_v4_init_pf_intr_info,
 
-#define DEVDRV_CLOUD_V4_VF_INIT_INTR_OPS \
+#define DEVDRV_CLOUD_V4_VF_INIT_INTR_OPS                                                              \
     .init_intr_info = devdrv_cloud_v4_init_vf_intr_info,
 
+#define DEVDRV_CLOUD_V4_PF_PCIE_CFG(boot, boot_ops)                                                   \
+    {                                                                                                 \
+        .mode = (1U << (DEVDRV_SRIOV_TYPE_PF + DEVDRV_FEATURE_PFVF_BIT_OFFSET)) |                     \
+                (1U << (CONNECT_PROTOCOL_PCIE + DEVDRV_FEATURE_CONNECT_PROTO_BIT_OFFSET)) |           \
+                (1U << ((boot) + DEVDRV_FEATURE_ENV_BOOT_BIT_OFFSET)),                                \
+        .ops = {                                                                                      \
+            DEVDRV_CLOUD_V4_OPS                                                                       \
+            DEVDRV_CLOUD_V4_PF_OPS                                                                    \
+            DEVDRV_CLOUD_V4_PF_INIT_INTR_OPS                                                          \
+            boot_ops                                                                                  \
+        },                                                                                            \
+    }
+
+#define DEVDRV_CLOUD_V4_VF_PCIE_CFG(boot, boot_ops)                                                   \
+    {                                                                                                 \
+        .mode = (1U << (DEVDRV_SRIOV_TYPE_VF + DEVDRV_FEATURE_PFVF_BIT_OFFSET)) |                     \
+                (1U << (CONNECT_PROTOCOL_PCIE + DEVDRV_FEATURE_CONNECT_PROTO_BIT_OFFSET)) |           \
+                (1U << ((boot) + DEVDRV_FEATURE_ENV_BOOT_BIT_OFFSET)),                                \
+        .ops = {                                                                                      \
+            DEVDRV_CLOUD_V4_OPS                                                                       \
+            DEVDRV_CLOUD_V4_VF_OPS                                                                    \
+            DEVDRV_CLOUD_V4_VF_INIT_INTR_OPS                                                          \
+            boot_ops                                                                                  \
+        },                                                                                            \
+    }
+
 struct res_config cloud_v4_res_cfg[] = {
-    {
-        .mode = (1U << (DEVDRV_SRIOV_TYPE_PF + DEVDRV_FEATURE_PFVF_BIT_OFFSET)) |
-                (1U << (CONNECT_PROTOCOL_PCIE + DEVDRV_FEATURE_CONNECT_PROTO_BIT_OFFSET)),
-        .ops = {
-            DEVDRV_CLOUD_V4_OPS
-            DEVDRV_CLOUD_V4_PF_OPS
-            DEVDRV_CLOUD_V4_PCIE_OPS
-            DEVDRV_CLOUD_V4_PF_INIT_INTR_OPS
-        },
-    },
-    {
-        .mode = (1U << (DEVDRV_SRIOV_TYPE_VF + DEVDRV_FEATURE_PFVF_BIT_OFFSET)) |
-                (1U << (CONNECT_PROTOCOL_PCIE + DEVDRV_FEATURE_CONNECT_PROTO_BIT_OFFSET)),
-        .ops = {
-            DEVDRV_CLOUD_V4_OPS
-            DEVDRV_CLOUD_V4_VF_OPS
-            DEVDRV_CLOUD_V4_PCIE_OPS
-            DEVDRV_CLOUD_V4_VF_INIT_INTR_OPS
-        },
-    },
+    DEVDRV_CLOUD_V4_PF_PCIE_CFG(DEVDRV_PHY_BOOT, DEVDRV_PHY_BOOT_OPS),
+
+    DEVDRV_CLOUD_V4_VF_PCIE_CFG(DEVDRV_SRIOV_VF_BOOT, DEVDRV_SRIOV_VF_BOOT_OPS),
+    // mdev full spec vf vm is only supported under hccs
+    DEVDRV_CLOUD_V4_VF_PCIE_CFG(DEVDRV_MDEV_VF_PM_BOOT, DEVDRV_MDEV_VF_PM_BOOT_OPS),
+    DEVDRV_CLOUD_V4_VF_PCIE_CFG(DEVDRV_MDEV_VF_VM_BOOT, DEVDRV_MDEV_VF_VM_BOOT_OPS),
 };
 // clang-format on
 
 int devdrv_cloud_v4_res_init(struct devdrv_pci_ctrl *pci_ctrl)
 {
 #ifndef DRV_UT
+    devdrv_feature_ops_bitmap_t mode = devdrv_feature_get_rescfg_bitmap(pci_ctrl);
     struct res_config *res_cfg = NULL;
     size_t res_cfg_size;
     int ret;
@@ -1200,12 +1232,11 @@ int devdrv_cloud_v4_res_init(struct devdrv_pci_ctrl *pci_ctrl)
     }
 
     res_cfg_size = KA_BASE_ARRAY_SIZE(cloud_v4_res_cfg);
-    res_cfg = devdrv_feature_get_res_cfg(pci_ctrl, cloud_v4_res_cfg, res_cfg_size);
+    res_cfg = devdrv_feature_get_res_cfg(cloud_v4_res_cfg, res_cfg_size, mode);
     if (res_cfg == NULL) {
         return -EINVAL;
     }
 
-    (void)memcpy_s(&pci_ctrl->ops, sizeof(struct devdrv_dev_ops), &res_cfg->ops, sizeof(struct devdrv_dev_ops));
     ret = res_cfg->ops.init_bar_info(pci_ctrl);
     if (ret != 0) {
         devdrv_err("Init %s bar info failed.\n", pci_ctrl->virtfn_flag == DEVDRV_SRIOV_TYPE_PF ? "pf" : "vf");
@@ -1214,8 +1245,15 @@ int devdrv_cloud_v4_res_init(struct devdrv_pci_ctrl *pci_ctrl)
 
     if (res_cfg->ops.boot_mode_rebuild != NULL) {
         res_cfg->ops.boot_mode_rebuild(pci_ctrl);
+        mode = devdrv_feature_get_rescfg_bitmap(pci_ctrl);
+        res_cfg = devdrv_feature_get_res_cfg(cloud_v4_res_cfg, res_cfg_size, mode);
+        if (res_cfg == NULL) {
+            return -EINVAL;
+        }
     }
 
+    res_cfg->ops.peh = NULL;
+    (void)memcpy_s(&pci_ctrl->ops, sizeof(struct devdrv_dev_ops), &res_cfg->ops, sizeof(struct devdrv_dev_ops));
     res_cfg->ops.init_bar_addr_info(pci_ctrl);
     res_cfg->ops.init_intr_info(pci_ctrl);
     res_cfg->ops.init_msg_cnt(pci_ctrl);

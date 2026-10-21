@@ -19,10 +19,11 @@
 #include "dvpp_cmdlist_log.h"
 #include "dvpp_mem_allocater_comm.h"
 
-uint64_t alloc_args_memory(uint32_t pool_id, uint32_t args_size, dvpp_sqe_args* sqe_args)
+uint64_t alloc_args_memory(uint32_t pool_id, uint32_t args_size, dvpp_sqe_args *sqe_args)
 {
     enum dvpp_sqe_type type;
     uint64_t args_addr = 0;
+    struct mem_node *node = NULL;
     if (args_size == 0) {
         DVPP_CMDLIST_LOG_ERROR("args_size = %u\n", args_size);
         return args_addr;
@@ -45,14 +46,13 @@ uint64_t alloc_args_memory(uint32_t pool_id, uint32_t args_size, dvpp_sqe_args* 
 
     // 非batch场景使用内存池
     type = (enum dvpp_sqe_type)(sqe_args->sqe_type);
-    struct mem_node* node;
     DVPP_CMDLIST_LOG_DEBUG("alloc args node, pool_id = %u, type(%u).\n", pool_id, type);
 
     // 依据不同的type，获取不同模块内存池的node
     node = alloc_node(type, ARGS_MEM_NODE, pool_id, DVPP_DEFAULT_MEM_BLK_SIZE);
     if (node == NULL) { // 检查获取到的node是否为空
-        DVPP_CMDLIST_LOG_ERROR("alloc args node fail, pool_id = %u, size = %u, type= %u\n",
-            pool_id, DVPP_DEFAULT_MEM_BLK_SIZE, type);
+        DVPP_CMDLIST_LOG_ERROR("alloc args node fail, pool_id = %u, size = %u, type= %u\n", pool_id,
+                               DVPP_DEFAULT_MEM_BLK_SIZE, type);
         return 0;
     }
 
@@ -63,13 +63,13 @@ uint64_t alloc_args_memory(uint32_t pool_id, uint32_t args_size, dvpp_sqe_args* 
     return args_addr;
 }
 
-void free_args_memory(uint32_t pool_id, dvpp_sqe_args* sqe_args, uint64_t args_addr)
+void free_args_memory(uint32_t pool_id, dvpp_sqe_args *sqe_args, uint64_t args_addr)
 {
     enum dvpp_sqe_type type;
     if (sqe_args->is_use_mem_pool == 0) {
         // btach场景下动态释放内存
         if (args_addr != 0) {
-            ka_mm_vfree((void*)args_addr);
+            ka_mm_vfree((void *)args_addr);
         }
         return;
     }

@@ -30,6 +30,7 @@ struct dms_event_dfx_sysfs {
     char diagrams_opt;
 };
 
+// clang-format off
 static struct dms_event_dfx_sysfs g_event_dfx = {
     .channel_devid = 0,
     .event_list_devid = 0,
@@ -37,6 +38,7 @@ static struct dms_event_dfx_sysfs g_event_dfx = {
     .diagrams_devid = 0,
     .diagrams_opt = 'a'
 };
+// clang-format on
 
 ssize_t dms_event_dfx_channel_flux_store(const char *buf, size_t count)
 {
@@ -45,8 +47,8 @@ ssize_t dms_event_dfx_channel_flux_store(const char *buf, size_t count)
     EVENT_DFX_CHECK_DO_SOMETHING(buf == NULL, return count);
     /* judge return value one element */
     if (sscanf_s(buf, "%u", &g_event_dfx.channel_devid) != EVENT_DFX_SCANF_ONE_ELEMENT) {
-        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.channel_devid,
-            (int)count, buf, count);
+        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.channel_devid, (int)count, buf,
+                 count);
         return count;
     }
     dev_cb = dms_get_dev_cb(g_event_dfx.channel_devid);
@@ -60,13 +62,13 @@ ssize_t dms_event_dfx_channel_flux_store(const char *buf, size_t count)
 }
 KA_EXPORT_SYMBOL(dms_event_dfx_channel_flux_store);
 
-static int dms_event_dfx_channel_flux_show_item(const char *flux_name,
-    const char *event_type, ka_atomic_t *channel, char **str, int *avl_len)
+static int dms_event_dfx_channel_flux_show_item(const char *flux_name, const char *event_type, ka_atomic_t *channel,
+                                                char **str, int *avl_len)
 {
     int len;
 
-    len = snprintf_s(*str, *avl_len, *avl_len - 1, "%s[%s]:\t\t\t%d\n",
-                     flux_name, event_type, ka_base_atomic_read(channel));
+    len = snprintf_s(*str, *avl_len, *avl_len - 1, "%s[%s]:\t\t\t%d\n", flux_name, event_type,
+                     ka_base_atomic_read(channel));
     EVENT_DFX_CHECK_DO_SOMETHING(len < 0, return len);
     *str += len;
     *avl_len -= len;
@@ -110,27 +112,27 @@ ssize_t dms_event_dfx_channel_flux_show(char *str)
     avl_len -= len;
 
     ret = dms_event_dfx_channel_flux_show_item("recv_from_sensor", "RESUME",
-        &dfx_table->recv_from_sensor[DMS_EVENT_TYPE_RESUME], &str, &avl_len);
+                                               &dfx_table->recv_from_sensor[DMS_EVENT_TYPE_RESUME], &str, &avl_len);
     EVENT_DFX_CHECK_DO_SOMETHING(ret < 0, goto out);
 
     ret = dms_event_dfx_channel_flux_show_item("recv_from_sensor", "OCCUR",
-        &dfx_table->recv_from_sensor[DMS_EVENT_TYPE_OCCUR], &str, &avl_len);
+                                               &dfx_table->recv_from_sensor[DMS_EVENT_TYPE_OCCUR], &str, &avl_len);
     EVENT_DFX_CHECK_DO_SOMETHING(ret < 0, goto out);
 
     ret = dms_event_dfx_channel_flux_show_item("recv_from_sensor", "ONE_TIME",
-        &dfx_table->recv_from_sensor[DMS_EVENT_TYPE_ONE_TIME], &str, &avl_len);
+                                               &dfx_table->recv_from_sensor[DMS_EVENT_TYPE_ONE_TIME], &str, &avl_len);
     EVENT_DFX_CHECK_DO_SOMETHING(ret < 0, goto out);
 
     ret = dms_event_dfx_channel_flux_show_item("report_to_consumer", "RESUME",
-        &dfx_table->report_to_consumer[DMS_EVENT_TYPE_RESUME], &str, &avl_len);
+                                               &dfx_table->report_to_consumer[DMS_EVENT_TYPE_RESUME], &str, &avl_len);
     EVENT_DFX_CHECK_DO_SOMETHING(ret < 0, goto out);
 
     ret = dms_event_dfx_channel_flux_show_item("report_to_consumer", "OCCUR",
-        &dfx_table->report_to_consumer[DMS_EVENT_TYPE_OCCUR], &str, &avl_len);
+                                               &dfx_table->report_to_consumer[DMS_EVENT_TYPE_OCCUR], &str, &avl_len);
     EVENT_DFX_CHECK_DO_SOMETHING(ret < 0, goto out);
 
     ret = dms_event_dfx_channel_flux_show_item("report_to_consumer", "ONE_TIME",
-        &dfx_table->report_to_consumer[DMS_EVENT_TYPE_ONE_TIME], &str, &avl_len);
+                                               &dfx_table->report_to_consumer[DMS_EVENT_TYPE_ONE_TIME], &str, &avl_len);
     EVENT_DFX_CHECK_DO_SOMETHING(ret < 0, goto out);
 
     len = snprintf_s(str, avl_len, avl_len - 1, "Print channel flux end.\n");
@@ -150,10 +152,10 @@ ssize_t dms_event_dfx_convergent_diagrams_store(const char *buf, size_t count)
 
     EVENT_DFX_CHECK_DO_SOMETHING(buf == NULL, return count);
     /* judge return value two element */
-    if (sscanf_s(buf, "%u %c", &g_event_dfx.diagrams_devid, &g_event_dfx.diagrams_opt,
-                 sizeof(char)) != EVENT_DFX_SCANF_TWO_ELEMENT) {
-        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.diagrams_devid,
-            (int)count, buf, count);
+    if (sscanf_s(buf, "%u %c", &g_event_dfx.diagrams_devid, &g_event_dfx.diagrams_opt, sizeof(char)) !=
+        EVENT_DFX_SCANF_TWO_ELEMENT) {
+        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.diagrams_devid, (int)count, buf,
+                 count);
         return count;
     }
     dev_cb = dms_get_dev_cb(g_event_dfx.diagrams_devid);
@@ -162,8 +164,8 @@ ssize_t dms_event_dfx_convergent_diagrams_store(const char *buf, size_t count)
         return count;
     }
 
-    dms_info("Store dfx convergent diagrams succ. (dev_id=%u; opt='%c')\n",
-             g_event_dfx.diagrams_devid, g_event_dfx.diagrams_opt);
+    dms_info("Store dfx convergent diagrams succ. (dev_id=%u; opt='%c')\n", g_event_dfx.diagrams_devid,
+             g_event_dfx.diagrams_opt);
     return count;
 }
 KA_EXPORT_SYMBOL(dms_event_dfx_convergent_diagrams_store);
@@ -206,8 +208,8 @@ ssize_t dms_event_dfx_event_list_store(const char *buf, size_t count)
     EVENT_DFX_CHECK_DO_SOMETHING(buf == NULL, return count);
     /* judge return value one element */
     if (sscanf_s(buf, "%u", &g_event_dfx.event_list_devid) != EVENT_DFX_SCANF_ONE_ELEMENT) {
-        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.event_list_devid,
-            (int)count, buf, count);
+        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.event_list_devid, (int)count, buf,
+                 count);
         return count;
     }
     dev_cb = dms_get_dev_cb(g_event_dfx.event_list_devid);
@@ -242,8 +244,8 @@ ssize_t dms_event_dfx_mask_list_store(const char *buf, size_t count)
     EVENT_DFX_CHECK_DO_SOMETHING(buf == NULL, return count);
     /* judge return value one element */
     if (sscanf_s(buf, "%u", &g_event_dfx.mask_list_devid) != EVENT_DFX_SCANF_ONE_ELEMENT) {
-        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.mask_list_devid,
-            (int)count, buf, count);
+        dms_warn("Get dev_id warn. (dev_id=%u; buf=%.*s; count=%lu)\n", g_event_dfx.mask_list_devid, (int)count, buf,
+                 count);
         return count;
     }
     dev_cb = dms_get_dev_cb(g_event_dfx.mask_list_devid);
@@ -299,4 +301,3 @@ ssize_t dms_event_dfx_subscribe_process_show(char *str)
     return dms_event_print_subscribe_process(str);
 }
 KA_EXPORT_SYMBOL(dms_event_dfx_subscribe_process_show);
-

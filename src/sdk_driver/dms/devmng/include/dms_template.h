@@ -15,7 +15,6 @@
 #define __DMS_TEMPLATE_H__
 
 #include "dms_define.h"
-#include "dms_feature.h"
 #include "fms_kernel_interface.h"
 #include "pbl/pbl_urd.h"
 #include "pbl/pbl_urd_sub_cmd_def.h"

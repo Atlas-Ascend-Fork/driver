@@ -86,3 +86,10 @@ int mem_pool_client_set_attr(u32 devid, u64 pool_id, u64 attr, u64 value)
 
     return _mem_pool_msg_send_remote(devid, SVM_SOMA_POOL_SET_ATTR_EVENT, &msg, sizeof(msg), "Pool set attr msg");
 }
+
+int mem_pool_client_mem_free(u32 devid, u64 pool_id, u64 size, u64 va)
+{
+    struct mem_pool_mem_free_msg msg = {.pool_id = pool_id, .va = va, .size = size};
+
+    return _mem_pool_msg_send_remote(devid, SVM_SOMA_POOL_SYNC_FREE_EVENT, &msg, sizeof(msg), "Pool memFree msg");
+}

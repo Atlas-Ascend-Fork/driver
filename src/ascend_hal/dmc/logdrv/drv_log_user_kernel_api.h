@@ -19,7 +19,7 @@
 #include <pthread.h>
 
 #include "ascend_hal_define.h"
-#include "slog.h"
+#include "dlog_pub.h"
 
 #ifdef __cplusplus
 extern "C" {

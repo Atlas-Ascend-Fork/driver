@@ -137,7 +137,7 @@ static int apm_slave_ctx_add_master(struct task_ctx *ctx, void *priv)
     struct apm_cmd_bind *para = &cfg->para;
 
     if (s_ctx->exit_check_src_flag != 0) {
-        apm_err("Slave in exit stage, not support. (slave_pid=%d)\n", s_ctx->slave_pid);
+        apm_err("Slave in exit stage, not supported. (slave_pid=%d)\n", s_ctx->slave_pid);
         return -EOPNOTSUPP;
     }
 
@@ -148,7 +148,7 @@ static int apm_slave_ctx_add_master(struct task_ctx *ctx, void *priv)
 
     if ((s_ctx->num > 0) &&
         ((s_ctx->master_pid != para->master_pid) || (s_ctx->udevid != para->devid) || (s_ctx->mode != para->mode))) {
-        apm_err("Should bind same master. (master_pid=%d; slave_pid=%d; binded_master_pid=%d; devid=%u; mode=%d)\n",
+        apm_err("Should bind same master. (master_pid=%d; slave_pid=%d; bound_master_pid=%d; devid=%u; mode=%d)\n",
                 para->master_pid, para->slave_pid, s_ctx->master_pid, para->devid, para->mode);
         return -EINVAL;
     }

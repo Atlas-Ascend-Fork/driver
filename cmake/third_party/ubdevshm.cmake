@@ -29,7 +29,11 @@ if (UBDEVSHM_SRC_DIR STREQUAL "" OR UBDEVSHM_INCLUDE_DIR STREQUAL "")
     # ubdevshm is released by openeuler, and download openeuler first to get ubdevshm source code.
     set(OPENEULER_NAME "openeuler")
     set(OPENEULER_VERSION "6.6.0-156.0.0")
-    set(OPENEULER_URL "https://raw.gitcode.com/openeuler/kernel/archive/refs/heads/${OPENEULER_VERSION}.tar.gz")
+    if (EXISTS "${CANN_3RD_LIB_PATH}/${OPENEULER_VERSION}.tar.gz")
+        set(OPENEULER_URL "file://${CANN_3RD_LIB_PATH}/${OPENEULER_VERSION}.tar.gz")
+    else()
+        set(OPENEULER_URL "https://raw.gitcode.com/openeuler/kernel/archive/refs/heads/${OPENEULER_VERSION}.tar.gz")
+    endif()
 
     if(POLICY CMP0135)
         cmake_policy(SET CMP0135 NEW)

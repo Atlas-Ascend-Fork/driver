@@ -484,8 +484,8 @@ STATIC int esched_drv_host_config_intr(struct sched_hard_res *res)
     /* hard sched just need to handle one irq in host */
     ret = esched_drv_remote_config_intr(res->dev_id, res->irq[0]);
     if (ret != 0) {
-        sched_debug("Remote config irq_base not success. (dev_id=%u; irq_base=%d; ret=%d)\n", res->dev_id, res->irq[0],
-                    ret);
+        sched_debug("Remote config irq_base not successful. (dev_id=%u; irq_base=%d; ret=%d)\n", res->dev_id,
+                    res->irq[0], ret);
         return ret;
     }
 
@@ -659,7 +659,7 @@ STATIC int esched_drv_host_init_irq(struct sched_hard_res *res)
     struct esched_drv_dev_attr *attr = (struct esched_drv_dev_attr *)res->priv;
 
     if (attr == NULL) {
-        sched_err("Invalid attr. (dev_id=%u)\n", dev_id);
+        sched_err("Invalid attr. (dev_id=%u\n", dev_id);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -684,7 +684,7 @@ STATIC void esched_drv_host_uninit_irq(struct sched_hard_res *res)
     struct esched_drv_dev_attr *attr = (struct esched_drv_dev_attr *)res->priv;
 
     if (attr == NULL) {
-        sched_err("Invalid attr. (dev_id=%u)\n", res->dev_id);
+        sched_err("Invalid attr. (dev_id=%u\n", res->dev_id);
         return;
     }
 

@@ -10,6 +10,7 @@
 #ifndef VA_ALLOCATOR_H
 #define VA_ALLOCATOR_H
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "svm_pub.h"
 #include "va_mng.h"
@@ -48,6 +49,9 @@ int svm_register_va_release_pre_handle(int (*fn)(u64 va, u64 size));
 /* Traverse all shared reserved VAs. */
 int va_reserve_for_each_node(int (*func)(u64 va, u64 size, void *priv), void *priv);
 
+/* Acquire an existing token for the given VA range by searching the reserve range. */
+void *svm_acquire_token(void *seg_mng, uint64_t start, uint64_t size);
+
 void svm_get_dcache_va_range(u64 *va, u64 *size);
 bool svm_is_in_dcache_va_range(u64 va, u64 size);
 
@@ -55,6 +59,7 @@ bool svm_is_in_linear_mem_va_range(u64 va, u64 size);
 
 void svm_enable_pcie_th(void);
 bool svm_is_support_pcie_th(void);
+bool svm_is_pcie_th_allocator_enable(void);
 
 void svm_va_set_gap(u64 gap);
 

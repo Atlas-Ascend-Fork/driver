@@ -23,9 +23,9 @@
 #include "ascend_dev_num.h"
 #include "dms_device_node_type.h"
 
-#define DEVICE_NODE_NUM_MAX  4
+#define DEVICE_NODE_NUM_MAX 4
 /* Maximum character length of device name */
-#define DMS_MAX_DEV_NAME_LEN    16
+#define DMS_MAX_DEV_NAME_LEN 16
 /* Sensor description length */
 #define DMS_SENSOR_DESCRIPT_LENGTH 20
 /* The maximum number of entries recorded by the sensor timing detection execution time */
@@ -42,7 +42,7 @@
 #define DMS_IN_USED 0x2
 
 #ifndef ASCEND_DEV_MAX_NUM
-#define ASCEND_DEV_MAX_NUM           64
+#define ASCEND_DEV_MAX_NUM 64
 #endif
 
 typedef enum {
@@ -107,29 +107,29 @@ typedef enum {
 } DMS_MODE_T;
 
 #define DMS_FAULT_CONVERGE_CONFIG(sub_id, mod_id, sec_type, code, s_type, err_type, str) \
-{ \
-        .subsys_id = (sub_id), \
-        .module_id = (mod_id), \
-        .section_type = (sec_type), \
-        .ras_code.err_status = (code), \
-        .describe = (str), \
-        .sensor_type = (s_type), \
-        .error_type = (err_type), \
-    }, \
+    {                                                                                    \
+        .subsys_id = (sub_id),                                                           \
+        .module_id = (mod_id),                                                           \
+        .section_type = (sec_type),                                                      \
+        .ras_code.err_status = (code),                                                   \
+        .describe = (str),                                                               \
+        .sensor_type = (s_type),                                                         \
+        .error_type = (err_type),                                                        \
+    },
 
 /* ras first converge table item */
 struct ras_fault_converge_item {
-    unsigned char subsys_id;      /*  subsys:hbm-0x48  */
-    unsigned char module_id;      /*  hbmc/ddrc  */
-    unsigned int section_type;    /*  MEM/OEM/PCIE/ARM ...  */
+    unsigned char subsys_id;   /*  subsys:hbm-0x48  */
+    unsigned char module_id;   /*  hbmc/ddrc  */
+    unsigned int section_type; /*  MEM/OEM/PCIE/ARM ...  */
     union {
-        unsigned int err_type; /*  section_type:MEM  */
-        unsigned int int_status; /*  section_type:ARM  */
+        unsigned int err_type;         /*  section_type:MEM  */
+        unsigned int int_status;       /*  section_type:ARM  */
         unsigned long long err_status; /*  section_type:OEM  */
     } ras_code;
     unsigned char describe[DMS_MAX_EVENT_DATA_LENGTH]; /*  detail  */
-    unsigned char sensor_type;    /*  ras sensor 0xC0  */
-    unsigned char error_type;     /*  unified type definition  */
+    unsigned char sensor_type;                         /*  ras sensor 0xC0  */
+    unsigned char error_type;                          /*  unified type definition  */
 };
 
 typedef struct dms_fault_inject_info {
@@ -161,7 +161,7 @@ struct dms_node {
     ka_list_head_t list;
     /* Device node (global edition) */
     int node_type;
-    int node_id;   /* global node index in chip */
+    int node_id; /* global node index in chip */
     int pid;
     /* Device name */
     char node_name[DMS_MAX_DEV_NAME_LEN];
@@ -200,21 +200,20 @@ struct dms_node_operations {
     /* Alarm notification sub-devices such as RAS */
     int (*event_notify)(struct dms_node *device, int event);
     /* Query the status of two device nodes */
-    int (*get_link_state)(struct dms_node *device1,
-        struct dms_node *device2, unsigned int *state);
+    int (*get_link_state)(struct dms_node *device1, struct dms_node *device2, unsigned int *state);
     /* Query the status of two device nodes */
-    int (*set_link_state)(struct dms_node *device1,
-        struct dms_node *device2, unsigned int state);
+    int (*set_link_state)(struct dms_node *device1, struct dms_node *device2, unsigned int state);
     int (*fault_inject)(dms_fault_inject_t info);
-    int (*get_fault_inject_info)(struct dms_node *node, dms_fault_inject_t *buf,
-        unsigned int buf_cnt, unsigned int *real_cnt);
+    int (*get_fault_inject_info)(struct dms_node *node, dms_fault_inject_t *buf, unsigned int buf_cnt,
+                                 unsigned int *real_cnt);
 
     int (*enable_device)(struct dms_node *device);
     int (*disable_device)(struct dms_node *device);
     int (*set_power_info)(struct dms_node *device, void *buf, unsigned int size);
     int (*get_power_info)(struct dms_node *device, void *buf, unsigned int size);
+    /* Bus path detection hook, called in softirq context, sleeping is prohibited */
+    int (*set_hw_bus_test)(struct dms_node *device, unsigned int cpu_id);
 };
-
 
 struct dms_converge_event_list {
     ka_list_head_t head;
@@ -537,7 +536,7 @@ struct dms_sensor_scan_time_recorder {
     void (*start_sensor_scan_record)(struct dms_dev_sensor_cb *dev_sensor_cb);
     /* Stop recording the execution time of the device scan function */
     void (*stop_sensor_scan_record)(struct dms_dev_sensor_cb *dev_sensor_cb,
-        struct dms_sensor_object_cb *psensor_obj_cb);
+                                    struct dms_sensor_object_cb *psensor_obj_cb);
     /* Start recording the execution time of the device scan function */
     void (*start_dev_scan_record)(struct dms_dev_sensor_cb *dev_sensor_cb);
     /* Start recording the execution time of the device scan function */
@@ -586,8 +585,8 @@ struct dms_dev_sensor_cb {
 
 /* Event Type: disappearance, generation */
 enum {
-    DMS_EVENT_TYPE_RESUME   = 0, /* disappearance */
-    DMS_EVENT_TYPE_OCCUR    = 1, /* generation */
+    DMS_EVENT_TYPE_RESUME = 0,   /* disappearance */
+    DMS_EVENT_TYPE_OCCUR = 1,    /* generation */
     DMS_EVENT_TYPE_ONE_TIME = 2, /* one-time */
     DMS_EVENT_TYPE_MAX
 };
@@ -637,7 +636,6 @@ struct dms_system_ctrl_block {
     struct dms_dev_ctrl_block dev_cb_table[ASCEND_DEV_MAX_NUM];
 };
 
-
 struct state_item {
     uint32_t node_type;
     uint32_t node_id;
@@ -668,10 +666,10 @@ void dev_node_release(int owner_pid);
 int dms_register_dev_node(struct dms_node *node);
 int dms_unregister_dev_node(struct dms_node *node);
 struct dms_node *dms_get_devnode_cb(u32 dev_id, int node_type, int node_id);
-int dms_update_devnode_cb(u32 dev_id, int node_type, int node_id,
-    int (*update_dms_node)(struct dms_node *node));
-int dms_traverse_devnode_get_capacity(u32 dev_id, struct dsmi_dtm_node_s node_info[],
-    unsigned int size, unsigned int *out_size);
+struct dms_node *dms_get_devnode_cb_nolock(u32 dev_id, int node_type, int node_id);
+int dms_update_devnode_cb(u32 dev_id, int node_type, int node_id, int (*update_dms_node)(struct dms_node *node));
+int dms_traverse_devnode_get_capacity(u32 dev_id, struct dsmi_dtm_node_s node_info[], unsigned int size,
+                                      unsigned int *out_size);
 int dms_devnode_enable_device(u32 dev_id, int node_type, int node_id);
 int dms_devnode_disable_device(u32 dev_id, int node_type, int node_id);
 int dms_devnode_get_power_info(u32 dev_id, int node_type, int node_id, void *buf, unsigned int size);
@@ -679,7 +677,6 @@ int dms_devnode_set_power_info(u32 dev_id, int node_type, int node_id, void *buf
 ssize_t dms_devnode_print_node_list(char *buf);
 
 int dms_get_node_type_str(unsigned short node_type, char *node_str, unsigned int str_len);
-
 
 extern int memset_s(void *dest, size_t destMax, int c, size_t count);
 extern int memcpy_s(void *dest, size_t destMax, const void *src, size_t count);

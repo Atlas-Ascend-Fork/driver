@@ -634,6 +634,8 @@ struct devdrv_info {
     u64 vector_core_bitmap_h;
     u64 vector_core_freq;
     u32 localtime_sync_state;
+    u32 l2_num;
+    u32 hbm_num;
 
     u64 reg_ddr_dma_addr;
     u32 reg_ddr_size;
@@ -674,6 +676,8 @@ struct devdrv_info {
     u8 super_pod_intercon_type;
     u16 addr_mode;
     u8 product_type;
+    u16 scale_up_group_id;
+    u16 scale_out_group_id;
 
 #ifdef CFG_FEATURE_PG
     struct devdrv_pg_info pg_info;

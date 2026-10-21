@@ -140,11 +140,23 @@ int hal_kernel_svm_query_pfn_owner_info(u32 devid, u64 pfn, ka_list_head_t *head
     ka_task_might_sleep();
 
     for (udevid = 0; udevid < dev_num; udevid++) {
-        int tgids[SVM_MAX_DEV_PID_CNT] = {0};
+        u32 task_max_num = svm_get_task_max_num(udevid);
+        int *tgids = NULL;
 
         ka_try_cond_resched(&stamp);
-        svm_get_all_task_tgids(udevid, tgids, SVM_MAX_DEV_PID_CNT);
-        for (i = 0; i < SVM_MAX_DEV_PID_CNT; ++i) {
+
+        if (task_max_num == 0) {
+            continue;
+        }
+
+        tgids = svm_vzalloc(sizeof(int) * task_max_num);
+        if (tgids == NULL) {
+            svm_err("Vzalloc failed. (task_max_num=%u)\n", task_max_num);
+            continue;
+        }
+
+        svm_get_all_task_tgids(udevid, tgids, task_max_num);
+        for (i = 0; i < task_max_num; ++i) {
             processType_t proc_type;
 
             ka_try_cond_resched(&stamp);
@@ -162,6 +174,7 @@ int hal_kernel_svm_query_pfn_owner_info(u32 devid, u64 pfn, ka_list_head_t *head
                 continue;
             }
         }
+        svm_vfree(tgids);
     }
     return (ka_list_empty_careful(head) == 0) ? 0 : -ESRCH;
 }

@@ -16,7 +16,7 @@
 
 #include "fms/fms_dtm.h"
 
-int dms_device_register(struct devdrv_info* dev);
-void dms_device_unregister(struct devdrv_info* dev);
+int dms_device_register(struct devdrv_info *dev);
+void dms_device_unregister(struct devdrv_info *dev);
 
 #endif

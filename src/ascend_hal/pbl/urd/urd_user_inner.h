@@ -31,10 +31,13 @@
 #define urd_debug(fmt, ...) DRV_DEBUG(HAL_MODULE_TYPE_DEV_MANAGER, fmt, ##__VA_ARGS__)
 
 #endif
-#define urd_ex_err(ret, fmt, ...) do {              \
-    if (((ret) != DRV_ERROR_NOT_SUPPORT) && ((ret) != EOPNOTSUPP) && ((ret) != DRV_ERROR_TRY_AGAIN)) { \
-        urd_err(fmt, ##__VA_ARGS__);                \
-    }                                               \
-} while (0)
+#define urd_ex_err(ret, fmt, ...)                                                                          \
+    do {                                                                                                   \
+        if (((ret) != DRV_ERROR_NOT_SUPPORT) && ((ret) != EOPNOTSUPP) && ((ret) != DRV_ERROR_TRY_AGAIN)) { \
+            urd_err(fmt, ##__VA_ARGS__);                                                                   \
+        }                                                                                                  \
+    } while (0)
+
+bool urd_ioctl_cmd_check(unsigned long ioctl_cmd, unsigned int main_cmd, unsigned int sub_cmd, const char *filter);
 
 #endif

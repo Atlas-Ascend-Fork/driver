@@ -21,6 +21,7 @@
 #include "domain_manage.h"
 #include "vfio_ops.h"
 #include "priv_ops.h"
+#include "schedule.h"
 #include "vdavinci.h"
 
 #if KA_IS_DAVINCI_XARRAY_SUPPORT
@@ -36,8 +37,8 @@ STATIC ka_list_head_t *get_vdavinci_list(void)
 
 static void hw_vdavinci_reset_debugfs_info(struct hw_vdavinci *vdavinci)
 {
-    int ret;
-    size_t destmax_count = vdavinci->debugfs.nvec * sizeof(unsigned long long);
+    int ret = 0;
+    size_t destmax_count = (size_t)vdavinci->msix_nvec * sizeof(unsigned long long);
 
     if (vdavinci->debugfs.msix_count) {
         ret = memset_s(vdavinci->debugfs.msix_count, destmax_count, 0, destmax_count);
@@ -63,6 +64,7 @@ STATIC void hw_dvt_vdavinci_init(struct hw_vdavinci *vdavinci, struct hw_dvt *dv
     vdavinci->dev.resource_dev = dvt->vdavinci_priv->dev;
     vdavinci->vf_index = -1;
     ka_task_mutex_init(&vdavinci->vdavinci_lock);
+    KA_INIT_LIST_HEAD(&(vdavinci->vdev.dev_dma_info_list_head));
 }
 
 #if KA_IS_DAVINCI_XARRAY_SUPPORT
@@ -325,6 +327,10 @@ void hw_dvt_destroy_vdavinci(struct hw_vdavinci *vdavinci)
     struct hw_dvt *dvt = vdavinci->dvt;
     struct hw_pf_info *pf_info = &dvt->pf[vdavinci->dev.dev_index];
 
+    /* Drain the release work: SET_KVM(NULL) can re-queue it while the
+     * release path runs, before the notifier unregistration. */
+    hw_vdavinci_cancel_work_sync(&vdavinci->vdev.release_work);
+
     vdavinci_priv_vdev_destroy(vdavinci);
 
     dvt->mmio_uninit(vdavinci);
@@ -332,6 +338,7 @@ void hw_dvt_destroy_vdavinci(struct hw_vdavinci *vdavinci)
     ka_base_idr_remove(&pf_info->vdavinci_idr, vdavinci->id);
     ka_task_mutex_destroy(&vdavinci->vdev.cache_lock);
     ka_task_mutex_destroy(&vdavinci->ioeventfds_lock);
+    ka_task_mutex_destroy(&vdavinci->vdavinci_lock);
     hw_dvt_debugfs_remove_vdavinci(vdavinci);
     if (vdavinci->debugfs.msix_count) {
         ka_mm_kfree(vdavinci->debugfs.msix_count);
@@ -342,8 +349,6 @@ void hw_dvt_destroy_vdavinci(struct hw_vdavinci *vdavinci)
 
 void hw_dvt_release_vdavinci(struct hw_vdavinci *vdavinci)
 {
-    hw_dvt_deactivate_vdavinci(vdavinci);
-
     ka_task_mutex_lock(&vdavinci->vdavinci_lock);
     vdavinci_priv_vdev_release(vdavinci);
     ka_task_mutex_unlock(&vdavinci->vdavinci_lock);
@@ -381,18 +386,20 @@ out:
     return ret;
 }
 
+/* active transitions are serialized against rw_gpa's active check by taking
+ * vdavinci_lock inside the transition helpers, so callers cannot forget it. */
 void hw_dvt_activate_vdavinci(struct hw_vdavinci *vdavinci)
 {
-    ka_task_mutex_lock(&vdavinci->dvt->lock);
-    vdavinci->active = true;
-    ka_task_mutex_unlock(&vdavinci->dvt->lock);
+    ka_task_mutex_lock(&vdavinci->vdavinci_lock);
+    ka_base_atomic_set(&vdavinci->active, 1);
+    ka_task_mutex_unlock(&vdavinci->vdavinci_lock);
 }
 
 void hw_dvt_deactivate_vdavinci(struct hw_vdavinci *vdavinci)
 {
-    ka_task_mutex_lock(&vdavinci->dvt->lock);
-    vdavinci->active = false;
-    ka_task_mutex_unlock(&vdavinci->dvt->lock);
+    ka_task_mutex_lock(&vdavinci->vdavinci_lock);
+    ka_base_atomic_set(&vdavinci->active, 0);
+    ka_task_mutex_unlock(&vdavinci->vdavinci_lock);
 }
 
 void vdavinci_module_exit(void)

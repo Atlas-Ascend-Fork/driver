@@ -118,7 +118,7 @@ static int devmm_agent_mem_repair_post_process(struct devmm_svm_process *svm_pro
 static int devmm_agent_mem_repair(struct devmm_svm_process *svm_proc, struct devmm_ioctl_arg *arg, u64 addr, u64 len,
                                   bool svm_range)
 {
-    struct devmm_chan_mem_repair mem_repair;
+    struct devmm_chan_mem_repair mem_repair = {0};
     u32 *bitmap = NULL;
     int ret;
 

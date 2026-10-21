@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Copyright (c) 2026 Huawei Technologies Co., Ltd.
  * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
  * CANN Open Software License Agreement Version 2.0 (the "License").
@@ -33,6 +33,17 @@
 #include "svm_criu.h"
 #include "svm_register.h"
 
+struct svm_register_priv {
+    u32 dst_devid;
+    u64 src_va;
+    u64 size;
+    u64 dst_start_va;
+    u64 npage_size;
+    u64 src_start_va;
+    u64 src_total_size;
+    bool flag;
+};
+
 struct svm_register_node {
     struct svm_share_priv_head head;
     struct list_head node;
@@ -53,10 +64,10 @@ void svm_register_set_ops(struct svm_register_ops *ops)
     register_ops = ops;
 }
 
-static int register_ops_post_map(struct svm_global_va *src_info, u32 devid, u64 dst_va)
+static int register_ops_post_map(struct svm_global_va *src_info, u32 devid, u64 dst_va, u32 register_to_peer_flag)
 {
     if ((register_ops != NULL) && (register_ops->post_map != NULL)) {
-        return register_ops->post_map(src_info, devid, dst_va);
+        return register_ops->post_map(src_info, devid, dst_va, register_to_peer_flag);
     }
     return 0;
 }
@@ -77,17 +88,12 @@ static int _svm_register_for_each_seg(
     list_for_each_safe(node, tmp, &register_head)
     {
         struct svm_register_node *register_node = list_entry(node, struct svm_register_node, node);
-        void *va_handle = register_node->is_non_svm ? NULL : svm_handle_get(register_node->va);
-        if ((register_node->is_non_svm) ||
-            (va_handle != NULL)) { /* get va handle to access its priv svmm_inst in node */
-            ret = svm_svmm_for_each_seg_handle(register_node->svmm_inst[dst_devid], handle, priv);
-            if (va_handle != NULL) {
-                svm_handle_put(va_handle);
-            }
-            if (ret != 0) {
+        ret = svm_svmm_for_each_seg_handle(register_node->svmm_inst[dst_devid], handle, priv);
+        if (ret != 0) {
+            if (ret < 0) {
                 svm_err("Svm register for each seg failed. (devid=%u)\n", dst_devid);
-                return ret;
             }
+            return ret;
         }
     }
     return 0;
@@ -110,44 +116,70 @@ int svm_register_for_each_seg(u32 dst_devid,
     return ret;
 }
 
-static int svm_register_to_peer_alloc_va(u32 devid, u64 size, u64 *va)
+static int svm_register_to_peer_alloc_va(u32 devid, u64 src_va, u64 size, u64 *va)
 {
     u32 normal_flag = SVM_NORMAL_MALLOC_FLAG_VA_ONLY | SVM_NORMAL_MALLOC_FLAG_VA_WITH_MASTER;
-    u64 npage_size;
+    u64 hpage_size, offset, aligned_size;
     u64 tmp_va = 0;
     int ret;
 
-    ret = svm_dbi_query_npage_size(devid, &npage_size);
+    ret = svm_dbi_query_hpage_size(devid, &hpage_size);
     if (ret != 0) {
-        svm_err("Get npage size failed. (devid-%u)\n", devid);
+        svm_err("Get hpage size failed. (devid-%u)\n", devid);
         return ret;
     }
 
-    ret = svm_normal_malloc(SVM_INVALID_DEVID, normal_flag, npage_size, &tmp_va, svm_get_non_dev_align_size(size));
+    /* We keep the same offset between dst_va and src_va to build dst HPAGE. */
+    offset = src_va - svm_align_down(src_va, hpage_size);
+    aligned_size = svm_align_up(size + offset, hpage_size);
+    ret = svm_normal_malloc(SVM_INVALID_DEVID, normal_flag, hpage_size, &tmp_va,
+                            svm_get_non_dev_align_size(aligned_size));
     if (ret != 0) {
-        svm_err("Alloc va failed. (devid=%u; size=%llu)\n", devid, size);
+        svm_err("Alloc va failed. (devid=%u; size=%llu; offset=%llu)\n", devid, size, offset);
         return ret;
     }
 
-    *va = tmp_va;
+    *va = tmp_va + offset;
     return 0;
+}
+
+/* Compute aligned va/size from src_info for SMM communication.
+ * aligned_info: aligned src_info for SMM (NULL if not needed)
+ * aligned_size: aligned size for va alloc/free (NULL if not needed) */
+void svm_register_compute_aligned(const struct svm_global_va *src_info, u64 npage_size,
+                                  struct svm_global_va *aligned_info, u64 *aligned_size)
+{
+    u64 aligned_va = svm_align_down(src_info->va, npage_size);
+    u64 size = svm_align_up(src_info->size + (src_info->va - aligned_va), npage_size);
+
+    if (aligned_info != NULL) {
+        *aligned_info = *src_info;
+        aligned_info->va = aligned_va;
+        aligned_info->size = size;
+    }
+    if (aligned_size != NULL) {
+        *aligned_size = size;
+    }
 }
 
 static void svm_register_to_peer_free_va(u32 devid, u64 va, u64 size)
 {
     u32 normal_flag = SVM_NORMAL_MALLOC_FLAG_VA_ONLY | SVM_NORMAL_MALLOC_FLAG_VA_WITH_MASTER;
-    u64 npage_size;
+    u64 hpage_size, offset, aligned_size;
     int ret;
 
-    ret = svm_dbi_query_npage_size(devid, &npage_size);
+    ret = svm_dbi_query_hpage_size(devid, &hpage_size);
     if (ret != 0) {
-        svm_err("Get npage size failed. (devid-%u)\n", devid);
+        svm_err("Get hpage size failed. (devid-%u)\n", devid);
         return;
     }
 
-    ret = svm_normal_free(SVM_INVALID_DEVID, normal_flag, npage_size, va, svm_get_non_dev_align_size(size));
+    offset = va - svm_align_down(va, hpage_size);
+    aligned_size = svm_align_up(size + offset, hpage_size);
+    ret = svm_normal_free(SVM_INVALID_DEVID, normal_flag, hpage_size, va - offset,
+                          svm_get_non_dev_align_size(aligned_size));
     if (ret != 0) {
-        svm_err("Alloc va failed. (devid=%u; va=0x%llx; size=%llu)\n", devid, va, size);
+        svm_err("Free va failed. (devid=%u; va=0x%llx; size=%llu; offset=%llu)\n", devid, va, size, offset);
         return;
     }
 }
@@ -159,8 +191,9 @@ static void svm_register_dst_recycle_proc(u32 devid, u32 udevid, void *svmm_inst
     /* recycle dst devid match */
     while (1) {
         struct svm_global_va src_info;
+        struct svm_global_va aligned_src_info;
         struct svm_dst_va dst_info;
-        u64 va, svm_flag;
+        u64 va, svm_flag, aligned_size, npage_size;
         u32 smm_flag = 0;
         int ret;
 
@@ -168,14 +201,20 @@ static void svm_register_dst_recycle_proc(u32 devid, u32 udevid, void *svmm_inst
         if (ret != 0) {
             break;
         }
-
-        register_ops_pre_unmap(&src_info, devid, va);
-
-        svm_dst_va_pack(devid, PROCESS_CP1, va, src_info.size, &dst_info);
-        (void)svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
-        if (svm_va_is_in_range(src_info.va, src_info.size) == false) {
-            svm_register_to_peer_free_va(devid, va, src_info.size);
+        if (svm_dbi_query_npage_size(devid, &npage_size) != 0) {
+            break;
         }
+
+        svm_register_compute_aligned(&src_info, npage_size, &aligned_src_info, &aligned_size);
+
+        register_ops_pre_unmap(&aligned_src_info, devid, va);
+
+        svm_dst_va_pack(devid, PROCESS_CP1, va, aligned_size, &dst_info);
+        (void)svm_smm_client_unmap(&dst_info, &aligned_src_info, smm_flag);
+        if (svm_va_is_in_range(src_info.va, src_info.size) == false) {
+            svm_register_to_peer_free_va(devid, va, aligned_size);
+        }
+
         (void)svm_svmm_del_seg(svmm_inst, devid, va, src_info.size, true);
         recyle_num++;
     }
@@ -209,13 +248,6 @@ static void svm_register_dst_recycle(u32 devid)
     }
 }
 
-struct svm_register_priv {
-    u32 dst_devid;
-    u64 src_va;
-    u64 size;
-    bool flag;
-};
-
 static int svm_is_register_to_peer_src_range_proc(void *va_handle, u64 start, struct svm_global_va *src_info,
                                                   void *priv)
 {
@@ -234,6 +266,69 @@ bool svm_is_register_to_peer_src_range(u64 src_va, u64 size, u32 dst_devid)
     struct svm_register_priv priv = {.dst_devid = dst_devid, .src_va = src_va, .size = size, .flag = false};
     (void)svm_register_for_each_seg(dst_devid, svm_is_register_to_peer_src_range_proc, (void *)&priv);
     return priv.flag;
+}
+
+/* Check if va+size has overlap with any registered seg (for register para check) */
+static int svm_va_can_register_peer_proc(void *va_handle, u64 start, struct svm_global_va *src_info, void *priv)
+{
+    struct svm_register_priv *register_priv = (struct svm_register_priv *)priv;
+    SVM_UNUSED(va_handle);
+    SVM_UNUSED(start);
+
+    if ((register_priv->src_va < (src_info->va + src_info->size)) &&
+        ((register_priv->src_va + register_priv->size) > src_info->va)) {
+        return 1; /* found, stop iteration */
+    }
+    return 0;
+}
+
+bool svm_va_can_register_peer(u64 src_va, u64 size, u32 devid)
+{
+    struct svm_register_priv priv = {.dst_devid = devid, .src_va = src_va, .size = size, .flag = true};
+    int ret;
+    ret = svm_register_for_each_seg(devid, svm_va_can_register_peer_proc, (void *)&priv);
+    if (ret == 1) {
+        return false;
+    }
+    return true;
+}
+
+/* Lookup proc: find seg whose range contains query range (containment check), return start dev addr and registered
+ * va/size */
+static int svm_register_peer_lookup_proc(void *va_handle, u64 start, struct svm_global_va *src_info, void *priv)
+{
+    struct svm_register_priv *register_priv = (struct svm_register_priv *)priv;
+    SVM_UNUSED(va_handle);
+
+    if ((register_priv->src_va >= src_info->va) &&
+        ((register_priv->src_va + register_priv->size) <= (src_info->va + src_info->size))) {
+        u64 aligned_va = svm_align_down(src_info->va, register_priv->npage_size);
+        register_priv->dst_start_va = start + (src_info->va - aligned_va);
+        register_priv->src_start_va = src_info->va;
+        register_priv->src_total_size = src_info->size;
+        return 1; /* found, stop iteration */
+    }
+    return 0;
+}
+
+int svm_register_peer_lookup(struct svm_global_va *src_info, u32 peer_devid, u64 *peer_va)
+{
+    struct svm_register_priv priv = {.dst_devid = peer_devid, .src_va = src_info->va, .size = src_info->size};
+    int ret;
+
+    ret = svm_dbi_query_npage_size(peer_devid, &priv.npage_size);
+    if (ret != 0) {
+        svm_err("Get npage size failed. (devid=%u)\n", peer_devid);
+        return ret;
+    }
+
+    if (svm_register_for_each_seg(peer_devid, svm_register_peer_lookup_proc, (void *)&priv) != 1) {
+        return DRV_ERROR_NOT_EXIST;
+    }
+    src_info->va = priv.src_start_va;
+    src_info->size = priv.src_total_size;
+    *peer_va = priv.dst_start_va;
+    return DRV_ERROR_NONE;
 }
 
 static void svm_register_svmm_destroy_insts(struct svm_register_node *register_node)
@@ -289,8 +384,9 @@ static int svm_register_svmm_inst_release(void *svmm_inst, u32 devid, bool force
 
     while (1) {
         struct svm_global_va src_info;
+        struct svm_global_va aligned_src_info;
         struct svm_dst_va dst_info;
-        u64 va, svm_flag;
+        u64 va, svm_flag, aligned_size, npage_size;
         u32 smm_flag = 0;
         u32 tmp_devid;
         int ret;
@@ -299,15 +395,20 @@ static int svm_register_svmm_inst_release(void *svmm_inst, u32 devid, bool force
         if (ret != 0) {
             break;
         }
+        if (svm_dbi_query_npage_size(tmp_devid, &npage_size) != 0) {
+            return DRV_ERROR_INNER_ERR;
+        }
 
         if (force == false) {
             return DRV_ERROR_BUSY;
         }
 
-        register_ops_pre_unmap(&src_info, devid, va);
+        svm_register_compute_aligned(&src_info, npage_size, &aligned_src_info, &aligned_size);
 
-        svm_dst_va_pack(devid, PROCESS_CP1, va, src_info.size, &dst_info);
-        (void)svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
+        register_ops_pre_unmap(&aligned_src_info, devid, va);
+
+        svm_dst_va_pack(devid, PROCESS_CP1, va, aligned_size, &dst_info);
+        (void)svm_smm_client_unmap(&dst_info, &aligned_src_info, smm_flag);
         (void)svm_svmm_del_seg(svmm_inst, devid, va, src_info.size, true);
         recyle_num++;
     }
@@ -544,11 +645,18 @@ static void *svm_vmm_create_register_svmm(void *seg_handle, u32 devid, u64 start
     return svmm_inst;
 }
 
-static int svm_register(void *svmm_inst, u64 va, u64 size, u32 devid, struct svm_global_va *src_info)
+static inline u32 svm_register_to_peer_get_smm_flag(u32 register_to_peer_flag)
+{
+    return ((register_to_peer_flag & SVM_REGISTER_TO_PEER_FLAG_READ_ONLY) != 0) ? SVM_SMM_FLAG_PG_RDONLY : 0;
+}
+
+static int svm_register(void *svmm_inst, u64 va, u32 devid, struct svm_global_va *src_info, u32 register_to_peer_flag)
 {
     struct svm_dst_va dst_info;
-    u64 svm_flag = 0;
-    u32 smm_flag = 0;
+    struct svm_global_va aligned_src_info;
+    u64 npage_size, aligned_size;
+    u64 svm_flag = ((register_to_peer_flag & SVM_REGISTER_TO_PEER_FLAG_READ_ONLY) != 0) ? SVM_FLAG_ATTR_PG_RDONLY : 0;
+    u32 smm_flag = svm_register_to_peer_get_smm_flag(register_to_peer_flag);
     int ret;
 
     ret = uda_get_udevid_by_devid_ex(src_info->udevid, &src_info->udevid);
@@ -557,25 +665,39 @@ static int svm_register(void *svmm_inst, u64 va, u64 size, u32 devid, struct svm
         return ret;
     }
 
+    /* SVMM: track with original src_info (byte-level overlap detection) */
     ret = svm_svmm_add_seg(svmm_inst, devid, va, svm_flag, src_info);
     if (ret != 0) {
         svm_err("Add seg failed. (devid=%u; va=0x%llx)\n", devid, va);
         return ret;
     }
 
-    svm_dst_va_pack(devid, PROCESS_CP1, va, size, &dst_info);
-
-    ret = svm_smm_client_map(&dst_info, src_info, smm_flag);
+    /* SMM: communicate with aligned va/size (UB framework constraint) */
+    ret = svm_dbi_query_npage_size(devid, &npage_size);
     if (ret != 0) {
-        svm_err("Smm map failed. (devid=%u; va=0x%llx)\n", devid, va);
+        svm_err("Get npage size failed. (devid=%u)\n", devid);
         (void)svm_svmm_del_seg(svmm_inst, devid, va, src_info->size, true);
         return ret;
     }
+    svm_register_compute_aligned(src_info, npage_size, &aligned_src_info, &aligned_size);
 
-    ret = register_ops_post_map(src_info, devid, va);
+    svm_dst_va_pack(devid, PROCESS_CP1, va, aligned_size, &dst_info);
+
+    ret = svm_smm_client_map(&dst_info, &aligned_src_info, smm_flag);
     if (ret != 0) {
         svm_err("Smm map failed. (devid=%u; va=0x%llx)\n", devid, va);
-        (void)svm_smm_client_unmap(&dst_info, src_info, smm_flag);
+        (void)svm_svmm_del_seg(svmm_inst, devid, va, src_info->size, true);
+        if (ret == DRV_ERROR_NO_RESOURCES) {
+            svm_report_ubmem_cfg_abnormal();
+            ret = DRV_ERROR_INNER_ERR;
+        }
+        return ret;
+    }
+
+    ret = register_ops_post_map(&aligned_src_info, devid, va, register_to_peer_flag);
+    if (ret != 0) {
+        svm_err("Smm map failed. (devid=%u; va=0x%llx)\n", devid, va);
+        (void)svm_smm_client_unmap(&dst_info, &aligned_src_info, 0);
         (void)svm_svmm_del_seg(svmm_inst, devid, va, src_info->size, true);
         return ret;
     }
@@ -587,8 +709,10 @@ static int svm_unregister(void *svmm_inst, u64 va, u32 devid)
 {
     struct svm_dst_va dst_info;
     struct svm_global_va src_info;
+    struct svm_global_va aligned_src_info;
     u64 start = va;
     u64 svm_flag = 0;
+    u64 npage_size, aligned_size;
     u32 smm_flag = 0;
     int ret;
 
@@ -602,20 +726,29 @@ static int svm_unregister(void *svmm_inst, u64 va, u32 devid)
         return DRV_ERROR_PARA_ERROR;
     }
 
-    register_ops_pre_unmap(&src_info, devid, start);
+    /* SMM: communicate with aligned va/size */
+    ret = svm_dbi_query_npage_size(devid, &npage_size);
+    if (ret != 0) {
+        svm_err("Get npage size failed. (devid=%u)\n", devid);
+        return ret;
+    }
+    svm_register_compute_aligned(&src_info, npage_size, &aligned_src_info, &aligned_size);
 
-    svm_dst_va_pack(devid, PROCESS_CP1, start, src_info.size, &dst_info);
-    ret = svm_smm_client_unmap(&dst_info, &src_info, smm_flag);
+    register_ops_pre_unmap(&aligned_src_info, devid, start);
+
+    svm_dst_va_pack(devid, PROCESS_CP1, start, aligned_size, &dst_info);
+    ret = svm_smm_client_unmap(&dst_info, &aligned_src_info, smm_flag);
     if (ret != 0) {
         svm_warn("Smm unmap failed. (devid=%u; va=0x%llx)\n", devid, start);
     }
 
+    /* SVMM: delete with original size */
     (void)svm_svmm_del_seg(svmm_inst, devid, start, src_info.size, true);
 
     return ret;
 }
 
-static int svm_vmm_register(void *va_handle, u64 va, u64 size, u32 devid)
+static int svm_vmm_register(void *va_handle, u64 va, u64 size, u32 devid, u32 register_to_peer_flag)
 {
     void *vmm_svmm_inst = NULL, *register_svmm_inst = NULL;
     void *seg_handle = NULL;
@@ -660,7 +793,7 @@ static int svm_vmm_register(void *va_handle, u64 va, u64 size, u32 devid)
     /* update register va real src info */
     src_info.va += va - seg_va;
     src_info.size = size;
-    ret = svm_register(register_svmm_inst, va, size, devid, &src_info);
+    ret = svm_register(register_svmm_inst, va, devid, &src_info, register_to_peer_flag);
     if (ret == 0) {
         u64 flag = svm_flag | SVM_FLAG_CAP_LDST;
         svm_svmm_mod_seg_svm_flag(seg_handle, flag);
@@ -706,7 +839,8 @@ static int svm_vmm_unregister(void *va_handle, u64 va, u32 devid)
     return ret;
 }
 
-static int svm_normal_register(void *va_handle, u64 va, u64 size, u32 devid, struct svm_prop *prop)
+static int svm_normal_register(void *va_handle, u64 va, u64 size, u32 devid, struct svm_prop *prop,
+                               u32 register_to_peer_flag)
 {
     void *svmm_inst = NULL;
     struct svm_global_va src_info;
@@ -723,7 +857,7 @@ static int svm_normal_register(void *va_handle, u64 va, u64 size, u32 devid, str
     /* trans devid to udevid in svm_register */
     svm_global_va_pack(prop->devid, prop->tgid, va, size, &src_info);
 
-    ret = svm_register(svmm_inst, va, size, devid, &src_info);
+    ret = svm_register(svmm_inst, va, devid, &src_info, register_to_peer_flag);
     if (ret == 0) {
         if (prop->devid < SVM_MAX_DEV_AGENT_NUM) {
             u64 flag = prop->flag | SVM_FLAG_CAP_LDST;
@@ -757,18 +891,9 @@ static int svm_normal_unregister(void *va_handle, u64 va, u32 devid, struct svm_
 
 static int svm_register_user_malloc_para_check(u64 va, u64 size, u32 devid)
 {
-    u64 npage_size;
-    int ret;
-
     if (devid >= SVM_MAX_DEV_AGENT_NUM) {
         svm_err("Invalid para. (devid=%u)\n", devid);
         return DRV_ERROR_INVALID_DEVICE;
-    }
-
-    ret = svm_dbi_query_npage_size(devid, &npage_size);
-    if (ret != 0) {
-        svm_err("Get npage size failed. (devid=%u)\n", devid);
-        return DRV_ERROR_INNER_ERR; /* Same to pcie th scene. */
     }
 
     if ((va == 0) || (size == 0)) {
@@ -776,17 +901,12 @@ static int svm_register_user_malloc_para_check(u64 va, u64 size, u32 devid)
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    if (SVM_IS_ALIGNED(va, npage_size) == false) {
-        svm_err("Src_va not page-aligned. (src_va=0x%llx; page_size=%llu)\n", va, npage_size);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
     return 0;
 }
 
-static int svm_register_user_malloc_to_peer(u64 va, u64 size, u32 devid, u64 *dst_va)
+static int svm_register_user_malloc_to_peer(u64 va, u64 size, u32 devid, u32 register_to_peer_flag, u64 *dst_va)
 {
-    u64 alloc_va, svm_flag, tmp_va, aligned_size;
+    u64 alloc_va, npage_size, aligned_va, aligned_size, dst_offset;
     u32 host_devid = svm_get_host_devid();
     struct svm_global_va src_info;
     void *svmm_inst = NULL;
@@ -803,32 +923,32 @@ static int svm_register_user_malloc_to_peer(u64 va, u64 size, u32 devid, u64 *ds
         return DRV_ERROR_INNER_ERR;
     }
 
-    ret = svm_get_aligned_size(devid, 0ULL, size, &aligned_size);
+    /* Compute aligned va/size for SMM communication and va allocation */
+    ret = svm_dbi_query_npage_size(devid, &npage_size);
     if (ret != 0) {
-        svm_err("Get aligned size failed. (devid=%u; size=%llu)\n", devid, size);
+        svm_err("Get npage size failed. (devid=%u)\n", devid);
+        return ret;
+    }
+    aligned_va = svm_align_down(va, npage_size);
+    dst_offset = va - aligned_va;
+    aligned_size = svm_align_up(size + dst_offset, npage_size);
+
+    /* Duplicate check is handled by register_root rbtree in halHostRegister */
+
+    ret = svm_register_to_peer_alloc_va(devid, aligned_va, aligned_size, &alloc_va);
+    if (ret != 0) {
         return ret;
     }
 
-    svm_global_va_pack(host_devid, svm_getpid(), va, aligned_size, &src_info);
-    ret = svm_svmm_get_seg_by_src_udevid_and_va(svmm_inst, &devid, &tmp_va, &svm_flag, &src_info);
-    if (ret == 0) {
-        svm_err("Addr is already registered to device. (va=0x%llx; devid=%u)\n", va, devid);
-        return DRV_ERROR_REPEATED_USERD;
-    }
-
-    ret = svm_register_to_peer_alloc_va(devid, aligned_size, &alloc_va);
-    if (ret != 0) {
-        return ret;
-    }
-
-    ret = svm_register(svmm_inst, alloc_va, aligned_size, devid, &src_info);
+    svm_global_va_pack(host_devid, (int)drvDeviceGetBareTgid(), va, size, &src_info);
+    ret = svm_register(svmm_inst, alloc_va, devid, &src_info, register_to_peer_flag);
     if (ret != 0) {
         svm_register_to_peer_free_va(devid, alloc_va, aligned_size);
         svm_err("Svm register failed. (va=0x%llx; size=%llu; devid=%u)\n", va, size, devid);
         return ret;
     }
 
-    *dst_va = alloc_va;
+    *dst_va = alloc_va + dst_offset;
     return 0;
 }
 
@@ -837,7 +957,7 @@ static int svm_unregister_user_malloc_to_peer(u64 va, u32 devid)
     u32 host_devid = svm_get_host_devid();
     struct svm_global_va src_info;
     void *svmm_inst = NULL;
-    u64 dst_va, svm_flag;
+    u64 dst_va, svm_flag, npage_size, aligned_size;
     int ret;
 
     if (devid >= SVM_MAX_DEV_AGENT_NUM) {
@@ -851,10 +971,10 @@ static int svm_unregister_user_malloc_to_peer(u64 va, u32 devid)
         return DRV_ERROR_INNER_ERR;
     }
 
-    svm_global_va_pack(host_devid, svm_getpid(), va, 0, &src_info);
+    svm_global_va_pack(host_devid, (int)drvDeviceGetBareTgid(), va, 0, &src_info);
     ret = svm_svmm_get_seg_by_src_udevid_and_va(svmm_inst, &devid, &dst_va, &svm_flag, &src_info);
     if (ret != 0) {
-        svm_err("Hasn't registered. (va=0x%llx; devid=%u)\n", va, devid);
+        svm_err("Has not been registered. (va=0x%llx; devid=%u)\n", va, devid);
         return ret;
     }
 
@@ -864,7 +984,14 @@ static int svm_unregister_user_malloc_to_peer(u64 va, u32 devid)
         return ret;
     }
 
-    svm_register_to_peer_free_va(devid, dst_va, src_info.size);
+    /* free_va: use aligned_size (matching alloc) */
+    ret = svm_dbi_query_npage_size(devid, &npage_size);
+    if (ret != 0) {
+        svm_err("Get npage size failed. (devid=%u)\n", devid);
+        return ret;
+    }
+    svm_register_compute_aligned(&src_info, npage_size, NULL, &aligned_size);
+    svm_register_to_peer_free_va(devid, dst_va, aligned_size);
     return 0;
 }
 
@@ -904,7 +1031,7 @@ static int svm_register_svm_to_peer_para_check(u64 va, u64 size, u32 devid)
     return 0;
 }
 
-static int svm_register_svm_to_peer(u64 va, u64 size, u32 devid, u64 *dst_va)
+static int svm_register_svm_to_peer(u64 va, u64 size, u32 devid, u32 register_to_peer_flag, u64 *dst_va)
 {
     void *va_handle = NULL;
     struct svm_prop prop;
@@ -938,7 +1065,7 @@ static int svm_register_svm_to_peer(u64 va, u64 size, u32 devid, u64 *dst_va)
     if ((va + size) > (prop.start + prop.size)) {
         svm_err("Size is out of bounds. (va=0x%llx; size=%d; align_size=0x%llx; prop start=0x%llx; prop size=0x%llx)\n",
                 va, size, aligned_size, prop.start, prop.size);
-        return DRV_ERROR_PARA_ERROR;
+        return (devid == svm_get_host_devid()) ? DRV_ERROR_PARA_ERROR : DRV_ERROR_INVALID_VALUE;
     }
 
     va_handle = svm_handle_get(va);
@@ -948,9 +1075,9 @@ static int svm_register_svm_to_peer(u64 va, u64 size, u32 devid, u64 *dst_va)
     }
 
     if (svm_flag_cap_is_support_vmm_unmap(prop.flag)) {
-        ret = svm_vmm_register(va_handle, va, aligned_size, devid);
+        ret = svm_vmm_register(va_handle, va, aligned_size, devid, register_to_peer_flag);
     } else {
-        ret = svm_normal_register(va_handle, va, aligned_size, devid, &prop);
+        ret = svm_normal_register(va_handle, va, aligned_size, devid, &prop, register_to_peer_flag);
     }
 
     svm_handle_put(va_handle);
@@ -958,10 +1085,11 @@ static int svm_register_svm_to_peer(u64 va, u64 size, u32 devid, u64 *dst_va)
     return ret;
 }
 
-static int _svm_register_to_peer(u64 va, u64 size, u32 devid, u64 *dst_va)
+static int _svm_register_to_peer(u64 va, u64 size, u32 devid, u32 register_to_peer_flag, u64 *dst_va)
 {
-    return svm_va_is_in_range(va, size) ? svm_register_svm_to_peer(va, size, devid, dst_va) :
-                                          svm_register_user_malloc_to_peer(va, size, devid, dst_va);
+    return svm_va_is_in_range(va, size) ?
+               svm_register_svm_to_peer(va, size, devid, register_to_peer_flag, dst_va) :
+               svm_register_user_malloc_to_peer(va, size, devid, register_to_peer_flag, dst_va);
 }
 
 static int svm_unregister_svm_to_peer(u64 va, u32 devid)
@@ -1003,12 +1131,12 @@ static int _svm_unregister_to_peer(u64 va, u32 devid)
                                        svm_unregister_user_malloc_to_peer(va, devid);
 }
 
-int svm_register_to_peer(u64 va, u64 size, u32 devid, u64 *dst_va)
+int svm_register_to_peer(u64 va, u64 size, u32 devid, u32 register_to_peer_flag, u64 *dst_va)
 {
     int ret;
 
     svm_use_pipeline();
-    ret = _svm_register_to_peer(va, size, devid, dst_va);
+    ret = _svm_register_to_peer(va, size, devid, register_to_peer_flag, dst_va);
     svm_unuse_pipeline();
 
     return ret;
@@ -1034,11 +1162,14 @@ static int svm_register_seg_criu_restore(void *seg_handle, u64 start, struct svm
 {
     struct svm_register_seg_criu_priv *criu_priv = (struct svm_register_seg_criu_priv *)priv;
     struct svm_dst_va dst_info;
+    struct svm_global_va aligned_src_info;
     struct svm_prop src_prop;
+    u64 svm_flag = svm_svmm_get_seg_svm_flag(seg_handle);
     u32 dst_devid = criu_priv->dst_devid;
     u32 src_devid = criu_priv->src_devid;
     u32 src_udevid;
-    u32 smm_flag = 0;
+    u64 npage_size, aligned_size;
+    u32 smm_flag = svm_flag_attr_is_pg_rdonly(svm_flag) ? SVM_SMM_FLAG_PG_RDONLY : 0;
     int ret;
 
     ret = uda_get_udevid_by_devid_ex(src_devid, &src_udevid);
@@ -1063,8 +1194,16 @@ static int svm_register_seg_criu_restore(void *seg_handle, u64 start, struct svm
     }
     svm_svmm_mod_seg_src_tgid(seg_handle, src_info->tgid);
 
-    svm_dst_va_pack(dst_devid, PROCESS_CP1, start, src_info->size, &dst_info);
-    ret = svm_smm_client_map(&dst_info, src_info, smm_flag);
+    /* SMM: communicate with aligned va/size */
+    ret = svm_dbi_query_npage_size(dst_devid, &npage_size);
+    if (ret != 0) {
+        svm_err("Get npage size failed. (devid=%u)\n", dst_devid);
+        return ret;
+    }
+    svm_register_compute_aligned(src_info, npage_size, &aligned_src_info, &aligned_size);
+
+    svm_dst_va_pack(dst_devid, PROCESS_CP1, start, aligned_size, &dst_info);
+    ret = svm_smm_client_map(&dst_info, &aligned_src_info, smm_flag);
     if (ret != DRV_ERROR_NONE) {
         svm_err("Restore register map failed. (ret=%d; dst_devid=%u; src_devid=%u; va=0x%llx; size=0x%llx)\n", ret,
                 dst_devid, src_devid, start, src_info->size);

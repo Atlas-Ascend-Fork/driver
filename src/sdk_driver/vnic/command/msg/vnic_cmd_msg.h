@@ -38,7 +38,8 @@ struct pcivnic_s2s_data_info {
 #define PCIVNIC_CTRL_MSG_TYPE_GET_STAT 1
 #define PCIVNIC_CTRL_MSG_TYPE_RIGISTER_NETDEV 2
 #define PCIVNIC_CTRL_MSG_TYPE_INSTANCE 3
-#define PCIVNIC_CTRL_MSG_TYPE_MAX 4
+#define PCIVNIC_CTRL_MSG_TYPE_SYNC_STATUS 4
+#define PCIVNIC_CTRL_MSG_TYPE_MAX 5
 
 #define PCIVNIC_CTRL_MSG_RESERVE_NUM 3
 
@@ -69,7 +70,7 @@ struct pcivnic_ctrl_msg_dev_instance {
 };
 
 #define VNIC_STAT_MSG_MAX_LEN (60 * 1024)
-#define VNIC_MM_PAGE_SIZE 4096
+#define VNIC_MM_PAGE_SIZE 4096 // need equal to npu's KA_MM_PAGE_SIZE
 struct pcivnic_ctrl_msg_get_stat {
     struct pcivnic_ctrl_msg_head head;
     u32 msg_len;

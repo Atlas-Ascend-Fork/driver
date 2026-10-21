@@ -26,33 +26,33 @@
 #include "log.h"
 #include "tool_ops.h"
 #include "tool_roce.h"
- 
-#define BIT_0                      0
-#define BIT_1                      1
-#define BIT_2                      2
-#define BIT_3                      3
-#define BIT_4                      4
-#define BIT_5                      5
-#define BIT_6                      6
-#define BIT_7                      7
-#define VALUE_WIDTH                12
-#define DR4_FLAG                   0x42
-#define MW_TO_DBM_TEN              10
-#define RX_FLAG                    0
-#define TX_FLAG                    1
-#define VOLTAGE_UNIT_CONVERT       10000
-#define BIAS_UNIT_CONVERT          1000
-#define NEGATIVE_UNIT_CONVERT      (-1)
-#define LOW_16_BITS                0xFFFF
-#define SHIFT_8                    8
-#define MAX_LANE_NUM               4
-#define NUM_2                      2
 
-#define MW_TO_DBM(value)    (MW_TO_DBM_TEN * log10f(value))
-#define GET_BIT(value, n)   (((value) >> (n)) & 0x1U)
-#define SET_BIT(value, n)   ((value) = ((value) & (~(0x1U << (n)))) | (0x1U << (n)))
+#define BIT_0 0
+#define BIT_1 1
+#define BIT_2 2
+#define BIT_3 3
+#define BIT_4 4
+#define BIT_5 5
+#define BIT_6 6
+#define BIT_7 7
+#define VALUE_WIDTH 12
+#define DR4_FLAG 0x42
+#define MW_TO_DBM_TEN 10
+#define RX_FLAG 0
+#define TX_FLAG 1
+#define VOLTAGE_UNIT_CONVERT 10000
+#define BIAS_UNIT_CONVERT 1000
+#define NEGATIVE_UNIT_CONVERT (-1)
+#define LOW_16_BITS 0xFFFF
+#define SHIFT_8 8
+#define MAX_LANE_NUM 4
+#define NUM_2 2
 
-#define OPTICAL_SNR_QUERY_SWITCH    "optical_snr_query_switch"
+#define MW_TO_DBM(value) (MW_TO_DBM_TEN * log10f(value))
+#define GET_BIT(value, n) (((value) >> (n)) & 0x1U)
+#define SET_BIT(value, n) ((value) = ((value) & (~(0x1U << (n)))) | (0x1U << (n)))
+
+#define OPTICAL_SNR_QUERY_SWITCH "optical_snr_query_switch"
 
 struct power_info {
     union {
@@ -86,50 +86,44 @@ struct tx_bias_info {
     };
 };
 
-STATIC bool tool_optical_info_not_support_query(struct ds_optical_info* info)
+STATIC bool tool_optical_info_not_support_query(struct ds_optical_info *info)
 {
     return ((info->present != TOOL_XSFP_PRESENT) || (info->temp == TEMP_INVALID) ||
-        (info->additional_info.voltage == 0));
+            (info->additional_info.voltage == 0));
 }
 
-STATIC void tool_show_state_flag_dr4(struct ds_optical_info* info, unsigned int bit_info, char* print_info, int sflag)
+STATIC void tool_show_state_flag_dr4(struct ds_optical_info *info, unsigned int bit_info, char *print_info, int sflag)
 {
     if (sflag == 0) {
-        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s",
-            print_info,
-            (GET_BIT(bit_info, BIT_0)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_1)) ? "Abnormal " : "Normal   ",
-            "-", "-");
+        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s", print_info,
+                        (GET_BIT(bit_info, BIT_0)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_1)) ? "Abnormal " : "Normal   ", "-", "-");
     } else {
-        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s",
-            print_info,
-            (GET_BIT(bit_info, BIT_2)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_3)) ? "Abnormal " : "Normal   ",
-            "-", "-");
+        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s", print_info,
+                        (GET_BIT(bit_info, BIT_2)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_3)) ? "Abnormal " : "Normal   ", "-", "-");
     }
 }
 
-STATIC void tool_show_state_flag_not_dr4(struct ds_optical_info* info, unsigned int bit_info, char* print_info,
-    int sflag)
+STATIC void tool_show_state_flag_not_dr4(struct ds_optical_info *info, unsigned int bit_info, char *print_info,
+                                         int sflag)
 {
     if (sflag == 0) {
-        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s",
-            print_info,
-            (GET_BIT(bit_info, BIT_0)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_1)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_2)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_3)) ? "Abnormal " : "Normal   ");
+        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s", print_info,
+                        (GET_BIT(bit_info, BIT_0)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_1)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_2)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_3)) ? "Abnormal " : "Normal   ");
     } else {
-        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s",
-            print_info,
-            (GET_BIT(bit_info, BIT_4)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_5)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_6)) ? "Abnormal " : "Normal   ",
-            (GET_BIT(bit_info, BIT_7)) ? "Abnormal " : "Normal   ");
+        TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s", print_info,
+                        (GET_BIT(bit_info, BIT_4)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_5)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_6)) ? "Abnormal " : "Normal   ",
+                        (GET_BIT(bit_info, BIT_7)) ? "Abnormal " : "Normal   ");
     }
 }
- 
-STATIC void tool_show_state_flag_print_v2(struct ds_optical_info* info, int bit_info, char* print_info, int sflag)
+
+STATIC void tool_show_state_flag_print_v2(struct ds_optical_info *info, int bit_info, char *print_info, int sflag)
 {
     if (tool_optical_info_not_support_query(info)) {
         TOOL_PRINT_INFO("%s     %-10s| %-10s| %-10s| %-10s", print_info, "-", "-", "-", "-");
@@ -147,35 +141,35 @@ STATIC void tool_show_state_flag_print_v2(struct ds_optical_info* info, int bit_
         tool_show_state_flag_not_dr4(info, (unsigned int)bit_info, print_info, sflag);
     }
 }
- 
-STATIC void tool_show_txbias_info_print_v2(struct ds_optical_info* info, struct tx_bias_info *tx_bias)
+
+STATIC void tool_show_txbias_info_print_v2(struct ds_optical_info *info, struct tx_bias_info *tx_bias)
 {
     int lane_id;
 
     if (tool_optical_info_not_support_query(info)) {
         for (lane_id = 0; lane_id < MAX_LANE_NUM; lane_id++) {
-            TOOL_PRINT_INFO("Bias lane%d(mA)      %-12s%-12s%-12s%-12s%-12s%-12s", lane_id,
-                "-", "-", "-", "-", "-", "-");
+            TOOL_PRINT_INFO("Bias lane%d(mA)      %-12s%-12s%-12s%-12s%-12s%-12s", lane_id, "-", "-", "-", "-", "-",
+                            "-");
         }
         return;
     }
 
-    TOOL_PRINT_INFO("Bias lane0(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-        tx_bias->bias0, tx_bias->high_alarm, tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
-    TOOL_PRINT_INFO("Bias lane1(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-        tx_bias->bias1, tx_bias->high_alarm, tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
+    TOOL_PRINT_INFO("Bias lane0(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s", tx_bias->bias0, tx_bias->high_alarm,
+                    tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
+    TOOL_PRINT_INFO("Bias lane1(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s", tx_bias->bias1, tx_bias->high_alarm,
+                    tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
     if (info->dr4_flag == DR4_FLAG) {
         TOOL_PRINT_INFO("Bias lane2(mA)      %-12s%-12s%-12s%-12s%-12s%-12s", "-", "-", "-", "-", "-", "-");
         TOOL_PRINT_INFO("Bias lane3(mA)      %-12s%-12s%-12s%-12s%-12s%-12s", "-", "-", "-", "-", "-", "-");
     } else {
-        TOOL_PRINT_INFO("Bias lane2(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-            tx_bias->bias2, tx_bias->high_alarm, tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
-        TOOL_PRINT_INFO("Bias lane3(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-            tx_bias->bias3, tx_bias->high_alarm, tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
+        TOOL_PRINT_INFO("Bias lane2(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s", tx_bias->bias2,
+                        tx_bias->high_alarm, tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
+        TOOL_PRINT_INFO("Bias lane3(mA)      %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s", tx_bias->bias3,
+                        tx_bias->high_alarm, tx_bias->high_warn, tx_bias->low_alarm, tx_bias->low_warn, "-");
     }
 }
 
-STATIC void tool_get_tx_bias(struct ds_optical_info* info, struct tx_bias_info *tx_bias, const int sflag)
+STATIC void tool_get_tx_bias(struct ds_optical_info *info, struct tx_bias_info *tx_bias, const int sflag)
 {
     int lane_id;
     float *tx_bias_array = (float *)tx_bias->array;
@@ -183,81 +177,86 @@ STATIC void tool_get_tx_bias(struct ds_optical_info* info, struct tx_bias_info *
     if (info->dr4_flag == DR4_FLAG) {
         if (sflag == 0) {
             tx_bias->bias0 = (float)((info->additional_info.tx_bias[CHANNEL_0_H] << SHIFT_8) +
-                (unsigned char)info->additional_info.tx_bias[CHANNEL_0_L]) / OPTICAL_BIAS_DEVISOR;
+                                     (unsigned char)info->additional_info.tx_bias[CHANNEL_0_L]) /
+                             OPTICAL_BIAS_DEVISOR;
             tx_bias->bias1 = (float)((info->additional_info.tx_bias[CHANNEL_1_H] << SHIFT_8) +
-                (unsigned char)info->additional_info.tx_bias[CHANNEL_1_L]) / OPTICAL_BIAS_DEVISOR;
+                                     (unsigned char)info->additional_info.tx_bias[CHANNEL_1_L]) /
+                             OPTICAL_BIAS_DEVISOR;
         } else {
             tx_bias->bias0 = (float)((info->additional_info.tx_bias[CHANNEL_2_H] << SHIFT_8) +
-                (unsigned char)info->additional_info.tx_bias[CHANNEL_2_L]) / OPTICAL_BIAS_DEVISOR;
+                                     (unsigned char)info->additional_info.tx_bias[CHANNEL_2_L]) /
+                             OPTICAL_BIAS_DEVISOR;
             tx_bias->bias1 = (float)((info->additional_info.tx_bias[CHANNEL_3_H] << SHIFT_8) +
-                (unsigned char)info->additional_info.tx_bias[CHANNEL_3_L]) / OPTICAL_BIAS_DEVISOR;
+                                     (unsigned char)info->additional_info.tx_bias[CHANNEL_3_L]) /
+                             OPTICAL_BIAS_DEVISOR;
         }
     } else {
         // 由CHANNEL_0_H = 0, CHANNEL_0_L = 1, CHANNEL_1_H = 2, CHANNEL_1_L = 3，...
         // 可以推出：CHANNEL_[lane_id]_H = 2 * lane_id, CHANNEL_[lane_id]_L = 2 * lane_id + 1
         for (lane_id = 0; lane_id < MAX_LANE_NUM; lane_id++) {
             tx_bias_array[lane_id] = (float)((info->additional_info.tx_bias[lane_id * NUM_2 + sflag] << SHIFT_8) +
-            (unsigned char)info->additional_info.tx_bias[lane_id * NUM_2 + 1 + sflag]) / OPTICAL_BIAS_DEVISOR;
+                                             (unsigned char)
+                                                 info->additional_info.tx_bias[lane_id * NUM_2 + 1 + sflag]) /
+                                     OPTICAL_BIAS_DEVISOR;
         }
     }
 
     tx_bias->high_alarm = ((unsigned int)info->additional_info.tx_bias_high_alarm_threshold & LOW_16_BITS) /
-        OPTICAL_BIAS_DEVISOR;
+                          OPTICAL_BIAS_DEVISOR;
     tx_bias->high_warn = ((unsigned int)info->additional_info.tx_bias_high_threshold & LOW_16_BITS) /
-        OPTICAL_BIAS_DEVISOR;
+                         OPTICAL_BIAS_DEVISOR;
     tx_bias->low_alarm = ((unsigned int)info->additional_info.tx_bias_low_alarm_threshold & LOW_16_BITS) /
-        OPTICAL_BIAS_DEVISOR;
+                         OPTICAL_BIAS_DEVISOR;
     tx_bias->low_warn = ((unsigned int)info->additional_info.tx_bias_low_threshold & LOW_16_BITS) /
-        OPTICAL_BIAS_DEVISOR;
+                        OPTICAL_BIAS_DEVISOR;
 }
- 
-STATIC void tool_show_txbias_info_v2(struct ds_optical_info* info, const int sflag)
+
+STATIC void tool_show_txbias_info_v2(struct ds_optical_info *info, const int sflag)
 {
     struct tx_bias_info tx_bias = {0};
 
     tool_get_tx_bias(info, &tx_bias, sflag);
     tool_show_txbias_info_print_v2(info, &tx_bias);
 }
- 
+
 STATIC void tool_show_power_info_print_default_v2(int power_flag)
 {
     int lane_id;
 
     for (lane_id = 0; lane_id < MAX_LANE_NUM; lane_id++) {
         TOOL_PRINT_INFO("%2sPower Lane%d(dBm)  %-12.2s%-12.2s%-12.2s%-12.2s%-12.2s%-12s",
-            power_flag == RX_FLAG ? "Rx" : "Tx", lane_id, "-", "-", "-", "-", "-", "-");
+                        power_flag == RX_FLAG ? "Rx" : "Tx", lane_id, "-", "-", "-", "-", "-", "-");
     }
 }
- 
-STATIC void tool_show_power_info_print_v2(struct ds_optical_info* info, int power_flag, struct power_info *power)
+
+STATIC void tool_show_power_info_print_v2(struct ds_optical_info *info, int power_flag, struct power_info *power)
 {
     if (tool_optical_info_not_support_query(info)) {
         tool_show_power_info_print_default_v2(power_flag);
         return;
     }
-    TOOL_PRINT_INFO("%sPower Lane0(dBm)  %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-        power_flag == RX_FLAG ? "Rx" : "Tx", power->power0, power->high_alarm, power->high_warn, power->low_alarm,
-        power->low_warn, "-");
+    TOOL_PRINT_INFO("%sPower Lane0(dBm)  %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s", power_flag == RX_FLAG ? "Rx" : "Tx",
+                    power->power0, power->high_alarm, power->high_warn, power->low_alarm, power->low_warn, "-");
     TOOL_PRINT_INFO("%2sPower Lane1(dBm)  %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-        power_flag == RX_FLAG ? "Rx" : "Tx", power->power1, power->high_alarm, power->high_warn, power->low_alarm,
-        power->low_warn, "-");
+                    power_flag == RX_FLAG ? "Rx" : "Tx", power->power1, power->high_alarm, power->high_warn,
+                    power->low_alarm, power->low_warn, "-");
     if (info->dr4_flag == DR4_FLAG) {
         TOOL_PRINT_INFO("%2sPower Lane2(dBm)  %-12.2s%-12.2s%-12.2s%-12.2s%-12.2s%-12s",
-            power_flag == RX_FLAG ? "Rx" : "Tx", "-", "-", "-", "-", "-", "-");
+                        power_flag == RX_FLAG ? "Rx" : "Tx", "-", "-", "-", "-", "-", "-");
         TOOL_PRINT_INFO("%2sPower Lane3(dBm)  %-12.2s%-12.2s%-12.2s%-12.2s%-12.2s%-12s",
-            power_flag == RX_FLAG ? "Rx" : "Tx", "-", "-", "-", "-", "-", "-");
+                        power_flag == RX_FLAG ? "Rx" : "Tx", "-", "-", "-", "-", "-", "-");
     } else {
         TOOL_PRINT_INFO("%2sPower Lane2(dBm)  %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-            power_flag == RX_FLAG ? "Rx" : "Tx", power->power2, power->high_alarm, power->high_warn, power->low_alarm,
-            power->low_warn, "-");
+                        power_flag == RX_FLAG ? "Rx" : "Tx", power->power2, power->high_alarm, power->high_warn,
+                        power->low_alarm, power->low_warn, "-");
         TOOL_PRINT_INFO("%2sPower Lane3(dBm)  %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-            power_flag == RX_FLAG ? "Rx" : "Tx", power->power3, power->high_alarm, power->high_warn, power->low_alarm,
-            power->low_warn, "-");
+                        power_flag == RX_FLAG ? "Rx" : "Tx", power->power3, power->high_alarm, power->high_warn,
+                        power->low_alarm, power->low_warn, "-");
     }
 }
 
-STATIC void tool_get_tx_rx_power(struct ds_optical_info* info, int power_flag, struct power_info *power,
-    const int sflag)
+STATIC void tool_get_tx_rx_power(struct ds_optical_info *info, int power_flag, struct power_info *power,
+                                 const int sflag)
 {
     unsigned char *tx_rx_power = NULL;
     int lane_id;
@@ -266,14 +265,14 @@ STATIC void tool_get_tx_rx_power(struct ds_optical_info* info, int power_flag, s
     if (power_flag == TX_FLAG) {
         tx_rx_power = info->additional_info.tx_power;
         power->high_alarm = MW_TO_DBM((float)info->additional_info.tx_power_high_alarm_threshold /
-            OPTICAL_POWER_DEVISOR);
+                                      OPTICAL_POWER_DEVISOR);
         power->high_warn = MW_TO_DBM((float)info->additional_info.tx_power_high_threshold / OPTICAL_POWER_DEVISOR);
         power->low_alarm = MW_TO_DBM((float)info->additional_info.tx_power_low_alarm_threshold / OPTICAL_POWER_DEVISOR);
         power->low_warn = MW_TO_DBM((float)info->additional_info.tx_power_low_threshold / OPTICAL_POWER_DEVISOR);
     } else {
         tx_rx_power = info->additional_info.rx_power;
         power->high_alarm = MW_TO_DBM((float)info->additional_info.rx_power_high_alarm_threshold /
-            OPTICAL_POWER_DEVISOR);
+                                      OPTICAL_POWER_DEVISOR);
         power->high_warn = MW_TO_DBM((float)info->additional_info.rx_power_high_threshold / OPTICAL_POWER_DEVISOR);
         power->low_alarm = MW_TO_DBM((float)info->additional_info.rx_power_low_alarm_threshold / OPTICAL_POWER_DEVISOR);
         power->low_warn = MW_TO_DBM((float)info->additional_info.rx_power_low_threshold / OPTICAL_POWER_DEVISOR);
@@ -281,27 +280,32 @@ STATIC void tool_get_tx_rx_power(struct ds_optical_info* info, int power_flag, s
 
     if (info->dr4_flag == DR4_FLAG) {
         if (sflag == 0) {
-            power->power0 = MW_TO_DBM((float)((tx_rx_power[CHANNEL_0_H] << SHIFT_8) +
-                (unsigned char)tx_rx_power[CHANNEL_0_L]) / OPTICAL_POWER_DEVISOR);
-            power->power1 = MW_TO_DBM((float)((tx_rx_power[CHANNEL_1_H] << SHIFT_8) +
-                (unsigned char)tx_rx_power[CHANNEL_1_L]) / OPTICAL_POWER_DEVISOR);
+            power->power0 = MW_TO_DBM(
+                (float)((tx_rx_power[CHANNEL_0_H] << SHIFT_8) + (unsigned char)tx_rx_power[CHANNEL_0_L]) /
+                OPTICAL_POWER_DEVISOR);
+            power->power1 = MW_TO_DBM(
+                (float)((tx_rx_power[CHANNEL_1_H] << SHIFT_8) + (unsigned char)tx_rx_power[CHANNEL_1_L]) /
+                OPTICAL_POWER_DEVISOR);
         } else {
-            power->power0 = MW_TO_DBM((float)((tx_rx_power[CHANNEL_2_H] << SHIFT_8) +
-                (unsigned char)tx_rx_power[CHANNEL_2_L]) / OPTICAL_POWER_DEVISOR);
-            power->power1 = MW_TO_DBM((float)((tx_rx_power[CHANNEL_3_H] << SHIFT_8) +
-                (unsigned char)tx_rx_power[CHANNEL_3_L]) / OPTICAL_POWER_DEVISOR);
+            power->power0 = MW_TO_DBM(
+                (float)((tx_rx_power[CHANNEL_2_H] << SHIFT_8) + (unsigned char)tx_rx_power[CHANNEL_2_L]) /
+                OPTICAL_POWER_DEVISOR);
+            power->power1 = MW_TO_DBM(
+                (float)((tx_rx_power[CHANNEL_3_H] << SHIFT_8) + (unsigned char)tx_rx_power[CHANNEL_3_L]) /
+                OPTICAL_POWER_DEVISOR);
         }
     } else {
         // 由CHANNEL_0_H = 0, CHANNEL_0_L = 1, CHANNEL_1_H = 2, CHANNEL_1_L = 3，...
         // 可以推出：CHANNEL_[lane_id]_H = 2 * lane_id, CHANNEL_[lane_id]_L = 2 * lane_id + 1
         for (lane_id = 0; lane_id < MAX_LANE_NUM; lane_id++) {
             power_array[lane_id] = MW_TO_DBM((float)((tx_rx_power[lane_id * NUM_2 + sflag] << SHIFT_8) +
-                (unsigned char)tx_rx_power[lane_id * NUM_2 + 1 + sflag]) / OPTICAL_POWER_DEVISOR);
+                                                     (unsigned char)tx_rx_power[lane_id * NUM_2 + 1 + sflag]) /
+                                             OPTICAL_POWER_DEVISOR);
         }
     }
 }
- 
-STATIC void tool_show_power_info_v2(struct ds_optical_info* info, const int sflag)
+
+STATIC void tool_show_power_info_v2(struct ds_optical_info *info, const int sflag)
 {
     struct power_info power = {0};
 
@@ -313,8 +317,8 @@ STATIC void tool_show_power_info_v2(struct ds_optical_info* info, const int sfla
     tool_get_tx_rx_power(info, TX_FLAG, &power, sflag);
     tool_show_power_info_print_v2(info, TX_FLAG, &power);
 }
- 
-STATIC void tool_show_media_snr_info_v2(struct ds_optical_info* info, const int sflag)
+
+STATIC void tool_show_media_snr_info_v2(struct ds_optical_info *info, const int sflag)
 {
     int offset = sflag / 2;
     int i;
@@ -323,21 +327,19 @@ STATIC void tool_show_media_snr_info_v2(struct ds_optical_info* info, const int 
     if (media_support) {
         if (info->dr4_flag == DR4_FLAG) {
             TOOL_PRINT_INFO("MediaSNR Lane0(dB)  %-12.2f%-12s%-12s%-12s%-12s%-12s",
-                ((offset == 0) ? (info->additional_info.media_snr[MEDIA_LANE0]) :
-                 info->additional_info.media_snr[MEDIA_LANE2]),
-                "-", "-", "-", "-", "-");
+                            ((offset == 0) ? (info->additional_info.media_snr[MEDIA_LANE0]) :
+                                             info->additional_info.media_snr[MEDIA_LANE2]),
+                            "-", "-", "-", "-", "-");
             TOOL_PRINT_INFO("MediaSNR Lane1(dB)  %-12.2f%-12s%-12s%-12s%-12s%-12s",
-                ((offset == 0) ? (info->additional_info.media_snr[MEDIA_LANE1]) :
-                 info->additional_info.media_snr[MEDIA_LANE3]),
-                "-", "-", "-", "-", "-");
+                            ((offset == 0) ? (info->additional_info.media_snr[MEDIA_LANE1]) :
+                                             info->additional_info.media_snr[MEDIA_LANE3]),
+                            "-", "-", "-", "-", "-");
             TOOL_PRINT_INFO("MediaSNR Lane2(dB)  %-12s%-12s%-12s%-12s%-12s%-12s", "-", "-", "-", "-", "-", "-");
             TOOL_PRINT_INFO("MediaSNR Lane3(dB)  %-12s%-12s%-12s%-12s%-12s%-12s", "-", "-", "-", "-", "-", "-");
         } else {
             for (i = 0; i < XSFP_SHOW_SNR_LEN; i++) {
-                TOOL_PRINT_INFO("MediaSNR Lane%d(dB)  %-12.2f%-12s%-12s%-12s%-12s%-12s",
-                    i,
-                    info->additional_info.media_snr[i + offset],
-                    "-", "-", "-", "-", "-");
+                TOOL_PRINT_INFO("MediaSNR Lane%d(dB)  %-12.2f%-12s%-12s%-12s%-12s%-12s", i,
+                                info->additional_info.media_snr[i + offset], "-", "-", "-", "-", "-");
             }
         }
     } else {
@@ -346,8 +348,8 @@ STATIC void tool_show_media_snr_info_v2(struct ds_optical_info* info, const int 
         }
     }
 }
- 
-STATIC void tool_show_host_snr_info_v2(struct ds_optical_info* info, const int sflag)
+
+STATIC void tool_show_host_snr_info_v2(struct ds_optical_info *info, const int sflag)
 {
     int offset = sflag / 2;
     int i;
@@ -355,8 +357,8 @@ STATIC void tool_show_host_snr_info_v2(struct ds_optical_info* info, const int s
     bool host_support = (info->additional_info.snr_support >> TOOL_SNR_SUPPORT_BIT_HOST) & 0x1;
     if (host_support) {
         for (i = 0; i < XSFP_SHOW_SNR_LEN; i++) {
-            TOOL_PRINT_INFO("HostSNR Lane%d(dB)   %-12.2f%-12s%-12s%-12s%-12s%-12s",
-                i, info->additional_info.host_snr[i + offset], "-", "-", "-", "-", "-");
+            TOOL_PRINT_INFO("HostSNR Lane%d(dB)   %-12.2f%-12s%-12s%-12s%-12s%-12s", i,
+                            info->additional_info.host_snr[i + offset], "-", "-", "-", "-", "-");
         }
     } else {
         for (i = 0; i < XSFP_SHOW_SNR_LEN; i++) {
@@ -365,7 +367,7 @@ STATIC void tool_show_host_snr_info_v2(struct ds_optical_info* info, const int s
     }
 }
 
-STATIC void tool_show_temp_voltage_info_v2(struct ds_optical_info* info)
+STATIC void tool_show_temp_voltage_info_v2(struct ds_optical_info *info)
 {
     char temp_value[VALUE_WIDTH + 1];
 
@@ -373,30 +375,27 @@ STATIC void tool_show_temp_voltage_info_v2(struct ds_optical_info* info)
         TOOL_PRINT_INFO("Temperature(C)      %-12.2s%-12.2s%-12.2s%-12.2s%-12.2s%-12s", "-", "-", "-", "-", "-", "-");
     } else {
         sprintf_s(temp_value, VALUE_WIDTH + 1, "%-12.2f", (float)info->temp);
-        TOOL_PRINT_INFO("Temperature(C)      %-12s%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-            temp_value,
-            (float)info->additional_info.temp_high_alarm_threshold,
-            (float)info->additional_info.temp_high_threshold,
-            (float)info->additional_info.temp_low_alarm_threshold,
-            (float)(int)(int8_t)info->additional_info.temp_low_threshold,
-            "-");
+        TOOL_PRINT_INFO("Temperature(C)      %-12s%-12.2f%-12.2f%-12.2f%-12.2f%-12s", temp_value,
+                        (float)info->additional_info.temp_high_alarm_threshold,
+                        (float)info->additional_info.temp_high_threshold,
+                        (float)info->additional_info.temp_low_alarm_threshold,
+                        (float)(int)(int8_t)info->additional_info.temp_low_threshold, "-");
     }
 
     if (tool_optical_info_not_support_query(info)) {
         TOOL_PRINT_INFO("Voltage(V)          %-12.2s%-12.2s%-12.2s%-12.2s%-12.2s%-12s", "-", "-", "-", "-", "-", "-");
     } else {
         TOOL_PRINT_INFO("Voltage(V)          %-12.2f%-12.2f%-12.2f%-12.2f%-12.2f%-12s",
-            (float)info->additional_info.voltage / VOLTAGE_UNIT_CONVERT,
-            (float)info->additional_info.vcc_high_alarm_threshold / VOLTAGE_UNIT_CONVERT,
-            (float)info->additional_info.vcc_high_threshold / VOLTAGE_UNIT_CONVERT,
-            (float)info->additional_info.vcc_low_alarm_threshold / VOLTAGE_UNIT_CONVERT,
-            (float)info->additional_info.vcc_low_threshold / VOLTAGE_UNIT_CONVERT,
-            "-");
+                        (float)info->additional_info.voltage / VOLTAGE_UNIT_CONVERT,
+                        (float)info->additional_info.vcc_high_alarm_threshold / VOLTAGE_UNIT_CONVERT,
+                        (float)info->additional_info.vcc_high_threshold / VOLTAGE_UNIT_CONVERT,
+                        (float)info->additional_info.vcc_low_alarm_threshold / VOLTAGE_UNIT_CONVERT,
+                        (float)info->additional_info.vcc_low_threshold / VOLTAGE_UNIT_CONVERT, "-");
     }
 }
- 
+
 // sflag is offset for choose between first 4 lanes and last 4 lanes
-void tool_show_optical_info_v2(struct ds_optical_info* info, const int sflag)
+void tool_show_optical_info_v2(struct ds_optical_info *info, const int sflag)
 {
     TOOL_PRINT_INFO("============================================================================================");
     TOOL_PRINT_INFO("State-flag Diagnostic Monitoring:");
@@ -409,7 +408,7 @@ void tool_show_optical_info_v2(struct ds_optical_info* info, const int sflag)
     tool_show_state_flag_print_v2(info, info->additional_info.tx_lol, "TxLol Flag  ", sflag);
     tool_show_state_flag_print_v2(info, info->additional_info.rx_lol, "RxLol Flag  ", sflag);
     TOOL_PRINT_INFO("High power enable reg: %s",
-        (info->high_power_enable == TOOL_XSFP_HIGH_POWER_ENABLED) ? "enabled" : "not enabled");
+                    (info->high_power_enable == TOOL_XSFP_HIGH_POWER_ENABLED) ? "enabled" : "not enabled");
     TOOL_PRINT_INFO("--------------------------------------------------------------------------------------------");
     TOOL_PRINT_INFO("============================================================================================");
     TOOL_PRINT_INFO("Digital Diagnostic Monitoring:");
@@ -419,8 +418,8 @@ void tool_show_optical_info_v2(struct ds_optical_info* info, const int sflag)
     tool_show_temp_voltage_info_v2(info);
     tool_show_txbias_info_v2(info, sflag);
     tool_show_power_info_v2(info, sflag);
-    info->additional_info.snr_support <<=
-        (sflag == 0 ? TOOL_SNR_SUPPORT_BIT_FRONT_OFFSET : TOOL_SNR_SUPPORT_BIT_REAR_OFFSET);
+    info->additional_info.snr_support <<= (sflag == 0 ? TOOL_SNR_SUPPORT_BIT_FRONT_OFFSET :
+                                                        TOOL_SNR_SUPPORT_BIT_REAR_OFFSET);
     tool_show_media_snr_info_v2(info, sflag);
     tool_show_host_snr_info_v2(info, sflag);
 }
@@ -452,18 +451,18 @@ void tool_show_optical_info_dfx(struct ds_optical_info *info)
 {
     int i;
     const char *loopback_mode_str[OPTICAL_LOOPBACK_MODE_MAX + 1] = {
-        "no loopback mode",                 // 无环回模式
-        "host side input loopback mode",    // host侧input环回, 另称为电侧内环
-        "media side output loopback mode",  // media侧output环回, 另称为光侧内环
-        "host side output loopback mode",   // host侧output环回, 另称为电侧外环
-        "media side input loopback mode"     // media侧input环回, 另称为光侧外环
+        "no loopback mode",                // 无环回模式
+        "host side input loopback mode",   // host侧input环回, 另称为电侧内环
+        "media side output loopback mode", // media侧output环回, 另称为光侧内环
+        "host side output loopback mode",  // host侧output环回, 另称为电侧外环
+        "media side input loopback mode"   // media侧input环回, 另称为光侧外环
     };
 
     if (info->present != TOOL_XSFP_PRESENT || info->temp == TEMP_INVALID || info->additional_info.voltage == 0) {
         tool_show_optical_invalid_info_dfx();
         return;
     }
-    
+
     TOOL_PRINT_INFO("optical dfx info:");
 
     for (i = 0; i <= OPTICAL_LOOPBACK_MODE_MAX; ++i) {
@@ -505,8 +504,8 @@ STATIC int tool_get_optical_info(int logic_id, const int sflag)
 
     ret = tool_get_xsfp_id_map_index(&info, &id_map_idx);
     if (ret != 0) {
-        roce_warn("Tool_get_xsfp_id_map_index fail. logic_id[%d] xsfp_identifier [0x%x]",
-            logic_id, info.base_info.xsfp_identifier);
+        roce_warn("Tool_get_xsfp_id_map_index fail. logic_id[%d] xsfp_identifier [0x%x]", logic_id,
+                  info.base_info.xsfp_identifier);
     }
 
     tool_show_optical_info(&info, id_map_idx, sflag);
@@ -530,8 +529,8 @@ int tool_get_optical_info_handle(int argc, char **argv, struct tool_param *param
     if (argc == 0) {
         ret = tool_get_optical_info(logic_id_convert, sflag);
         if (ret) {
-            roce_err("tool_get_optical_info fail. (ret=%d; logic_id=%d; logic_id_convert=%d)",
-                ret, logic_id, logic_id_convert);
+            roce_err("tool_get_optical_info fail. (ret=%d; logic_id=%d; logic_id_convert=%d)", ret, logic_id,
+                     logic_id_convert);
             return ret;
         }
 #ifdef HCCN_TOOL_SHOW_EXT
@@ -539,15 +538,15 @@ int tool_get_optical_info_handle(int argc, char **argv, struct tool_param *param
         if (!strncmp(argv[0], "v2", strlen(argv[0]) + 1)) {
             ret = tool_get_optical_info_v2(logic_id_convert, sflag);
             if (ret) {
-                roce_err("tool_get_optical_info_v2 fail. (ret=%d; logic_id=%d; logic_id_convert=%d)",
-                    ret, logic_id, logic_id_convert);
+                roce_err("tool_get_optical_info_v2 fail. (ret=%d; logic_id=%d; logic_id_convert=%d)", ret, logic_id,
+                         logic_id_convert);
                 return ret;
             }
         } else if (strncmp(argv[0], "dfx_cfg", strlen(argv[0]) + 1) == 0) {
             ret = tool_get_optical_info_dfx(logic_id_convert);
             if (ret) {
-                roce_err("tool_get_optical_dfx_info fail. (ret=%d; logic_id=%d; logic_id_convert=%d)",
-                    ret, logic_id, logic_id_convert);
+                roce_err("tool_get_optical_dfx_info fail. (ret=%d; logic_id=%d; logic_id_convert=%d)", ret, logic_id,
+                         logic_id_convert);
             }
         } else {
             roce_err("tool_get_optical_info_handle invalid operation.");
@@ -596,8 +595,8 @@ int tool_get_optical_snr_query_info(int argc, char **argv, struct tool_param *pa
 
     ret = dsmi_get_optical_snr_query_info(convert_logic_id, &info);
     if (ret != 0) {
-        roce_err("Dsmi to get optical snr query info fail. (ret=%u; logic_id=%d; convert_logic_id=%d)",
-                 ret, param->logic_id, convert_logic_id);
+        roce_err("Dsmi to get optical snr query info fail. (ret=%u; logic_id=%d; convert_logic_id=%d)", ret,
+                 param->logic_id, convert_logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 
@@ -650,8 +649,8 @@ int tool_set_optical_snr_query_info(int argc, char **argv, struct tool_param *pa
 
     ret = dsmi_set_optical_snr_query_info(convert_logic_id, &info);
     if (ret != 0) {
-        roce_err("Dsmi to set optical snr query info fail. (ret=%u; logic_id=%d; convert_logic_id=%d)",
-                 ret, param->logic_id, convert_logic_id);
+        roce_err("Dsmi to set optical snr query info fail. (ret=%u; logic_id=%d; convert_logic_id=%d)", ret,
+                 param->logic_id, convert_logic_id);
         return dsmi_analysis_dsmi_ret_to_uda(ret);
     }
 

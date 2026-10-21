@@ -38,7 +38,7 @@ STATIC struct hdc_epoll_ops *drv_hdc_epoll_get_ops(const struct hdcConfig *conf)
             epoll_ops = drv_get_hdc_sock_epoll_ops();
             break;
         default:
-            HDC_LOG_ERR("Invalid trans type. (trans_type=%u)\n", conf->trans_type);
+            HDC_LOG_ERR("Invalid trans type.%u\n", conf->trans_type);
             break;
     }
 

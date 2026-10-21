@@ -18,11 +18,10 @@ struct list_head {
     struct list_head *next, *prev;
 };
 
-#define LIST_HEAD_INIT(name) { &(name), &(name) }
+#define LIST_HEAD_INIT(name) {&(name), &(name)}
 
 /*lint -e773 -e773*/
-#define LIST_HEAD(name)  \
-    struct list_head name = LIST_HEAD_INIT(name)
+#define LIST_HEAD(name) struct list_head name = LIST_HEAD_INIT(name)
 /*lint +e773 +e773*/
 
 static inline void INIT_LIST_HEAD(struct list_head *list)
@@ -32,18 +31,17 @@ static inline void INIT_LIST_HEAD(struct list_head *list)
 }
 
 #ifndef container_of
-#define container_of(ptr, type, member) ({ \
-        const typeof(((type *)0)->member)(*__mptr) = (ptr); \
-        (type *)((uintptr_t)__mptr - offsetof(type, member)); })
+#define container_of(ptr, type, member)                       \
+    ({                                                        \
+        const typeof(((type *)0)->member)(*__mptr) = (ptr);   \
+        (type *)((uintptr_t)__mptr - offsetof(type, member)); \
+    })
 #endif
 
-#define list_entry(ptr, type, member) \
-    container_of(ptr, type, member)
-
+#define list_entry(ptr, type, member) container_of(ptr, type, member)
 
 #define list_for_each_safe(pos, n, head) \
-    for ((pos) = (head)->next, (n) = (pos)->next; (pos) != (head); \
-         (pos) = (n), (n) = (pos)->next)
+    for ((pos) = (head)->next, (n) = (pos)->next; (pos) != (head); (pos) = (n), (n) = (pos)->next)
 
 int drv_user_list_empty(const struct list_head *head);
 void drv_user_list_add_tail(struct list_head *new_node, struct list_head *head);

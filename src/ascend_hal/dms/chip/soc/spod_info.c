@@ -13,8 +13,8 @@
 #include "dms_device_info.h"
 #include "ascend_hal.h"
 
-drvError_t dms_get_spod_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t dms_get_spod_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                             unsigned int *size)
 {
     int ret;
 
@@ -27,10 +27,10 @@ drvError_t dms_get_spod_info(unsigned int dev_id, unsigned int main_cmd, unsigne
         return DRV_ERROR_PARA_ERROR;
     }
     if (*size < sizeof(struct dsmi_spod_info)) {
-        DMS_ERR("Wrong buffer length. (dev_id=%u, len=%u)\n", dev_id, *size);
+        DMS_ERR("Wrong buffer length. (dev_id=%u, len=%u, min=%zu)\n", dev_id, *size, sizeof(struct dsmi_spod_info));
         return DRV_ERROR_PARA_ERROR;
     }
-    ret = DmsGetDeviceInfoEx(dev_id, main_cmd, sub_cmd, buf, size);
+    ret = halDmsGetDeviceInfoEx(dev_id, main_cmd, sub_cmd, buf, size);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Failed to obtain the device information. (dev_id=%u; ret=%d)", dev_id, ret);
         return ret;
@@ -45,7 +45,7 @@ drvError_t dms_get_spod_item(uint32_t devId, int32_t infoType, int64_t *value)
     struct dsmi_spod_info info = {0};
     unsigned int size = sizeof(struct dsmi_spod_info);
 
-    ret = DmsGetDeviceInfoEx(devId, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_SPOD_INFO, &info, &size);
+    ret = halDmsGetDeviceInfoEx(devId, DSMI_MAIN_CMD_CHIP_INF, DSMI_CHIP_INF_SUB_CMD_SPOD_INFO, &info, &size);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Failed to obtain the device info. (dev_id=%u; ret=%d)\n", devId, ret);
         return ret;
@@ -73,21 +73,20 @@ drvError_t dms_get_spod_item(uint32_t devId, int32_t infoType, int64_t *value)
 }
 
 #ifdef CFG_FEATURE_SUPPORT_GET_SPOD_PING_INFO
-drvError_t dms_get_spod_ping_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t dms_get_spod_ping_info(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                  unsigned int *size)
 {
     int ret;
 
     if ((size == NULL) || (buf == NULL)) {
-        DMS_ERR("Invalid parameter. (dev_id=%u; size_is_null=%d; buf_is_null=%d)\n",
-            dev_id, size == NULL, buf == NULL);
+        DMS_ERR("Invalid parameter. (dev_id=%u; size_is_null=%d; buf_is_null=%d)\n", dev_id, size == NULL, buf == NULL);
         return DRV_ERROR_PARA_ERROR;
     }
     if (*size < sizeof(unsigned int)) {
         DMS_ERR("Invalid parameter. (dev_id=%u, size_invalid=%u; min=%zu)\n", dev_id, *size, sizeof(unsigned int));
         return DRV_ERROR_PARA_ERROR;
     }
-    ret = DmsGetDeviceInfoEx(dev_id, main_cmd, sub_cmd, buf, size);
+    ret = halDmsGetDeviceInfoEx(dev_id, main_cmd, sub_cmd, buf, size);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "Failed to obtain the device information. (dev_id=%u; ret=%d)", dev_id, ret);
         return ret;
@@ -97,8 +96,8 @@ drvError_t dms_get_spod_ping_info(unsigned int dev_id, unsigned int main_cmd, un
 }
 #endif
 
-drvError_t dms_get_spod_node_status(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd,
-    void *buf, unsigned int *size)
+drvError_t dms_get_spod_node_status(unsigned int dev_id, unsigned int main_cmd, unsigned int sub_cmd, void *buf,
+                                    unsigned int *size)
 {
     int ret;
     struct dms_filter_st filter = {0};
@@ -107,8 +106,8 @@ drvError_t dms_get_spod_node_status(unsigned int dev_id, unsigned int main_cmd, 
     struct urd_ioctl_arg ioarg = {0};
 
     if ((buf == NULL) || (size == NULL)) {
-        DMS_ERR("Invalid parameter. (dev_id=%u; buf_is_null=%d; size_is_null=%d;)\n",
-            dev_id, buf == NULL, size == NULL);
+        DMS_ERR("Invalid parameter. (dev_id=%u; buf_is_null=%d; size_is_null=%d;)\n", dev_id, buf == NULL,
+                size == NULL);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -130,8 +129,8 @@ drvError_t dms_get_spod_node_status(unsigned int dev_id, unsigned int main_cmd, 
     ret = DmsIoctlConvertErrno(DMS_IOCTL_CMD, &ioarg);
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret,
-            "get spod node info ioctl failed. (dev_id=%u; main_cmd=0x%x; sub_cmd=0x%x; ret=%d)\n",
-            dev_id, main_cmd, sub_cmd, ret);
+                              "get spod node info ioctl failed. (dev_id=%u; main_cmd=0x%x; sub_cmd=0x%x; ret=%d)\n",
+                              dev_id, main_cmd, sub_cmd, ret);
         return ret;
     }
 
@@ -140,8 +139,7 @@ drvError_t dms_get_spod_node_status(unsigned int dev_id, unsigned int main_cmd, 
     return DRV_ERROR_NONE;
 }
 
-drvError_t dms_set_spod_node_status(unsigned int dev_id, unsigned int sub_cmd,
-    const void *buf, unsigned int size)
+drvError_t dms_set_spod_node_status(unsigned int dev_id, unsigned int sub_cmd, const void *buf, unsigned int size)
 {
     int ret;
     struct dms_filter_st filter = {0};
@@ -165,8 +163,8 @@ drvError_t dms_set_spod_node_status(unsigned int dev_id, unsigned int sub_cmd,
 
     ret = DmsIoctlConvertErrno(DMS_IOCTL_CMD, &ioarg);
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Set spod node info ioctl failed. (dev_id=%u; sub_cmd=0x%x; ret=%d)\n",
-            dev_id, sub_cmd, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Set spod node info ioctl failed. (dev_id=%u; sub_cmd=0x%x; ret=%d)\n", dev_id,
+                              sub_cmd, ret);
         return ret;
     }
 

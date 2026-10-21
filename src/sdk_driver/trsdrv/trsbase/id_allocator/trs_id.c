@@ -27,9 +27,7 @@
 #define MAX_TRS_ID_BATCH_NUM 64U
 static ka_mutex_t g_trs_id_mutex;
 
-#ifdef CFG_FEATURE_ID_NODE_KMEM_CACHE
-static ka_kmem_cache_t *trs_id_cache;
-#endif
+static ka_kmem_cache_t *trs_id_cache = NULL;
 
 struct trs_id_rsv_node {
     u32 id;
@@ -93,47 +91,25 @@ size_t trs_id_get_pool_size(void)
 
 static struct trs_id_node *trs_id_node_create(void)
 {
-    struct trs_id_node *node = NULL;
-
-#ifdef CFG_FEATURE_ID_NODE_KMEM_CACHE
-    node = ka_mm_kmem_cache_alloc(trs_id_cache, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-#else
-    node = trs_kmalloc(trs_id_get_node_size(), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-#endif
-    return node;
+    return (struct trs_id_node *)ka_mm_kmem_cache_alloc(trs_id_cache, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
 }
 
 static void trs_id_node_destroy(struct trs_id_node *node)
 {
     if (node != NULL) {
-#ifdef CFG_FEATURE_ID_NODE_KMEM_CACHE
         ka_mm_kmem_cache_free(trs_id_cache, node);
-#else
-        trs_kfree(node);
-#endif
     }
 }
 
 static struct trs_id_rsv_node *trs_id_rsv_node_create(void)
 {
-    struct trs_id_rsv_node *node = NULL;
-
-#ifdef CFG_FEATURE_ID_NODE_KMEM_CACHE
-    node = ka_mm_kmem_cache_alloc(trs_id_cache, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-#else
-    node = trs_kmalloc(sizeof(struct trs_id_rsv_node), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
-#endif
-    return node;
+    return (struct trs_id_rsv_node *)ka_mm_kmem_cache_alloc(trs_id_cache, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
 }
 
 static void trs_id_rsv_node_destroy(struct trs_id_rsv_node *node)
 {
     if (node != NULL) {
-#ifdef CFG_FEATURE_ID_NODE_KMEM_CACHE
         ka_mm_kmem_cache_free(trs_id_cache, node);
-#else
-        trs_kfree(node);
-#endif
     }
 }
 
@@ -333,7 +309,7 @@ static struct trs_id_pool *trs_id_pool_create(struct trs_id_inst *inst, int type
         }
     } else {
         if ((attr->batch_num == 0) || (attr->batch_num > MAX_TRS_ID_BATCH_NUM)) {
-            trs_err("Batch num invalid. (batch_num=%u; range=1-%u)\n", attr->batch_num, MAX_TRS_ID_BATCH_NUM);
+            trs_err("Batch num invalid. (batch_num=%u)\n", attr->batch_num);
             goto out;
         }
         id_pool->ops = *ops;
@@ -474,8 +450,10 @@ static int trs_id_pool_try_free_batch(struct trs_id_pool *id_pool)
         }
 
         if (batch_num == 0) {
-            trs_warn("Free batch warn. (type=%s; batch_num=%u; allocatable_num=%u; ret=%d)\n",
-                     trs_id_type_to_name(id_pool->type), batch_num, id_pool->allocatable_num, ret);
+#ifndef EMU_ST
+            trs_warn("Free batch warn. (type=%s; batch_num=%u; allocatable_num=%u)\n",
+                     trs_id_type_to_name(id_pool->type), batch_num, id_pool->allocatable_num);
+#endif
             break;
         }
 
@@ -949,7 +927,7 @@ static int trs_id_attr_check(struct trs_id_attr *attr)
     }
 
     if (attr->batch_num > MAX_TRS_ID_BATCH_NUM) {
-        trs_err("Invalid para. (batch_num=%u; max=%u)\n", attr->batch_num, MAX_TRS_ID_BATCH_NUM);
+        trs_err("Invalid para. (batch_num=%u)\n", attr->batch_num);
         return -EINVAL;
     }
 
@@ -1313,13 +1291,11 @@ int init_trs_id(void)
             g_trs_id_pool[trs_inst][type] = NULL;
         }
     }
-#ifdef CFG_FEATURE_ID_NODE_KMEM_CACHE
     trs_id_cache = ka_mm_kmem_cache_create("trs_id_cache", sizeof(struct trs_id_node), 0, 0, NULL);
     if (trs_id_cache == NULL) {
         trs_err("kmem cache create fail\n");
         return -ENOMEM;
     }
-#endif
     ka_task_mutex_init(&g_trs_id_mutex);
     return 0;
 }
@@ -1329,13 +1305,12 @@ void exit_trs_id(void)
     int trs_inst, type;
 
     trs_info("Exit trs id\n");
-#ifdef CFG_FEATURE_ID_NODE_KMEM_CACHE
+
     if (trs_id_cache != NULL) {
         ka_mm_kmem_cache_destroy(trs_id_cache);
         trs_id_cache = NULL;
         trs_debug("Trs id cache destroy\n");
     }
-#endif
 
     for (trs_inst = 0; trs_inst < TRS_TS_INST_MAX_NUM; trs_inst++) {
         for (type = TRS_STREAM_ID; type < TRS_ID_TYPE_MAX; type++) {

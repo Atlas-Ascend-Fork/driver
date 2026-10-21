@@ -50,7 +50,7 @@
 #define DM_SB_SLAVE_INTF "dm_sb_slave"
 #define DM_IPC_INTF "dm_ipc"
 #define DM_IAM_INTF "dm_iam"
-#define ROOT_PRIV  1
+#define ROOT_PRIV 1
 #define DMP_SERVER 1
 #define GUEST_PROP 0
 #define ADMIN_PROP 1
@@ -99,8 +99,8 @@ typedef struct dm_recv {
     DM_MSG_ST msg;
 } DM_RECV_ST;
 
-#define DM_INTF_PIPE_WR_FAILED_CNT   5
-#define DM_INTF_PIPE_WR_FAILED_MAX   8
+#define DM_INTF_PIPE_WR_FAILED_CNT 5
+#define DM_INTF_PIPE_WR_FAILED_MAX 8
 typedef struct intf_statistic_item {
     unsigned int pipe_wr_fail;
     unsigned int msg_handle_timeout;

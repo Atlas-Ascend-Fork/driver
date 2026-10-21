@@ -21,17 +21,17 @@
 #include "dvpp_cmdlist_num_define.h"
 #include "jpg_cvdr_reg_nmanager_reg_offset.h"
 
-#define LOW_BIT 4                    // 4:低4bit
-#define HIGH_BIT 34                  // 34:高34bit
-#define CMDLST_LEN_OFFSET 4          // cmdlst每个节点的长度在配置到寄存器时需要右移4字节
-#define PAGE_BYTE 2048               // 2048:last page字节对齐
-#define MASK_IRQ 0x9003F             // 默认走stars, mask中断, 错误中断merge
-#define SMMU_VALUE 0x4075            // 0x4075:user域smmu相关的默认值
-#define IRQ_CLEAR 0x3F               // 0x3F:清中断标志0~5bit
-#define ENABLE 0x1                   // 1:使能
-#define ACCURACY_SELECT 0            // 0:精度与libjpeg保持一致
-#define HEIGHT_ALIGN 16              // 16:高度16对齐
-#define JPEGD_CMD_NODE_HEAD_SIZE 32  // 32:cmd node预留一段长度用于中断配置和下一个node信息记录
+#define LOW_BIT 4                   // 4:低4bit
+#define HIGH_BIT 34                 // 34:高34bit
+#define CMDLST_LEN_OFFSET 4         // cmdlst每个节点的长度在配置到寄存器时需要右移4字节
+#define PAGE_BYTE 2048              // 2048:last page字节对齐
+#define MASK_IRQ 0x9003F            // 默认走stars, mask中断, 错误中断merge
+#define SMMU_VALUE 0x4075           // 0x4075:user域smmu相关的默认值
+#define IRQ_CLEAR 0x3F              // 0x3F:清中断标志0~5bit
+#define ENABLE 0x1                  // 1:使能
+#define ACCURACY_SELECT 0           // 0:精度与libjpeg保持一致
+#define HEIGHT_ALIGN 16             // 16:高度16对齐
+#define JPEGD_CMD_NODE_HEAD_SIZE 32 // 32:cmd node预留一段长度用于中断配置和下一个node信息记录
 
 void config_jpegd_cmdnode_reverse_space(struct CmdNode *node)
 {
@@ -72,7 +72,7 @@ void config_jpegd_accuracy(struct CmdNode *node)
     dvpp_seq_set_cmdnode_val(node, ACCURACY_SELECT);
 }
 
-void config_jpegd_pixel_size(struct CmdNode *node, JpegdConfig* jpegdConfig)
+void config_jpegd_pixel_size(struct CmdNode *node, JpegdConfig *jpegdConfig)
 {
     // 1. config input pix width and height
     union FrameSize frameSize;
@@ -96,7 +96,7 @@ void config_jpegd_pixel_size(struct CmdNode *node, JpegdConfig* jpegdConfig)
     dvpp_seq_set_cmdnode_val(node, (SOC_JPGD_CFG_CROP_HORIZONTAL_REG & CMDLIST_FIX_WRITE));
     dvpp_seq_set_cmdnode_val(node, cropHorizontal.u32);
     DVPP_CMDLIST_JPEGD_LOG_DEBUG("cmdlist cropHorizontal start:%u, end:%u\n", cropHorizontal.bits.pixStartHor,
-        cropHorizontal.bits.pixEndHor);
+                                 cropHorizontal.bits.pixEndHor);
 
     // 2.2 v
     cropVertical.u32 = 0;
@@ -105,7 +105,7 @@ void config_jpegd_pixel_size(struct CmdNode *node, JpegdConfig* jpegdConfig)
     dvpp_seq_set_cmdnode_val(node, (SOC_JPGD_CFG_CROP_VERTICAL_REG & CMDLIST_FIX_WRITE));
     dvpp_seq_set_cmdnode_val(node, cropVertical.u32);
     DVPP_CMDLIST_JPEGD_LOG_DEBUG("cmdlist cropVertical start:%u, end:%u\n", cropVertical.bits.pixStartVer,
-        cropVertical.bits.pixEndVer);
+                                 cropVertical.bits.pixEndVer);
 
     // 3. config frame stride
     // 3.1 y
@@ -116,9 +116,9 @@ void config_jpegd_pixel_size(struct CmdNode *node, JpegdConfig* jpegdConfig)
 
     // 3.2 c
     frameStrideC.u32 = 0;
-    frameStrideC.bits.lastPageC =
-        (jpegdConfig->cPhyAddr + ALIGN_UP(jpegdConfig->height, HEIGHT_ALIGN) * jpegdConfig->cStride) /
-        PAGE_BYTE;
+    frameStrideC.bits.lastPageC = (jpegdConfig->cPhyAddr +
+                                   DVPP_ALIGN_UP(jpegdConfig->height, HEIGHT_ALIGN) * jpegdConfig->cStride) /
+                                  PAGE_BYTE;
     dvpp_seq_set_cmdnode_val(node, (SOC_JPGD_CFG_LAST_PAGE_C_REG & CMDLIST_FIX_WRITE));
     dvpp_seq_set_cmdnode_val(node, frameStrideC.u32);
 
@@ -129,10 +129,10 @@ void config_jpegd_pixel_size(struct CmdNode *node, JpegdConfig* jpegdConfig)
     dvpp_seq_set_cmdnode_val(node, (SOC_JPGD_CFG_FRAME_STRIDE_REG & CMDLIST_FIX_WRITE));
     dvpp_seq_set_cmdnode_val(node, frameStride.u32);
     DVPP_CMDLIST_JPEGD_LOG_DEBUG("frame ystride:%u, cstride:%u, stride:%u\n", frameStride.bits.strideY,
-        frameStride.bits.strideC, frameStride.u32);
+                                 frameStride.bits.strideC, frameStride.u32);
 }
 
-void config_jpegd_addr(struct CmdNode *node, JpegdConfig* jpegdConfig)
+void config_jpegd_addr(struct CmdNode *node, JpegdConfig *jpegdConfig)
 {
     uint32_t frameStartYLow = 0;
     uint32_t frameStartYHigh = 0;
@@ -179,7 +179,7 @@ void config_jpegd_addr(struct CmdNode *node, JpegdConfig* jpegdConfig)
     dvpp_seq_set_cmdnode_val(node, frameStartCHigh);
 }
 
-void config_jpegd_out_type(struct CmdNode *node, const JpegdConfig* jpegdConfig)
+void config_jpegd_out_type(struct CmdNode *node, const JpegdConfig *jpegdConfig)
 {
     union OutputType outputType;
 
@@ -190,8 +190,8 @@ void config_jpegd_out_type(struct CmdNode *node, const JpegdConfig* jpegdConfig)
     outputType.bits.rgbAlpha = 0;                 // 暂不支持rgb输出
     dvpp_seq_set_cmdnode_val(node, (SOC_JPGD_CFG_OUTPUT_TYPE_REG & CMDLIST_FIX_WRITE));
     dvpp_seq_set_cmdnode_val(node, outputType.u32);
-    DVPP_CMDLIST_JPEGD_LOG_DEBUG("frame outputType:%u, uvSwap:%u, outputType u32:%u\n",
-        outputType.bits.outputType, outputType.bits.uvSwap, outputType.u32);
+    DVPP_CMDLIST_JPEGD_LOG_DEBUG("frame outputType:%u, uvSwap:%u, outputType u32:%u\n", outputType.bits.outputType,
+                                 outputType.bits.uvSwap, outputType.u32);
 }
 
 void config_jpegd_freq_scale(struct CmdNode *node)
@@ -214,7 +214,7 @@ void config_jpegd_cvdr_du_nr_rd(struct CmdNode *node)
     DVPP_CMDLIST_JPEGD_LOG_DEBUG("cvdr du:0x%x\n", du_nr_rd);
 }
 
-void config_jpegd_sample_factor(struct CmdNode *node, const JpegdConfig* jpegdConfig)
+void config_jpegd_sample_factor(struct CmdNode *node, const JpegdConfig *jpegdConfig)
 {
     union SamplingFactor sampleFactor;
 
@@ -225,11 +225,11 @@ void config_jpegd_sample_factor(struct CmdNode *node, const JpegdConfig* jpegdCo
     sampleFactor.bits.vFac = jpegdConfig->vFac;
     dvpp_seq_set_cmdnode_val(node, (SOC_JPGD_CFG_SAMPLING_FACTOR_REG & CMDLIST_FIX_WRITE));
     dvpp_seq_set_cmdnode_val(node, sampleFactor.u32);
-    DVPP_CMDLIST_JPEGD_LOG_DEBUG("sampleFactor:0x%x, yFac:0x%x, uFac:0x%x, vFac:0x%x\n",
-        sampleFactor.u32, sampleFactor.bits.yFac, sampleFactor.bits.uFac, sampleFactor.bits.vFac);
+    DVPP_CMDLIST_JPEGD_LOG_DEBUG("sampleFactor:0x%x, yFac:0x%x, uFac:0x%x, vFac:0x%x\n", sampleFactor.u32,
+                                 sampleFactor.bits.yFac, sampleFactor.bits.uFac, sampleFactor.bits.vFac);
 }
 
-void config_jpegd_dri(struct CmdNode *node, const JpegdConfig* jpegdConfig)
+void config_jpegd_dri(struct CmdNode *node, const JpegdConfig *jpegdConfig)
 {
     union Dri dri;
 
@@ -241,7 +241,7 @@ void config_jpegd_dri(struct CmdNode *node, const JpegdConfig* jpegdConfig)
     DVPP_CMDLIST_JPEGD_LOG_DEBUG("dri:0x%x\n", dri.u32);
 }
 
-void config_jpegd_table(struct CmdNode *node, JpegdConfig* jpegdConfig)
+void config_jpegd_table(struct CmdNode *node, JpegdConfig *jpegdConfig)
 {
     uint32_t i = 0;
 
@@ -282,11 +282,11 @@ void config_jpegd_dec_start(struct CmdNode *node)
     decStart.bits.ckGtEn = 0; // 0为开启自动时钟门控，1为关闭自动时钟门控
     dvpp_seq_set_cmdnode_val(node, (SOC_JPGD_CFG_JPEG_DEC_START_REG & CMDLIST_FIX_WRITE));
     dvpp_seq_set_cmdnode_val(node, decStart.u32);
-    DVPP_CMDLIST_JPEGD_LOG_DEBUG("decode start:0x%x, decodeStart bit:0x%x, clock enable bit:0x%x \n",
-        decStart.u32, decStart.bits.decodeStart, decStart.bits.ckGtEn);
+    DVPP_CMDLIST_JPEGD_LOG_DEBUG("decode start:0x%x, decodeStart bit:0x%x, clock enable bit:0x%x \n", decStart.u32,
+                                 decStart.bits.decodeStart, decStart.bits.ckGtEn);
 }
 
-void config_jpegd_reg(struct CmdNode *node, JpegdConfig* jpegdConfig)
+void config_jpegd_reg(struct CmdNode *node, JpegdConfig *jpegdConfig)
 {
     config_jpegd_accuracy(node);
 
@@ -313,14 +313,14 @@ void config_jepgd_next_node(struct CmdBuf *cmd_buf, struct CmdNode *node)
 {
     uint64_t baseAddr = 0;
     // 配置len, 128byte对齐为了计算出来的buffer1的起始地址是128byte对齐
-    uint32_t len = ALIGN_UP(node->next->dataSize, ADDR_ALIGN_SIZE);
+    uint32_t len = DVPP_ALIGN_UP(node->next->dataSize, ADDR_ALIGN_SIZE);
     DVPP_CMDLIST_JPEGD_LOG_DEBUG("cmdlist current:%u, len:%u", node->next->dataSize, len);
     dvpp_ext_set_cmdnode_val(node, SOC_CMDLST_REG_CMDLST_HW_BUF_LEN_REG & CMDLIST_FIX_WRITE);
     dvpp_ext_set_cmdnode_val(node, len >> LOW_BIT);
 
     // 2.计算下一个节点的地址
-    baseAddr = (uint64_t)(uintptr_t)(node->next->startAddr) -
-                        (uint64_t)(uintptr_t)(cmd_buf->startAddr) + cmd_buf->ioStartAddr;
+    baseAddr = (uint64_t)(uintptr_t)(node->next->startAddr) - (uint64_t)(uintptr_t)(cmd_buf->startAddr) +
+               cmd_buf->ioStartAddr;
 
     // 3.1计算高位地址
     dvpp_ext_set_cmdnode_val(node, SOC_CMDLST_REG_CMDLST_HW_AXI_ADDR_H_REG & CMDLIST_FIX_WRITE);
@@ -331,7 +331,7 @@ void config_jepgd_next_node(struct CmdBuf *cmd_buf, struct CmdNode *node)
     dvpp_ext_set_cmdnode_val(node, (baseAddr >> NUM_7) & 0xFFFFFFFF); // 7~38bit
 }
 
-void config_jpegd_cmdnode(struct CmdNode *node, JpegdConfig* jpegdConfig)
+void config_jpegd_cmdnode(struct CmdNode *node, JpegdConfig *jpegdConfig)
 {
     config_jpegd_cmdnode_reverse_space(node);
 
@@ -343,9 +343,9 @@ void config_jpegd_cmdnode(struct CmdNode *node, JpegdConfig* jpegdConfig)
 
 void config_jpegd_sqelist(struct CmdBuf *cmd_buf, uint32_t sqe_idx, uint32_t blkdim)
 {
-    uint32_t* cur_sqe_addr = (uint32_t*)(uintptr_t)(cmd_buf->bufAddr + sqe_idx * SQE_LEN);
-    uint64_t offset =
-        (uint64_t)(uintptr_t)(cmd_buf->cmdHeadNode->startAddr) - (uint64_t)(uintptr_t)(cmd_buf->startAddr);
+    uint32_t *cur_sqe_addr = (uint32_t *)(uintptr_t)(cmd_buf->bufAddr + sqe_idx * SQE_LEN);
+    uint64_t offset = (uint64_t)(uintptr_t)(cmd_buf->cmdHeadNode->startAddr) -
+                      (uint64_t)(uintptr_t)(cmd_buf->startAddr);
     uint64_t startAddr = cmd_buf->ioStartAddr + offset;
 
     cur_sqe_addr[NUM_0] = DVPP_SQE_JPEGD; // Type=14 JPEGD任务
@@ -386,7 +386,7 @@ void config_jpegd_sqe(struct CmdBuf *cmd_buf, enum dvpp_sqe_ptr_mode mode, uint3
         sqe->filed[NUM_3] |= (0x1 << SQE_PTRMODE_OFFSET); // 第3个4字节的第24位表示链表模式，1表示二级
         sqe->filed[NUM_4] = GET_LOW_ADDR(cmd_buf->ioAddr); // 第4个4字节存放二级链表的低32位地址
         sqe->filed[NUM_5] = GET_HIGH_ADDR(cmd_buf->ioAddr); // 第5个4字节的低16位存放二级链表的高16位地址
-        sqe->filed[NUM_5] &= 0x1FFFF; // 第5个4字节的17~30bit是保留字段
+        sqe->filed[NUM_5] &= 0x1FFFF;                       // 第5个4字节的17~30bit是保留字段
         sqe->filed[NUM_5] |= (0x1 << SQE_ADDRTYPE_OFFSET); // 第5个4字节的最高位表示地址类型 1:虚拟地址 0:物理地址
     }
 }

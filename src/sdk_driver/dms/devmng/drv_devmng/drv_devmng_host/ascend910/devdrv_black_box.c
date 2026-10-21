@@ -266,7 +266,7 @@ STATIC void devdrv_host_black_box_device_id_process(struct devdrv_black_box_user
     }
     dev_num = bbox_devids->dev_num;
     if (dev_num > ASCEND_DEV_MAX_NUM) {
-        devdrv_drv_err("invalid dev_num(%u).\n", dev_num);
+        devdrv_drv_err("invalid dev_num. (dev_num=%u; max=%u)\n", dev_num, ASCEND_DEV_MAX_NUM);
         return;
     }
 
@@ -290,11 +290,13 @@ STATIC void devdrv_host_black_box_status_info_process(struct devdrv_black_box_us
     }
 
     if ((bbox_state_info->devId >= ASCEND_DEV_MAX_NUM) || (bbox_state_info->state >= STATE_TO_MAX)) {
-        devdrv_drv_err("dev id(%u) or state(%u) is out of range.\n", bbox_state_info->devId, bbox_state_info->state);
+        devdrv_drv_err("devId or state is out of range. (devId=%u; devId_max=%u; state=%u; state_max=%u)\n",
+                       bbox_state_info->devId, ASCEND_DEV_MAX_NUM, bbox_state_info->state, STATE_TO_MAX);
         return;
     }
 
-    devdrv_drv_info("status is informed through pcie driver. (dev_id=%u; state=%u; code=0x%x)\n",
+    devdrv_drv_info("status is informed through pcie driver with "
+                    "dev id(%u), state(%u), code(0x%x).\n",
                     bbox_state_info->devId, (u32)bbox_state_info->state, black_box_user->exception_code);
     black_box_user->priv_data.bbox_state.state = bbox_state_info->state;
     black_box_user->priv_data.bbox_state.devId = bbox_state_info->devId;

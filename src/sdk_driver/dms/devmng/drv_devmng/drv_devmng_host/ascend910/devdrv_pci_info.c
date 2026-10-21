@@ -20,28 +20,30 @@
 #include "comm_kernel_interface.h"
 #include "devdrv_manager_ioctl.h"
 
-static const ka_pci_device_id_t devdrv_driver_tbl[] = {{ KA_PCI_VDEVICE(HUAWEI, 0xd100), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd105), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, PCI_DEVICE_CLOUD), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd801), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd500), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd501), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd802), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd803), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd804), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd805), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd806), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd807), 0 },
-                                                         { KA_PCI_VDEVICE(HUAWEI, 0xd808), 0 },
-                                                         { DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500,
-                                                           KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-                                                         { 0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-                                                         { 0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-                                                         { 0x20E9, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-                                                         { 0x20C6, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-                                                         { 0x203F, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-                                                         { 0x20E9, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-                                                         {}};
+static const ka_pci_device_id_t devdrv_driver_tbl[] = {
+    {KA_PCI_VDEVICE(HUAWEI, 0xd100), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd105), 0},
+    {KA_PCI_VDEVICE(HUAWEI, PCI_DEVICE_CLOUD), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd801), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd500), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd501), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd802), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd803), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd804), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd805), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd809), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
+    {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20C6, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x203F, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20E9, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20C6, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x203F, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {0x20E9, 0xd802, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {}};
 KA_MODULE_DEVICE_TABLE(pci, devdrv_driver_tbl);
 
 int devdrv_manager_get_pci_info(ka_file_t *filep, unsigned int cmd, unsigned long arg)
@@ -143,6 +145,7 @@ int devdrv_get_pcie_id(unsigned long arg)
     pcie_id_info.bus = id_info.bus;
     pcie_id_info.device = id_info.device;
     pcie_id_info.fn = id_info.fn;
+    pcie_id_info.domain = id_info.domain;
 
     ret = copy_to_user_safe((void *)(uintptr_t)arg, &pcie_id_info, sizeof(struct dmanage_pcie_id_info));
     if (ret) {
@@ -175,6 +178,10 @@ int devdrv_manager_get_dev_resource(struct devdrv_info *dev_info)
     dev_info->pci_info.function_number = dev_pci_info.function_no;
 #else
     pdata = dev_info->pdata;
+    if (pdata == NULL) {
+        devdrv_drv_err("dev_info pdata is NULL\n");
+        return -EFAULT;
+    }
     pdata->pci_info.bus_number = dev_pci_info.bus_no;
     pdata->pci_info.dev_number = dev_pci_info.device_no;
     pdata->pci_info.function_number = dev_pci_info.function_no;

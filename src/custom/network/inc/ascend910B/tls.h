@@ -11,7 +11,7 @@
 #ifndef __TLS_H
 #define __TLS_H
 #include <stdint.h>
-#if defined (CA_CONFIG_LLT) || defined (CONFIG_LLT)
+#if defined(CA_CONFIG_LLT) || defined(CONFIG_LLT)
 #include "stub_ssl.h"
 #else
 #include <openssl/rand.h>
@@ -30,7 +30,7 @@
 #define TLS_DH_KY_BITS_MIN_LEN 2048
 #define TLS_EC_KY_BITS_MIN_LEN 256
 #define TLS_KY_NONCE_LEN 48
-#define TLS_KY_RSA_LEN   512
+#define TLS_KY_RSA_LEN 512
 
 #define MAX_TLS_CFG_COUNT 18
 #define MAX_TLS_CA_ALIAS_LEN 63
@@ -66,8 +66,8 @@
 #define WORK_KEY_LEN 516
 #define TAG_LEN 16
 
-#define  ENVELOPE_SYMM_KY_LEN 32
-#define  ENVELOPE_SYMM_ENC_KY_LEN 512
+#define ENVELOPE_SYMM_KY_LEN 32
+#define ENVELOPE_SYMM_ENC_KY_LEN 512
 
 #define PWD_TPYE_CNT 4
 #define PWD_NUM_INDEX 0
@@ -83,7 +83,7 @@
 #define END_TIME 1
 #define YEAR_MON_DAY_INDEX 2
 #define YEAR_MON_DAY_LEN 8
-#define TLS_DEFAULT_ALARM_TIME 60 // day
+#define TLS_DEFAULT_ALARM_TIME 60   // day
 #define TLS_DAY_TO_S (60 * 60 * 24) // s
 
 #define TLS_PRI_PLAINTEXT 0
@@ -94,7 +94,6 @@
 #define TLS_ENC_MODE 1
 
 #define TLS_VERSION 2
-
 
 enum {
     CERT_STATE_OK = 0,
@@ -152,27 +151,27 @@ enum tls_cert_tpye {
 #define TLS_SAVE_TO_FILE 1
 #define TLS_ENABLE_INVALID 0xFFFFFFFF
 
-#define TLS_MNG_INFO_DEFAULT_VERSION   0x0
+#define TLS_MNG_INFO_DEFAULT_VERSION 0x0
 // flash mode won't use kmc
-#define TLS_MNG_INFO_VERSION_1         0x00010000
+#define TLS_MNG_INFO_VERSION_1 0x00010000
 
 struct tls_cert_mng_info {
     char magic_words[TLS_MAGIC_WORDS_LEN]; /* 1234567 */
-    unsigned int cert_count; /* num of certs */
-    int state; /* 0:not ok 1:ok */
-    unsigned int ca_wcout; /* counts of ca writing flash */
-    unsigned int cert_ky_wcout; /* counts of eqpt and key writing flash */
-    unsigned int crl_wcout; /* counts of crl writing flash */
-    unsigned int crl_len; /* len of crl */
-    unsigned int ky_len; /* len of key */
-    unsigned int ky_enc_len; /* len of enc key */
-    unsigned char salt[TLS_SALT_LEN]; /* salt */
-    unsigned int salt_size; /* len of salt */
+    unsigned int cert_count;               /* num of certs */
+    int state;                             /* 0:not ok 1:ok */
+    unsigned int ca_wcout;                 /* counts of ca writing flash */
+    unsigned int cert_ky_wcout;            /* counts of eqpt and key writing flash */
+    unsigned int crl_wcout;                /* counts of crl writing flash */
+    unsigned int crl_len;                  /* len of crl */
+    unsigned int ky_len;                   /* len of key */
+    unsigned int ky_enc_len;               /* len of enc key */
+    unsigned char salt[TLS_SALT_LEN];      /* salt */
+    unsigned int salt_size;                /* len of salt */
     unsigned int cert_len[MAX_CERT_COUNT];
     unsigned int total_cert_len; /* not include head only len of certs */
     unsigned int tls_enable;
     unsigned int tls_alarm;
-    unsigned int pwd_len; /* len of pwd */
+    unsigned int pwd_len;     /* len of pwd */
     unsigned int pwd_enc_len; /* len of enc pwd */
     union {
         unsigned char enc_pwd[PWD_ENC_LEN];
@@ -181,7 +180,7 @@ struct tls_cert_mng_info {
     unsigned int work_key_len; /* len of work_key */
     unsigned char work_key[WORK_KEY_LEN];
     unsigned char iv[IV_LEN]; /* initial vector */
-    unsigned int iv_size; /* len of initial vector */
+    unsigned int iv_size;     /* len of initial vector */
     unsigned char tag[TAG_LEN];
     unsigned int tag_len;
     unsigned int save_mode;
@@ -192,8 +191,8 @@ struct tls_cert_mng_info {
 };
 
 #define TLS_CA_SSL_NEW_CERT_LEN 3072
-#define TLS_CA_SSL_MAX_NEW_CERT_NUM  8
-#define TLS_CA_SSL_MAX_FLASH_NUM  2 // falsh块cb1与cb2为一组，cb3与cb4为一组
+#define TLS_CA_SSL_MAX_NEW_CERT_NUM 8
+#define TLS_CA_SSL_MAX_FLASH_NUM 2 // falsh块cb1与cb2为一组，cb3与cb4为一组
 #define TLS_CA_SSL_NEW_CERT_ALIAS_LEN 64
 #define TLS_CA_SSL_RSV_LEN 7160
 
@@ -202,8 +201,8 @@ struct tls_ca_new_cert_info {
 };
 
 struct tls_ca_alias_names {
-    char name[TLS_CA_SSL_NEW_CERT_ALIAS_LEN];        // 证书别名
-    char thumbprint[TLS_CA_SSL_NEW_CERT_ALIAS_LEN];  // 证书指纹
+    char name[TLS_CA_SSL_NEW_CERT_ALIAS_LEN];       // 证书别名
+    char thumbprint[TLS_CA_SSL_NEW_CERT_ALIAS_LEN]; // 证书指纹
 };
 
 // 910B旧证书格式
@@ -265,7 +264,7 @@ struct tls_enable_info {
 #define TLS_CLEAR_ALL (-1)
 
 struct tls_clear_info {
-    unsigned int clear_flag;   // -1:clear all, 0~18:clear cert 0~18 of tls_cert_tpye; (now only TLS_CRL is used)
+    unsigned int clear_flag; // -1:clear all, 0~18:clear cert 0~18 of tls_cert_tpye; (now only TLS_CRL is used)
     unsigned int save_mode;
 };
 
@@ -283,13 +282,13 @@ struct leaf_cert_info {
     unsigned int leaf_cert_idx;
 };
 
-#define HCCP_CERTS_MNG_NAME   "hccp_certs_mng_cb"
-#define HCCP_CERTS_EQPT_NAME  "hccp_certs_eqpt_cb"
-#define HCCP_CERTS_EQPT1_NAME  "hccp_certs_eqpt_cb1"
-#define HCCP_CERTS_EQPT2_NAME  "hccp_certs_eqpt_cb2"
-#define HCCP_CERTS_EQPT3_NAME  "hccp_certs_eqpt_cb3"
-#define HCCP_CERTS_EQPT4_NAME  "hccp_certs_eqpt_cb4"
-#define HCCP_PRI_DATA_NAME    "hccp_pri_data_cb"
+#define HCCP_CERTS_MNG_NAME "hccp_certs_mng_cb"
+#define HCCP_CERTS_EQPT_NAME "hccp_certs_eqpt_cb"
+#define HCCP_CERTS_EQPT1_NAME "hccp_certs_eqpt_cb1"
+#define HCCP_CERTS_EQPT2_NAME "hccp_certs_eqpt_cb2"
+#define HCCP_CERTS_EQPT3_NAME "hccp_certs_eqpt_cb3"
+#define HCCP_CERTS_EQPT4_NAME "hccp_certs_eqpt_cb4"
+#define HCCP_PRI_DATA_NAME "hccp_pri_data_cb"
 #define HCCP_CERTS_REVOC_NAME "hccp_certs_revoc_cb"
 
 #define MAGIC_WORD_FOR_TLS "1234567"
@@ -299,7 +298,7 @@ struct leaf_cert_info {
 
 #define TLS_LOCK_FILE_LEN 128
 #define TLS_HOST_SAVE_PATH_LEN 128
-#define MAX_TLS_LEN         30
+#define MAX_TLS_LEN 30
 
 struct tls_ky_match_info {
     unsigned char pri_ky_info[KY_MAX_SIZE];
@@ -314,13 +313,13 @@ struct tls_ky_match_info {
     size_t sig_len;
 };
 
-#define  ENVELOPE_PUB_CERT 0
-#define  ENVELOPE_PUB_KY 1
+#define ENVELOPE_PUB_CERT 0
+#define ENVELOPE_PUB_KY 1
 
 struct digital_envelope_mng_info {
-    unsigned int pri_ky_len; /* len of pri key */
+    unsigned int pri_ky_len;     /* len of pri key */
     unsigned int pri_ky_enc_len; /* len of enc pri key */
-    unsigned int work_key_len; /* len of work_key */
+    unsigned int work_key_len;   /* len of work_key */
     unsigned char work_key[WORK_KEY_LEN];
 };
 
@@ -363,5 +362,5 @@ struct envelope_kmc_info {
 
 #define ENCRYPTED_FLAG "ENCRYPTED"
 #define VALID_ENCCRY_ALGO "AES-256"
-extern char* strptime(const char* restrict, const char* format, struct tm* restr);  //lint !e116
+extern char *strptime(const char *restrict, const char *format, struct tm *restr); // lint !e116
 #endif

@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
- 
+
 #include "ka_task_pub.h"
 #include "ka_kernel_def_pub.h"
 #include "devdrv_device_status.h"
@@ -24,16 +24,15 @@
 #include "devdrv_manager_common.h"
 
 static u32 g_device_process_status[ASCEND_DEV_MAX_NUM] = {0};
-static KA_TASK_DEFINE_SPINLOCK(g_device_process_status_spinlock);
-
+static KA_TASK_DEFINE_MUTEX(g_device_process_status_mutex);
 
 void devdrv_manager_device_status_init(u32 dev_id)
 {
     g_device_process_status[dev_id] = 0;
 }
 
-STATIC int dms_get_device_startup_status_form_bar(struct devdrv_info *dev_info,
-    unsigned int *dmp_started, unsigned int *device_process_status)
+STATIC int dms_get_device_startup_status_form_bar(struct devdrv_info *dev_info, unsigned int *dmp_started,
+                                                  unsigned int *device_process_status)
 {
     if ((dev_info->shm_head == NULL) || (dev_info->shm_status == NULL) ||
         (dev_info->shm_head->head_info.magic != DEVMNG_SHM_INFO_HEAD_MAGIC)) {
@@ -42,8 +41,7 @@ STATIC int dms_get_device_startup_status_form_bar(struct devdrv_info *dev_info,
     } else if (dev_info->shm_head->head_info.version != DEVMNG_SHM_INFO_HEAD_VERSION) {
         devdrv_drv_err("dev(%u) version of share memory in host is 0x%llx, "
                        "the version in device is 0x%llx, magic is 0x%x.\n",
-                       dev_info->dev_id, DEVMNG_SHM_INFO_HEAD_VERSION,
-                       dev_info->shm_head->head_info.version,
+                       dev_info->dev_id, DEVMNG_SHM_INFO_HEAD_VERSION, dev_info->shm_head->head_info.version,
                        dev_info->shm_head->head_info.magic);
         return -EINVAL;
     } else {
@@ -59,8 +57,8 @@ STATIC int dms_get_device_startup_status_form_bar(struct devdrv_info *dev_info,
 }
 
 #define DEVDRV_SYSTEM_START_FINISH 16
-int dms_get_device_startup_status_form_device(struct devdrv_info *dev_info,
-    unsigned int *dmp_started, unsigned int *device_process_status)
+int dms_get_device_startup_status_form_device(struct devdrv_info *dev_info, unsigned int *dmp_started,
+                                              unsigned int *device_process_status)
 {
     int ret = 0;
 
@@ -69,21 +67,21 @@ int dms_get_device_startup_status_form_device(struct devdrv_info *dev_info,
     }
     *dmp_started = dev_info->dmp_started;
 
-    ka_task_spin_lock(&g_device_process_status_spinlock);
+    ka_task_mutex_lock(&g_device_process_status_mutex);
     if (g_device_process_status[dev_info->dev_id] == DEVDRV_SYSTEM_START_FINISH) {
         *device_process_status = DEVDRV_SYSTEM_START_FINISH;
-        ka_task_spin_unlock(&g_device_process_status_spinlock);
+        ka_task_mutex_unlock(&g_device_process_status_mutex);
         return 0;
     }
     ret = devdrv_manager_h2d_get_device_process_status(dev_info->dev_id, &g_device_process_status[dev_info->dev_id]);
     if (ret != 0) {
-        devdrv_drv_err("Failed to obtain the device process status through H2D. (dev_id=%u; ret=%d)",
-            dev_info->dev_id, ret);
-        ka_task_spin_unlock(&g_device_process_status_spinlock);
+        devdrv_drv_err("Failed to obtain the device process status through H2D. (dev_id=%u; ret=%d)", dev_info->dev_id,
+                       ret);
+        ka_task_mutex_unlock(&g_device_process_status_mutex);
         return ret;
     }
     *device_process_status = g_device_process_status[dev_info->dev_id];
-    ka_task_spin_unlock(&g_device_process_status_spinlock);
+    ka_task_mutex_unlock(&g_device_process_status_mutex);
     return 0;
 }
 

@@ -127,7 +127,9 @@ STATIC void mp_pre_create_mbuf_mp(uint32_t devid)
         return;
     }
 
-    INIT_LIST_HEAD(&g_mbuf_mp_list);
+    if (g_mbuf_mp_list.next == NULL) {
+        INIT_LIST_HEAD(&g_mbuf_mp_list);
+    }
 
     if (mp_create_mbuf_mp(devid, &mp) != 0) {
         buff_err("pre create mbuf mp failed\n");
@@ -227,14 +229,18 @@ int halBuffDeletePool(struct mempool_t *mp)
         return DRV_ERROR_INVALID_VALUE;
     }
 
+    (void)pthread_mutex_lock(&mp->mutex);
     blk_available = buff_api_atomic_read(&mp->blk_available);
     if (mp->blk_num != blk_available) {
+        (void)pthread_mutex_unlock(&mp->mutex);
         buff_err("Mp is in use. (name=%s; blk_num=%u; blk_available=%u; start=0x%llx; size=0x%llx; devid=%u)\n",
                  mp->pool_name, mp->blk_num, blk_available, (unsigned long long)mp->blk_start, mp->blk_total_len,
                  mp->head.devid);
         return DRV_ERROR_BUSY;
     }
     pool->head.status = MP_S_DESTROYED;
+    (void)pthread_mutex_unlock(&mp->mutex);
+
     buff_scale_in(mp->blk_start, mp->blk_total_len);
 
     arg.mp = (uint64)(uintptr_t)mp;

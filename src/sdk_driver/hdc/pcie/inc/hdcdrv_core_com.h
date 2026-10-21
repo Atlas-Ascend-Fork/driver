@@ -24,49 +24,7 @@
 #include "hdcdrv_mem_com.h"
 #include "hdcdrv_cmd_msg.h"
 
-#include "pbl/pbl_ka_memory.h"
-#include "ascend_hal_define.h"
-
-/*
-    KA_SUB_MODULE_TYPE_0: for init/uninit when probe/remove or instance/uninstance
-    KA_SUB_MODULE_TYPE_1: for normal channel, session link, process open/release
-    KA_SUB_MODULE_TYPE_2: for fast channel
-    KA_SUB_MODULE_TYPE_3: for epoll
-    KA_SUB_MODULE_TYPE_4: for sysfs
-*/
-#define hdcdrv_kvzalloc(size, flags, level) ka_kvzalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_ka_kvfree(addr, level) ka_kvfree(addr, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-
-#define hdcdrv_kmalloc(size, flags, level) ka_kmalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_kzalloc(size, flags, level) ka_kzalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_kfree(addr, level) ka_kfree(addr, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-
-// replace vzalloc
-#define hdcdrv_vzalloc(size, level) ka_vzalloc(size, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-// replace vmalloc
-#define hdcdrv_vmalloc(size, gfp_mask, prot, level) \
-    __ka_vmalloc(size, gfp_mask, prot, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_vfree(addr, level) ka_vfree(addr, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-
-#define hdcdrv_alloc_pages(gfp_mask, order, level) \
-    ka_alloc_pages(gfp_mask, order, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_free_pages(addr, order, level) ka_free_pages(addr, order, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-
-#define hdcdrv_alloc_pages_node_ex(nid, gfp_mask, order, level) \
-    ka_alloc_pages_node(nid, gfp_mask, order, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_free_pages_ex(page, order, level) \
-    __ka_free_pages(page, order, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-
-#define hdcdrv_kzalloc_node(size, flags, node, level) \
-    ka_kzalloc_node(size, flags, node, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-// use hdcdrv_kfree for hdcdrv_kzalloc_node
-
-#define hdcdrv_hugetlb_alloc_hugepage(nid, flag, level) \
-    ka_hugetlb_alloc_hugepage(nid, flag, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_alloc_hugetlb_folio_size(nid, size, level) \
-    ka_alloc_hugetlb_folio_size(nid, size, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
-#define hdcdrv_hugetlb_free_hugepage(page, level) \
-    ka_hugetlb_free_hugepage(page, ka_get_module_id(HAL_MODULE_TYPE_HDC, level))
+#include "hdcdrv_ka_memory.h"
 
 #if (defined(CFG_BUILD_DEBUG) && !defined(EXPORT_SYMBOL_UNRELEASE))
 #define EXPORT_SYMBOL_UNRELEASE(symbol) KA_EXPORT_SYMBOL(symbol)
@@ -125,7 +83,7 @@
 
 #define HDCDRV_SMALL_PACKET_SEGMENT (4 * 1024)
 #define HDCDRV_HUGE_PACKET_SEGMENT (512 * 1024)
-#if defined(CFG_FEATURE_MIRROR) || defined(CFG_FEATURE_OVER_XCOM)
+#ifdef CFG_FEATURE_OVER_XCOM
 #define HDCDRV_SMALL_PACKET_NUM 512 /* power of 2 */
 #else
 #define HDCDRV_SMALL_PACKET_NUM 1024U /* power of 2 */
@@ -279,6 +237,7 @@ struct hdc_hotreset_task_info {
 #define HDCDRV_CTRL_MSG_TYPE_GET_DEV_CHAN_STAT 9
 #define HDCDRV_CTRL_MSG_TYPE_GET_DEV_LINK_STAT 10
 #define HDCDRV_CTRL_MSG_TYPE_GET_DEV_DBG_TIME_TAKEN 11
+#define HDCDRV_CTRL_MSG_TYPE_GET_FEATURE_INFO 12
 
 /* ctrl msg status */
 enum HDC_LINK_CTRL_MSG_STATUS_TYPE {
@@ -296,15 +255,9 @@ struct hdcdrv_link_ctrl_msg_stats {
     int last_err[HDCDRV_LINK_CTRL_MSG_STATUS_MAX];
 };
 
-#ifdef CFG_FEATURE_OPTIMIZE_CHAN_MEM
-#define HDCDRV_NON_TRANS_MSG_S_DESC_SIZE 0x10000 /* 64k, pcie support */
-#define HDCDRV_NON_TRANS_MSG_C_DESC_SIZE 0x10000 /* 64k, pcie support */
-#else
-#define HDCDRV_NON_TRANS_MSG_S_DESC_SIZE 0x100000 /* 1M */
-#define HDCDRV_NON_TRANS_MSG_C_DESC_SIZE 0x100000 /* 1M */
-#endif
-
 /* reserved 1k mem for non trans msg head and hdc ctrl msg head */
+#define HDCDRV_NON_TRANS_MSG_S_DESC_SIZE 0x10000 /* 64k */
+#define HDCDRV_NON_TRANS_MSG_C_DESC_SIZE 0x10000 /* 64k */
 #define HDCDRV_MAX_DMA_NODE ((int)((HDCDRV_NON_TRANS_MSG_S_DESC_SIZE - 0x400) / (int)sizeof(struct hdcdrv_dma_mem)))
 #define HDCDRV_CTRL_MEM_MAX_PHY_NUM ((int)(HDCDRV_CTRL_MEM_MAX_LEN / HDCDRV_MEM_MIN_LEN))
 #define HDCDRV_MEM_MAX_PHY_NUM (HDCDRV_MAX_DMA_NODE - HDCDRV_CTRL_MEM_MAX_PHY_NUM)
@@ -384,6 +337,14 @@ struct hdcdrv_link_ctrl_msg_stats {
 #else
 #define STATIC static
 #endif
+
+#define HDCDRV_STR_NAME(n) (#n)
+#define HDCDRV_STR_NAME_LEN 32
+
+#define HDCDRV_KERNEL_UNKNOW_PID (-3)
+
+#define HDCDRV_VMID_MASK 0x7FULL
+#define HDCDRV_VMID_OFFSET 32
 
 extern u64 hdcdrv_get_hash(u64 user_va, u64 pid, u32 fid);
 extern u32 hdcdrv_get_mem_list_len(void);

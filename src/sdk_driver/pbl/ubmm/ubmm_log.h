@@ -19,26 +19,30 @@
 
 #define MODULE_UBMM "ubmm"
 
-#define ubmm_err(fmt, ...) do { \
-    drv_err(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-    share_log_err(DEVMM_SHARE_LOG_START, MODULE_UBMM, "<%s:%d> " fmt, ka_task_get_current_comm(), \
-        ka_task_get_current_tgid(), ##__VA_ARGS__); \
-} while (0)
+#define ubmm_err(fmt, ...)                                                                                 \
+    do {                                                                                                   \
+        drv_err(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);               \
+        share_log_err(DEVMM_SHARE_LOG_START, MODULE_UBMM, "<%s:%d> " fmt, ka_task_get_current_comm(),      \
+                      ka_task_get_current_tgid(), ##__VA_ARGS__);                                          \
+    } while (0)
 
-#define ubmm_warn(fmt, ...) do { \
-    drv_warn(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-} while (0)
+#define ubmm_warn(fmt, ...)                                                                                 \
+    do {                                                                                                    \
+        drv_warn(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                 ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);               \
+    } while (0)
 
-#define ubmm_info(fmt, ...) do { \
-    drv_info(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-} while (0)
+#define ubmm_info(fmt, ...)                                                                                 \
+    do {                                                                                                    \
+        drv_info(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                 ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);               \
+    } while (0)
 
-#define ubmm_debug(fmt, ...) do { \
-    drv_pr_debug(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__); \
-} while (0)
+#define ubmm_debug(fmt, ...)                                                                                    \
+    do {                                                                                                        \
+        drv_pr_debug(MODULE_UBMM, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                     ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);               \
+    } while (0)
 
 #endif

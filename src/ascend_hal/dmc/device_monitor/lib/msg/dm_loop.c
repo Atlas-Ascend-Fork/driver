@@ -46,7 +46,7 @@ STATIC int __selfloop_open(DM_INTF_S *intf)
 STATIC void __selfloop_close(DM_INTF_S *intf)
 {
     int ret;
-    ret = strncmp(intf->name, SELFLOOP_INTF, strlen(intf->name));
+    ret = strncmp(intf->name, SELFLOOP_INTF, strlen(SELFLOOP_INTF));
     if (ret != 0) {
         return;
     }
@@ -82,15 +82,13 @@ STATIC int __selfloop_send(DM_INTF_S *intf, DM_MSG_TYPE msg_type, DM_ADDR_ST *ad
     if (msg->data_len > DM_MSG_DATA_MAX) {
         free(req);
         req = NULL;
-        DEV_MON_ERR("__selfloop_send: msg->data_len too long.msg->data_len=%d\n", msg->data_len);
+        DEV_MON_ERR("__selfloop_send: msg->data_len too long, data_len=%d, max=%d\n", msg->data_len, DM_MSG_DATA_MAX);
         return EINVAL;
     }
 
     req->data_len = msg->data_len;
     ret = memcpy_s(req->data, DM_MSG_DATA_MAX, msg->data, msg->data_len);
-    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req);
-                                req = NULL;
-                                DEV_MON_ERR("memcpy_s error\n"));
+    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(req); req = NULL; DEV_MON_ERR("memcpy_s error\n"));
     ret = (int)mm_write_file(intf->wfd, req, (int)(SELFMSG_HEAD_SIZE + req->data_len));
     if (ret == -1) {
         err_buf = errno;
@@ -134,17 +132,13 @@ STATIC int __selfloop_recv(DM_INTF_S *intf, int fd, short revents, DM_RECV_ST *i
 
         /* read msg from selfloop channel */
         ret = (int)mm_read_file(fd, (void *)tmp, SELFMSG_HEAD_SIZE);
-        DRV_CHECK_DO_SOMETHING(ret == SELFMSG_HEAD_SIZE, free(tmp);
-                               tmp = NULL;
-                               DEV_MON_ERR("errno=%d\n", errno);
+        DRV_CHECK_DO_SOMETHING(ret == SELFMSG_HEAD_SIZE, free(tmp); tmp = NULL; DEV_MON_ERR("errno=%d\n", errno);
                                return -1);
 
         if ((tmp->data_len <= DM_MSG_DATA_MAX) && (tmp->data_len > 0)) {
             ret = (int)mm_read_file(fd, (void *)tmp->data, tmp->data_len);
-            DRV_CHECK_DO_SOMETHING(tmp->data_len == ret, free(tmp);
-                                   tmp = NULL;
-                                   DEV_MON_ERR("__selfloop_recv: read fail.errno= %d\n", errno);
-                                   return -1);
+            DRV_CHECK_DO_SOMETHING(tmp->data_len == ret, free(tmp); tmp = NULL;
+                                   DEV_MON_ERR("__selfloop_recv: read failed. (errno=%d)\n", errno); return -1);
         } else {
             DEV_MON_ERR("%s%d\r\n", "__selfloop_recv: msg->data_len too long=", tmp->data_len);
             free(tmp);
@@ -154,7 +148,7 @@ STATIC int __selfloop_recv(DM_INTF_S *intf, int fd, short revents, DM_RECV_ST *i
 
         irecv->recv_type = tmp->msg_type;
         *addr = tmp->addr;
-        irecv->addr_len = 6;    // 6 addr len
+        irecv->addr_len = 6; // 6 addr len
         irecv->msgid = tmp->msgid;
         irecv->dev_id = 0;
         irecv->session_prop = ADMIN_PROP;
@@ -167,9 +161,7 @@ STATIC int __selfloop_recv(DM_INTF_S *intf, int fd, short revents, DM_RECV_ST *i
 
         if (irecv->msg.data_len && (irecv->msg.data_len <= DM_MSG_DATA_MAX) && (irecv->msg.data_len >= tmp->data_len)) {
             ret = memcpy_s(irecv->msg.data, irecv->msg.data_len, tmp->data, tmp->data_len);
-            DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(tmp);
-                                        tmp = NULL;
-                                        DEV_MON_ERR("memcpy_s error\n"));
+            DRV_CHECK_RETV_DO_SOMETHING((ret == 0), ret, free(tmp); tmp = NULL; DEV_MON_ERR("memcpy_s error\n"));
         }
     }
 
@@ -212,11 +204,11 @@ int selfloop_init(DM_INTF_S **my_intf, DM_CB_S *cb, const DM_ADDR_ST *my_addr, c
     DM_INTF_S *intf = NULL;
     DM_LOOP_ADDR_S *addr = NULL;
     char name[sizeof(intf->name)] = {0};
-    int ret, ret_t;
+    int ret, ret_t, errno_tmp;
 
     (void)name_len;
-    if ((cb == NULL) || ((my_addr != NULL) && ((my_addr->addr_type != DM_LOOP_ADDR_TYPE) ||
-        (my_addr->channel != DM_LOOP_CHANNEL)))) {
+    if ((cb == NULL) ||
+        ((my_addr != NULL) && ((my_addr->addr_type != DM_LOOP_ADDR_TYPE) || (my_addr->channel != DM_LOOP_CHANNEL)))) {
         return EINVAL;
     }
 
@@ -227,7 +219,8 @@ int selfloop_init(DM_INTF_S **my_intf, DM_CB_S *cb, const DM_ADDR_ST *my_addr, c
     DRV_CHECK_DO_SOMETHING(intf == NULL, DEV_MON_ERR("duplicate interface [%s]\r\n", name); return EBUSY);
 
     intf = malloc(sizeof(*intf));
-    DRV_CHECK_DO_SOMETHING(intf != NULL, return ENOMEM);
+    errno_tmp = errno;
+    DRV_CHECK_DO_SOMETHING(intf != NULL, DEV_MON_ERR("malloc fail, errno=%d.\n", errno_tmp); return ENOMEM);
 
     ret = memset_s((void *)intf, sizeof(*intf), 0, sizeof(*intf));
     DRV_CHECK_DO_SOMETHING(ret == 0, free(intf); intf = NULL; DEV_MON_ERR("memset_s fail:%d\n", ret); return ret);

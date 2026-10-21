@@ -8,26 +8,11 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <sys/time.h>
-#include <time.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <sys/prctl.h>
-#include <sys/stat.h>
-
 #ifndef STATIC
 #define STATIC static
 #endif
 
-STATIC pthread_mutex_t devdrv_time_sync_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 void init_time_file_lock(void)
 {
-    (void)pthread_mutex_init(&devdrv_time_sync_mutex, NULL);
     return;
 }

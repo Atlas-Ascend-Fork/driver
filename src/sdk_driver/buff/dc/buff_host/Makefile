@@ -21,6 +21,6 @@ EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/kernel_adapt/include
 EXTRA_CFLAGS += -isystem $(shell $(CC) -print-file-name=include)
 
 EXTRA_CFLAGS += -DCFG_FEATURE_SHARE_LOG
-EXTRA_CFLAGS += -DCFG_FEATURE_KA_ALLOC_INTERFACE
 EXTRA_CFLAGS += -DCFG_FEATURE_HOST_LOG
+EXTRA_CFLAGS += -DCFG_FEATURE_KA_ALLOC_INTERFACE
 ccflags-y += -fno-common -fstack-protector-all -funsigned-char -pipe -s -Wall -Wcast-align -Wdate-time -Wfloat-equal -Wformat -Wstack-usage=2048 -Wstrict-prototypes -Wtrampolines -Wundef -Wunused -Wvla

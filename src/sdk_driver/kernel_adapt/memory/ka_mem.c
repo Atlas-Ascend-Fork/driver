@@ -17,10 +17,15 @@
 #include <linux/compiler.h>
 #include <linux/version.h>
 #include <linux/mmzone.h>
+#include <linux/kernel.h>
+#if defined(CONFIG_X86_64) && defined(CONFIG_AMD_MEM_ENCRYPT)
+#include <asm/mem_encrypt.h>
+#endif
 
 #include "pbl_range_rbtree.h"
 #include "securec.h"
 
+#include "ka_kernel_def_pub.h"
 #include "ka_memory_pub.h"
 #include "ka_task_pub.h"
 #include "ka_system_pub.h"
@@ -170,6 +175,32 @@ ka_mm_pgprot_t *ka_mm_get_vm_pgprot(ka_vm_area_struct_t *vma)
 }
 EXPORT_SYMBOL(ka_mm_get_vm_pgprot);
 
+ka_mm_pgprot_t ka_mm_pgprot_encrypted(ka_mm_pgprot_t prot)
+{
+#if defined(CONFIG_X86_64) && defined(CONFIG_AMD_MEM_ENCRYPT)
+    /*
+     * This conversion only follows the AMD SME/SEV C-bit definition.
+     * Setting the bit makes a mapping private and encrypted; clearing it makes the mapping shared and decrypted.
+     * Other CC architectures may use the opposite mask semantics and need a dedicated implementation.
+     */
+    return __pgprot(pgprot_val(prot) | sme_me_mask);
+#else
+    return prot;
+#endif
+}
+KA_EXPORT_SYMBOL_GPL(ka_mm_pgprot_encrypted);
+
+ka_mm_pgprot_t ka_mm_pgprot_decrypted(ka_mm_pgprot_t prot)
+{
+#if defined(CONFIG_X86_64) && defined(CONFIG_AMD_MEM_ENCRYPT)
+    /* See ka_mm_pgprot_encrypted() for the AMD-specific C-bit semantics. */
+    return __pgprot(pgprot_val(prot) & ~sme_me_mask);
+#else
+    return prot;
+#endif
+}
+KA_EXPORT_SYMBOL_GPL(ka_mm_pgprot_decrypted);
+
 int ka_mm_zap_vma_ptes(ka_vm_area_struct_t *vma, unsigned long address, unsigned long size)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 18, 0)
@@ -261,7 +292,14 @@ EXPORT_SYMBOL_GPL(ka_mm_is_svm_addr);
 #endif
 
 #ifndef EMU_ST
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+#if defined(FUNC___PTE_MAP_PRESENT) && defined(FUNC___PTE_OFFSET_MAP_PRESENT) &&                                  \
+    defined(FUNC_PMDP_GET_LOCKLESS_PRESENT) && defined(FUNC_IS_PMD_MIGRATION_ENTRY_PRESENT) &&                    \
+    defined(FUNC_PMD_NONE_PRESENT) && defined(FUNC_PMD_TRANS_HUGE_PRESENT) && defined(FUNC_PMD_DEVMAP_PRESENT) && \
+    defined(FUNC_PMD_BAD_PRESENT) && defined(FUNC_PMD_ERROR_PRESENT) && defined(FUNC_PMD_CLEAR_PRESENT)
+#define KA_MEM_PTE_OFFSET_MAP_CAPABLE
+#endif
+
+#ifdef KA_MEM_PTE_OFFSET_MAP_CAPABLE
 static ka_pte_t *ka_mm_inner_pte_offset_map(ka_pmd_t *pmd, unsigned long addr, ka_pmd_t *pmdvalp)
 {
     ka_pmd_t pmdval;
@@ -351,7 +389,7 @@ void *ka_mm_get_pte(const ka_vm_area_struct_t *vma, u64 va, u64 *kpg_size)
         return NULL;
     }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+#ifdef KA_MEM_PTE_OFFSET_MAP_CAPABLE
     pte = ka_mm_inner_pte_offset_map(pmd, va, NULL);
 #else
     pte = ka_mm_pte_offset_map(pmd, va);
@@ -413,7 +451,7 @@ static int ka_mm_va_to_pa_pmd_range(ka_pmd_t *pmd, u64 start, u64 end, u64 *pas,
     u64 got_num = 0;
     u64 va = start;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+#ifdef KA_MEM_PTE_OFFSET_MAP_CAPABLE
     pte = ka_mm_inner_pte_offset_map(pmd, va, NULL);
 #else
     pte = ka_mm_pte_offset_map(pmd, va);
@@ -649,3 +687,223 @@ bool ka_mm_mem_is_ram(u64 pa)
     return is_ram;
 }
 EXPORT_SYMBOL_GPL(ka_mm_mem_is_ram);
+
+/*
+ * ka_mm_vmap_pfn: Map physical addresses (with or without struct page) to
+ * kernel virtual address space via an opaque handle.
+ *
+ * Internally handles both contiguous and non-contiguous physical addresses:
+ * - Contiguous PFNs: single ioremap, handle->kva is contiguous (all kernels)
+ * - Non-contiguous PFNs, >= 5.10: kernel vmap_pfn, handle->kva is contiguous
+ * - Non-contiguous PFNs, < 5.10: per-page ioremap, kva_list based access
+ *
+ * ka_mm_vmap_pfn_kva() returns contiguous kva when available (contiguous or
+ * >= 5.10), NULL when kva is non-contiguous (< 5.10 non-contiguous PFNs).
+ * ka_mm_vmap_pfn_memcpy_toio/fromio() work for all cases transparently.
+ */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0) || !(IS_ENABLED(CONFIG_VMAP_PFN))
+/*
+ * Check if PFNs are contiguous: pfn[i] == pfn[0] + i for all i.
+ * If contiguous, a single ioremap of the whole range gives a contiguous kva.
+ */
+static bool pfns_are_contiguous(unsigned long *pfns, unsigned int count)
+{
+    unsigned int i;
+    for (i = 1; i < count; i++) {
+        if (pfns[i] != pfns[0] + i)
+            return false;
+    }
+    return true;
+}
+
+static struct ka_vmap_pfn_handle *vmap_pfn_manual(unsigned long *pfns, unsigned int count, pgprot_t prot)
+{
+    struct ka_vmap_pfn_handle *handle;
+    unsigned int i;
+
+    if (pfns == NULL || count == 0)
+        return NULL;
+
+    handle = kzalloc(sizeof(struct ka_vmap_pfn_handle), GFP_KERNEL);
+    if (handle == NULL)
+        return NULL;
+
+    if (pfns_are_contiguous(pfns, count)) {
+        /* Contiguous PFNs: single ioremap gives contiguous kva */
+        handle->kva = ioremap(pfns[0] << PAGE_SHIFT, (unsigned long)count << PAGE_SHIFT);
+        if (handle->kva == NULL) {
+            kfree(handle);
+            return NULL;
+        }
+        return handle;
+    }
+
+    /* Non-contiguous PFNs: per-page ioremap, kva not contiguous */
+    handle->kva_list = kcalloc(count, sizeof(void *), GFP_KERNEL);
+    if (handle->kva_list == NULL) {
+        kfree(handle);
+        return NULL;
+    }
+
+    handle->size_list = kcalloc(count, sizeof(unsigned long), GFP_KERNEL);
+    if (handle->size_list == NULL) {
+        kfree(handle->kva_list);
+        kfree(handle);
+        return NULL;
+    }
+
+    handle->count = count;
+    handle->kva = NULL;
+
+    for (i = 0; i < count; i++) {
+        handle->kva_list[i] = ioremap(pfns[i] << PAGE_SHIFT, PAGE_SIZE);
+        if (handle->kva_list[i] == NULL) {
+            unsigned int j;
+            for (j = 0; j < i; j++)
+                iounmap(handle->kva_list[j]);
+            kfree(handle->size_list);
+            kfree(handle->kva_list);
+            kfree(handle);
+            return NULL;
+        }
+        handle->size_list[i] = PAGE_SIZE;
+    }
+
+    return handle;
+}
+#endif
+
+struct ka_vmap_pfn_handle *ka_mm_vmap_pfn_create(unsigned long *pfns, unsigned int count, pgprot_t prot)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) && IS_ENABLED(CONFIG_VMAP_PFN)
+    struct ka_vmap_pfn_handle *handle;
+    void *kva;
+
+    if (pfns == NULL || count == 0)
+        return NULL;
+
+    kva = vmap_pfn(pfns, count, prot);
+    if (kva == NULL)
+        return NULL;
+
+    handle = kzalloc(sizeof(struct ka_vmap_pfn_handle), GFP_KERNEL);
+    if (handle == NULL) {
+        vunmap(kva);
+        return NULL;
+    }
+
+    handle->kva = kva;
+    return handle;
+#else
+    return vmap_pfn_manual(pfns, count, prot);
+#endif
+}
+EXPORT_SYMBOL_GPL(ka_mm_vmap_pfn_create);
+
+void ka_mm_vmap_pfn_destroy(struct ka_vmap_pfn_handle *handle)
+{
+    if (handle == NULL)
+        return;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) && IS_ENABLED(CONFIG_VMAP_PFN)
+    if (handle->kva != NULL)
+        vunmap(handle->kva);
+#else
+    if (handle->kva != NULL) {
+        /* Contiguous kva from single ioremap */
+        iounmap(handle->kva);
+    } else {
+        /* Per-page ioremap'd kva_list */
+        unsigned int i;
+        for (i = 0; i < handle->count; i++) {
+            if (handle->kva_list[i] != NULL)
+                iounmap(handle->kva_list[i]);
+        }
+        kfree(handle->size_list);
+        kfree(handle->kva_list);
+    }
+#endif
+    kfree(handle);
+}
+EXPORT_SYMBOL_GPL(ka_mm_vmap_pfn_destroy);
+
+void *ka_mm_vmap_pfn_kva(struct ka_vmap_pfn_handle *handle)
+{
+    if (handle == NULL)
+        return NULL;
+    return handle->kva;
+}
+EXPORT_SYMBOL_GPL(ka_mm_vmap_pfn_kva);
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0) || !(IS_ENABLED(CONFIG_VMAP_PFN))
+static void vmap_pfn_manual_memcpy(struct ka_vmap_pfn_handle *handle, unsigned long offset, void *buf, size_t len,
+                                   bool to_device)
+{
+    unsigned long remaining = len;
+    unsigned long pos = offset;
+    unsigned int seg;
+    unsigned long seg_offset, seg_len;
+    void *seg_kva;
+
+    /* Find starting segment */
+    for (seg = 0; seg < handle->count; seg++) {
+        if (pos < handle->size_list[seg])
+            break;
+        pos -= handle->size_list[seg];
+    }
+    if (seg >= handle->count) {
+        return;
+    }
+
+    while (remaining > 0 && seg < handle->count) {
+        seg_offset = pos;
+        seg_len = min(remaining, handle->size_list[seg] - seg_offset);
+        seg_kva = handle->kva_list[seg] + seg_offset;
+
+        if (to_device)
+            memcpy_toio(seg_kva, buf, seg_len);
+        else
+            memcpy_fromio(buf, seg_kva, seg_len);
+
+        buf += seg_len;
+        remaining -= seg_len;
+        pos = 0; /* Next segment starts at offset 0 */
+        seg++;
+    }
+}
+#endif
+
+void ka_mm_vmap_pfn_memcpy_toio(struct ka_vmap_pfn_handle *handle, unsigned long offset, const void *src, size_t len)
+{
+    if (handle == NULL || src == NULL || len == 0)
+        return;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) && IS_ENABLED(CONFIG_VMAP_PFN)
+    memcpy_toio(handle->kva + offset, src, len);
+#else
+    if (handle->kva != NULL) {
+        memcpy_toio(handle->kva + offset, src, len);
+    } else {
+        vmap_pfn_manual_memcpy(handle, offset, (void *)src, len, true);
+    }
+#endif
+}
+EXPORT_SYMBOL_GPL(ka_mm_vmap_pfn_memcpy_toio);
+
+void ka_mm_vmap_pfn_memcpy_fromio(struct ka_vmap_pfn_handle *handle, unsigned long offset, void *dst, size_t len)
+{
+    if (handle == NULL || dst == NULL || len == 0)
+        return;
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) && IS_ENABLED(CONFIG_VMAP_PFN)
+    memcpy_fromio(dst, handle->kva + offset, len);
+#else
+    if (handle->kva != NULL) {
+        memcpy_fromio(dst, handle->kva + offset, len);
+    } else {
+        vmap_pfn_manual_memcpy(handle, offset, dst, len, false);
+    }
+#endif
+}
+EXPORT_SYMBOL_GPL(ka_mm_vmap_pfn_memcpy_fromio);

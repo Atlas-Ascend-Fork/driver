@@ -10,7 +10,12 @@
 #ifndef SVM_MASTER_INIT_H
 #define SVM_MASTER_INIT_H
 
+#include <stdbool.h>
+
+#include "svm_pub.h"
+
 int svm_master_init(void);
 int svm_master_uninit(void);
+bool svm_is_dev_open(u32 devid);
 
 #endif

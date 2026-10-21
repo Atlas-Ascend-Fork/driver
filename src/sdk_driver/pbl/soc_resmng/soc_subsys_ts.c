@@ -124,6 +124,7 @@ int subsys_ts_set_irq_num(struct soc_resmng_ts *ts_resmng, u32 irq_type, u32 irq
     if (info->irqs != NULL) {
         resmng_irqs_destroy(info);
     }
+    info->irq_num = 0;
 
     ret = resmng_irqs_create(info, irq_num);
     if (ret != 0) {

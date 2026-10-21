@@ -43,6 +43,7 @@ enum vmng_p2v_msg_common_pcie_cmd {
 
 struct vmng_msg_common {
     struct vmng_msg_cluster *msg_chan;
+    ka_rw_semaphore_t common_fun_rwsem[VMNG_MSG_COMMON_TYPE_MAX];
     int (*common_fun[VMNG_MSG_COMMON_TYPE_MAX])(u32 dev_id, u32 fid, struct vmng_rx_msg_proc_info *proc_info);
 };
 

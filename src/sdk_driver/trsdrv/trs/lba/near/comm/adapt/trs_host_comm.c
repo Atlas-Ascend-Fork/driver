@@ -11,14 +11,18 @@
  * GNU General Public License for more details.
  */
 #include "ka_system_pub.h"
+#include "ka_driver_pub.h"
+#include "ka_memory_pub.h"
 #include "ascend_hal_define.h"
 #include "pbl/pbl_soc_res.h"
+#include "pbl/pbl_runenv_config.h"
+#include "dpa/dpa_rmo_kernel.h"
 #ifdef CFG_FEATURE_VM_ADAPT
 #include "trs_sec_eh_auto_init.h"
 #else
 #include "trs_sia_adapt_auto_init.h"
 #endif
-#include "dpa/dpa_rmo_kernel.h"
+#include "soc_adapt.h"
 #include "trs_pub_def.h"
 #include "trs_msg.h"
 #include "trs_host_msg.h"
@@ -32,6 +36,221 @@
 #include "trs_mailbox_def.h"
 #include "trs_host_ts_cq.h"
 #include "trs_host_comm.h"
+
+static struct ka_vmap_pfn_handle *trs_host_vmap_pfn_from_pa_wraper(struct ka_pa_wraper *pa_wraper_list, u32 pa_num,
+                                                                   pgprot_t prot)
+{
+    unsigned long *pfns;
+    u32 total_pages = 0;
+    u32 idx = 0;
+    u32 i, j;
+    struct ka_vmap_pfn_handle *handle;
+
+    if (pa_wraper_list == NULL || pa_num == 0)
+        return NULL;
+
+    for (i = 0; i < pa_num; i++) {
+        total_pages += pa_wraper_list[i].size >> PAGE_SHIFT;
+    }
+
+    pfns = (unsigned long *)trs_vzalloc(sizeof(unsigned long) * total_pages);
+    if (pfns == NULL)
+        return NULL;
+
+    for (i = 0; i < pa_num; i++) {
+        unsigned long base_pfn = __ka_mm_phys_to_pfn(pa_wraper_list[i].pa);
+        u32 seg_pages = pa_wraper_list[i].size >> PAGE_SHIFT;
+        for (j = 0; j < seg_pages; j++) {
+            pfns[idx++] = base_pfn + j;
+        }
+    }
+
+    handle = ka_mm_vmap_pfn_create(pfns, total_pages, prot);
+    trs_vfree(pfns);
+    return handle;
+}
+
+static pgprot_t trs_host_sq_mem_pgprot(void)
+{
+    pgprot_t prot = ka_mm_pgprot_noncached(KA_PAGE_KERNEL);
+
+    /* Device SVM pages are shared with the host CPU in a confidential VM. */
+    return run_in_confidential_virtual_mach() ? ka_mm_pgprot_decrypted(prot) : prot;
+}
+
+static int trs_host_mem_vmap(struct trs_id_inst *inst, struct ka_pa_wraper *pa_wraper_list, u32 pa_num,
+                             struct trs_sq_mem_handle *handle)
+{
+    struct ka_vmap_pfn_handle *vmap_handle;
+
+    vmap_handle = trs_host_vmap_pfn_from_pa_wraper(pa_wraper_list, pa_num, trs_host_sq_mem_pgprot());
+    if (vmap_handle == NULL) {
+        trs_err("vmap_pfn fail. (devid=%u; pa_num=%u)\n", inst->devid, pa_num);
+        return -ENOMEM;
+    }
+    handle->vmap_pfn_handle = vmap_handle;
+    return 0;
+}
+
+static void trs_host_mem_vunmap(struct trs_sq_mem_handle *handle)
+{
+    if (handle->vmap_pfn_handle != NULL) {
+        ka_mm_vmap_pfn_destroy(handle->vmap_pfn_handle);
+        handle->vmap_pfn_handle = NULL;
+    }
+}
+
+static int trs_host_mem_virt_split(struct trs_id_inst *inst, size_t size, struct trs_sq_mem_handle *handle,
+                                   u32 page_size)
+{
+    u32 split_num = 4; /* 4 segments addr for simulation/diagnosis */
+    u32 split_size = KA_DRIVER_ALIGN_DOWN(size / split_num, page_size);
+    u32 last_size = size - ((split_num - 1) * split_size);
+    struct ka_pa_wraper *new_wraper_list = NULL;
+    u32 i;
+
+    if (handle->pa_num != 1 || size <= split_num * 4096) { /* 4096: 4K */
+        return 0;
+    }
+
+    new_wraper_list = (struct ka_pa_wraper *)trs_vzalloc(sizeof(struct ka_pa_wraper) * split_num);
+    if (new_wraper_list == NULL) {
+        trs_err("Vzalloc new_pa_wrapper_list fail.\n");
+        return -ENOMEM;
+    }
+
+    for (i = 0; i < split_num; i++) {
+        new_wraper_list[i].pa = handle->pa_wraper_list[0].pa + i * split_size;
+        new_wraper_list[i].size = (i < split_num - 1) ? split_size : last_size;
+        trs_debug("Virt split segment. (devid=%u; size=%llu)\n", inst->devid, new_wraper_list[i].size);
+    }
+
+    /* Destroy old vmap_pfn_handle (mapped as single segment), recreate for split segments */
+    ka_mm_vmap_pfn_destroy(handle->vmap_pfn_handle);
+    handle->vmap_pfn_handle = NULL;
+
+    trs_vfree(handle->pa_wraper_list);
+    handle->pa_wraper_list = new_wraper_list;
+    handle->pa_num = split_num;
+
+    handle->vmap_pfn_handle = trs_host_vmap_pfn_from_pa_wraper(new_wraper_list, split_num, trs_host_sq_mem_pgprot());
+    if (handle->vmap_pfn_handle == NULL) {
+        trs_err("Recreate vmap_pfn after virt_split fail. (devid=%u)\n", inst->devid);
+        return -ENOMEM;
+    }
+
+    return 0;
+}
+
+static int _trs_get_sq_mem_handle(u32 devid, int pid, struct trs_sq_mem_handle *handle, u32 *out_page_size)
+{
+    struct ka_pa_wraper *pa_wraper_list = NULL;
+    u64 pa_num, base_va;
+    u32 align_len, page_size;
+    int ret;
+
+    page_size = hal_kernel_get_mem_page_size(devid, pid, &handle->mem_attr);
+    if (page_size == 0) {
+        trs_err("Get page size failed. (devid=%u; pid=%d)\n", devid, pid);
+        return -EINVAL;
+    }
+
+    align_len = ALIGN_UP(handle->mem_attr.size, page_size);
+    base_va = KA_DRIVER_ALIGN_DOWN(handle->mem_attr.addr, page_size);
+
+    pa_num = align_len / page_size;
+    pa_wraper_list = trs_vzalloc(sizeof(struct ka_pa_wraper) * pa_num);
+    if (pa_wraper_list == NULL) {
+        trs_err("Vzalloc pa_wrapper_list fail.\n");
+        return -ENOMEM;
+    }
+
+    handle->mem_attr.addr = base_va;
+    handle->mem_attr.size = align_len;
+    ret = hal_kernel_get_mem_pa_list(devid, pid, &handle->mem_attr, &pa_num, pa_wraper_list);
+    if (ret != 0) {
+        trs_err("Failed to get pa list. (ret=%d; devid=%u; pid=%d; align_len=%u)\n", ret, devid, pid, align_len);
+        trs_vfree(pa_wraper_list);
+        return ret;
+    }
+
+    handle->pa_wraper_list = pa_wraper_list;
+    handle->pa_num = (u32)pa_num;
+    if (out_page_size != NULL) {
+        *out_page_size = page_size;
+    }
+    return 0;
+}
+
+static void _trs_put_sq_mem_handle(u32 devid, int pid, struct trs_sq_mem_handle *handle)
+{
+    int ret;
+
+    if (handle->pa_num > 0 && handle->pa_wraper_list != NULL) {
+        ret = hal_kernel_put_mem_pa_list(devid, pid, &handle->mem_attr, handle->pa_num, handle->pa_wraper_list);
+        if (ret != 0) {
+            trs_warn("Put pa list failed. (devid=%u; pid=%d; ret=%d)\n", devid, pid, ret);
+        }
+        trs_vfree(handle->pa_wraper_list);
+        handle->pa_wraper_list = NULL;
+    }
+
+    handle->pa_num = 0;
+}
+
+#define TRS_64K_PAGE_SIZE (64 * 1024)
+int trs_host_get_sq_mem_handle(struct trs_id_inst *inst, int pid, struct trs_sq_mem_handle *handle)
+{
+    u32 page_size;
+    int ret;
+
+    ret = _trs_get_sq_mem_handle(inst->devid, pid, handle, &page_size);
+    if (ret != 0) {
+        return ret;
+    }
+
+    if (!trs_soc_is_support_virt(inst) && (handle->pa_num > 1)) {
+        trs_err("No mem. (devid=%u; pa_num=%u)\n", inst->devid, handle->pa_num);
+        ret = -ENOMEM;
+        goto put_mem;
+    }
+
+    if ((handle->pa_num > 1) && (KA_MM_PAGE_SIZE == TRS_64K_PAGE_SIZE)) {
+        ret = -EOPNOTSUPP;
+        goto put_mem;
+    }
+
+    if (!handle->mem_attr.raw_pa_flag) {
+        ret = trs_host_mem_vmap(inst, handle->pa_wraper_list, handle->pa_num, handle);
+        if (ret != 0) {
+            goto put_mem;
+        }
+    }
+
+    if (trs_chan_get_virt_flag_test(inst)) {
+        /* split address for simulation with virtual address */
+        ret = trs_host_mem_virt_split(inst, handle->mem_attr.size, handle, page_size);
+        if (ret != 0) {
+            goto vunmap_mem;
+        }
+    }
+
+    return 0;
+
+vunmap_mem:
+    if (!handle->mem_attr.raw_pa_flag) {
+        trs_host_mem_vunmap(handle);
+    }
+put_mem:
+    trs_host_put_sq_mem_handle(inst, pid, handle);
+    return ret;
+}
+
+void trs_host_put_sq_mem_handle(struct trs_id_inst *inst, int pid, struct trs_sq_mem_handle *handle)
+{
+    trs_host_mem_vunmap(handle);
+    _trs_put_sq_mem_handle(inst->devid, pid, handle);
+}
 
 #ifdef CFG_FEATURE_SUPPORT_RMO
 static int trs_mem_dispatch_to_ts(u32 devid, struct rmo_mem_raw_addr *addr, u64 len)
@@ -87,7 +306,7 @@ DECLAER_FEATURE_AUTO_UNINIT(trs_host_mem_sharing_unregister, FEATURE_LOADER_STAG
 int trs_host_get_ssid(struct trs_id_inst *inst, int *user_visible_flag, int *ssid)
 {
     struct trs_msg_sync_ssid *ssid_msg = NULL;
-    struct trs_msg_data msg;
+    struct trs_msg_data msg = {0};
     int ret;
 
     msg.header.tsid = inst->tsid;
@@ -153,30 +372,26 @@ int trs_host_res_is_check_msg_proc(u32 devid, struct trs_msg_data *data)
     struct trs_id_inst inst;
 
     if ((id_msg->id_type < 0) || (id_msg->id_type >= TRS_MAX_ID_TYPE)) {
-#ifndef EMU_ST
         trs_err("Invalid para. (devid=%u; res_type=%d)\n", devid, id_msg->id_type);
         return -EINVAL;
-#endif
     }
 
     trs_id_inst_pack(&inst, devid, data->header.tsid);
     if (trs_res_is_belong_to_proc(&inst, id_msg->hpid, id_msg->id_type, id_msg->res_id)) {
-        trs_debug("Res id belongs to master process. (master_tgid=%u; type=%s; id=%d)\n", id_msg->hpid,
+        trs_debug("Res id belong to master process. (master_tgid=%u; type=%s; id=%d)\n", id_msg->hpid,
                   trs_id_type_to_name(id_msg->id_type), id_msg->res_id);
         return 0;
     }
-#ifndef ENU_ST
-    trs_err("Res id does not belong to master process. (master_tgid=%u; type=%s; id=%d)\n", id_msg->hpid,
+    trs_err("Res id not belong to master process. (master_tgid=%u; type=%s; id=%d)\n", id_msg->hpid,
             trs_id_type_to_name(id_msg->id_type), id_msg->res_id);
     return -1;
-#endif
 }
 
 int trs_host_res_id_check(struct trs_id_inst *inst, int id_type, u32 res_id)
 {
 #ifndef EMU_ST
     struct trs_msg_res_id_check *id_msg = NULL;
-    struct trs_msg_data msg;
+    struct trs_msg_data msg = {0};
     int ret;
 
     msg.header.tsid = inst->tsid;
@@ -199,9 +414,91 @@ int trs_host_res_id_check(struct trs_id_inst *inst, int id_type, u32 res_id)
     return 0;
 }
 
+static inline void trs_res_id_get_para_pack(struct trs_id_inst *inst, u32 cmdtype, int id_type, u32 res_id, u32 hpid,
+                                            u32 seq, struct trs_msg_data *msg)
+{
+    struct trs_msg_res_id_get *id_msg = NULL;
+
+    msg->header.tsid = inst->tsid;
+    msg->header.valid = TRS_MSG_SEND_MAGIC;
+    msg->header.cmdtype = cmdtype;
+    msg->header.result = 0;
+
+    id_msg = (struct trs_msg_res_id_get *)msg->payload;
+    id_msg->hpid = hpid;
+    id_msg->id_type = id_type;
+    id_msg->res_id = res_id;
+    id_msg->seq = seq;
+}
+
+#define TRS_HOST_RES_ID_COMPENSATE_RETRY_MAX 3
+/*
+ * Retry put with same (hpid, seq). Idempotent due to trs_res_put hpid/seq check:
+ * - device already put: ref_hpid/ref_seq cleared -> -EKEYREJECTED -> treat as success
+ * - device never put: hpid/seq match -> ref-- -> correct, no leak
+ */
+static int trs_host_res_id_retry_put(struct trs_id_inst *inst, int id_type, u32 res_id, u32 hpid, u32 seq)
+{
+    struct trs_msg_data msg = {0};
+    int i;
+
+    trs_res_id_get_para_pack(inst, TRS_MSG_RES_ID_PUT, id_type, res_id, hpid, seq, &msg);
+    for (i = 0; i < TRS_HOST_RES_ID_COMPENSATE_RETRY_MAX; i++) {
+        int ret = trs_host_msg_send_pure_ret(inst->devid, &msg, sizeof(struct trs_msg_data));
+        if (ret == 0) {
+            /* -EKEYREJECTED means device already put (hpid/seq cleared), treat as success */
+            return (msg.header.result == -EKEYREJECTED) ? 0 : msg.header.result;
+        }
+
+        trs_err("Retry put fail. (devid=%u; tsid=%u; seq=%u; retry=%d)\n", inst->devid, inst->tsid, seq, i);
+    }
+    return -EIO;
+}
+
+int trs_host_res_id_put(struct trs_id_inst *inst, int id_type, u32 res_id, u32 hpid, u32 seq)
+{
+    struct trs_msg_data msg = {0};
+    int ret;
+
+    trs_res_id_get_para_pack(inst, TRS_MSG_RES_ID_PUT, id_type, res_id, hpid, seq, &msg);
+    ret = trs_host_msg_send_pure_ret(inst->devid, &msg, sizeof(struct trs_msg_data));
+    if (ret != 0) {
+        /* send fail: device may not have put, retry to avoid resource leak */
+        trs_err("Msg send fail, retrying put. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
+        return trs_host_res_id_retry_put(inst, id_type, res_id, hpid, seq);
+    }
+
+    if (msg.header.result != 0) {
+        trs_err("Msg fail. (devid=%u; tsid=%u; result=%d)\n", inst->devid, inst->tsid, msg.header.result);
+    }
+
+    return msg.header.result;
+}
+
+int trs_host_res_id_get(struct trs_id_inst *inst, int id_type, u32 res_id, u32 hpid, u32 seq)
+{
+    struct trs_msg_data msg = {0};
+    int ret;
+
+    trs_res_id_get_para_pack(inst, TRS_MSG_RES_ID_GET, id_type, res_id, hpid, seq, &msg);
+    ret = trs_host_msg_send_pure_ret(inst->devid, &msg, sizeof(struct trs_msg_data));
+    if (ret != 0) {
+        /* msg send fail: device may have done ref++, send retry put to compensate */
+        trs_err("Msg send fail, retrying put. (devid=%u; tsid=%u; ret=%d)\n", inst->devid, inst->tsid, ret);
+        (void)trs_host_res_id_retry_put(inst, id_type, res_id, hpid, seq);
+        return -EIO;
+    }
+
+    if (msg.header.result != 0) {
+        trs_err("Msg fail. (devid=%u; tsid=%u; result=%d)\n", inst->devid, inst->tsid, msg.header.result);
+    }
+
+    return msg.header.result;
+}
+
 int trs_host_ras_report(struct trs_id_inst *inst)
 {
-    struct trs_msg_data msg;
+    struct trs_msg_data msg = {0};
     int ret;
 
     msg.header.tsid = inst->tsid;
@@ -221,7 +518,7 @@ int trs_host_ras_report(struct trs_id_inst *inst)
 int trs_host_res_num_query(struct trs_id_inst *inst, struct trs_res_query_para *para)
 {
     struct trs_res_query_para *query_para = NULL;
-    struct trs_msg_data msg;
+    struct trs_msg_data msg = {0};
     int ret;
 
     msg.header.tsid = inst->tsid;
@@ -277,12 +574,10 @@ int trs_host_get_connect_protocol(struct trs_id_inst *inst)
             return TRS_CONNECT_PROTOCOL_PCIE;
         case CONNECT_PROTOCOL_HCCS:
             return TRS_CONNECT_PROTOCOL_HCCS;
-#ifndef EMU_ST
         case CONNECT_PROTOCOL_UB:
             return TRS_CONNECT_PROTOCOL_UB;
         default:
             return TRS_CONNECT_PROTOCOL_UNKNOWN;
-#endif
     }
 }
 

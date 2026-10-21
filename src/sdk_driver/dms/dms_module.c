@@ -28,7 +28,7 @@ STATIC int KA_MODULE_INIT dms_module_init(void)
 
     for (index = 0; index < table_size; index++) {
         ret = g_sub_table[index].init();
-        if  (ret != 0) {
+        if (ret != 0) {
             goto out;
         }
     }

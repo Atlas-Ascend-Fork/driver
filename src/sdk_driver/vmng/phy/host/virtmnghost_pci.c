@@ -44,6 +44,7 @@
 #include "hw_vdavinci.h"
 #include "virtmnghost_proc_fs.h"
 #include "vmng_mem_alloc_interface.h"
+#include "virtmnghost_feature.h"
 #include "virtmnghost_pci.h"
 
 static const ka_pci_device_id_t g_vmngh_tbl[] = {
@@ -235,7 +236,9 @@ STATIC void vmngh_device_offline(const struct vmngh_vd_dev *vd_dev)
 
     ret = vmngh_uninit_instance_client_device(dev_id, vfid);
     if (ret != VMNG_OK) {
-        vmng_err("Uninit_instance_client_device failed. (dev_id=%u;vfid=%u)\n", dev_id, vfid);
+#ifndef DRV_UT
+        vmng_err("Uninit_instance_client_device failed. (dev_id=%u; vfid=%u)\n", dev_id, vfid);
+#endif
         return;
     }
 
@@ -322,7 +325,9 @@ STATIC int vmngh_vdev_start_check(const struct vmngh_vd_dev *vd_dev)
     u32 fid = vd_dev->fid;
 
     if (vmngh_get_ctrl_startup_flag(dev_id, fid) != VMNG_STARTUP_TOP_HALF_OK) {
-        vmng_err("Top half not finish. (dev_id=%u; fid=%u)\n", dev_id, fid);
+#ifndef DRV_UT
+        vmng_err("Top half not finished. (dev_id=%u; fid=%u)\n", dev_id, fid);
+#endif
         return -EINVAL;
     }
 
@@ -489,7 +494,9 @@ STATIC int vmngh_service_online(struct vmngh_vd_dev *vd_dev)
         }
         ret = vmngh_ctrl_sriov_init_instance(dev_id, fid);
         if (ret != 0) {
+#ifndef DRV_UT
             vmng_err("Init pcie instance failed. (ret=%d;dev_id=%u)\n", ret, dev_id);
+#endif
             vmngh_device_offline(vd_dev);
             return ret;
         }
@@ -553,7 +560,9 @@ STATIC void vmngh_service_offline(struct vmngh_vd_dev *vd_dev)
         vmngh_remove_sec_eh_dev(dev_id, fid);
         ret = vmngh_ctrl_sriov_uninit_instance(dev_id, fid);
         if (ret != 0) {
+#ifndef DRV_UT
             vmng_err("Uninit pcie instance failed. (ret=%d;dev_id=%u)\n", ret, dev_id);
+#endif
         }
         vmngh_device_offline(vd_dev);
     } else {
@@ -878,7 +887,9 @@ STATIC void vmngh_vdev_create_bottom(ka_work_struct_t *p_work)
 
     ret = vmngh_vdev_prepare(vd_dev);
     if (ret != 0) {
-        vmng_err("Prepare vdev failed. (dev_id=%u;fid=%u;ret=%d)\n", dev_id, fid, ret);
+#ifndef DRV_UT
+        vmng_err("Prepare vdev failed. (dev_id=%u; fid=%u; ret=%d)\n", dev_id, fid, ret);
+#endif
         goto msix_disable;
     }
 
@@ -1232,7 +1243,7 @@ STATIC void vmngh_adapt_vfresource_for_vf_vnic_support(u32 dev_id, struct vmng_v
     vf_resource->stars_refresh.pngd = KA_U32_MAX;
     vf_resource->stars_refresh.venc = vm_pdev->dev_info.venc_num;
     vf_resource->stars_static.aic = vm_pdev->dev_info.aicore_num;
-    memset_s(vf_resource->name, VMNG_VF_TEMP_NAME_LEN, 0, VMNG_VF_TEMP_NAME_LEN);
+    vf_resource->vfg.vfg_type = VMNG_VF_GROUP_TYPE_VIP;
     return;
 }
 
@@ -1345,7 +1356,6 @@ free_vdev:
 
 STATIC int vmngh_check_device_is_amp(bool *is_amp)
 {
-#ifdef CFG_FEATURE_NOT_SUPPROT_SMP
     struct vmngh_pci_dev *vm_pdev = NULL;
     u32 master_id;
     u32 dev_id;
@@ -1366,15 +1376,18 @@ STATIC int vmngh_check_device_is_amp(bool *is_amp)
             return 0;
         }
     }
-#endif
     *is_amp = true;
     return 0;
 }
 
-STATIC bool vmngh_check_is_support_vdev(void)
+STATIC bool vmngh_check_is_support_vdev(u32 dev_id)
 {
     bool is_amp = true;
     int ret;
+
+    if (vmngh_feature_not_support(dev_id, VMNG_FEATURE_SMP)) {
+        return true;
+    }
 
     ret = vmngh_check_device_is_amp(&is_amp);
     if (ret != 0) {
@@ -1401,15 +1414,15 @@ STATIC int vmngh_vdev_create(struct vdavinci_dev *vdev, void *vdavinci, struct v
         return -EINVAL;
     }
 
-    if (!vmngh_check_is_support_vdev()) {
-        vmng_err("Not support to create vdevice in smp mode.\n");
-        return -EOPNOTSUPP;
-    }
-
     dev_id = (u32)devdrv_get_dev_id_by_pdev_with_dev_index(ka_pci_to_pci_dev(vdev->dev), (int)vdev->dev_index);
     if (dev_id >= ASCEND_PDEV_MAX_NUM) {
         vmng_err("dev_id is invalid. (dev_id=%d)\n", dev_id);
         return -EINVAL;
+    }
+
+    if (!vmngh_check_is_support_vdev(dev_id)) {
+        vmng_err("Not support to create vdevice in smp mode. (dev_id=%u)\n", dev_id);
+        return -EOPNOTSUPP;
     }
 
     fid = vmngh_get_fid_for_host(vdev);
@@ -1419,7 +1432,9 @@ STATIC int vmngh_vdev_create(struct vdavinci_dev *vdev, void *vdavinci, struct v
         ret = uda_dev_ctrl(dev_id, UDA_CTRL_TO_MIA);
         if (ret != 0) {
             ka_task_mutex_unlock(&vm_pdev->vpdev_mutex);
-            vmng_err("To mia mode failed. (dev_id=%u)\n", dev_id);
+#ifndef DRV_UT
+            vmng_err("uda_dev_ctrl switch to MIA mode failed. (dev_id=%u)\n", dev_id);
+#endif
             return ret;
         }
 
@@ -1684,8 +1699,7 @@ STATIC void vmngh_vdev_notify(struct vdavinci_dev *vdev, int db_index)
     } else if ((db_index >= VMNG_DB_BASE_EXTERNAL) && (db_index < VMNG_DB_BASE_MAX)) {
         ret = vmngh_external_db_handler(vd_dev, db_index);
     } else {
-        vmng_err("Doorbell index is out of range. (dev_id=%d;fid=%u;db_index=%u;max=%u)\n", dev_id, fid, db_index,
-                 VMNG_DB_BASE_MAX);
+        vmng_err("Doorbell index is out of range. (dev_id=%d; fid=%u; db_index=%u)\n", dev_id, fid, db_index);
         return;
     }
     if (ret != 0) {
@@ -1781,7 +1795,9 @@ STATIC int vmngh_vdev_put_map_info(struct vdavinci_dev *vdev)
     instance.type = VMNG_CLIENT_TYPE_TSDRV;
 
     if (vmngh_put_map_info_client(&instance, VMNG_CLIENT_TYPE_TSDRV) != 0) {
-        vmng_err("Put map info client. (dev_id=%d; fid=%u)\n", dev_id, vfid);
+#ifndef DRV_UT
+        vmng_err("Put map info client failed. (dev_id=%d; fid=%u)\n", dev_id, vfid);
+#endif
         return -EINVAL;
     }
 
@@ -1977,6 +1993,7 @@ static void vmngh_init_pci_pdev(struct vmngh_pci_dev *vmngh_pcidev, u32 dev_id, 
         ka_task_mutex_init(&vmngh_pcidev->vddev_mutex[i]);
     }
     vmngh_pcidev->vdev_ref = 0;
+    vmngh_pcidev->features = vmngh_feature_init(dev_id);
 }
 
 static void vmngh_uninit_pci_pdev(struct vmngh_pci_dev *vmngh_pcidev)
@@ -1988,6 +2005,7 @@ static void vmngh_uninit_pci_pdev(struct vmngh_pci_dev *vmngh_pcidev)
     vmngh_pcidev->vdev_num = 0; /* vdev_num begin as 1. */
     vmngh_pcidev->ep_devic_id = 0;
     vmngh_pcidev->vdev_ref = 0;
+    vmngh_pcidev->features = 0;
 }
 
 STATIC bool vmngh_all_devices_are_valid(struct vmngh_pci_dev *vmngh_dev)
@@ -2246,7 +2264,9 @@ STATIC int vmngh_pci_uninit_instance(u32 dev_id)
     vmngh_suspend_instance_remove_pdev(dev_id);
     vd_dev_alive_cnt = vmngh_free_all_vdev(dev_id);
     if (vd_dev_alive_cnt != 0) {
-        vmng_warn("mdevs are maybe alive when phy pci uninit.(dev_id=%u; free_cnt=%d)\n", dev_id, vd_dev_alive_cnt);
+#ifndef DRV_UT
+        vmng_warn("mdevs may be alive when phy pci uninit.(dev_id=%u; free_cnt=%d)\n", dev_id, vd_dev_alive_cnt);
+#endif
     }
 
     if (devdrv_get_connect_protocol(dev_id) == CONNECT_PROTOCOL_UB) {
@@ -2346,7 +2366,6 @@ static int vmngh_notifier_func(u32 udevid, enum uda_notified_action action)
 }
 
 /* version 0: obp, 1: others */
-#ifndef CFG_SOC_PLATFORM_CLOUD_V4
 static int vmngh_set_mia_dev_res(u32 udevid, u32 version)
 {
     struct vmngh_vdev_ctrl *ctrl = NULL;
@@ -2360,8 +2379,12 @@ static int vmngh_set_mia_dev_res(u32 udevid, u32 version)
         vmng_err("Invalid para. (udevid=%u)\n", udevid);
         return (int)ret;
     }
-    fid = mia_para.sub_devid + 1;
 
+    if (vmngh_feature_not_support(mia_para.phy_devid, VMNG_FEATURE_MIA_RES)) {
+        return VMNG_OK;
+    }
+
+    fid = mia_para.sub_devid + 1;
     ctrl = vmngh_get_ctrl(mia_para.phy_devid, fid);
     vdev_ctrl = &ctrl->vdev_ctrl;
 
@@ -2388,17 +2411,14 @@ static int vmngh_set_mia_dev_res(u32 udevid, u32 version)
 
     return (int)ret;
 }
-#endif
 
 static int vmngh_mia_dev_notifier_func(u32 udevid, enum uda_notified_action action)
 {
     int ret = 0;
 
-#ifndef CFG_SOC_PLATFORM_CLOUD_V4
     if (action == UDA_INIT) {
         ret = vmngh_set_mia_dev_res(udevid, 0);
     }
-#endif
 
     vmng_info("notifier action. (udevid=%u; action=%d; ret=%d)\n", udevid, action, ret);
 
@@ -2414,9 +2434,7 @@ STATIC int vmngh_sec_eh_notifier_func(u32 udevid, enum uda_notified_action actio
         if (ret != VMNG_OK) {
             return ret;
         }
-#ifndef CFG_SOC_PLATFORM_CLOUD_V4
         ret = vmngh_set_mia_dev_res(udevid, 1);
-#endif
     }
 
     vmng_info("notifier action. (udevid=%u; action=%d; ret=%d)\n", udevid, action, ret);

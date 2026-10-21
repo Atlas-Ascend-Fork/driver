@@ -206,8 +206,12 @@ typedef va_list ka_va_list;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0)
 #define ka_base_for_each_msi_entry(desc, dev) msi_for_each_desc((desc), (dev), (MSI_DESC_ASSOCIATED))
-#else
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
 #define ka_base_for_each_msi_entry(desc, dev) for_each_msi_entry((desc), (dev))
+#else
+#define ka_base_for_each_msi_entry(desc, dev) \
+    struct list_head msi_list = {0};          \
+    list_for_each_entry((desc), &msi_list, list)
 #endif
 #define ka_base_irq_has_action(irq) irq_has_action(irq)
 
@@ -540,6 +544,7 @@ void *ka_base_pde_data(const ka_inode_t *inode);
 #define ka_base_ffs(x) ffs(x)
 #define __ka_base_ffs(x) __ffs(x)
 #define ka_base_atomic_set(v, i) atomic_set(v, i)
+#define ka_base_atomic_set_release(v, i) atomic_set_release(v, i)
 #define ka_base_atomic_dec_and_test(v) atomic_dec_and_test(v)
 #define ka_base_atomic_inc_return(v) atomic_inc_return(v)
 #define ka_base_atomic_read(v) atomic_read(v)
@@ -618,8 +623,18 @@ static inline void ka_base_atomic_clear_mask(unsigned long mask, unsigned long *
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
     atomic_and((int)(~mask), (ka_atomic_t *)addr);
 #else
+
+#ifdef RHEL_RELEASE_CODE
+#if RHEL_RELEASE_CODE > RHEL_RELEASE_VERSION(7, 0)
+    atomic_clear_mask((int)(~mask), (ka_atomic_t *)addr);
+#else
     atomic_clear_mask(mask, addr);
-#endif
+#endif // RHEL_RELEASE_CODE > RHEL_RELEASE_VERSION(7, 0)
+#else
+    atomic_clear_mask(mask, addr);
+#endif // RHEL_RELEASE_CODE
+
+#endif // LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
 }
 
 #define KA_GENMASK(h, l) GENMASK(h, l)
@@ -634,5 +649,11 @@ static inline char *ka_base_bin2hex(char *dst, const void *src, size_t count)
 }
 
 #define ka_roundup_pow_of_two roundup_pow_of_two
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 5, 0)
+#define KA_DMI_DEV_TYPE_DEV_SLOT DMI_DEV_TYPE_DEV_SLOT
+#else
+#define KA_DMI_DEV_TYPE_DEV_SLOT (-4)
+#endif
 
 #endif

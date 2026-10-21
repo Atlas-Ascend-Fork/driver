@@ -17,6 +17,7 @@
 #include "devmm_common.h"
 #include "svm_proc_mng.h"
 #include "svm_page_cnt_stats.h"
+#include "svm_kapi_stats.h"
 #include "svm_mem_stats.h"
 #include "devmm_dev.h"
 #include "svm_proc_fs.h"
@@ -84,7 +85,13 @@ static void devmm_task_status_stats_show(ka_seq_file_t *seq)
 
     ka_fs_seq_printf(seq, "\ntask status stats:\n");
     /* host or aicpu process status show */
-    ka_task_mutex_lock(&svm_proc->proc_lock);
+    if (!ka_task_mutex_trylock(&svm_proc->proc_lock)) {
+#ifndef EMU_ST
+        devmm_drv_warn("Not get mutext lock, try next time. (pid=%u, devpid=%u)\n", svm_proc->process_id.hostpid,
+                       svm_proc->devpid);
+        return;
+#endif
+    }
     ka_fs_seq_printf(seq, "notifier_reg_flag=0x%x; status=%u; index=%u; msg_processing=%u; other_proc_occupying=%u\n",
                      svm_proc->notifier_reg_flag, svm_proc->proc_status, svm_proc->proc_idx, svm_proc->msg_processing,
                      svm_proc->other_proc_occupying);
@@ -107,7 +114,7 @@ static int devmm_task_info_show(ka_seq_file_t *seq, void *offset)
     struct devmm_svm_process *svm_proc = (struct devmm_svm_process *)ka_fs_get_seq_file_private(seq);
     /* cat information action just can run in the same docker or host */
     if (devmm_thread_is_run_in_docker() == true) {
-        if (ka_task_get_current_mnt_ns() != ka_task_get_mnt_ns(svm_proc->tsk)) {
+        if (ka_task_get_current_mnt_ns() != devmm_get_proc_mnt_ns(svm_proc)) {
             return 0;
         }
     }
@@ -173,6 +180,15 @@ static const ka_procfs_ops_t devmm_sum_ops = {
     ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(devmm_sum_open) ka_fs_init_pf_read(ka_fs_seq_read)
         ka_fs_init_pf_lseek(ka_fs_seq_lseek) ka_fs_init_pf_release(ka_fs_single_release)};
 
+STATIC int devmm_kapi_stats_open(ka_inode_t *inode, ka_file_t *file)
+{
+    return ka_fs_single_open(file, devmm_kapi_stats_procfs_show, ka_base_pde_data(inode));
+}
+
+static const ka_procfs_ops_t devmm_kapi_stats_ops = {
+    ka_fs_init_pf_owner(KA_THIS_MODULE) ka_fs_init_pf_open(devmm_kapi_stats_open) ka_fs_init_pf_read(ka_fs_seq_read)
+        ka_fs_init_pf_lseek(ka_fs_seq_lseek) ka_fs_init_pf_release(ka_fs_single_release)};
+
 static ka_proc_dir_entry_t *devmm_top_entry = NULL;
 void devmm_proc_fs_init(struct devmm_svm_dev *svm_dev)
 {
@@ -180,6 +196,7 @@ void devmm_proc_fs_init(struct devmm_svm_dev *svm_dev)
     if (devmm_top_entry != NULL) {
         devmm_task_entry = ka_fs_proc_mkdir("task", devmm_top_entry);
         ka_fs_proc_create_data("summary", DEVMM_PROC_FS_MODE, devmm_top_entry, &devmm_sum_ops, svm_dev);
+        ka_fs_proc_create_data("kernel_api_stats", DEVMM_PROC_FS_MODE, devmm_top_entry, &devmm_kapi_stats_ops, NULL);
         devmm_dev_proc_fs_init();
     }
 }
@@ -189,6 +206,8 @@ void devmm_proc_fs_uninit(void)
     if (devmm_top_entry != NULL) {
         devmm_dev_proc_fs_uninit();
         ka_fs_remove_proc_subtree("svm", NULL);
+        devmm_top_entry = NULL;
+        devmm_task_entry = NULL;
     }
 }
 

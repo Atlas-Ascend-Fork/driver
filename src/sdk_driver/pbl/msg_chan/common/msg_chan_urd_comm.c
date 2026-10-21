@@ -15,29 +15,33 @@
 #include "ascend_dev_num.h"
 #include "msg_chan_main.h"
 
-#ifndef KA_BITS_PER_LONG_LONG
-#define KA_BITS_PER_LONG_LONG 64
-#endif
-
-#define SET_BIT_64(x, y) ((x) |= ((u64)0x01 << (y)))
-#define CLR_BIT_64(x, y) ((x) &= (~((u64)0x01 << (y))))
-#define CHECK_BIT_64(x, y) ((x) & ((u64)0x01 << (y)))
-
 u64 g_prob_device_bitmap[ASCEND_DEV_MAX_NUM / KA_BITS_PER_LONG_LONG + 1];
 void devdrv_set_probe_dev_bitmap(u32 devid)
 {
-    SET_BIT_64(g_prob_device_bitmap[devid / KA_BITS_PER_LONG_LONG], devid % KA_BITS_PER_LONG_LONG);
+    if (devid >= ASCEND_DEV_MAX_NUM) {
+        devdrv_err("Invalid devid. (devid=%u)\n", devid);
+        return;
+    }
+    ka_base_set_bit((int)devid, (unsigned long *)g_prob_device_bitmap);
 }
 KA_EXPORT_SYMBOL(devdrv_set_probe_dev_bitmap);
 
 void devdrv_clr_probe_dev_bitmap(u32 devid)
 {
-    CLR_BIT_64(g_prob_device_bitmap[devid / KA_BITS_PER_LONG_LONG], devid % KA_BITS_PER_LONG_LONG);
+    if (devid >= ASCEND_DEV_MAX_NUM) {
+        devdrv_err("Invalid devid. (devid=%u)\n", devid);
+        return;
+    }
+    ka_base_clear_bit((int)devid, (unsigned long *)g_prob_device_bitmap);
 }
 KA_EXPORT_SYMBOL(devdrv_clr_probe_dev_bitmap);
 
 u64 devdrv_check_probe_dev_bitmap(u32 devid)
 {
-    return CHECK_BIT_64(g_prob_device_bitmap[devid / KA_BITS_PER_LONG_LONG], devid % KA_BITS_PER_LONG_LONG);
+    if (devid >= ASCEND_DEV_MAX_NUM) {
+        devdrv_err("Invalid devid. (devid=%u)\n", devid);
+        return 0;
+    }
+    return (u64)ka_base_test_bit((int)devid, (const unsigned long *)g_prob_device_bitmap);
 }
 KA_EXPORT_SYMBOL(devdrv_check_probe_dev_bitmap);

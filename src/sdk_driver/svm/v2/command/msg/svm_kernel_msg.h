@@ -63,7 +63,14 @@ enum {
     DEVMM_CHAN_SOMA_DESTROY_POOL_H2D_ID = 39,
     DEVMM_CHAN_SOMA_TRIM_POOL_H2D_ID = 40,
     DEVMM_CHAN_SOMA_FREE_SYNC_H2D_ID = 41,
-
+    DEVMM_CHAN_SET_MEM_MAP_ROUTE_H2D_ID,
+    DEVMM_CHAN_GET_MEM_MAP_ROUTE_H2D_ID,
+    DEVMM_VMM_ACCESS_PA_QUERY_ID,
+    DEVMM_VMM_ACCESS_VA_MAP_ID,
+    DEVMM_VMM_ACCESS_VA_UNMAP_ID,
+    DEVMM_VMM_SET_D2D_ACCESS_ID,
+    DEVMM_VMM_PA_REF_OP_ID,
+    DEVMM_VMMA_REF_OP_ID,
 // UVM message id
 #ifndef UVM_OPEN
     DEVMM_CHAN_UVM_FREE_PAGE_H2D_ID,
@@ -88,8 +95,6 @@ enum {
     DEVMM_CHAN_UVM_SWAP_ID,
     DEVMM_CHAN_UVM_RELEASE_ID,
 #endif
-    DEVMM_CHAN_SET_MEM_MAP_ROUTE_H2D_ID,
-    DEVMM_CHAN_GET_MEM_MAP_ROUTE_H2D_ID,
     DEVMM_CHAN_MAX_ID
 };
 
@@ -359,6 +364,7 @@ struct devmm_chan_heap_info {
     u32 heap_idx;
     u32 heap_type;
     u32 heap_sub_type;
+    u32 is_host_pin; /* 1: heap belongs to host_pin_heaps[], 0: belongs to heaps[] */
     u64 heap_size;
 };
 
@@ -464,6 +470,7 @@ struct devmm_chan_process_status {
     bool status_occur;
     u32 pid;
     u32 tid;
+    u32 extend_data[];
 };
 
 struct devmm_chan_mem_create {
@@ -522,6 +529,7 @@ struct devmm_chan_mem_export {
     u32 side;
     u32 pg_type;
     u32 mem_type;
+    u64 pa_pg_size;
 };
 
 struct devmm_chan_mem_import {
@@ -539,6 +547,7 @@ struct devmm_chan_mem_import {
     u32 is_create_to_new_blk;
 
     int id;
+    u64 pa_pg_size;
 };
 
 struct devmm_chan_share_mem_memset {
@@ -626,6 +635,8 @@ struct devmm_chan_soma_pool_create {
 struct devmm_chan_soma_pool_destroy {
     struct devmm_chan_msg_head head;
     u64 pool_id;
+    u64 pool_va;
+    u64 pool_size;
 };
 
 struct devmm_chan_soma_pool_trim {

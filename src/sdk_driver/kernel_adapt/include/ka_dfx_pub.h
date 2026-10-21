@@ -126,24 +126,13 @@ typedef enum profile_type ka_profile_type_t;
 #define ka_dfx_profile_event_register(pt, nb) profile_event_register(pt, nb)
 #define ka_dfx_profile_event_unregister(pt, nb) profile_event_unregister(pt, nb)
 #else
-/* func not support  */
 typedef enum {
     KA_PROFILE_TASK_EXIT,
     KA_PROFILE_MUNMAP
 } ka_profile_type_t;
 
-static inline int ka_dfx_profile_event_register(ka_profile_type_t type, ka_notifier_block_t *nb)
-{
-    (void)type;
-    (void)nb;
-    return 0;
-}
-static inline int ka_dfx_profile_event_unregister(ka_profile_type_t type, ka_notifier_block_t *nb)
-{
-    (void)type;
-    (void)nb;
-    return 0;
-}
+int ka_dfx_profile_event_register(ka_profile_type_t type, ka_notifier_block_t *nb);
+int ka_dfx_profile_event_unregister(ka_profile_type_t type, ka_notifier_block_t *nb);
 #endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)

@@ -17,6 +17,7 @@
 #include "svm_user_adapt.h"
 #include "svm_log.h"
 #include "svm_sys_cmd.h"
+#include "svm_dbi.h"
 #include "svm_pagesize.h"
 #include "svm_share_align.h"
 #include "malloc_mng.h"
@@ -288,6 +289,7 @@ static int svm_ipc_format_name(char *name, u32 name_len, u64 key)
 
 static int svm_ipc_create_handle(u64 va, u64 size, u64 *key)
 {
+    struct casm_src_prop src_prop;
     struct svm_dst_va dst_va;
     struct svm_prop prop;
     u64 aligned_size;
@@ -300,7 +302,7 @@ static int svm_ipc_create_handle(u64 va, u64 size, u64 *key)
     }
 
     if (!svm_flag_cap_is_support_ipc_create(prop.flag)) {
-        svm_err("Addr cap does not support ipc create. (va=0x%llx)\n", va);
+        svm_err("The address does not support IPC sharing. (va=0x%llx)\n", va);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -316,8 +318,11 @@ static int svm_ipc_create_handle(u64 va, u64 size, u64 *key)
         return DRV_ERROR_PARA_ERROR;
     }
 
+    src_prop.casm_pg_type = svm_flag_attr_is_gpage(prop.flag) ?
+                                CASM_GPAGE :
+                                (svm_flag_attr_is_hpage(prop.flag) ? CASM_HPAGE : CASM_NPAGE);
     svm_dst_va_pack(prop.devid, DEVDRV_PROCESS_CP1, va, aligned_size, &dst_va);
-    ret = svm_casm_create_key(&dst_va, key);
+    ret = svm_casm_create_key(&dst_va, &src_prop, key);
     if (ret != 0) {
         /* The log cannot be modified, because in the failure mode library. */
         svm_err("Create key failed. (va=0x%llx)\n", va);
@@ -332,9 +337,10 @@ static int svm_ipc_destroy_handle(u64 key)
     return svm_casm_destroy_key(key);
 }
 
-static int svm_ipc_malloc_opened_va(u32 devid, u64 size, u64 align, u64 *opened_va)
+static int svm_ipc_malloc_opened_va(u32 devid, u64 size, u64 align, enum casm_pg_type casm_src_pg_type, u64 *opened_va)
 {
     struct svm_malloc_location location;
+    u64 hpage_size;
     u64 start = 0;
     u64 svm_flag = 0;
     int ret;
@@ -348,6 +354,20 @@ static int svm_ipc_malloc_opened_va(u32 devid, u64 size, u64 align, u64 *opened_
     svm_flag |= SVM_FLAG_BY_PASS_CACHE;
     svm_flag |= SVM_FLAG_CAP_GET_ATTR;
     svm_flag |= SVM_FLAG_CAP_GET_D2D_TRANS_WAY;
+
+    /* Use HPAGE when cross-server IPC cannot provide the source page type, then record the smaller granularity. */
+    if ((casm_src_pg_type == CASM_PG_TYPE_INVALID) || (casm_src_pg_type == CASM_HPAGE) ||
+        (casm_src_pg_type == CASM_GPAGE)) {
+        ret = svm_dbi_query_hpage_size(devid, &hpage_size);
+        if (ret != 0) {
+            return ret;
+        }
+
+        if (align >= hpage_size) {
+            svm_flag |= ((casm_src_pg_type == CASM_GPAGE) && (align > hpage_size)) ? SVM_FLAG_ATTR_PA_GPAGE :
+                                                                                     SVM_FLAG_ATTR_PA_HPAGE;
+        }
+    }
 
     svm_flag_set_module_id(&svm_flag, HCCL_HAL_MODULE_ID);
 
@@ -383,19 +403,19 @@ static u32 svm_ipc_open_flag_to_casm_flag(u64 ipc_open_flag)
 
 static int svm_ipc_open_handle(u32 devid, u64 key, u64 *opened_va, uint64_t flag)
 {
+    struct casm_src_va_ex_info src_ex_info;
     struct svm_global_va src_va;
-    u64 access_va = 0;
-    u64 update_va, align;
+    u64 align;
     int ret;
 
-    ret = svm_casm_get_src_va_ex(devid, key, &src_va, &update_va, &access_va);
+    ret = svm_casm_get_src_va_ex(devid, key, &src_va, &src_ex_info);
     if (ret != 0) {
         svm_err("Get src va failed. (devid=%u; key=0x%llx)\n", devid, key);
         return ret;
     }
 
-    if (access_va != 0) {
-        *opened_va = access_va;
+    if (src_ex_info.ex_info != 0) {
+        *opened_va = src_ex_info.ex_info;
         return 0;
     }
 
@@ -406,7 +426,8 @@ static int svm_ipc_open_handle(u32 devid, u64 key, u64 *opened_va, uint64_t flag
         return ret;
     }
 
-    ret = svm_ipc_malloc_opened_va(devid, svm_get_non_dev_align_size(src_va.size), align, opened_va);
+    ret = svm_ipc_malloc_opened_va(devid, svm_get_non_dev_align_size(src_va.size), align,
+                                   src_ex_info.src_prop.casm_pg_type, opened_va);
     if (ret != 0) {
         svm_err("Malloc opened va failed. (devid=%u; key=0x%llx; size=0x%llx; align=0x%llx)\n", devid, key, src_va.size,
                 align);
@@ -418,6 +439,10 @@ static int svm_ipc_open_handle(u32 devid, u64 key, u64 *opened_va, uint64_t flag
         (void)svm_ipc_free_opened_va(*opened_va);
         svm_err("Mem map failed. (devid=%u; key=0x%llx; size=0x%llx; opened_va=0x%llx)\n", devid, key, src_va.size,
                 *opened_va);
+        if (ret == DRV_ERROR_NO_RESOURCES) {
+            svm_report_ubmem_cfg_abnormal();
+            ret = DRV_ERROR_INNER_ERR;
+        }
         return ret;
     }
 
@@ -575,7 +600,11 @@ DVresult halShmemSetPodPid(const char *name, uint32_t sdid, int pid[], int num)
         return (DVresult)ret;
     }
 
-    return (DVresult)svm_casm_add_task(key, sdid_parse.server_id, pid, (u32)num);
+    if (svm_get_cur_server_id() != sdid_parse.server_id) {
+        return (DVresult)svm_casm_add_task(key, sdid_parse.server_id, pid, (u32)num);
+    } else {
+        return (DVresult)svm_casm_add_local_task(key, pid, (u32)num);
+    }
 }
 
 DVresult halShmemDestroyHandle(const char *name)
@@ -634,6 +663,8 @@ DVresult halShmemOpenHandleV2(DVdevice dev_id, const char *name, DVdeviceptr *vp
     u64 key;
     int ret;
 
+    DRV_CURRENT_API_SCOPE();
+
     ret = svm_ipc_open_para_check((u32)dev_id, name, (u64 *)vptr, flag);
     if (ret != DRV_ERROR_NONE) {
         return ret;
@@ -646,7 +677,7 @@ DVresult halShmemOpenHandleV2(DVdevice dev_id, const char *name, DVdeviceptr *vp
     }
 
     if ((cs_valid != 0) && (src_va.server_id != svm_get_cur_server_id())) {
-        ret = svm_casm_cs_set_src_info(dev_id, key, &src_va, owner_pid);
+        ret = svm_casm_cs_set_src_info(dev_id, key, &src_va, owner_pid, NULL);
         if (ret != 0) {
             svm_err("Set cs src failed. (name=%s)\n", name);
             return (DVresult)ret;
@@ -666,6 +697,8 @@ DVresult halShmemOpenHandleV2(DVdevice dev_id, const char *name, DVdeviceptr *vp
 
 DVresult halShmemOpenHandleByDevId(DVdevice dev_id, const char *name, DVdeviceptr *vptr)
 {
+    DRV_CURRENT_API_SCOPE();
+
     return halShmemOpenHandleV2(dev_id, name, vptr, 0);
 }
 
@@ -751,12 +784,12 @@ static int ipc_map_route_para_check(const char *name, u32 dst_devid, u32 map_rou
     return DRV_ERROR_NONE;
 }
 
-static int ipc_mem_get_ub_mem_id_by_name(const char *name, u32 dst_devid, u32 *mem_id)
+static int ipc_mem_get_ub_info_by_name(const char *name, u32 dst_devid, u32 *src_server_id, u32 *mem_id)
 {
+    struct casm_src_va_ex_info casm_ex_info;
     struct svm_global_va src_va;
     int cs_valid, owner_pid;
-    u64 key, ex_info, offset;
-    u64 update_va = 0;
+    u64 key, offset;
     u8 version;
     int ret;
 
@@ -767,14 +800,14 @@ static int ipc_mem_get_ub_mem_id_by_name(const char *name, u32 dst_devid, u32 *m
     }
 
     if ((cs_valid != 0) && (src_va.server_id != svm_get_cur_server_id())) {
-        ret = svm_casm_cs_set_src_info(dst_devid, key, &src_va, owner_pid);
+        ret = svm_casm_cs_set_src_info(dst_devid, key, &src_va, owner_pid, NULL);
         if (ret != 0) {
             svm_err("Set cs src failed. (name=%s)\n", name);
             return ret;
         }
     }
 
-    ret = svm_casm_get_src_va_ex(dst_devid, key, &src_va, &update_va, &ex_info);
+    ret = svm_casm_get_src_va_ex(dst_devid, key, &src_va, &casm_ex_info);
     if ((cs_valid != 0) && (src_va.server_id != svm_get_cur_server_id())) {
         (void)svm_casm_cs_clr_src_info(dst_devid, key);
     }
@@ -782,18 +815,19 @@ static int ipc_mem_get_ub_mem_id_by_name(const char *name, u32 dst_devid, u32 *m
         svm_err("Get src va failed. (name=%s)\n", name);
         return ret;
     }
-    if (update_va == 0) {
+    if (casm_ex_info.update_va == 0) {
         svm_debug("Not ubmem map. (name=%s; key=%llu)\n", name, key);
         return DRV_ERROR_NOT_EXIST;
     }
 
-    svm_ub_va_to_mem_id_and_offset(update_va, mem_id, &offset);
+    svm_ub_va_to_mem_id_and_offset(casm_ex_info.update_va, mem_id, &offset);
+    *src_server_id = src_va.server_id;
     return DRV_ERROR_NONE;
 }
 
 DVresult halShmemMapRouteCheck(const char *name, uint32_t dst_devid, uint32_t map_route)
 {
-    u32 src_sdid = 0; /* addr trans use mem_id, not use peer_sdid */
+    u32 src_server_id;
     u32 mem_id;
     int ret;
 
@@ -802,12 +836,13 @@ DVresult halShmemMapRouteCheck(const char *name, uint32_t dst_devid, uint32_t ma
         return ret;
     }
 
-    ret = ipc_mem_get_ub_mem_id_by_name(name, dst_devid, &mem_id);
+    ret = ipc_mem_get_ub_info_by_name(name, dst_devid, &src_server_id, &mem_id);
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }
 
-    return ubmemMapRouteCheck(dst_devid, src_sdid, mem_id, map_route);
+    src_server_id = (src_server_id == SVM_INVALID_SERVER_ID) ? UBMM_INVALID_SERVER_ID : src_server_id;
+    return ubmemMapRouteCheck(dst_devid, src_server_id, mem_id, map_route);
 }
 
 DVresult halShmemSetAttribute(const char *name, uint32_t type, uint64_t attr)
@@ -879,8 +914,10 @@ DVresult halShmemGetAttribute(const char *name, enum ShmemAttrType type, uint64_
 
 DVresult halShmemInfoGet(const char *name, struct ShmemGetInfo *info)
 {
-    struct svm_global_va src_va;
+    struct svm_global_va src_va_cs, src_va;
+    int cs_valid, owner_pid;
     u64 key;
+    u8 version;
     int ret;
 
     if (info == NULL) {
@@ -893,13 +930,25 @@ DVresult halShmemInfoGet(const char *name, struct ShmemGetInfo *info)
         return ret;
     }
 
-    ret = svm_ipc_get_key_by_name(name, &key);
-    if (ret != 0) {
+    ret = svm_ipc_parse_name(name, &version, &key, &cs_valid, &src_va_cs, &owner_pid);
+    if (ret != DRV_ERROR_NONE) {
         svm_err("Get key failed. (name=%s)\n", name);
-        return (DVresult)ret;
+        return ret;
+    }
+
+    if ((cs_valid != 0) && (src_va_cs.server_id != svm_get_cur_server_id())) {
+        ret = svm_casm_cs_set_src_info(svm_get_host_devid(), key, &src_va_cs, owner_pid, NULL);
+        if (ret != 0) {
+            svm_err("Set cs src failed. (name=%s)\n", name);
+            return (DVresult)ret;
+        }
     }
 
     ret = svm_casm_get_src_va(svm_get_host_devid(), key, &src_va);
+    if ((cs_valid != 0) && (src_va_cs.server_id != svm_get_cur_server_id())) {
+        (void)svm_casm_cs_clr_src_info(svm_get_host_devid(), key);
+    }
+
     if (ret != DRV_ERROR_NONE) {
         svm_err("Casm get src va failed. (ret=%d; key=0x%llx)\n", ret, key);
         return ret;

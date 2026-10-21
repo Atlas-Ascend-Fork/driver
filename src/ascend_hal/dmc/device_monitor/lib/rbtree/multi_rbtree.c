@@ -53,7 +53,7 @@ struct multi_rb_node *multi_rbtree_get_with_list(struct multi_rb_node *node)
     }
 }
 
-struct multi_rb_node *multi_rbtree_get(uint64_t key, struct rbtree_root *root) //lint !e527
+struct multi_rb_node *multi_rbtree_get(uint64_t key, struct rbtree_root *root) // lint !e527
 {
     struct multi_rb_node *this = NULL;
     struct multi_rb_node *node = NULL;

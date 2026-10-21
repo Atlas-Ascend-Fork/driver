@@ -292,7 +292,7 @@ int drv_pcie_read(ka_file_t *filep, unsigned int cmd, unsigned long arg)
 
     /* bbox is not support container */
     if (devdrv_manager_container_is_in_container()) {
-        devdrv_drv_err("bbox read interface does not support container\n");
+        devdrv_drv_err("bbox read interface does not support container.\n");
         return -EPERM;
     }
     ret = copy_from_user_safe(&pcie_read_para, (void *)((uintptr_t)arg), sizeof(struct devdrv_pcie_read_para));
@@ -530,7 +530,7 @@ int drv_pcie_bbox_imu_ddr_read(ka_file_t *filep, unsigned int cmd, unsigned long
 
     /* bbox is not support container */
     if (devdrv_manager_container_is_in_container()) {
-        devdrv_drv_err("bbox imu ddr read interface does not support container\n");
+        devdrv_drv_err("bbox imu ddr read interface does not support container.\n");
         return -EPERM;
     }
     ret = copy_from_user_safe(&imu_ddr_read_para, (void *)((uintptr_t)arg),
@@ -582,7 +582,7 @@ int drv_get_device_boot_status(ka_file_t *filep, unsigned int cmd, unsigned long
     /* only judge the physical id is available in container */
     if (devdrv_manager_container_is_in_container()) {
         if (!uda_task_can_access_udevid_inherit(ka_task_get_current(), phys_id)) {
-            devdrv_drv_err("device phyid is not belong to current docker. (phy_id=%d)\n", phys_id);
+            devdrv_drv_err("device phyid does not belong to current docker. (phy_id=%d)\n", phys_id);
             return -EFAULT;
         }
     }

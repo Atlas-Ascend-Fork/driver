@@ -33,6 +33,7 @@ STATIC void devmm_virt_com_heap_update_info(struct devmm_virt_com_heap *heap, st
 #ifndef UVM_OPEN
     heap->is_uvm_heap = heap_info->is_uvm_heap;
 #endif
+    heap->is_host_pin = heap_info->is_host_pin;
 
     heap->start = heap_info->start;
     heap->end = heap->start + heap_info->heap_size - 1;
@@ -44,7 +45,6 @@ STATIC void devmm_virt_com_heap_update_info(struct devmm_virt_com_heap *heap, st
     heap->is_cache = true;
 
     heap->module_id = SVM_MAX_MODULE_ID;
-    heap->side = MEM_MAX_SIDE;
     heap->devid = DEVMM_MAX_DEVICE_NUM;
     heap->mapped_size = 0;
     heap->reserve_size = 0;
@@ -145,7 +145,7 @@ DVresult devmm_virt_init_com_heap(struct devmm_virt_com_heap *heap, struct devmm
 
     /* update heap info to kernel. */
     ret = devmm_ioctl_enable_heap(heap->heap_idx, heap->heap_type, heap->heap_sub_type, heap->heap_size,
-                                  heap->heap_list_type);
+                                  heap->heap_list_type, heap->is_host_pin);
     if (ret != DRV_ERROR_NONE) {
         DEVMM_DRV_ERR("Devmm_virt_ioctl_update_heap error. (ret_val=%d)\n", ret);
         devmm_rbtree_destory(&heap->rbtree_queue);
@@ -771,7 +771,7 @@ STATIC DVresult devmm_map_node(struct devmm_virt_com_heap *heap, struct devmm_rb
 
     ret_val = heap->ops->heap_alloc(heap, node->data.va, map_size, advise);
     if ((ret_val < DEVMM_SVM_MEM_START && ret_val > DEVMM_HOST_PIN_END) || (ret_val < DEVMM_HOST_PIN_START)) {
-        DEVMM_DRV_INFO("Alloc physical address completed. (va=0x%llx; ret_val=0x%lx)\n", node->data.va, ret_val);
+        DEVMM_DRV_INFO("Can not alloc physical address. (va=0x%llx; ret_val=0x%lx)\n", node->data.va, ret_val);
         return ptr_to_errcode(ret_val);
     }
 
@@ -984,7 +984,7 @@ static void devmm_separate_node_by_va(struct devmm_virt_com_heap *heap, struct d
 
     new_node = devmm_alloc_rbtree_node(&heap->rbtree_queue);
     if (new_node == NULL) {
-        DEVMM_DRV_INFO("Malloc new_node completed.\n");
+        DEVMM_DRV_INFO("Out of memory, cannot malloc new_node.\n");
         return;
     }
 
@@ -1009,7 +1009,7 @@ static struct devmm_rbtree_node *devmm_get_node_from_idle_va_tree(struct devmm_v
         node = devmm_rbtree_get_alloced_node_in_range(va, &heap->rbtree_queue);
         if (node == NULL) {
 #ifndef EMU_ST
-            DEVMM_DRV_INFO("Va lookup in allocated tree completed. (va=0x%llx; alloc_size=%lu)\n", va, alloc_size);
+            DEVMM_DRV_INFO("Cannot find va in allocated tree. (va=0x%llx; alloc_size=%lu)\n", va, alloc_size);
 #endif
         } else {
             DEVMM_DRV_INFO("Va is allocated. (va=0x%llx; alloc_size=%lu; node_va=0x%llx; node_size=%llu; total=%llu; "
@@ -1056,11 +1056,11 @@ STATIC struct devmm_rbtree_node *devmm_alloc_mem_get_node(struct devmm_virt_com_
     if (node == NULL) {
         if (alloc_size <= heap->need_cache_thres[memtype]) {
             if (heap->is_limited == true) { /* record err */
-                DEVMM_DRV_ERR("Out of virtual memory, please check memory usage. "
-                              "(size=%lu; memtype=%u; heap_size=%llu; "
-                              "need_cache_thres=%lu; heap_mem_alloced=%llu; freed=%llu; cur_cache=%llu)\n",
-                              alloc_size, memtype, heap->heap_size, heap->need_cache_thres[memtype],
-                              heap->sys_mem_alloced, heap->sys_mem_freed, heap->cur_cache_mem[memtype]);
+                DEVMM_RUN_INFO("Out of virtual memory, please check memory usage. "
+                               "(size=%lu; memtype=%u; heap_size=%llu; "
+                               "need_cache_thres=%lu; heap_mem_alloced=%llu; freed=%llu; cur_cache=%llu)\n",
+                               alloc_size, memtype, heap->heap_size, heap->need_cache_thres[memtype],
+                               heap->sys_mem_alloced, heap->sys_mem_freed, heap->cur_cache_mem[memtype]);
             }
             return NULL;
         }
@@ -1070,11 +1070,11 @@ STATIC struct devmm_rbtree_node *devmm_alloc_mem_get_node(struct devmm_virt_com_
             node = _devmm_alloc_mem_get_node(heap, alloc_size, va);
             if (node == NULL) {
                 if (devmm_is_specified_va_alloc(va) == false) {
-                    DEVMM_DRV_ERR("Out of virtual memory to alloc large memory, please check memory usage. "
-                                  "(size=%lu; memtype=%u; heap_size=%llu; "
-                                  "need_cache_thres=%lu; heap_mem_alloced=%llu; freed=%llu; cur_cache=%llu)\n",
-                                  alloc_size, memtype, heap->heap_size, heap->need_cache_thres[memtype],
-                                  heap->sys_mem_alloced, heap->sys_mem_freed, heap->cur_cache_mem[memtype]);
+                    DEVMM_RUN_INFO("Out of virtual memory to alloc large memory, please check memory usage. "
+                                   "(size=%lu; memtype=%u; heap_size=%llu; "
+                                   "need_cache_thres=%lu; heap_mem_alloced=%llu; freed=%llu; cur_cache=%llu)\n",
+                                   alloc_size, memtype, heap->heap_size, heap->need_cache_thres[memtype],
+                                   heap->sys_mem_alloced, heap->sys_mem_freed, heap->cur_cache_mem[memtype]);
                 }
                 return NULL;
             }
@@ -1123,7 +1123,7 @@ DVresult devmm_alloc_mem(uint64_t *pp, size_t bytesize, DVmem_advise advise, str
         ret = devmm_alloc_from_unmapped_node(heap, node, alloc_size, advise, memtype);
     }
     if (ret != DRV_ERROR_NONE) {
-        DEVMM_DRV_INFO("Alloc memory completed. (bytesize=%lu; alloc_size=%llu)\n", bytesize, alloc_size);
+        DEVMM_DRV_INFO("Alloc memory completed. (ret=%d; bytesize=%lu; alloc_size=%llu)\n", ret, bytesize, alloc_size);
         goto alloc_out;
     }
 
@@ -1346,13 +1346,13 @@ DVresult devmm_free_mem(uint64_t va, struct devmm_virt_com_heap *heap, uint64_t 
 
     DEVMM_DRV_SWITCH("Free memory. (va=0x%llx)\n", va);
     if (heap == NULL) {
-        DEVMM_DRV_ERR("Heap is NULL, is incorrect.\n");
+        DEVMM_DRV_ERR("Heap is NULL, is error.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
     (void)pthread_rwlock_rdlock(&heap->heap_rw_lock);
     if (heap->heap_type == DEVMM_HEAP_IDLE) {
         (void)pthread_rwlock_unlock(&heap->heap_rw_lock);
-        DEVMM_DRV_ERR("Heap is destroyed, is incorrect.\n");
+        DEVMM_DRV_ERR("Heap is destroy, is error.\n");
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -1540,114 +1540,6 @@ DVdeviceptr devmm_alloc_from_tree(struct devmm_virt_com_heap *heap, size_t bytes
     (void)pthread_mutex_unlock(&heap->tree_lock);
     (void)pthread_rwlock_unlock(&heap->heap_rw_lock);
     return ptr;
-}
-
-static int devmm_save_map_info_to_primary_heap(struct devmm_virt_com_heap *heap, uint32_t side, uint32_t devid)
-{
-    heap->side = side;
-    heap->devid = devid;
-    return 0;
-}
-
-static int devmm_get_map_info_from_primary_heap(struct devmm_virt_com_heap *heap, uint32_t *side, uint32_t *devid)
-{
-    *side = heap->side;
-    *devid = heap->devid;
-    return 0;
-}
-
-static int devmm_save_map_info_to_alloced_tree_node(struct devmm_virt_com_heap *heap, u64 va, uint32_t side,
-                                                    uint32_t devid)
-{
-    struct devmm_rbtree_node *node = NULL;
-
-    (void)pthread_rwlock_rdlock(&heap->heap_rw_lock);
-    (void)pthread_mutex_lock(&heap->tree_lock);
-    node = devmm_rbtree_get_alloced_node_in_range(va, &heap->rbtree_queue);
-    if (node == NULL) {
-        (void)pthread_mutex_unlock(&heap->tree_lock);
-        (void)pthread_rwlock_unlock(&heap->heap_rw_lock);
-#ifndef EMU_ST
-        DEVMM_DRV_ERR("Va hasn't been allocated. (va=0x%llx)\n", va);
-#endif
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    devmm_node_flag_set_side(&node->data.flag, side);
-    devmm_node_flag_set_devid(&node->data.flag, devid);
-    (void)pthread_mutex_unlock(&heap->tree_lock);
-    (void)pthread_rwlock_unlock(&heap->heap_rw_lock);
-    return DRV_ERROR_NONE;
-}
-
-static int devmm_get_map_info_from_alloced_tree_node(struct devmm_virt_com_heap *heap, u64 va, uint32_t *side,
-                                                     uint32_t *devid)
-{
-    struct devmm_rbtree_node *node = NULL;
-
-    (void)pthread_rwlock_rdlock(&heap->heap_rw_lock);
-    (void)pthread_mutex_lock(&heap->tree_lock);
-    node = devmm_rbtree_get_alloced_node_in_range(va, &heap->rbtree_queue);
-    if (node == NULL) {
-        (void)pthread_mutex_unlock(&heap->tree_lock);
-        (void)pthread_rwlock_unlock(&heap->heap_rw_lock);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    *side = devmm_node_flag_get_side(node->data.flag);
-    *devid = devmm_node_flag_get_devid(node->data.flag);
-    (void)pthread_mutex_unlock(&heap->tree_lock);
-    (void)pthread_rwlock_unlock(&heap->heap_rw_lock);
-    return DRV_ERROR_NONE;
-}
-
-DVresult devmm_save_map_info(uint64_t va, uint32_t side, uint32_t devid)
-{
-    struct devmm_virt_com_heap *heap = NULL;
-
-    heap = devmm_va_to_heap(va);
-    if ((heap == NULL) || heap->heap_type == DEVMM_HEAP_IDLE) {
-        DEVMM_DRV_ERR("Address is not allocated. please check ptr. (offset=%llx)\n", ADDR_TO_OFFSET(va));
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    if (heap->heap_sub_type != SUB_RESERVE_TYPE) {
-        DEVMM_DRV_ERR("Addr should be reserve type. (va=0x%llx)\n", va);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
-    if (devmm_virt_heap_is_primary(heap)) {
-        return devmm_save_map_info_to_primary_heap(heap, side, devid);
-    } else {
-        return devmm_save_map_info_to_alloced_tree_node(heap, va, side, devid);
-    }
-}
-
-drvError_t _devmm_get_map_info(struct devmm_virt_com_heap *heap, uint64_t va, uint32_t *side, uint32_t *devid)
-{
-    if (devmm_virt_heap_is_primary(heap)) {
-        return devmm_get_map_info_from_primary_heap(heap, side, devid);
-    } else {
-        return devmm_get_map_info_from_alloced_tree_node(heap, va, side, devid);
-    }
-}
-
-drvError_t devmm_get_map_info(uint64_t va, uint32_t *side, uint32_t *devid)
-{
-    struct devmm_virt_com_heap *heap = NULL;
-
-    heap = devmm_va_to_heap(va);
-    if ((heap == NULL) || heap->heap_type == DEVMM_HEAP_IDLE) {
-        DEVMM_DRV_ERR("Address is not allocated. please check ptr. (offset=%llx)\n", ADDR_TO_OFFSET(va));
-        return DRV_ERROR_BAD_ADDRESS;
-    }
-
-    if (heap->heap_sub_type != SUB_RESERVE_TYPE) {
-        DEVMM_DRV_ERR("Addr should be reserve type. (va=0x%llx)\n", va);
-        return DRV_ERROR_PARA_ERROR;
-    }
-
-    return _devmm_get_map_info(heap, va, side, devid);
 }
 
 int devmm_get_reserve_addr_info(uint64_t va, struct devmm_mem_info *mem_info)

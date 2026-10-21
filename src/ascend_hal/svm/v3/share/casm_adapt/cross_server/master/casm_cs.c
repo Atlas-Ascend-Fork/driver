@@ -37,14 +37,18 @@ int svm_casm_cs_query_src_info(u64 key, struct svm_global_va *src_va, int *owner
     return 0;
 }
 
-int svm_casm_cs_set_src_info(u32 devid, u64 key, struct svm_global_va *src_va, int owner_pid)
+int svm_casm_cs_set_src_info(u32 devid, u64 key, const struct svm_global_va *src_va, int owner_pid,
+                             const struct casm_src_prop *prop)
 {
-    struct svm_casm_cs_set_src_para para;
+    struct svm_casm_cs_set_src_para para = {0};
     int ret;
 
     para.key = key;
     para.src_va = *src_va;
     para.owner_pid = owner_pid;
+    if (prop != NULL) {
+        para.src_prop = *prop;
+    }
 
     ret = svm_cmd_ioctl(devid, SVM_CASM_CS_SET_SRC, (void *)&para);
     if (ret != DRV_ERROR_NONE) {

@@ -27,6 +27,7 @@
 #define UDIS_DEFAULT_WQ_MAX_ACTIVES 0
 #define UDIS_TIMER_TASK_BACKOFF_FACTOR 10
 struct udis_timer g_udis_timer = {0};
+static ka_workqueue_struct_t *g_free_workqueue = NULL;
 
 STATIC void udis_period_work_handle(ka_work_struct_t *work_data)
 {
@@ -108,6 +109,19 @@ STATIC ka_hrtimer_restart_t udis_hrtimer_irq_handle(ka_hrtimer_t *htimer)
     return KA_HRTIMER_RESTART;
 }
 
+STATIC void udis_timer_node_free_work(ka_work_struct_t *work)
+{
+    struct udis_period_task_node *task_node = ka_container_of(work, struct udis_period_task_node, free_work);
+
+    if (task_node->workqueue != NULL) {
+        ka_task_flush_workqueue(task_node->workqueue);
+        ka_task_destroy_workqueue(task_node->workqueue);
+        task_node->workqueue = NULL;
+    }
+    dbl_kfree(task_node);
+    task_node = NULL;
+}
+
 STATIC int udis_period_task_node_init(unsigned int udevid, const struct udis_timer_task *timer_task,
                                       struct udis_period_task_node *task_node)
 {
@@ -131,6 +145,7 @@ STATIC int udis_period_task_node_init(unsigned int udevid, const struct udis_tim
         return -ENOMEM;
     }
     KA_TASK_INIT_WORK(&task_node->work, udis_period_work_handle);
+    KA_TASK_INIT_WORK(&task_node->free_work, udis_timer_node_free_work);
     ka_base_atomic_set(&task_node->queueflag, 0);
     ka_base_atomic_set(&task_node->expired_cnt, task_node->original_expired_cnt);
 
@@ -164,7 +179,7 @@ STATIC int udis_timer_check_task_para(const struct udis_timer_task *timer_task)
     }
 
     if (timer_task->period_ms < UDIS_TIMER_STEP_MS) {
-        udis_err("Task's period is less than timer step. (period=%ums; timer_step=%ums; task_name=%s)\n",
+        udis_err("Task's period is less then timer step. (period=%ums; timer_step=%ums; task_name=%s)\n",
                  timer_task->period_ms, UDIS_TIMER_STEP_MS, timer_task->task_name);
         return -EINVAL;
     }
@@ -241,6 +256,16 @@ int hal_kernel_register_period_task(unsigned int udevid, const struct udis_timer
     return 0;
 }
 
+STATIC void udis_timer_node_rcu_free(ka_rcu_head_t *head)
+{
+    struct udis_period_task_node *task_node = ka_container_of(head, struct udis_period_task_node, rcu);
+#ifndef EMU_ST
+    ka_task_queue_work(g_free_workqueue, &task_node->free_work);
+#else
+    udis_timer_node_free_work(&task_node->free_work);
+#endif
+}
+
 int hal_kernel_unregister_period_task(unsigned int udevid, const char *task_name)
 {
     struct udis_period_task_node *task_node = NULL;
@@ -256,18 +281,12 @@ int hal_kernel_unregister_period_task(unsigned int udevid, const char *task_name
 
     g_udis_timer.task_num--;
     ka_list_del_rcu(&task_node->node);
-    ka_system_synchronize_rcu();
 
-    if (task_node->workqueue != NULL) {
-        ka_task_flush_workqueue(task_node->workqueue);
-        ka_task_destroy_workqueue(task_node->workqueue);
-    } else {
+    if (task_node->workqueue == NULL) {
         ka_task_flush_workqueue(g_udis_timer.common_wq);
     }
-
     ka_task_mutex_unlock(&g_udis_timer.task_list_lock);
-    dbl_kfree(task_node);
-    task_node = NULL;
+    ka_system_call_rcu(&task_node->rcu, udis_timer_node_rcu_free);
 
     udis_info("udis timer unregister success. (udevid=%d; task_name=%s)\n", udevid, task_name);
     return 0;
@@ -285,6 +304,11 @@ int udis_timer_init(void)
     if (g_udis_timer.common_wq == NULL) {
         return -ENOMEM;
     }
+    g_free_workqueue = udis_timer_alloc_workqueue("udis_timer_free", WQ_UNBOUND, 1);
+    if (g_free_workqueue == NULL) {
+        ka_task_destroy_workqueue(g_udis_timer.common_wq);
+        return -ENOMEM;
+    }
 
     ka_system_hrtimer_start(&g_udis_timer.timer, ka_system_ms_to_ktime(UDIS_TIMER_STEP_MS), KA_HRTIMER_MODE_REL);
     udis_info("udis timer init success, start timer.\n");
@@ -297,9 +321,11 @@ void udis_timer_uninit(void)
     struct udis_period_task_node *next = NULL;
     ka_task_mutex_lock(&g_udis_timer.task_list_lock);
     (void)ka_system_hrtimer_cancel(&g_udis_timer.timer);
-    ka_system_synchronize_rcu();
+    ka_system_rcu_barrier();
     ka_task_flush_workqueue(g_udis_timer.common_wq);
     ka_task_destroy_workqueue(g_udis_timer.common_wq);
+    ka_task_flush_workqueue(g_free_workqueue);
+    ka_task_destroy_workqueue(g_free_workqueue);
     ka_list_for_each_entry_safe(task_node, next, &g_udis_timer.period_task_list, node)
     {
         if (task_node->workqueue != NULL) {

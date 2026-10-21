@@ -40,7 +40,7 @@ int hdcdrv_init_dev_mem_pool(struct hdcdrv_dev *hdc_dev)
 
 hdc_mem_pool_init_fail:
     for (i = 0; i < page_idx; i++) {
-        __ka_mm_free_pages(hdc_dev->mem_pool_list[i].pool.page, power);
+        hdcdrv_free_pages_ex(hdc_dev->mem_pool_list[i].pool.page, power, KA_SUB_MODULE_TYPE_2);
         hdc_dev->mem_pool_list[i].pool.page = NULL;
     }
 
@@ -76,7 +76,7 @@ void hdcdrv_uninit_dev_mem_pool(struct hdcdrv_dev *hdc_dev)
             pool_ctx->pool_info.idx = 0;
         }
         mem_pool->ctx = NULL;
-        __ka_mm_free_pages(mem_pool->pool.page, power);
+        hdcdrv_free_pages_ex(mem_pool->pool.page, power, KA_SUB_MODULE_TYPE_2);
         mem_pool->pool.page = NULL;
     }
 
@@ -110,7 +110,9 @@ int hdcdrv_alloc_mem_pool_for_session(struct hdcdrv_session *session, struct hdc
     }
 
     if (mem_pool == NULL) {
-        hdcdrv_warn("mem pool resource exhausted.(devid=%d)\n", hdc_dev->dev_id);
+#ifndef DRV_UT
+        hdcdrv_warn("mem pool resources exhausted. (devid=%d)\n", hdc_dev->dev_id);
+#endif
         ret = -HDCDRV_DMA_MEM_ALLOC_FAIL;
         goto no_mem_pool;
     }
@@ -193,7 +195,8 @@ STATIC void hdcdrv_ub_clear_page(struct hdcdrv_ctx *ctx)
             hdc_dev->mem_pool_list[ctx->pool_info.idx].valid = HDCDRV_MEM_POOL_IDLE;
         } else {
             // Dev has been uninited, this page should be free by fd release
-            __ka_mm_free_pages(ctx->pool_info.pool_page, (u32)ka_mm_get_order(HDCDRV_UB_MEM_POOL_LEN));
+            hdcdrv_free_pages_ex(ctx->pool_info.pool_page, (u32)ka_mm_get_order(HDCDRV_UB_MEM_POOL_LEN),
+                                 KA_SUB_MODULE_TYPE_2);
             ctx->pool_info.pool_page = NULL;
         }
     }
@@ -221,7 +224,7 @@ void hdcdrv_clear_mem_pool_by_ctx(struct hdcdrv_ctx *ctx)
     /* All page tables are cleared during release. Therefore, the demapping function does not need to be invoked in
      * release. */
     ka_task_mutex_lock(&g_hdc_ctrl.dev_lock[ctx->dev_id]);
-    if ((u32)ctx->pool_info.idx != g_hdc_ctrl.dev_ref[ctx->dev_id]) {
+    if (ctx->pool_info.dev_ref != g_hdc_ctrl.dev_ref[ctx->dev_id]) {
         ka_task_mutex_unlock(&g_hdc_ctrl.dev_lock[ctx->dev_id]);
         hdcdrv_put_dev(ctx->dev_id);
         hdcdrv_ub_clear_page(ctx);
@@ -231,7 +234,7 @@ void hdcdrv_clear_mem_pool_by_ctx(struct hdcdrv_ctx *ctx)
     for (i = 0; i < HDCDRV_MEM_POOL_NUM; i++) {
         mem_pool = &hdc_dev->mem_pool_list[i];
         if (mem_pool->ctx == ctx) {
-            hdcdrv_info("process release but mem_pool not release, force release mem_pool."
+            hdcdrv_info("process released but mem_pool not released, force release mem_pool."
                         " (dev_id=%d; idx=%d; session=%u)\n",
                         hdc_dev->dev_id, i, hdc_dev->mem_pool_list[i].session_id);
             mem_pool->ctx = NULL;

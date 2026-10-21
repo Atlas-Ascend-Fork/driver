@@ -28,24 +28,22 @@ struct ascend_intf_get_status_para {
     union status_para_un para;
 };
 
-#define NOTIFY_MODE_RELEASE_PREPARE      0x0001
-#define NOTIFY_MODE_RELEASE_FINISH       0x0002
-#define NOTIFY_MODE_REMOVE_PREPARE       0x0003
+#define NOTIFY_MODE_RELEASE_PREPARE 0x0001
+#define NOTIFY_MODE_RELEASE_FINISH 0x0002
+#define NOTIFY_MODE_REMOVE_PREPARE 0x0003
 
 struct notifier_operations {
     struct module *owner;
-    int (*notifier_call) (ka_file_t *file_op, unsigned long mode);
+    int (*notifier_call)(ka_file_t *file_op, unsigned long mode);
 };
-int drv_ascend_register_notify(
-    const char *module_name,
-    const struct notifier_operations *notifier);
+int drv_ascend_register_notify(const char *module_name, const struct notifier_operations *notifier);
 int drv_ascend_unregister_notify(const char *module_name);
 
 void drv_davinci_bind_ctrl_cpu(void *release_task);
 int drv_davinci_register_sub_parallel_module(const char *module_name, const ka_file_operations_t *ops);
 int drv_davinci_register_sub_module(const char *module_name, const ka_file_operations_t *ops);
 int drv_davinci_register_sub_module_cnt(const char *module_name, const ka_file_operations_t *ops,
-    unsigned int open_module_max);
+                                        unsigned int open_module_max);
 
 int drv_ascend_unregister_sub_module(const char *module_name);
 int drv_davinci_set_private_data(const ka_file_t *filep, const void *priv_data);

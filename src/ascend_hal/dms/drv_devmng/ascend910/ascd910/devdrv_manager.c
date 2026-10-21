@@ -14,7 +14,7 @@
 #include "dms/dms_misc_interface.h"
 #include "ascend_dev_num.h"
 
-#define PLAT_GET_CHIP(type)           ((type >> 8) & 0xff)
+#define PLAT_GET_CHIP(type) ((type >> 8) & 0xff)
 
 drvError_t halGetChipCapability(uint32_t devId, struct halCapabilityInfo *info)
 {
@@ -28,13 +28,13 @@ drvError_t halGetChipCapability(uint32_t devId, struct halCapabilityInfo *info)
 
     /* SDMA reduce Capability */
     info->sdma_reduce_support = CAP_BIT_CLEAR;
-    info->sdma_reduce_support |= CAP_SDMA_REDUCE_FP32;     // ascd910 only support FP32 reduce
+    info->sdma_reduce_support |= CAP_SDMA_REDUCE_FP32; // ascd910 only support FP32 reduce
 
     /* HBM Capability & L2Buffer Capability */
     info->memory_support = CAP_BIT_CLEAR;
-    info->memory_support |= CAP_MEM_SUPPORT_HBM;           // ascd910 support HBM
+    info->memory_support |= CAP_MEM_SUPPORT_HBM; // ascd910 support HBM
 
-    info->ts_group_number  = CAP_BIT_CLEAR;
+    info->ts_group_number = CAP_BIT_CLEAR;
     info->sdma_reduce_kind = CAP_BIT_CLEAR;
     info->sdma_reduce_kind |= CAP_SDMA_REDUCE_KIND_ADD;
 
@@ -54,7 +54,8 @@ drvError_t halGetChipCapability(uint32_t devId, struct halCapabilityInfo *info)
         info->sdma_reduce_support |= CAP_SDMA_REDUCE_FP32;
         info->sdma_reduce_support |= CAP_SDMA_REDUCE_BFP16;
     } else if ((PLAT_GET_CHIP((uint64_t)hardwareVersion) == CHIP_CLOUD_V4) ||
-        (PLAT_GET_CHIP((uint64_t)hardwareVersion) == CHIP_CLOUD_V5)) {
+               (PLAT_GET_CHIP((uint64_t)hardwareVersion) == CHIP_CLOUD_V5) ||
+               (PLAT_GET_CHIP((uint64_t)hardwareVersion) == CHIP_MINI_V4)) {
         info->sdma_reduce_kind |= CAP_SDMA_REDUCE_KIND_MAX;
         info->sdma_reduce_kind |= CAP_SDMA_REDUCE_KIND_MIN;
         info->sdma_reduce_kind |= CAP_SDMA_REDUCE_KIND_EQUAL;
@@ -76,8 +77,8 @@ drvError_t halGetChipCapability(uint32_t devId, struct halCapabilityInfo *info)
     return 0;
 }
 
-drvError_t halGetCapabilityGroupInfo(int device_id, int ts_id, int group_id,
-    struct capability_group_info *group_info, int group_count)
+drvError_t halGetCapabilityGroupInfo(int device_id, int ts_id, int group_id, struct capability_group_info *group_info,
+                                     int group_count)
 {
     (void)device_id;
     (void)ts_id;
@@ -86,4 +87,3 @@ drvError_t halGetCapabilityGroupInfo(int device_id, int ts_id, int group_id,
     (void)group_count;
     return DRV_ERROR_NOT_SUPPORT;
 }
-

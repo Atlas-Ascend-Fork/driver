@@ -27,10 +27,10 @@
 
 BEGIN_DMS_MODULE_DECLARATION(DMS_MODULE_HOST_AICPU)
 BEGIN_FEATURE_COMMAND()
-ADD_FEATURE_COMMAND(DMS_MODULE_HOST_AICPU, DMS_GET_SET_DEVICE_INFO_CMD, ZERO_CMD,
-    "main_cmd=0x11", NULL, DMS_SUPPORT_ROOT_ONLY, dms_set_host_aicpu_info)
-ADD_FEATURE_COMMAND(DMS_MODULE_HOST_AICPU, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD,
-    "main_cmd=0x11", NULL, DMS_SUPPORT_ALL, dms_get_host_aicpu_info)
+ADD_FEATURE_COMMAND(DMS_MODULE_HOST_AICPU, DMS_GET_SET_DEVICE_INFO_CMD, ZERO_CMD, "main_cmd=0x11", NULL,
+                    DMS_SUPPORT_ROOT_ONLY, dms_set_host_aicpu_info)
+ADD_FEATURE_COMMAND(DMS_MODULE_HOST_AICPU, DMS_GET_GET_DEVICE_INFO_CMD, ZERO_CMD, "main_cmd=0x11", NULL,
+                    DMS_SUPPORT_ALL, dms_get_host_aicpu_info)
 END_FEATURE_COMMAND()
 END_MODULE_DECLARATION()
 
@@ -52,8 +52,8 @@ int dms_set_host_aicpu_info(void *feature, char *in, u32 in_len, char *out, u32 
     input = (struct dms_set_device_info_in *)in;
     if ((input->dev_id >= ASCEND_DEV_MAX_NUM) || (input->buff == NULL) ||
         (input->buff_size < sizeof(struct dms_host_aicpu_info))) {
-        dms_err("Invalid input parameter. (dev_id=%u; buff=%d; buff_size=%u)\n",
-            input->dev_id, (input->buff != NULL), input->buff_size);
+        dms_err("Invalid input parameter. (dev_id=%u; buff=%d; buff_size=%u)\n", input->dev_id, (input->buff != NULL),
+                input->buff_size);
         return -EINVAL;
     }
 
@@ -63,8 +63,8 @@ int dms_set_host_aicpu_info(void *feature, char *in, u32 in_len, char *out, u32 
         return ret;
     }
 
-    ret = ka_base_copy_from_user(&g_host_aicpu_info[phy_id], (void*)((uintptr_t)input->buff),
-        sizeof(struct dms_host_aicpu_info));
+    ret = ka_base_copy_from_user(&g_host_aicpu_info[phy_id], (void *)((uintptr_t)input->buff),
+                                 sizeof(struct dms_host_aicpu_info));
     if (ret != 0) {
         dms_err("ka_base_copy_from_user failed. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
         return ret;
@@ -73,7 +73,7 @@ int dms_set_host_aicpu_info(void *feature, char *in, u32 in_len, char *out, u32 
     return 0;
 }
 
-STATIC char* dms_read_cpuinfo_file(void)
+STATIC char *dms_read_cpuinfo_file(void)
 {
     ka_file_t *fp = NULL;
     size_t buf_len = CPUINFO_FILE_LEN;
@@ -87,7 +87,7 @@ STATIC char* dms_read_cpuinfo_file(void)
         return NULL;
     }
 
-    buf = dbl_vmalloc(buf_len + 1, KA_GFP_KERNEL|__KA_GFP_HIGHMEM|__KA_GFP_ACCOUNT, KA_PAGE_KERNEL);
+    buf = dbl_vmalloc(buf_len + 1, KA_GFP_KERNEL | __KA_GFP_HIGHMEM | __KA_GFP_ACCOUNT, KA_PAGE_KERNEL);
     if (buf == NULL) {
         dms_err("malloc failed.\n");
         (void)ka_fs_filp_close(fp, NULL);
@@ -116,12 +116,12 @@ STATIC void dms_free_memory(char *buf)
 }
 
 /*
-* Obtain the value of cpu MHz from the /proc/cpuinfo file. The format: cpu MHz : xxxx.xx.
-*/
+ * Obtain the value of cpu MHz from the /proc/cpuinfo file. The format: cpu MHz : xxxx.xx.
+ */
 STATIC int dms_get_host_aicpu_frequency(void)
 {
     char match_str[] = "cpu MHz";
-    char* buf = NULL;
+    char *buf = NULL;
     unsigned int aicpu_freq = 0;
     int pos = 0;
 
@@ -166,8 +166,8 @@ int dms_get_host_aicpu_info(void *feature, char *in, u32 in_len, char *out, u32 
     input = (struct dms_get_device_info_in *)in;
     if ((input->dev_id >= ASCEND_DEV_MAX_NUM) || (input->buff == NULL) ||
         (input->buff_size < sizeof(struct dms_host_aicpu_info))) {
-        dms_err("Invalid input parameter. (dev_id=%u; buff=%d; buff_size=%u)\n",
-            input->dev_id, (input->buff != NULL), input->buff_size);
+        dms_err("Invalid input parameter. (dev_id=%u; buff=%d; buff_size=%u)\n", input->dev_id, (input->buff != NULL),
+                input->buff_size);
         return -EINVAL;
     }
 
@@ -186,7 +186,7 @@ int dms_get_host_aicpu_info(void *feature, char *in, u32 in_len, char *out, u32 
     g_host_aicpu_info[phy_id].frequency = (g_host_aicpu_info[phy_id].num == 0) ? 0 : g_host_aicpu_freq;
 
     ret = ka_base_copy_to_user((void *)((uintptr_t)input->buff), &g_host_aicpu_info[phy_id],
-        sizeof(struct dms_host_aicpu_info));
+                               sizeof(struct dms_host_aicpu_info));
     if (ret != 0) {
         dms_err("ka_base_copy_to_user failed. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
         return ret;
@@ -206,7 +206,7 @@ int dms_host_aicpu_init(void)
         return ret;
     }
     g_host_aicpu_info = dbl_kzalloc(sizeof(struct dms_host_aicpu_info) * ASCEND_DEV_MAX_NUM,
-        KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+                                    KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (g_host_aicpu_info == NULL) {
         dms_err("kzalloc failed.\n");
         return -EINVAL;
@@ -216,11 +216,11 @@ int dms_host_aicpu_init(void)
 }
 DECLAER_FEATURE_AUTO_INIT(dms_host_aicpu_init, FEATURE_LOADER_STAGE_5);
 
-void dms_host_aicpu_exit(void)
+void dms_host_aicpu_uninit(void)
 {
     dms_info("dms host aicpu exit.\n");
     dbl_kfree(g_host_aicpu_info);
     g_host_aicpu_info = NULL;
     CALL_EXIT_MODULE(DMS_MODULE_HOST_AICPU);
 }
-DECLAER_FEATURE_AUTO_UNINIT(dms_host_aicpu_exit, FEATURE_LOADER_STAGE_5);
+DECLAER_FEATURE_AUTO_UNINIT(dms_host_aicpu_uninit, FEATURE_LOADER_STAGE_5);

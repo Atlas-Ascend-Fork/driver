@@ -340,7 +340,7 @@ STATIC ka_hrtimer_restart_t devdrv_refresh_aicore_info(ka_hrtimer_t *t)
     /* Call the heartbeat function of the new framework to determine the heartbeat status.
        When the heartbeat is lost, stop sending messages; otherwise, it will spam the chat */
     if (dms_heartbeat_is_stop(info->dev_id)) {
-        devdrv_drv_info("heart beat is lost, stop sending h2d message. (dev_id=%u)\n", info->dev_id);
+        devdrv_drv_info("Device=%u heart beat is lost, stop sending h2d message.\n", info->dev_id);
         return KA_HRTIMER_NORESTART;
     }
     ka_task_queue_work(info->aicore_info_wq, &info->work);

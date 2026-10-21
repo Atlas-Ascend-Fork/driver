@@ -10,7 +10,7 @@
 #ifndef DEV_FLASH_CTL_H
 #define DEV_FLASH_CTL_H
 
-#define ALGIN_UP(size, align) (((size) + (align)-1) & (~((align)-1)))
+#define ALGIN_UP(size, align) (((size) + (align) - 1) & (~((align) - 1)))
 
 #define ALGIN_DOWN(size, align) (((size) / (align)) * (align))
 
@@ -19,7 +19,7 @@
 #ifndef FLASH_BLOCK_SIZE
 #define FLASH_BLOCK_SIZE 65536
 #endif
-#define FLASH_BLOCK_CHECK_SIZE (256*1024)
+#define FLASH_BLOCK_CHECK_SIZE (256 * 1024)
 
 #define AGING_TEST_BLOCK_OFFSET 0x1A0000
 
@@ -32,7 +32,7 @@
 #define P2_FLASH_TEST_PART "Test_P2_N"
 #define P3_FLASH_TEST_PART "Test_P3_N"
 
-#define P0_PART_NAME_RESERVER  "Reserve_P0_N"
+#define P0_PART_NAME_RESERVER "Reserve_P0_N"
 
 #define AGING_TEST_CONFIG_DATA_OFFSET 0x0
 

@@ -51,6 +51,7 @@
 
 #define HDC_SEND_FILE_WAIT_TIME 300000
 #define SECONDS_TO_MICORSECONDS 1000000
+#define SECONDS_TO_NS 1000000000ULL
 #define CONVERT_NS_TO_US 1000
 #define hdc_file_check(func_name, ret, exp)                                                          \
     do {                                                                                             \
@@ -126,11 +127,6 @@ struct filesock {
     int white_list_idx;
     uint8_t user_mode;
 };
-
-hdcError_t drvHdcGetTrustedBasePathEx(signed int user_mode, signed int peer_node, signed int peer_devid,
-                                      char *base_path, unsigned int path_len);
-hdcError_t drvHdcSendFileEx(signed int user_mode, signed int peer_node, signed int peer_devid, const char *file,
-                            const char *dst_path, void (*progress_notifier)(struct drvHdcProgInfo *));
 
 void set_flag(struct filehdr *hdr, enum FILE_HDR_FLAGS flag);
 uint16_t set_option_dstpth(char *sndbuf, signed int bufsize, uint32_t offset, const char *dstpth);

@@ -133,7 +133,7 @@ static void devmm_dma_desc_res_destroy(struct devmm_svm_process *svm_proc, struc
         if (ka_base_in_softirq()) {
             devmm_srcu_subwork_add(&svm_proc->srcu_work, DEVMM_SRCU_SUBWORK_ENSURE_EXEC_TYPE,
                                    devmm_dma_prepare_destroy_srcu_work, (u64 *)&res->dma_prepare,
-                                   sizeof(struct devdrv_dma_prepare));
+                                   sizeof(struct devdrv_dma_prepare *));
         } else {
             devdrv_dma_link_free(res->dma_prepare);
         }

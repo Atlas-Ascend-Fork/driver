@@ -50,7 +50,7 @@ int dms_ioctl_get_chip_count(void *feature, char *in, u32 in_len, char *out, u32
 
     if ((out == NULL) || (out_len != sizeof(int))) {
         dms_err("Input argument is null, or out_len is wrong. (out=%s; out_len=%u)\n",
-            ((out == NULL)? "NULL" : "not NULL"), out_len);
+                ((out == NULL) ? "NULL" : "not NULL"), out_len);
         return -EINVAL;
     }
 
@@ -70,7 +70,7 @@ int dms_ioctl_get_chip_count(void *feature, char *in, u32 in_len, char *out, u32
 
     ret = dms_get_chip_count(&count);
     if (ret != 0) {
-        dms_err("Get chip count fail. (ret=%d).\n", ret);
+        dms_err("Get chip count failed. (ret=%d).\n", ret);
         return ret;
     }
 
@@ -91,7 +91,7 @@ int dms_ioctl_get_chip_list(void *feature, char *in, u32 in_len, char *out, u32 
 
     if ((out == NULL) || (out_len != sizeof(struct devdrv_chip_list))) {
         dms_err("Input argument is null, or out_len is wrong. (out=%s; out_len=%u)\n",
-            ((out == NULL)? "NULL" : "Not_NULL"), out_len);
+                ((out == NULL) ? "NULL" : "Not_NULL"), out_len);
         return -EINVAL;
     }
 
@@ -141,12 +141,12 @@ int dms_ioctl_get_device_from_chip(void *feature, char *in, u32 in_len, char *ou
 
     if ((in == NULL) || (in_len != sizeof(int)) || (out == NULL) || (out_len != sizeof(struct devdrv_chip_dev_list))) {
         dms_err("Input argument is null, or len is wrong. (in=%s; out=%s; in_len=%u, out_len=%u)\n",
-            ((in == NULL)? "NULL" : "Not_NULL"), ((out == NULL)? "NULL" : "Not_NULL"), in_len, out_len);
+                ((in == NULL) ? "NULL" : "Not_NULL"), ((out == NULL) ? "NULL" : "Not_NULL"), in_len, out_len);
         return -EINVAL;
     }
 
     chip_dev_list = (struct devdrv_chip_dev_list *)ka_mm_kzalloc(sizeof(struct devdrv_chip_dev_list),
-        KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
+                                                                 KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (chip_dev_list == NULL) {
         dms_err("Allocate memory for chip device list failed.\n");
         return -ENOMEM;
@@ -161,7 +161,8 @@ int dms_ioctl_get_device_from_chip(void *feature, char *in, u32 in_len, char *ou
     }
 
     if (!uda_is_pf_dev(udevid) || run_in_normal_docker()) {
-        if ((chip_dev_list->chip_id < devdrv_manager_get_devnum()) && (chip_dev_list->chip_id < DEVDRV_MAX_CHIP_NUM)) {
+        if ((chip_dev_list->chip_id < devdrv_manager_get_devnum()) && (chip_dev_list->chip_id < DEVDRV_MAX_CHIP_NUM) &&
+            (chip_dev_list->chip_id >= 0)) {
             chip_dev_list->count = 1;
             chip_dev_list->dev_list[0] = chip_dev_list->chip_id;
             ret = memcpy_s(out, out_len, chip_dev_list, sizeof(struct devdrv_chip_dev_list));
@@ -169,7 +170,7 @@ int dms_ioctl_get_device_from_chip(void *feature, char *in, u32 in_len, char *ou
                 dms_err("Call memcpys_s failed. (ret=%d)\n", ret);
             }
         } else {
-            dms_err("Chip id is invalid. (chip_id=%u)\n", chip_dev_list->chip_id);
+            dms_err("Chip id is invalid. (chip_id=%d)\n", chip_dev_list->chip_id);
             ret = -EINVAL;
         }
         goto FREE_CHIP_DEV_LIST;
@@ -202,8 +203,8 @@ int dms_ioctl_get_chip_from_device(void *feature, char *in, u32 in_len, char *ou
 
     if ((in == NULL) || (in_len != sizeof(struct devdrv_get_dev_chip_id)) || (out == NULL) ||
         (out_len != sizeof(struct devdrv_get_dev_chip_id))) {
-        dms_err("Input argument is null, or in_len is wrong. (in_len=%u; out_len=%u; in=%s; out=%s)\n",
-            in_len, out_len, ((in == NULL)? "NULL" : "Not_NULL"), ((out == NULL)? "NULL" : "Not_NULL"));
+        dms_err("Input argument is null, or in_len is wrong. (in_len=%u; out_len=%u; in=%s; out=%s)\n", in_len, out_len,
+                ((in == NULL) ? "NULL" : "Not_NULL"), ((out == NULL) ? "NULL" : "Not_NULL"));
         return -EINVAL;
     }
     chip_from_dev.dev_id = ((struct devdrv_get_dev_chip_id *)in)->dev_id;

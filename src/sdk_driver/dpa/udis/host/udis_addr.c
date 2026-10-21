@@ -60,7 +60,11 @@ int udis_addr_list_add_node(unsigned int udevid, struct udis_ctrl_block *udis_cb
     new_node->token_value = addr_node->token_value;
     new_node->device_segment_len = addr_node->device_segment_len;
     new_node->device_addr_offset = addr_node->device_addr_offset;
-
+    if (addr_node->update_type >= UPDATE_TYPE_MAX) {
+        udis_err("Invalid update_type: %d\n", addr_node->update_type);
+        dbl_kfree(new_node);
+        return -EINVAL;
+    }
     ka_list_add(&new_node->list, &udis_cb->addr_list[addr_node->update_type]);
 
     return 0;

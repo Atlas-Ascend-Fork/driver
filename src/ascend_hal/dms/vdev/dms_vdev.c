@@ -17,9 +17,8 @@
 #include "dms/dms_misc_interface.h"
 #include "dms_vdev.h"
 
-int dms_get_vdevice_info(unsigned int dev_id, unsigned int vf_id,
-    unsigned int *total_core, unsigned int *core_count,
-    unsigned long *mem_size)
+int dms_get_vdevice_info(unsigned int dev_id, unsigned int vf_id, unsigned int *total_core, unsigned int *core_count,
+                         unsigned long *mem_size)
 {
     struct dms_ioctl_arg ioarg = {0};
     struct dms_get_vdevice_info_in in = {0};

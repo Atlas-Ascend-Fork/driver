@@ -331,14 +331,14 @@ EXPORT_SYMBOL_GPL(ka_system_xsm_proc_start_time_compare);
 
 #ifdef DRV_HOST
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
-#define ka_system_rtc_ktime_to_tm(kt) rtc_ktime_to_tm(kt)
+#define ka_system_rtc_time64_to_tm(time, tm) rtc_time64_to_tm(time, tm)
 #else
 #define ka_system_rtc_time_to_tm(time, tm) rtc_time_to_tm(time, tm)
 #endif
 void ka_system_rtc_time_convert(ka_rtc_time_t *tm, ka_timespec64_t sys_time)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
-    *tm = ka_system_rtc_ktime_to_tm(ka_system_timespec64_to_ktime(sys_time));
+    ka_system_rtc_time64_to_tm(sys_time.tv_sec, tm);
 #else
     ka_system_rtc_time_to_tm(sys_time.tv_sec, tm);
 #endif

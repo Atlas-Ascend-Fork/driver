@@ -21,11 +21,16 @@
 #include "que_compiler.h"
 #include "que_uma.h"
 
-void que_jfs_rw_wr_fill(struct que_jfs *qjfs, struct que_jfs_rw_wr *rw_wr, struct que_jfs_rw_wr_data *rw_data)
+int que_jfs_rw_wr_fill(struct que_jfs *qjfs, struct que_jfs_rw_wr *rw_wr, struct que_jfs_rw_wr_data *rw_data,
+                       bool need_verify)
 {
     unsigned int wr_num = (unsigned int)que_align_up(rw_data->size, QUE_URMA_MAX_SIZE) / QUE_URMA_MAX_SIZE;
     urma_jfs_wr_t *wr = &rw_wr->wr[rw_wr->cur_wr_idx];
-
+    if ((need_verify == true) && ((wr_num + rw_wr->cur_wr_idx) > rw_wr->max_wr_num)) {
+        QUEUE_LOG_ERR("que wr num is over limit. (wr_num=%u; max_wr_num=%u; cur_wr_idx=%u)\n", wr_num,
+                      rw_wr->max_wr_num, rw_wr->cur_wr_idx);
+        return DRV_ERROR_OVER_LIMIT;
+    }
     for (unsigned int i = 0; i < wr_num; i++) {
         wr->tjetty = qjfs->tjetty;
         wr->opcode = rw_data->opcode;
@@ -58,6 +63,7 @@ void que_jfs_rw_wr_fill(struct que_jfs *qjfs, struct que_jfs_rw_wr *rw_wr, struc
         wr++;
     }
     rw_wr->cur_wr_idx += wr_num;
+    return DRV_ERROR_NONE;
 }
 
 static int _que_uma_recv_init(unsigned int devid, struct que_recv_para *recv, unsigned int d2d_flag)
@@ -490,7 +496,7 @@ int que_uma_send_post_and_wait(struct que_jfs *send_jetty, urma_sge_t *sge, unsi
         return ret;
     }
 
-    if (cr.status == URMA_CR_ACK_TIMEOUT_ERR) {
+    if ((cr.status == URMA_CR_ACK_TIMEOUT_ERR) || (cr.status == URMA_CR_REM_DATA_POISON)) {
         ret = que_recreate_jfs(send_jetty->attr.jfs_depth, send_jetty->jfc_s, send_jetty->devid, &send_jetty->jfs,
                                d2d_flag);
         if (que_unlikely(ret != DRV_ERROR_NONE)) {

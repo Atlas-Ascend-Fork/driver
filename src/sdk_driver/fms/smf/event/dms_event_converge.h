@@ -29,7 +29,9 @@
 #define DMS_EVENT_ID_TO_NODE_TYPE(event_id) (((event_id) >> 17) & 0x7ffU)
 #define DMS_EVENT_ID_TO_SENSOR_TYPE(event_id) (((event_id) >> 9) & 0xffU)
 #define DMS_EVENT_ID_TO_EVENT_STATE(event_id) ((event_id) & 0x1ffU)
-#define DMS_EVENT_ID_IS_BBOX_CODE(event_id) ((event_id) & (0x3U << 28U)) /* bit28~29 is used for bbox code judgement */
+#define DMS_EVENT_ID_IS_BBOX_CODE(event_id)                                  \
+    ((event_id) & (0x3U << 28U)) /* bit28~29 is used for bbox code judgement \
+                                  */
 
 #define DMS_EVENT_CODE_GET_SERVERITY_ASSERTION(code) ((code) & (0x1fU << 25U))
 #define DMS_EVENT_ERROR_CODE_TO_SEVERITY(code) (((code) >> 25U) & 0x7U)
@@ -43,9 +45,9 @@
 
 /* Maximum event number */
 #ifdef CFG_FEATURE_EVENT_NUM_LARGE_SCALE
-    #define DMS_MAX_EVENT_NUM 1024
+#define DMS_MAX_EVENT_NUM 1024
 #else
-    #define DMS_MAX_EVENT_NUM 256
+#define DMS_MAX_EVENT_NUM 256
 #endif
 
 struct dms_mask_event {
@@ -76,43 +78,40 @@ typedef struct dms_event_converge_node {
 
     int event_serial_num[ASCEND_DEV_MAX_NUM];
     unsigned char assertion[ASCEND_DEV_MAX_NUM]; /* 0:RESUME 1:OCCUR 2:ONE_TIME */
-    unsigned char mask[ASCEND_DEV_MAX_NUM]; /* 0:enable 1:disable */
+    unsigned char mask[ASCEND_DEV_MAX_NUM];      /* 0:enable 1:disable */
     DMS_EVENT_NODE_STRU *exception_data[ASCEND_DEV_MAX_NUM];
 } EVENT_CONVERGE_NODE_T;
 
 int dms_event_convergent_item_init(unsigned int item_converge_id[], unsigned int event_id_num);
 
-#define EVENT_CONVERGE_ITEM_DECLARATION(converge_id, ...)                       \
-    unsigned int _dms_event_converge_item_##converge_id[] = {                   \
-        converge_id, ##__VA_ARGS__, converge_id                                 \
+#define EVENT_CONVERGE_ITEM_DECLARATION(converge_id, ...) \
+    unsigned int _dms_event_converge_item_##converge_id[] = {converge_id, ##__VA_ARGS__, converge_id}
+
+#define EVENT_CONVERGE_ITEM_INIT(converge_id)                                                             \
+    do {                                                                                                  \
+        if (dms_event_convergent_item_init(_dms_event_converge_item_##converge_id,                        \
+                                           sizeof(_dms_event_converge_item_##converge_id) /               \
+                                               sizeof(_dms_event_converge_item_##converge_id[0])) != 0) { \
+            return DRV_ERROR_INNER_ERR;                                                                   \
+        }                                                                                                 \
+    } while (0)
+
+#define EVENT_CONVERGE_DECLARATION_BEGIN()               \
+    static int _dms_event_convergent_diagrams_init(void) \
+    {
+#define EVENT_CONVERGE_DECLARATION_END() \
+    return DRV_ERROR_NONE;               \
     }
 
-#define EVENT_CONVERGE_ITEM_INIT(converge_id)                                   \
-do {                                                                            \
-    if (dms_event_convergent_item_init(_dms_event_converge_item_##converge_id,  \
-        sizeof(_dms_event_converge_item_##converge_id) /                        \
-        sizeof(_dms_event_converge_item_##converge_id[0])) != 0) {              \
-        return DRV_ERROR_INNER_ERR;                                             \
-    }                                                                           \
-} while (0)
-
-#define EVENT_CONVERGE_DECLARATION_BEGIN()                                      \
-    static int _dms_event_convergent_diagrams_init(void) {
-
-#define EVENT_CONVERGE_DECLARATION_END()                                        \
-        return DRV_ERROR_NONE;                                                  \
-    }
-
-#define EVENT_CONVERGE_CFG_INIT()                                               \
-    _dms_event_convergent_diagrams_init()
+#define EVENT_CONVERGE_CFG_INIT() _dms_event_convergent_diagrams_init()
 
 int dms_event_code_validity_check(u32 event_code);
 int dms_event_obj_to_error_code(struct dms_event_obj event_obj, u32 *error_code);
 int dms_event_id_to_error_string(u32 devid, u32 event_id, char *event_str, u32 name_len);
 int dms_event_converge_to_exception(struct dms_event_obj *event_obj, DMS_EVENT_NODE_STRU *exception_node);
 int dms_event_converge_add_to_event_cb(DMS_EVENT_NODE_STRU *exception_node);
-int dms_get_code_from_sensor_check(u32 devid, u32 *health_code, u32 health_len,
-    struct shm_event_code *event_code, u32 event_len);
+int dms_get_code_from_sensor_check(u32 devid, u32 *health_code, u32 health_len, struct shm_event_code *event_code,
+                                   u32 event_len);
 int dms_event_is_converge(void);
 int dms_event_convergent_diagrams_init(void);
 void dms_event_convergent_diagrams_exit(void);
@@ -125,7 +124,6 @@ void dms_event_del_to_mask_list(struct dms_dev_ctrl_block *dev_cb, u32 event_id)
 void dms_event_mask_list_clear(struct dms_dev_ctrl_block *dev_cb);
 void dms_event_ctrl_converge_list_free(struct dms_converge_event_list *event_list);
 void dms_event_sensor_reported_list_free(struct dms_sensor_reported_list *reported_list);
-int dms_event_obj_to_exception(struct dms_event_obj *event_obj,
-    DMS_EVENT_NODE_STRU *exception_node);
+int dms_event_obj_to_exception(struct dms_event_obj *event_obj, DMS_EVENT_NODE_STRU *exception_node);
 unsigned int dms_event_get_owner_node_type(const struct dms_event_obj *event_obj);
 #endif

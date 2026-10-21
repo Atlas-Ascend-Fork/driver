@@ -28,6 +28,12 @@ static ka_atomic_t g_peer_pcie_status;
 #define PCIE_DUMP_LTSSM_TRACER_FN_NAME "pcie_dump_ltssm_tracer"
 typedef void (*pcie_dump_ltssm_tracer_fn)(void);
 __attribute__((unused)) STATIC pcie_dump_ltssm_tracer_fn g_pcie_dump_ltssm_tracer_fn = NULL;
+ka_mutex_t g_pcie_dump_ltssm_tracer_lock;
+
+void devdrv_pcie_dump_ltssm_tracer_init_lock(void)
+{
+    ka_task_mutex_init(&g_pcie_dump_ltssm_tracer_lock);
+}
 
 void devdrv_get_pcie_dump_ltssm_tracer_symbol(void)
 {
@@ -43,23 +49,29 @@ void devdrv_get_pcie_dump_ltssm_tracer_symbol(void)
 void devdrv_put_pcie_dump_ltssm_tracer_symbol(void)
 {
 #ifdef CFG_FEATURE_PCIE_LINK_INFO
+    ka_task_mutex_lock(&g_pcie_dump_ltssm_tracer_lock);
     if (g_pcie_dump_ltssm_tracer_fn == NULL) {
         devdrv_warn("pcie_dump_ltssm_tracer symbol not find.\n");
+        ka_task_mutex_unlock(&g_pcie_dump_ltssm_tracer_lock);
         return;
     }
     __ka_system_symbol_put(PCIE_DUMP_LTSSM_TRACER_FN_NAME);
+    g_pcie_dump_ltssm_tracer_fn = NULL;
+    ka_task_mutex_unlock(&g_pcie_dump_ltssm_tracer_lock);
 #endif
 }
 
 STATIC void devdrv_pcie_dump_ltssm_tracer(void)
 {
 #ifdef CFG_FEATURE_PCIE_LINK_INFO
+    ka_task_mutex_lock(&g_pcie_dump_ltssm_tracer_lock);
     if (g_pcie_dump_ltssm_tracer_fn == NULL) {
         devdrv_warn("pcie_dump_ltssm_tracer symbol not find.\n");
+        ka_task_mutex_unlock(&g_pcie_dump_ltssm_tracer_lock);
         return;
     }
     g_pcie_dump_ltssm_tracer_fn();
-    return;
+    ka_task_mutex_unlock(&g_pcie_dump_ltssm_tracer_lock);
 #endif
 }
 
@@ -242,14 +254,13 @@ int devdrv_force_linkdown_inner(u32 index_id)
     return 0;
 }
 
-int devdrv_force_linkdown(u32 udevid)
+int devdrv_pcie_host_force_linkdown(u32 udevid)
 {
     u32 index_id;
 
     (void)uda_udevid_to_add_id(udevid, &index_id);
     return devdrv_force_linkdown_inner(index_id);
 }
-KA_EXPORT_SYMBOL(devdrv_force_linkdown);
 
 STATIC int devdrv_check_get_bandwidth_para(struct dms_get_device_info_in *input, u32 in_len,
                                            struct dms_get_device_info_out *output, u32 out_len)

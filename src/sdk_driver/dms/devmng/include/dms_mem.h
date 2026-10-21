@@ -15,7 +15,6 @@
 #define DMS_MEM_H
 
 #include "drv_type.h"
-int dms_drv_get_ai_ddr_info(void *feature, char *in, u32 in_len,
-    char *out, u32 out_len);
+int dms_drv_get_ai_ddr_info(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 
 #endif

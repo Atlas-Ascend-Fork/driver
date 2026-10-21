@@ -16,6 +16,7 @@
 
 #define HDCDRV_RX_CONTINUE 0
 #define HDCDRV_RX_FINISH 1
+#define HDCDRV_RX_ABNORMAL 2
 
 #define HDCDRV_TX_TIMEOUT (-28)
 

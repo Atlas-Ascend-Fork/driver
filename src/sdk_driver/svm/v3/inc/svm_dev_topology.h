@@ -54,12 +54,6 @@ static inline bool svm_dev_is_ub_connect(u32 local_udevid, u32 peer_server_id, u
 {
     int topo_type, ret;
 
-    if ((local_udevid == uda_get_host_id()) || (peer_udevid == uda_get_host_id())) {
-        u32 chip_id = (local_udevid == uda_get_host_id()) ? peer_udevid : local_udevid;
-        return (svm_is_cross_server(chip_id, peer_server_id) ||
-                (devdrv_get_connect_protocol(chip_id) == CONNECT_PROTOCOL_UB));
-    }
-
     if (svm_is_cross_server(local_udevid, peer_server_id)) {
         /* david cross server is UB connect */
         return true;
@@ -67,6 +61,11 @@ static inline bool svm_dev_is_ub_connect(u32 local_udevid, u32 peer_server_id, u
 
     if (svm_dev_is_in_same_os(local_udevid, peer_udevid)) {
         return false;
+    }
+
+    if (local_udevid == uda_get_host_id() || (peer_udevid == uda_get_host_id())) {
+        u32 chip_id = (local_udevid == uda_get_host_id()) ? peer_udevid : local_udevid;
+        return devdrv_get_connect_protocol(chip_id) == CONNECT_PROTOCOL_UB;
     }
 
     ret = soc_get_dev_topology(local_udevid, peer_udevid, &topo_type);

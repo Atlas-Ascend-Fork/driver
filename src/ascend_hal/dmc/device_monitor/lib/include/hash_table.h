@@ -25,7 +25,7 @@ hash_table *hash_table_new(void);
 delete an instance of hash_table,
 all values are removed automatically.
 */
-void hash_table_delete(hash_table *ht); //lint !e101 !e132
+void hash_table_delete(hash_table *ht); // lint !e101 !e132
 
 /*
 add or update a value to ht,
@@ -33,7 +33,7 @@ free_value(if not NULL) is called automatically when the value is removed.
 return 0 if success, -1 if error occurred.
 */
 #define hash_table_put(ht, tag, value) hash_table_put2(ht, tag, value, NULL);
-int hash_table_put2(hash_table *ht, const char *tag, void *value, void (*free_value)(void *));  //lint !e101
+int hash_table_put2(hash_table *ht, const char *tag, void *value, void (*free_value)(void *)); // lint !e101
 
 /* get a value indexed by tag, return NULL if not found. */
 void *hash_table_get(const hash_table *ht, const char *tag);

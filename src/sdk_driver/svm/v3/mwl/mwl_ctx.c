@@ -63,7 +63,7 @@ static void mwl_ctx_init(struct mwl_ctx *mwl_ctx)
 static void mwl_ctx_release(void *priv)
 {
     struct mwl_ctx *ctx = (struct mwl_ctx *)priv;
-    svm_vfree(ctx);
+    svm_kfree(ctx);
 }
 
 int mwl_init_task(u32 udevid, int tgid, void *start_time)
@@ -72,7 +72,7 @@ int mwl_init_task(u32 udevid, int tgid, void *start_time)
     void *task_ctx = NULL;
     int ret;
 
-    mwl_ctx = (struct mwl_ctx *)svm_vzalloc(sizeof(*mwl_ctx));
+    mwl_ctx = (struct mwl_ctx *)svm_kzalloc(sizeof(*mwl_ctx), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (mwl_ctx == NULL) {
         svm_err("No mem. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -ENOMEM;
@@ -84,7 +84,7 @@ int mwl_init_task(u32 udevid, int tgid, void *start_time)
 
     task_ctx = svm_task_ctx_get(udevid, tgid);
     if (task_ctx == NULL) {
-        svm_vfree(mwl_ctx);
+        svm_kfree(mwl_ctx);
         svm_err("Invalid dev task. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -EINVAL;
     }
@@ -92,7 +92,7 @@ int mwl_init_task(u32 udevid, int tgid, void *start_time)
     ret = svm_task_set_feature_priv(task_ctx, mwl_feature_id, "mwl", (void *)mwl_ctx, mwl_ctx_release);
     if (ret != 0) {
         svm_task_ctx_put(task_ctx);
-        svm_vfree(mwl_ctx);
+        svm_kfree(mwl_ctx);
         return ret;
     }
 

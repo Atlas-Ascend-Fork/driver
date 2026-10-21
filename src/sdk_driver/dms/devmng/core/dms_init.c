@@ -37,10 +37,6 @@
 #include "devmng_dms_adapt.h"
 #include "pbl/pbl_davinci_api.h"
 #include "dms_sysfs.h"
-/* The AOS linux kernel version is later than 5.17, but the profile interface of the kernel is still used. */
-#ifdef CFG_FEATURE_KA
-#include "pbl/pbl_kernel_adapt.h"
-#endif
 
 #include "pbl/pbl_feature_loader.h"
 #include "davinci_interface.h"
@@ -94,8 +90,9 @@ STATIC int dms_parse_event_config(const char *line_buf, int size, struct dms_eve
 
     (*cnt)++;
     if (*cnt >= EVENT_INFO_ARRAY_MAX) {
-        dms_err("The number of input event config is greater than the max array size. (max_array_size=%d)\n",
-                EVENT_INFO_ARRAY_MAX);
+        dms_err("The number of input event config is greater than the max array size. (event_config_num=%d; "
+                "max_array_size=%d)\n",
+                *cnt, EVENT_INFO_ARRAY_MAX);
         return -EFBIG;
     }
 
@@ -131,7 +128,7 @@ STATIC int get_eventinfo_from_buf(char *config_buf, size_t lBufLens)
         }
 
         if (tpcnt >= TMP_BUF_MAX) {
-            dms_err("line length exceed buf size.\n");
+            dms_err("line length %d exceeds buf size %d.\n", tpcnt, TMP_BUF_MAX);
             goto free_tmp_buf;
         }
 
@@ -235,7 +232,7 @@ int get_eventinfo_from_config(void)
     }
 
     if (file_size >= (size_t)MAX_EVENT_CONFIG_SIZE) {
-        dms_err("The file size(%lu) exceeds the upper limit.\n", file_size);
+        dms_err("The file size(%lu bytes) exceeds the upper limit(%d bytes).\n", file_size, MAX_EVENT_CONFIG_SIZE);
         return -EFBIG;
     }
 
@@ -328,12 +325,7 @@ int dms_init(void)
 
     dms_debug("dms_init start.\n");
 
-#ifdef CFG_EDGE_HOST
     ret = ka_dfx_profile_event_register(KA_PROFILE_TASK_EXIT, &dms_exit_notifier);
-#else
-    /* Use the native kernel interfaces on the device */
-    ret = profile_event_register(PROFILE_TASK_EXIT, &dms_exit_notifier);
-#endif
     if (ret != 0) {
         dms_err("Register notify fail. (ret=%d)\n", ret);
         return ret;
@@ -368,12 +360,7 @@ int dms_init(void)
     return 0;
 
 register_notify_fail:
-#ifdef CFG_EDGE_HOST
     (void)ka_dfx_profile_event_unregister(KA_PROFILE_TASK_EXIT, &dms_exit_notifier);
-#else
-    /* Use the native kernel interfaces on the device */
-    (void)profile_event_unregister(PROFILE_TASK_EXIT, &dms_exit_notifier);
-#endif
     return ret;
 }
 
@@ -390,12 +377,7 @@ void dms_exit(void)
     dms_event_adapt_exit();
     dms_exit_submodule();
     (void)drv_ascend_unregister_notify(DAVINCI_INTF_MODULE_URD);
-#ifdef CFG_EDGE_HOST
     (void)ka_dfx_profile_event_unregister(KA_PROFILE_TASK_EXIT, &dms_exit_notifier);
-#else
-    /* Use the native kernel interfaces on the device */
-    (void)profile_event_unregister(PROFILE_TASK_EXIT, &dms_exit_notifier);
-#endif
     dms_info("Dms driver exit success.\n");
     return;
 }

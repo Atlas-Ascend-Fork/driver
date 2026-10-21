@@ -83,7 +83,7 @@ hdcError_t drvHdcClientCreate(HDC_CLIENT *client, signed int maxSessionNum, sign
     pHead = (struct hdc_client_head *)drv_hdc_zalloc(size);
     if (pHead == NULL) {
         HDC_LOG_ERR("Call malloc failed.\n");
-        hdc_report_out_of_mem_err_msg(size);
+        hdc_report_out_of_mem_err_msg(__func__, size);
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 

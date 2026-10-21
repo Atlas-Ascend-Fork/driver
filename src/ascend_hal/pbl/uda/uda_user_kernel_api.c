@@ -20,6 +20,7 @@
 #include "davinci_interface.h"
 
 #include "uda_cmd.h"
+#include "ascend_hal.h"
 #include "uda_user_kernel_api.h"
 #include "uda_user.h"
 #include "pbl_uda_user.h"
@@ -82,6 +83,20 @@ static uint32_t uda_get_max_dev_num(void)
     return uda_is_admin() ? user_info.max_udev_num : user_info.max_dev_num;
 }
 
+STATIC void uda_report_device_occupied(uint32_t devId)
+{
+    int ret = 0;
+    char dev_id_str[16] = {0};
+    const char *keys[] = {"deviceid"};
+    const char *values[] = {dev_id_str};
+
+    ret = snprintf_s(dev_id_str, sizeof(dev_id_str), sizeof(dev_id_str) - 1, "%u", devId);
+    if (ret < 0) {
+        return;
+    }
+    REPORT_PREDEFINED_ERR_MSG("EL0020", keys, values, 1UL);
+}
+
 static int uda_dev_access(uint32_t *dev_num)
 {
     uint32_t i;
@@ -105,6 +120,7 @@ static int uda_dev_access(uint32_t *dev_num)
             (*dev_num)++;
         } else {
             if (errno == EBUSY) {
+                uda_report_device_occupied(i);
                 ret = DRV_ERROR_RESOURCE_OCCUPIED;
             } else if (errno == ENODEV) {
                 ret = DRV_ERROR_NO_DEVICE;
@@ -139,7 +155,7 @@ static int uda_char_dev_open(void)
 
     ret = uda_ioctl(uda_dev_fd, DAVINCI_INTF_IOCTL_OPEN, &arg);
     if (ret != 0) {
-        uda_err("Ioctl failed. (fd=%d; errno=%d)\n", uda_dev_fd, errno);
+        uda_err("Ioctrl failed. (fd=%d; errno=%d)\n", uda_dev_fd, errno);
         uda_file_close(uda_dev_fd);
         uda_dev_fd = -1;
         return DRV_ERROR_IOCRL_FAIL;
@@ -198,6 +214,8 @@ static int uda_cmd_ioctl(unsigned long cmd, void *para)
             ret = DRV_ERROR_NO_DEVICE;
         } else if (errno == ENOMEM) {
             ret = DRV_ERROR_OUT_OF_MEMORY;
+        } else if (errno == EOPNOTSUPP) {
+            ret = DRV_ERROR_NOT_SUPPORT;
         } else {
             ret = DRV_ERROR_IOCRL_FAIL;
         }
@@ -261,7 +279,7 @@ static uint32_t uda_get_dev_num_from_dev_list(struct uda_logic_dev *dev, uint32_
     return dev_num;
 }
 
-static int _uda_init(void)
+STATIC int _uda_init(void)
 {
     uint32_t access_dev_num, dev_num, i;
     int ret;
@@ -285,7 +303,7 @@ static int _uda_init(void)
     if (logic_dev == NULL) {
         logic_dev = malloc(dev_num * sizeof(struct uda_logic_dev));
         if (logic_dev == NULL) {
-            uda_err("Alloc logic devctx failed. (dev_num=%u)\n", dev_num);
+            uda_err("Alloc logic devctx failed. (dev_num=%u; errno=%d).\n", dev_num, errno);
             return DRV_ERROR_OUT_OF_MEMORY;
         }
     }
@@ -352,7 +370,7 @@ void uda_uninit(void) /* It cannot be defined as static because of emulation tes
     uda_is_init = false;
 }
 
-static void __attribute__((constructor)) uda_user_init(void)
+static void __attribute__((constructor(101))) uda_user_init(void)
 {
 #ifdef CFG_FEATURE_UDA_CONSTRUCT_INIT
     (void)uda_init();
@@ -872,6 +890,36 @@ int uda_get_devid_by_udevid_ex(uint32_t udevid, uint32_t *devid)
     }
 
     return DRV_ERROR_NONE;
+}
+
+STATIC int uda_init_restore(void)
+{
+    static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
+    int ret = 0;
+
+    if (uda_is_init) {
+        return 0;
+    }
+
+    (void)pthread_mutex_lock(&init_mutex);
+    ret = _uda_init();
+    if (ret == 0) {
+        uda_is_init = true;
+    }
+    (void)pthread_mutex_unlock(&init_mutex);
+
+    return ret;
+}
+
+drvError_t udaCloseRestoreHandler(uint32_t devid, halDevCloseIn *in)
+{
+    (void)devid;
+    (void)in;
+
+    uda_uninit();
+    (void)uda_init_restore();
+
+    return 0;
 }
 
 int uda_user_get_udevid_by_devid(uint32_t devid, uint32_t *udevid)

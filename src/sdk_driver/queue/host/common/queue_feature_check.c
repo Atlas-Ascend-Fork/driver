@@ -18,8 +18,6 @@
 #include "queue_chip_feature_map.h"
 #include "ascend_hal_error.h"
 
-#define ASCEND_DEV_MAX_NUM 1140
-
 /*
  * ============================================================================
  * Chip version feature table definitions (using arrays from shared header file)
@@ -78,7 +76,7 @@ static const struct queue_chip_features *g_queue_chip_feature_table[QUEUE_CHIP_F
  * ============================================================================
  */
 
-static unsigned int g_queue_dev_chip_map[ASCEND_DEV_MAX_NUM];
+static unsigned int g_queue_dev_chip_map[QUEUE_FEATURE_DEV_NUM];
 
 /*
  * ============================================================================
@@ -94,33 +92,39 @@ void queue_feature_system_init(void)
 {
     unsigned int i;
 
-    for (i = 0; i < ASCEND_DEV_MAX_NUM; i++) {
+    for (i = 0; i < QUEUE_FEATURE_DEV_NUM; i++) {
         g_queue_dev_chip_map[i] = HISI_CHIP_UNKNOWN;
     }
 
-    queue_info("Queue feature system initialized. (max_dev=%u)\n", ASCEND_DEV_MAX_NUM);
+    queue_info("Queue feature system initialized. (max_dev=%u)\n", QUEUE_FEATURE_DEV_NUM);
 }
 
 /*
- * Check if specified device supports a given feature
- * Looks up the per-device chip type cache populated at init time
+ * Get chip feature configuration for specified device.
+ * Returns NULL if dev_id is invalid or device not initialized.
  */
-int queue_has_feature(unsigned int dev_id, enum queue_feature_id feature)
+const struct queue_chip_features *queue_get_dev_features(unsigned int dev_id)
 {
     unsigned int chip_type;
-    const struct queue_chip_features *feat;
-    if (dev_id >= ASCEND_DEV_MAX_NUM) {
-        queue_err("Invalid dev_id. (dev_id=%u; max=%u)\n", dev_id, ASCEND_DEV_MAX_NUM);
-        return 0;
+
+    if (dev_id >= QUEUE_FEATURE_DEV_NUM) {
+        queue_err("Invalid dev_id. (dev_id=%u; max=%u)\n", dev_id, QUEUE_FEATURE_DEV_NUM);
+        return NULL;
     }
+
     chip_type = g_queue_dev_chip_map[dev_id];
     if (chip_type == HISI_CHIP_UNKNOWN) {
-        queue_err("Feature not initialized. (dev_id=%u)\n", dev_id);
-        return 0;
+        queue_debug("Unknown chip type. (dev_id=%u)\n", dev_id);
+        return NULL;
     }
-    feat = queue_get_chip_features(chip_type);
+
+    return queue_get_chip_features(chip_type);
+}
+
+int queue_has_feature(unsigned int dev_id, enum queue_feature_id feature)
+{
+    const struct queue_chip_features *feat = queue_get_dev_features(dev_id);
     if (feat == NULL) {
-        queue_err("No feature config for chip_type=%u (dev_id=%u)\n", chip_type, dev_id);
         return 0;
     }
     return queue_feature_array_has(feat->features, feat->feature_count, feature);
@@ -145,7 +149,7 @@ void queue_feature_uninit(void)
 {
     unsigned int i;
 
-    for (i = 0; i < ASCEND_DEV_MAX_NUM; i++) {
+    for (i = 0; i < QUEUE_FEATURE_DEV_NUM; i++) {
         g_queue_dev_chip_map[i] = HISI_CHIP_UNKNOWN;
     }
 
@@ -160,8 +164,8 @@ drvError_t queue_feature_init_by_devid(unsigned int dev_id)
     unsigned int chip_type;
     const struct queue_chip_features *chip_features;
 
-    if (dev_id >= ASCEND_DEV_MAX_NUM) {
-        queue_err("Invalid dev_id. (dev_id=%u; max=%u)\n", dev_id, ASCEND_DEV_MAX_NUM);
+    if (dev_id >= QUEUE_FEATURE_DEV_NUM) {
+        queue_err("Invalid dev_id. (dev_id=%u; max=%u)\n", dev_id, QUEUE_FEATURE_DEV_NUM);
         return DRV_ERROR_INVALID_VALUE;
     }
 

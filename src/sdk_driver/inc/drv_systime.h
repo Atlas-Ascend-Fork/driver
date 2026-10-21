@@ -25,8 +25,8 @@ static inline unsigned long long get_syscnt(void)
 }
 #else
 
-#define USECS_PER_SEC   (1000*1000)
-#define NSECS_PER_USEC  (1000)
+#define USECS_PER_SEC (1000 * 1000)
+#define NSECS_PER_USEC (1000)
 static inline unsigned long long get_syscnt(void)
 {
     ka_timespec_t stamp = current_kernel_time();

@@ -3,6 +3,10 @@
 #ifndef _HDCDRV_CMD_IOCTL_H_
 #define _HDCDRV_CMD_IOCTL_H_
 
+#ifndef __ka_user
+#define __ka_user
+#endif
+
 #define HDCDRV_SERVICE_TYPE_DMP 0
 #define HDCDRV_SERVICE_TYPE_PROFILING 1 // use for profiling tool
 #define HDCDRV_SERVICE_TYPE_IDE1 2
@@ -151,6 +155,10 @@
 #define HDCDRV_DEFAULT_DEV_ID 0
 #define HDCDRV_INVALID_FID (unsigned int)(-1)
 
+#define HDCDRV_FEATURE_NOT_SUPPORT 0
+#define HDCDRV_FEATURE_SUPPORT 1
+#define HDCDRV_FEATURE_NPU_DEPEND 1
+
 enum hdcdrv_session_attr_cmd_type {
     HDCDRV_SESSION_ATTR_RUN_ENV = 0,
     HDCDRV_SESSION_ATTR_VFID,
@@ -185,6 +193,7 @@ enum hdcdrv_cmd_type {
     HDCDRV_CMD_GET_SESSION_UID = 0x1c,
     HDCDRV_CMD_GET_PAGE_SIZE = 0x1d,
     HDCDRV_CMD_GET_SESSION_INFO = 0x1e,
+    HDCDRV_CMD_GET_FEATURE_INFO = 0x1f,
     HDCDRV_CMD_ALLOC_MEM = 0x20,
     HDCDRV_CMD_FREE_MEM = 0x21,
     HDCDRV_CMD_FAST_SEND = 0x22,
@@ -336,9 +345,9 @@ struct hdcdrv_cmd_send {
     unsigned long long pid;
     unsigned long long reserve_comm;
     int session;                  /* input */
-    void *src_buf;                /* input */
+    void __ka_user *src_buf;      /* input */
     int len;                      /* input */
-    void *pool_buf;               /* input */
+    void __ka_user *pool_buf;     /* input */
     unsigned long long pool_addr; /* input */
     int wait_flag;                /* input */
     unsigned int timeout;         /* input */
@@ -367,15 +376,15 @@ struct hdcdrv_cmd_recv {
     int dev_id;
     unsigned long long pid;
     unsigned long long reserve_comm;
-    int session;                                          /* input */
-    void *dst_buf;                                        /* output */
-    int len;                                              /* input */
-    void *pool_buf;                                       /* output */
-    int out_len;                                          /* output */
-    int buf_count;                                        /* output, for vhdc used */
-    int group_flag;                                       /* input */
-    void *buf_list[HDCDRV_SESSION_RX_LIST_MAX_PKT];       /* output, for vhdc used in VM */
-    unsigned int buf_len[HDCDRV_SESSION_RX_LIST_MAX_PKT]; /* output, for vhdc used in VM */
+    int session;                                              /* input */
+    void __ka_user *dst_buf;                                  /* output */
+    int len;                                                  /* input */
+    void __ka_user *pool_buf;                                 /* output */
+    int out_len;                                              /* output */
+    int buf_count;                                            /* output, for vhdc used */
+    int group_flag;                                           /* input */
+    void __ka_user *buf_list[HDCDRV_SESSION_RX_LIST_MAX_PKT]; /* output, for vhdc used in VM */
+    unsigned int buf_len[HDCDRV_SESSION_RX_LIST_MAX_PKT];     /* output, for vhdc used in VM */
     unsigned int reserved[8];
 };
 
@@ -578,11 +587,11 @@ struct hdcdrv_cmd_epoll_wait {
     int dev_id;
     unsigned long long pid;
     unsigned long long reserve_comm;
-    int epfd;                   /* input */
-    int timeout;                /* input */
-    int maxevents;              /* input */
-    int ready_event;            /* output */
-    struct hdcdrv_event *event; /* output */
+    int epfd;                             /* input */
+    int timeout;                          /* input */
+    int maxevents;                        /* input */
+    int ready_event;                      /* output */
+    struct hdcdrv_event __ka_user *event; /* output */
     struct hdcdrv_event vevent[HDCDRV_VEPOLL_EVENT_MAX];
     unsigned int reserved[4];
 };
@@ -645,20 +654,63 @@ struct hdcdrv_cmd_get_com_status {
     void *status_buff;     /* input/output */
 };
 
+/* send completion message type */
+enum hdcdrv_feature_type {
+    HDC_FEATURE_COMMON_CHAN = 0,
+    HDC_FEATURE_FAST_CHAN = 1,
+    HDC_FEATURE_EPOLL = 2,
+    HDC_FEATURE_MAX
+};
+
+struct hdcdrv_cmd_get_feature_info {
+    int ret;
+    int dev_id; /* input */
+    unsigned long long pid;
+    unsigned long long reserve_comm;
+    unsigned int feature_type; /* input */
+    unsigned int version;      /* output */
+    unsigned int is_support;   /* output */
+    unsigned int reserved[4];
+};
+
 struct hdcdrv_cmd_wait_ctrl_msg { // Only used in UB
     int ret;
     int dev_id; /* input */
     unsigned long long pid;
-    unsigned int msg_len; /* output */
-    void *msg_buf;        /* output */
+    unsigned int msg_len;    /* output */
+    void __ka_user *msg_buf; /* output */
+};
+
+struct hdcdrv_connect_perf { // Only used in UB
+    unsigned long long k_cnt_start;
+    unsigned long long k_cnt_send_ctrl_start;
+    unsigned long long k_cnt_send_ctrl_end;
+    unsigned long long k_cnt_reply_wake;
+    unsigned long long k_cnt_wait_fin;
+    unsigned long long k_cnt_cpy_end;
+};
+
+#define HDCDRV_ACCEPT_PERF_RESERVED 5
+
+struct hdcdrv_accept_perf { // Only used in UB
+    unsigned long long k_acc_notify_entry;
+    unsigned long long k_acc_notify_search_end;
+    unsigned long long k_acc_start;
+    unsigned long long k_acc_send_ctrl_start;
+    unsigned long long k_acc_send_ctrl_end;
+    unsigned long long reserved[HDCDRV_ACCEPT_PERF_RESERVED];
 };
 
 struct hdcdrv_cmd_send_ctrl_msg { // Only used in UB
     int ret;
     int dev_id; /* input */
     unsigned long long pid;
-    unsigned int msg_len; /* output */
-    void *msg_buf;        /* output */
+    unsigned int msg_len;    /* output */
+    void __ka_user *msg_buf; /* output */
+    union {                  /* output, connect or accept depends on msg type */
+        struct hdcdrv_connect_perf connect;
+        struct hdcdrv_accept_perf accept;
+    };
 };
 
 union hdcdrv_cmd {
@@ -703,6 +755,7 @@ union hdcdrv_cmd {
     struct hdcdrv_cmd_common init_ctrl_node;
     struct hdcdrv_cmd_common uninit_ctrl_node;
     struct hdcdrv_cmd_get_com_status p2p_com_status;
+    struct hdcdrv_cmd_get_feature_info get_feature_info;
 };
 
 typedef struct hdcdrv_jetty_info {
@@ -732,20 +785,23 @@ enum halHdcWaitMemMsgType {
 };
 
 typedef struct hdc_ub_dbg_stat {
-    unsigned long long tx;             // hdc num of tx pkt
-    unsigned long long tx_bytes;       // hdc total_len of tx
-    unsigned long long rx_epoll;       // hdc num of rx epoll
-    unsigned long long rx_full;        // hdc num of rx list full
-    unsigned long long rx_add_list;    // hdc num of add to rx list
-    unsigned long long rx;             // hdc num of rx pkt
-    unsigned long long rx_bytes;       // hdc total_len of rx
-    unsigned long long tx_full;        // hdc tx_full pkt
-    unsigned long long tx_fail_hdc;    // hdc tx_fail by hdc pkt
-    unsigned long long tx_fail_ub;     // hdc tx_fail by ub pkt
-    unsigned long long rx_fail_hdc;    // hdc rx_fail by hdc pkt
-    unsigned long long rx_fail_ub;     // hdc rx_fail by ub pkt
-    unsigned long long remote_rx_full; // hdc remote rx_full pkt
-    unsigned long long remote_rx_fail; // hdc remote rx_fail pkt
+    unsigned long long tx;                  // hdc num of tx pkt
+    unsigned long long tx_bytes;            // hdc total_len of tx
+    unsigned long long rx_epoll;            // hdc num of rx epoll
+    unsigned long long rx_full;             // hdc num of rx list full
+    unsigned long long rx_add_list;         // hdc num of add to rx list
+    unsigned long long rx;                  // hdc num of rx pkt
+    unsigned long long rx_bytes;            // hdc total_len of rx
+    unsigned long long tx_full;             // hdc tx_full pkt
+    unsigned long long tx_fail_hdc;         // hdc tx_fail by hdc pkt
+    unsigned long long tx_fail_ub;          // hdc tx_fail by ub pkt
+    unsigned long long rx_fail_hdc;         // hdc rx_fail by hdc pkt
+    unsigned long long rx_fail_ub;          // hdc rx_fail by ub pkt
+    unsigned long long remote_rx_full;      // hdc remote rx_full pkt
+    unsigned long long remote_rx_fail;      // hdc remote rx_fail pkt
+    unsigned int epoll_thread_create;       // whether epoll thread has been created, 1 means created
+    signed int epoll_thread_epfd;           // epfd of the epoll thread, -1 means not exist
+    unsigned long long recv_event_abnormal; // hdc num of abnormal recv event in epoll thread
 } hdc_ub_dbg_stat_t;
 
 typedef struct hdc_ub_send_recv_info {

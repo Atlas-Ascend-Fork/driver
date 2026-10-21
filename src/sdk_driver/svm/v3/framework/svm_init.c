@@ -14,7 +14,6 @@
 #include "ka_compiler_pub.h"
 
 #include "pbl_feature_loader.h"
-#include "pbl_kernel_adapt.h"
 
 #include "svm_kern_log.h"
 #include "svm_fops.h"
@@ -30,7 +29,7 @@ int __ka_init svm_init_module(void)
 
     /*
      * Stage:
-     * 0: kmc, mms
+     * 0: kmc, mms, kapi_stats
      * 1: dbi
      * 2: smm_ctx, pmm
      * 3: pmq_agent_device, pmq_client_device

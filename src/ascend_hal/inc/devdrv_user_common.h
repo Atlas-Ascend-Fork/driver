@@ -10,6 +10,10 @@
 #ifndef __DEVDRV_USER_COMMON_H
 #define __DEVDRV_USER_COMMON_H
 
+#ifndef __ka_user
+#define __ka_user
+#endif
+
 #include "devdrv_hardware_version.h"
 
 #define DAVINCI_INTF_MODULE_DEVMNG "DEVMNG"
@@ -17,7 +21,6 @@
 #ifndef pid_t
 typedef int pid_t;
 #endif
-
 
 #define DEVDRV_TS_GROUP_NUM 4
 
@@ -29,79 +32,79 @@ typedef enum {
 
 #define SOC_PLATFORM_ACEND310 ((defined CFG_SOC_PLATFORM_MINI) && (!defined CFG_SOC_PLATFORM_MINIV2))
 
-#define MAX_DAVINCI_NUM_OF_ONE_CHIP     (4)
+#define MAX_DAVINCI_NUM_OF_ONE_CHIP (4)
 
-#define DEVDRV_SRAM_TS_SHM_SIZE         (0x1000)
+#define DEVDRV_SRAM_TS_SHM_SIZE (0x1000)
 
-#define DEVDRV_CACHELINE_OFFSET         (6)
-#define DEVDRV_CACHELINE_SIZE           (64)
-#define DEVDRV_CACHELINE_MASK           (DEVDRV_CACHELINE_SIZE - 1)
+#define DEVDRV_CACHELINE_OFFSET (6)
+#define DEVDRV_CACHELINE_SIZE (64)
+#define DEVDRV_CACHELINE_MASK (DEVDRV_CACHELINE_SIZE - 1)
 #ifndef DEVDRV_IMU_CMD_LEN
-#define DEVDRV_IMU_CMD_LEN              (32U)
+#define DEVDRV_IMU_CMD_LEN (32U)
 #endif
-#define BIT_NUM_U64                     (64)
+#define BIT_NUM_U64 (64)
 
 #define KEY_CHIP_TYPE_INDEX (8U)
 
 #if defined(DRV_HOST) && defined(CFG_FEATURE_SRIOV)
-    #ifndef DEVDRV_MAX_DAVINCI_NUM
-        #define DEVDRV_MAX_DAVINCI_NUM      (1124)
-    #endif
-
-    #ifndef DEVDRV_PF_DEV_MAX_NUM
-        #define DEVDRV_PF_DEV_MAX_NUM           (64)
-    #endif
-    #define MAX_VDEV_NUM                    (1024)
-    #define VDAVINCI_MAX_VFID_NUM           (16)
-    #define VDAVINCI_MAX_DEVICE_COUNT       (64)
-#else
-    #ifndef DEVDRV_MAX_DAVINCI_NUM
-        #define DEVDRV_MAX_DAVINCI_NUM      (64)
-    #endif
-
-    #if (defined CFG_FEATURE_SRIOV) || (defined CFG_FEATURE_VF_USE_DEVID)
-        #ifndef DEVDRV_PF_DEV_MAX_NUM
-            #define DEVDRV_PF_DEV_MAX_NUM       (32)
-        #endif
-    #else
-        #ifndef DEVDRV_PF_DEV_MAX_NUM
-            #define DEVDRV_PF_DEV_MAX_NUM       (64)
-        #endif
-    #endif
-
-    #if (defined CFG_FEATURE_VF_SINGLE_AICORE)
-        #define MAX_VDEV_NUM                (4)
-        #define VDAVINCI_MAX_VFID_NUM       (4)
-        #define VDAVINCI_MAX_DEVICE_COUNT   (1)
-    #else
-        #define MAX_VDEV_NUM                (1024)
-        #define VDAVINCI_MAX_VFID_NUM       (16)
-        #define VDAVINCI_MAX_DEVICE_COUNT   (64)
-    #endif
+#ifndef DEVDRV_MAX_DAVINCI_NUM
+#define DEVDRV_MAX_DAVINCI_NUM (1124)
 #endif
 
-#define DEVDRV_MAILBOX_MAX_FEEDBACK         (16)
-#define DEVDRV_MAILBOX_STOP_THREAD          (0x0FFFFFFF)
-#define DEVDRV_BUS_DOWN                     (0x0F00FFFF)
-#define DEVDRV_HDC_CONNECT_DOWN             (0x0F0FFFFF)
-#define DEVDRV_IPC_NAME_SIZE               (65)
-#define DEVDRV_PID_MAX_NUM                  (16)
+#ifndef DEVDRV_PF_DEV_MAX_NUM
+#define DEVDRV_PF_DEV_MAX_NUM (64)
+#endif
+#define MAX_VDEV_NUM (1024)
+#define VDAVINCI_MAX_VFID_NUM (16)
+#define VDAVINCI_MAX_DEVICE_COUNT (64)
+#else
+#ifndef DEVDRV_MAX_DAVINCI_NUM
+#define DEVDRV_MAX_DAVINCI_NUM (64)
+#endif
 
-#define DEVDRV_MAX_INTERRUPT_NUM            (32)
-#define DEVDRV_MAX_MEMORY_DUMP_SIZE         (4 * 1024 * 1024)
-#define DEVDRV_MAX_REG_DDR_READ_SIZE         (5 * 1024 * 1024)
+#if (defined CFG_FEATURE_SRIOV) || (defined CFG_FEATURE_VF_USE_DEVID)
+#ifndef DEVDRV_PF_DEV_MAX_NUM
+#define DEVDRV_PF_DEV_MAX_NUM (32)
+#endif
+#else
+#ifndef DEVDRV_PF_DEV_MAX_NUM
+#define DEVDRV_PF_DEV_MAX_NUM (64)
+#endif
+#endif
 
-#define DEVDRV_USER_CONFIG_NAME_LEN         (32)
-#define DEVDRV_USER_CONFIG_NAME_MAX         (32)
-#define DEVDRV_USER_CONFIG_VALUE_LEN        (128)
+#if (defined CFG_FEATURE_VF_SINGLE_AICORE)
+#define MAX_VDEV_NUM (4)
+#define VDAVINCI_MAX_VFID_NUM (4)
+#define VDAVINCI_MAX_DEVICE_COUNT (1)
+#else
+#define MAX_VDEV_NUM (1024)
+#define VDAVINCI_MAX_VFID_NUM (16)
+#define VDAVINCI_MAX_DEVICE_COUNT (64)
+#endif
+#endif
 
-#define DEVDRV_BB_DEVICE_ID_INFORM          (0x66020004)
-#define DEVDRV_BB_DEVICE_STATE_INFORM       (0x66020008)
+#define DEVDRV_MAILBOX_MAX_FEEDBACK (16)
+#define DEVDRV_MAILBOX_STOP_THREAD (0x0FFFFFFF)
+#define DEVDRV_BUS_DOWN (0x0F00FFFF)
+#define DEVDRV_HDC_CONNECT_DOWN (0x0F0FFFFF)
+#define DEVDRV_IPC_NAME_SIZE (65)
+#define DEVDRV_PID_MAX_NUM (16)
+
+#define DEVDRV_MAX_INTERRUPT_NUM (32)
+#define DEVDRV_MAX_MEMORY_DUMP_SIZE (4 * 1024 * 1024)
+#define DEVDRV_MAX_REG_DDR_READ_SIZE (5 * 1024 * 1024)
+
+#define DEVDRV_USER_CONFIG_NAME_LEN (32)
+#define DEVDRV_USER_CONFIG_NAME_MAX (32)
+#define DEVDRV_USER_CONFIG_VALUE_LEN (128)
+
+#define DEVDRV_BB_DEVICE_ID_INFORM (0x66020004)
+#define DEVDRV_BB_DEVICE_STATE_INFORM (0x66020008)
 
 #ifdef CFG_SOC_PLATFORM_MINIV2
-#define CHIP_BASEADDR_PA_OFFSET             (0x8000000000ULL)
+#define CHIP_BASEADDR_PA_OFFSET (0x8000000000ULL)
 #else
-#define CHIP_BASEADDR_PA_OFFSET             (0x200000000000ULL)
+#define CHIP_BASEADDR_PA_OFFSET (0x200000000000ULL)
 #endif /* CFG_SOC_PLATFORM_MINIV2 */
 
 #define ERROR_CODE_OFFSET_IN_PAYLOAD 0
@@ -109,7 +112,7 @@ typedef enum {
 #define EMU_STATUS_BIT_MASK 3U
 
 #define DEVDRV_MAX_COMPUTING_POWER_TYPE 1
-#define DEVDRV_COMPUTING_VALUE_ERROR    0xFFFFFFFFFFFFFFFEull
+#define DEVDRV_COMPUTING_VALUE_ERROR 0xFFFFFFFFFFFFFFFEull
 
 #define DEVDRV_MAILBOX_PAYLOAD 64
 
@@ -124,11 +127,11 @@ struct devdrv_mailbox_user_message {
     int message_length;
     int feedback_num;
     unsigned char *feedback_buffer; /*
-                          * if a sync message need feedback, must alloc buffer for feedback data.
-                          * if a async message need feedback, set this to null,
-                          * because driver will send a callback parameter to callback func,
-                          * app has no need to free callback parameter in callback func.
-                          */
+                                     * if a sync message need feedback, must alloc buffer for feedback data.
+                                     * if a async message need feedback, set this to null,
+                                     * because driver will send a callback parameter to callback func,
+                                     * app has no need to free callback parameter in callback func.
+                                     */
     int sync_type;
     int cmd_type;
     int message_index;
@@ -176,8 +179,8 @@ struct devdrv_channel_info_devid {
     unsigned long long timestamp;
 };
 
-#define DEVDRV_SHRID_OP_CONFIG    (1 << 0)
-#define DEVDRV_SHRID_OP_DECONFIG  (1 << 1)
+#define DEVDRV_SHRID_OP_CONFIG (1 << 0)
+#define DEVDRV_SHRID_OP_DECONFIG (1 << 1)
 struct devdrv_notify_ioctl_info {
     unsigned int dev_id;
     unsigned int tsid;
@@ -198,7 +201,7 @@ struct devdrv_hardware_spec {
     unsigned int first_ai_core_id;
     unsigned int ai_cpu_num;
     unsigned int first_ai_cpu_id;
-    unsigned char ai_core_num_level; /* 0 invalid */
+    unsigned char ai_core_num_level;  /* 0 invalid */
     unsigned char ai_core_freq_level; /* 0 invalid */
 };
 
@@ -223,7 +226,7 @@ struct devdrv_manager_devids {
     unsigned int devids[DEVDRV_MAX_DAVINCI_NUM];
 };
 
-#define SOC_VERSION_LENGTH  32U
+#define SOC_VERSION_LENGTH 32U
 struct devdrv_manager_hccl_devinfo {
     unsigned char env_type;
     unsigned int dev_id;
@@ -254,24 +257,28 @@ struct devdrv_manager_hccl_devinfo {
     unsigned int host_device_connect_type;
     unsigned int mainboard_id;
     char soc_version[SOC_VERSION_LENGTH];
-    unsigned long long aicore_bitmap[2]; /* support max 128 aicore */
+    unsigned long long aicore_bitmap[2];      /* support max 128 aicore */
     unsigned long long vector_core_bitmap[2]; /* support max 128 vector core */
     unsigned char product_type;
-    unsigned int resv[27];
+    unsigned char resv1[7];
+    unsigned long long real_time_ms;
+    unsigned int l2_num;
+    unsigned int hbm_num;
+    unsigned int resv2[22];
 };
 
 #define DEVDRV_MAX_SPEC_RESERVE 8
 
 struct devdrv_vdev_spec_info {
-    unsigned char core_num;        /* aicore num for virt device */
+    unsigned char core_num;                           /* aicore num for virt device */
     unsigned char reservesd[DEVDRV_MAX_SPEC_RESERVE]; /**< reserved */
 };
 
 struct devdrv_vdev_create_info {
     unsigned int devid;
-    unsigned int vdev_num;    /* number of vdavinci the devid spilt */
+    unsigned int vdev_num;                                    /* number of vdavinci the devid spilt */
     struct devdrv_vdev_spec_info spec[VDAVINCI_MAX_VFID_NUM]; /* specification of vdavinci */
-    unsigned int vdevid[VDAVINCI_MAX_VFID_NUM];        /* id number of vdavinci, equal the 'N' in /dev/vdavincN */
+    unsigned int vdevid[VDAVINCI_MAX_VFID_NUM]; /* id number of vdavinci, equal the 'N' in /dev/vdavincN */
 };
 
 #define DSMI_VDEV_RES_NAME_LEN 16
@@ -285,7 +292,7 @@ struct devdrv_base_resource_vdev {
     unsigned long long task_timeout;
     unsigned int vfg_id;
     unsigned char vip_mode;
-    unsigned char reserved[DSMI_VDEV_FOR_RESERVE - 1];  /* bytes aligned */
+    unsigned char reserved[DSMI_VDEV_FOR_RESERVE - 1]; /* bytes aligned */
 };
 
 /* total types of computing resource */
@@ -376,16 +383,16 @@ struct devdrv_vdev_id_info {
 };
 
 struct vdev_info_st {
-    unsigned int status;       /* whether the vdavinci used by container */
-    unsigned int id;           /* id number of vdavinci, equal the 'N' in /dev/vdavincN */
+    unsigned int status; /* whether the vdavinci used by container */
+    unsigned int id;     /* id number of vdavinci, equal the 'N' in /dev/vdavincN */
     unsigned int vfid;
-    unsigned long long cid;          /* container id, equal current->nsproxy->uts_ns->name.nodename */
+    unsigned long long cid; /* container id, equal current->nsproxy->uts_ns->name.nodename */
     struct devdrv_vdev_spec_info spec;
 };
 
 struct devdrv_vdev_info {
     unsigned int devid;
-    unsigned int vdev_num;         /* number of vdavinci the devid had created */
+    unsigned int vdev_num; /* number of vdavinci the devid had created */
     struct devdrv_vdev_spec_info spec_unused;
     struct vdev_info_st vdev[VDAVINCI_MAX_VFID_NUM];
 };
@@ -408,7 +415,7 @@ struct vdev_query_info {
     unsigned int vfg_id;
     unsigned int vfg_num;
     unsigned int vfg_bitmap;
-    unsigned int vdev_num;         /* number of vdavinci the devid had created */
+    unsigned int vdev_num; /* number of vdavinci the devid had created */
     unsigned int vdev_id_single;
     unsigned int is_container_used;
     unsigned long long container_id;
@@ -419,7 +426,7 @@ struct vdev_query_info {
     struct devdrv_media_resource_vdev media;
 };
 
-#define DEVDRV_SVM_VDEV_LEN  8
+#define DEVDRV_SVM_VDEV_LEN 8
 struct devdrv_svm_vdev_info {
     unsigned int devid;
     unsigned int type;
@@ -458,7 +465,7 @@ struct devdrv_black_box_user {
     unsigned int devid;
     unsigned int size;
     unsigned long long addr_offset;
-    void *dst_buffer;
+    void __ka_user *dst_buffer;
     unsigned int thread_should_stop;
     unsigned int exception_code;
     unsigned long long tv_sec;
@@ -546,7 +553,6 @@ struct devdrv_pcie_hdr_read_para {
     unsigned int len;
 };
 
-
 #define DEVDRV_VALUE_SIZE 512
 
 enum devdrv_pcie_read_type {
@@ -623,10 +629,8 @@ struct devdrv_phy_get_devinfo_para {
     unsigned int chip_type;
 };
 
-#define DEVDRV_SQ_INFO_OCCUPY_SIZE \
-    (sizeof(struct devdrv_ts_sq_info) * DEVDRV_MAX_SQ_NUM)
-#define DEVDRV_CQ_INFO_OCCUPY_SIZE \
-    (sizeof(struct devdrv_ts_cq_info) * DEVDRV_MAX_CQ_NUM)
+#define DEVDRV_SQ_INFO_OCCUPY_SIZE (sizeof(struct devdrv_ts_sq_info) * DEVDRV_MAX_SQ_NUM)
+#define DEVDRV_CQ_INFO_OCCUPY_SIZE (sizeof(struct devdrv_ts_cq_info) * DEVDRV_MAX_CQ_NUM)
 
 #define DEVDRV_MAX_INFO_SIZE (DEVDRV_SQ_INFO_OCCUPY_SIZE + DEVDRV_CQ_INFO_OCCUPY_SIZE)
 #define DEVDRV_STATUS_INFO_SIZE (sizeof(unsigned int)) /* ts status */
@@ -634,14 +638,14 @@ struct devdrv_phy_get_devinfo_para {
 #define DEVDRV_MAX_INFO_ORDER (get_order(DEVDRV_MAX_INFO_SIZE))
 #define DEVDRV_STATUS_INFO_ORDER (get_order(DEVDRV_STATUS_INFO_SIZE))
 
-#define PMU_EMMC_VCC_CHANNEL  (7)
+#define PMU_EMMC_VCC_CHANNEL (7)
 #define PMU_EMMC_VCCQ_CHANNEL (14)
-#define ADCIN7_SLOT0          (7)
-#define ADCIN8_SLOT1          (8)
+#define ADCIN7_SLOT0 (7)
+#define ADCIN8_SLOT1 (8)
 
 struct devdrv_emmc_voltage_para {
-    int emmc_vcc;   // should be 2950 mv
-    int emmc_vccq;  // should be 1800 mv
+    int emmc_vcc;  // should be 2950 mv
+    int emmc_vccq; // should be 1800 mv
 };
 
 struct devdrv_emmc_info_para {
@@ -817,7 +821,7 @@ struct devdrv_load_kernel {
 struct devdrv_load_kernel_serve {
     struct devdrv_load_kernel load_kernel;
     unsigned char thread_should_exit;
-    unsigned int save_state;  // succ: 0, fail: 1
+    unsigned int save_state; // succ: 0, fail: 1
 };
 
 #define REMAP_ALIGN_SIZE (64 * 1024)
@@ -825,17 +829,17 @@ struct devdrv_load_kernel_serve {
 #define REMAP_ALIGN(x) (((x) + REMAP_ALIGN_SIZE - 1) & REMAP_ALIGN_MASK)
 #define DEVDRV_VM_SYSFS_DFX_SIZE (1024 * 1024)
 
-#define DEVDRV_VM_SQ_SLOT_SIZE      REMAP_ALIGN(DEVDRV_MAX_SQ_DEPTH * DEVDRV_SQ_SLOT_SIZE)   /* 64k */
-#define DEVDRV_VM_INFO_MEM_SIZE     REMAP_ALIGN(DEVDRV_MAX_INFO_SIZE)
-#define DEVDRV_VM_CQ_SLOT_SIZE      REMAP_ALIGN(DEVDRV_MAX_CQ_DEPTH * DEVDRV_CQ_SLOT_SIZE)
+#define DEVDRV_VM_SQ_SLOT_SIZE REMAP_ALIGN(DEVDRV_MAX_SQ_DEPTH *DEVDRV_SQ_SLOT_SIZE) /* 64k */
+#define DEVDRV_VM_INFO_MEM_SIZE REMAP_ALIGN(DEVDRV_MAX_INFO_SIZE)
+#define DEVDRV_VM_CQ_SLOT_SIZE REMAP_ALIGN(DEVDRV_MAX_CQ_DEPTH *DEVDRV_CQ_SLOT_SIZE)
 
 /* ****custom ioctrl****** */
 typedef enum {
-    DEVDRV_IOC_VA_TO_PA,              // current only use in lite
-    DEVDRV_IOC_GET_SVM_SSID,          // current only use in lite
-    DEVDRV_IOC_GET_CHIP_INFO,         // current only use in lite
-    DEVDRV_IOC_ALLOC_CONTIGUOUS_MEM,  // current only use in lite
-    DEVDRV_IOC_FREE_CONTIGUOUS_MEM,   // current only use in lite
+    DEVDRV_IOC_VA_TO_PA,             // current only use in lite
+    DEVDRV_IOC_GET_SVM_SSID,         // current only use in lite
+    DEVDRV_IOC_GET_CHIP_INFO,        // current only use in lite
+    DEVDRV_IOC_ALLOC_CONTIGUOUS_MEM, // current only use in lite
+    DEVDRV_IOC_FREE_CONTIGUOUS_MEM,  // current only use in lite
 } devdrv_custom_ioc_t;
 
 typedef struct {
@@ -850,7 +854,7 @@ typedef enum {
     GET_GROUP_COUNT_RES_INDEX = 0,
     GET_GROUP_TS_ID_RES_INDEX,
     GET_GROUP_ID_RES_INDEX,
-}GET_GROUP_RESVER_INDEX;
+} GET_GROUP_RESVER_INDEX;
 
 #define COMMON_STATUS_RES_LEN 8
 typedef struct _common_status_info {
@@ -883,7 +887,7 @@ enum tsdrv_dev_machine_type {
 };
 
 struct tsdrv_dev_com_info {
-    enum tsdrv_dev_machine_type mach_type;    /* physical machine: 0, virtual machine: 1 */
+    enum tsdrv_dev_machine_type mach_type; /* physical machine: 0, virtual machine: 1 */
     unsigned int ts_num;
 };
 
@@ -911,26 +915,27 @@ struct devdrv_ioctl_info {
 };
 
 struct ts_group_info {
-    unsigned char  group_id;
-    unsigned char  state;
-    unsigned char  extend_attribute; // bit 0=1??ʾ??Ĭ??group
-    unsigned char  aicore_number; // 0~9
-    unsigned char  aivector_number; // 0~7
-    unsigned char  sdma_number; // 0~15
-    unsigned char  aicpu_number; // 0~15
-    unsigned char  active_sq_number; // 0~31
-    unsigned int   aicore_mask; // as output in dsmi_get_capability_group_info/halGetCapabilityGroupInfo
-    unsigned int   vfid;
-    unsigned int   poolid;
-    unsigned int   poolid_max;
-    unsigned int   result;
+    unsigned char group_id;
+    unsigned char state;
+    unsigned char extend_attribute; // bit 0=1??ʾ??Ĭ??group
+    unsigned char aicore_number;    // 0~9
+    unsigned char aivector_number;  // 0~7
+    unsigned char sdma_number;      // 0~15
+    unsigned char aicpu_number;     // 0~15
+    unsigned char active_sq_number; // 0~31
+    unsigned int aicore_mask;       // as output in dsmi_get_capability_group_info/halGetCapabilityGroupInfo
+    unsigned int vfid;
+    unsigned int poolid;
+    unsigned int poolid_max;
+    unsigned int result;
+    unsigned char use_l2cache;
 };
 
 typedef enum {
     SET_CAN_CONFIG_FILTER = 0,
     SET_CAN_CONFIG_RAM,
     SET_CAN_CONFIG_MAX,
-}SET_CAN_CONFIG_INDEX;
+} SET_CAN_CONFIG_INDEX;
 
 /* DSMI sub command for can module */
 #define CAN_ID_INDEX_OFFSET 24
@@ -939,7 +944,7 @@ typedef enum {
 #define GET_CAN_ID_FROM_SUB_CMD(can_sub_cmd) ((can_sub_cmd) >> CAN_ID_INDEX_OFFSET)
 #define GET_CAN_CFG_ITEM_FROM_SUB_CMD(can_sub_cmd) ((can_sub_cmd) & CAN_CFG_ITEM_CFG_BIT)
 
-#define DEVDRV_SIGN_LEN   49
+#define DEVDRV_SIGN_LEN 49
 struct devdrv_ioctl_para_bind_host_pid {
     pid_t host_pid;
     unsigned int vfid;
@@ -979,11 +984,11 @@ enum ipcSubCmdType {
 };
 
 enum ipcTargetId {
-    TARGET_ID_LP = 0,        /**< 310p is lp, 310 is lpm3, 910 have no lp */
-    TARGET_ID_IMU,           /**< only in 910 */
+    TARGET_ID_LP = 0, /**< 310p is lp, 310 is lpm3, 910 have no lp */
+    TARGET_ID_IMU,    /**< only in 910 */
     TARGET_ID_TSC,
-    TARGET_ID_TSV,           
-    TARGET_ID_SAFETYISLAND, 
+    TARGET_ID_TSV,
+    TARGET_ID_SAFETYISLAND,
     MAX_TARGET_ID
 };
 
@@ -1077,7 +1082,7 @@ typedef struct npu_multi_util_info_v2 {
     unsigned int vector_count;
     unsigned char aicore_util;
     unsigned char npu_total_util;
-    unsigned char reserved[10];  /* reserve 10 bytes */
+    unsigned char reserved[10]; /* reserve 10 bytes */
 } NPU_MULTI_UTIL_INFO_V2;
 
 #ifdef ENABLE_BUILD_PRODUCT

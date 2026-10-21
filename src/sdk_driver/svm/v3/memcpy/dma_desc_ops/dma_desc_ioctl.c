@@ -67,7 +67,7 @@ static int _dma_desc_ioctl_convert(struct dma_desc_ctx *ctx, unsigned long __ka_
         return ret;
     }
 
-    ret = copy_va_info_check(copy_va_info_get_exec_udevid(&info), &info);
+    ret = copy_va_info_check(ctx->udevid, &info);
     if (ret != 0) {
         return ret;
     }

@@ -22,6 +22,7 @@
 
 struct svm_dma_addr_info {
     bool is_write;
+    bool is_local_mem;
 
     u64 dma_addr_seg_num;
     u64 first_seg_offset;
@@ -31,14 +32,32 @@ struct svm_dma_addr_info {
 
 /*
     may be not in current context when recycle, so add tgid para
-    if handle is not null when dma map, must use svm_dma_unmap_addr_by_handle to unmap
+    dst_page_size is the page granularity of dst_va
+
+ * if handle is not null when dma map, must use svm_dma_addr_put_by_handle to unmap
 */
-int svm_dma_map_addr(u32 udevid, int tgid, struct svm_global_va *dst_va, u32 flag, void **handle);
+int svm_dma_map_addr(u32 udevid, int tgid, struct svm_global_va *dst_va, u64 dst_page_size, u32 flag, void **handle);
 int svm_dma_unmap_addr(u32 udevid, int tgid, struct svm_global_va *dst_va);
-void svm_dma_unmap_addr_by_handle(void *handle);
+/* The remap range must exactly cover one or more complete DMA segments. */
+int svm_dma_remap_addr(u32 udevid, int tgid, struct svm_global_va *dst_va);
+void svm_dma_addr_put_by_handle(void *handle);
 int svm_dma_addr_query_by_handle(void *handle, struct svm_global_va *dst_va, struct svm_dma_addr_info *dma_info);
 
-int svm_dma_addr_get(u32 udevid, int tgid, struct svm_global_va *dst_va, struct svm_dma_addr_info *dma_info);
+int svm_dma_addr_get(u32 udevid, int tgid, struct svm_global_va *dst_va, struct svm_dma_addr_info *dma_info,
+                     void **handle);
 void svm_dma_addr_put(u32 udevid, int tgid, struct svm_global_va *dst_va);
+
+void svm_dma_addr_sync_for_device(u32 udevid, const struct svm_dma_addr_info *dma_info);
+void svm_dma_addr_sync_for_cpu(u32 udevid, const struct svm_dma_addr_info *dma_info);
+
+static inline int svm_dma_addr_query(u32 udevid, int tgid, struct svm_global_va *dst_va,
+                                     struct svm_dma_addr_info *dma_info)
+{
+    int ret = svm_dma_addr_get(udevid, tgid, dst_va, dma_info, NULL);
+    if (ret == 0) {
+        svm_dma_addr_put(udevid, tgid, dst_va);
+    }
+    return ret;
+}
 
 #endif

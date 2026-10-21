@@ -17,10 +17,14 @@
 
 struct devdrv_comm_dev_ops g_comm_ops[DEVDRV_COMMNS_TYPE_MAX];
 struct devdrv_faultmgr_dev_ops g_faultmgr_ops;
+struct devdrv_serdes_dump_dev_ops g_serdes_dump_ops;
 struct devdrv_msg_client g_client_info;
 
 struct devdrv_comm_dev_ops *devdrv_get_comm_ops_ctrl(enum devdrv_communication_type type)
 {
+    if (type >= DEVDRV_COMMNS_TYPE_MAX) {
+        return NULL;
+    }
     return &g_comm_ops[type];
 }
 
@@ -63,7 +67,7 @@ int devdrv_check_dev_manager_api_proc(struct devdrv_comm_ops *ops)
         return -EINVAL;
     }
     if (ops->get_msg_chan_devid == NULL) {
-        devdrv_err("Invalid ops, get connect type is null. (type=%u)\n", ops->comm_type);
+        devdrv_err("Invalid ops, get msg chan devid is null. (type=%u)\n", ops->comm_type);
         return -EINVAL;
     }
     return 0;
@@ -100,7 +104,6 @@ int devdrv_register_communication_ops(struct devdrv_comm_ops *ops)
         return -EINVAL;
     }
     type = ops->comm_type;
-
     ka_task_write_lock_irqsave(&g_comm_ops[type].rwlock, flags);
     (void)memcpy_s(&g_comm_ops[type].ops, sizeof(g_comm_ops[type].ops), ops, sizeof(*ops));
     g_comm_ops[type].status = DEVDRV_COMM_OPS_TYPE_INIT;
@@ -127,7 +130,6 @@ void devdrv_unregister_communication_ops(struct devdrv_comm_ops *ops)
         return;
     }
     type = ops->comm_type;
-
     for (i = 0; i < COMMU_WAIT_MAX_CNT; ++i) {
         if (ka_base_atomic_read(&g_comm_ops[type].ops.ref_cnt) == 0) {
             break;
@@ -203,6 +205,7 @@ void devdrv_set_communication_ops_status_inner(u32 type, u32 status, u32 index_i
 {
     if ((type >= DEVDRV_COMMNS_TYPE_MAX) || (status >= DEVDRV_COMM_OPS_TYPE_MAX)) {
         devdrv_err("Invalid type or status. (dev_id=%u;type=%u;status=%u)\n", index_id, type, status);
+        return;
     }
 
     if (status == DEVDRV_COMM_OPS_TYPE_ENABLE) {
@@ -382,6 +385,72 @@ struct devdrv_faultmgr_dev_ops *devdrv_add_faultmgr_ops_ref(void)
 }
 
 void devdrv_sub_faultmgr_ops_ref(struct devdrv_faultmgr_dev_ops *dev_ops)
+{
+    ka_base_atomic_sub(1, &dev_ops->ops.ref_cnt);
+}
+
+int devdrv_register_serdes_dump_ops(struct devdrv_serdes_dump_ops *ops)
+{
+    if (ops == NULL) {
+        devdrv_err("Invalid ops, ops is null.\n");
+        return -EINVAL;
+    }
+
+    ka_task_write_lock(&g_serdes_dump_ops.rwlock);
+    (void)memcpy_s(&g_serdes_dump_ops.ops, sizeof(struct devdrv_serdes_dump_ops), ops,
+                   sizeof(struct devdrv_serdes_dump_ops));
+    g_serdes_dump_ops.status = DEVDRV_COMM_OPS_TYPE_ENABLE;
+    ka_base_atomic_set(&g_serdes_dump_ops.ops.ref_cnt, 0);
+    ka_task_write_unlock(&g_serdes_dump_ops.rwlock);
+    devdrv_info("Serdes dump ops register success.\n");
+    return 0;
+}
+KA_EXPORT_SYMBOL_GPL(devdrv_register_serdes_dump_ops);
+
+void devdrv_unregister_serdes_dump_ops(void)
+{
+    size_t len = sizeof(struct devdrv_serdes_dump_ops);
+    int i;
+
+    for (i = 0; i < COMMU_WAIT_MAX_CNT; ++i) {
+        if (ka_base_atomic_read(&g_serdes_dump_ops.ops.ref_cnt) == 0) {
+            break;
+        }
+        ka_system_usleep_range(COMMU_WAIT_PER_TIME, COMMU_WAIT_PER_TIME);
+    }
+    if (i == COMMU_WAIT_MAX_CNT) {
+        devdrv_info("Serdes dump ops will force to unregister. (ref_cnt=%u)\n",
+                    ka_base_atomic_read(&g_serdes_dump_ops.ops.ref_cnt));
+    }
+    ka_task_write_lock(&g_serdes_dump_ops.rwlock);
+    g_serdes_dump_ops.status = DEVDRV_COMM_OPS_TYPE_UNINIT;
+    (void)memset_s(&g_serdes_dump_ops.ops, len, 0, len);
+    ka_task_write_unlock(&g_serdes_dump_ops.rwlock);
+    devdrv_info("Serdes dump ops unregister success.\n");
+}
+KA_EXPORT_SYMBOL_GPL(devdrv_unregister_serdes_dump_ops);
+
+struct devdrv_serdes_dump_dev_ops *devdrv_get_serdes_dump_ops(void)
+{
+    return &g_serdes_dump_ops;
+}
+
+struct devdrv_serdes_dump_dev_ops *devdrv_add_serdes_dump_ops_ref(void)
+{
+    struct devdrv_serdes_dump_dev_ops *dev_ops = &g_serdes_dump_ops;
+
+    ka_task_read_lock(&dev_ops->rwlock);
+    if (dev_ops->status != DEVDRV_COMM_OPS_TYPE_ENABLE) {
+        ka_task_read_unlock(&dev_ops->rwlock);
+        devdrv_info("Ops status list. (status=%u)\n", dev_ops->status);
+        return NULL;
+    }
+    ka_base_atomic_add(1, &dev_ops->ops.ref_cnt);
+    ka_task_read_unlock(&dev_ops->rwlock);
+    return dev_ops;
+}
+
+void devdrv_sub_serdes_dump_ops_ref(struct devdrv_serdes_dump_dev_ops *dev_ops)
 {
     ka_base_atomic_sub(1, &dev_ops->ops.ref_cnt);
 }

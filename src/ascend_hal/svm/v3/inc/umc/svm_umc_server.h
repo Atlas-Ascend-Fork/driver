@@ -41,7 +41,7 @@ struct svm_event_proc {
         rsp->real_rsp_data_len = 0;                                                                                    \
                                                                                                                        \
         if ((u64)msg_len < _##func.msg_in_len) {                                                                       \
-            svm_err("Msg int len err. (msg_in_len=%d; expected_len=0x%llx)\n", msg_len, _##func.msg_in_len);           \
+            svm_err("Msg in len err. (msg_in_len=%d; expected_len=0x%llx)\n", msg_len, _##func.msg_in_len);            \
             return DRV_ERROR_INNER_ERR;                                                                                \
         }                                                                                                              \
                                                                                                                        \

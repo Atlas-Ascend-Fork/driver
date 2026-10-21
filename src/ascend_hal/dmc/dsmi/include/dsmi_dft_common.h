@@ -11,7 +11,7 @@
 #ifndef __DSMI_DFT_COMMON_H__
 #define __DSMI_DFT_COMMON_H__
 
-#define DEV_MON_CMD_GET_PMU_DIE_ID            0x80        /* board dsmi cmd start form 0x80 */
+#define DEV_MON_CMD_GET_PMU_DIE_ID 0x80 /* board dsmi cmd start form 0x80 */
 
 typedef struct dsmi_dft_code {
     unsigned char start_end : 2;

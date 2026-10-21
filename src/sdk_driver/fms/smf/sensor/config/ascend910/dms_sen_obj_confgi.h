@@ -11,6 +11,6 @@
  * GNU General Public License for more details.
  */
 struct tag_dms_config_item {
-    UINT32 ulSensorType;                      /* sensor type */
-    SCAN_FUNC pfScanFunc;                     /* detection function pointer */
+    UINT32 ulSensorType;  /* sensor type */
+    SCAN_FUNC pfScanFunc; /* detection function pointer */
 };

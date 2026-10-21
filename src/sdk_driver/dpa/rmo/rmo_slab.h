@@ -22,8 +22,8 @@
     ka_kmalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_DP_PROC_MNG, KA_SUB_MODULE_TYPE_0))
 #define rmo_kzalloc(size, flags) \
     ka_kzalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_DP_PROC_MNG, KA_SUB_MODULE_TYPE_0))
-#define rmo_kcalloc(size, flags) \
-    ka_kcalloc(size, flags, ka_get_module_id(HAL_MODULE_TYPE_DP_PROC_MNG, KA_SUB_MODULE_TYPE_0))
+#define rmo_kcalloc(n, size, flags) \
+    ka_kcalloc(n, size, flags, ka_get_module_id(HAL_MODULE_TYPE_DP_PROC_MNG, KA_SUB_MODULE_TYPE_0))
 #define rmo_kfree(addr) ka_kfree(addr, ka_get_module_id(HAL_MODULE_TYPE_DP_PROC_MNG, KA_SUB_MODULE_TYPE_0))
 
 #define rmo_vzalloc(size) ka_vzalloc(size, ka_get_module_id(HAL_MODULE_TYPE_DP_PROC_MNG, KA_SUB_MODULE_TYPE_0))

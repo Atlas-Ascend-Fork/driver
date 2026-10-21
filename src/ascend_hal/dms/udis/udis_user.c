@@ -10,10 +10,10 @@
 
 #include "securec.h"
 #include "ascend_hal.h"
+#include "ascend_inpackage_hal.h"
 #include "dms/dms_devdrv_info_comm.h"
 #include "dms_user_common.h"
 #include "pbl_urd_sub_cmd_common.h"
-#include "ascend_dev_num.h"
 #include "udis_user.h"
 
 #ifdef STATIC_SKIP
@@ -51,15 +51,15 @@ STATIC int udis_input_check(unsigned int dev_id, const struct udis_dev_info *inf
     }
 
     if (info->module_type >= UDIS_MODULE_MAX) {
-        DMS_ERR("Invalid module type. (dev_id=%u; module_type=%d; max_module_type=%u)\n",
-            dev_id, info->module_type, UDIS_MODULE_MAX - 1);
+        DMS_INFO("Invalid module type. (dev_id=%u; module_type=%d; max_module_type=%u)\n", dev_id, info->module_type,
+                 UDIS_MODULE_MAX - 1);
         return DRV_ERROR_PARA_ERROR;
     }
 
     name_len = strnlen(info->name, UDIS_MAX_NAME_LEN);
-    if ((name_len == 0) ||  (name_len >= UDIS_MAX_NAME_LEN)) {
+    if ((name_len == 0) || (name_len >= UDIS_MAX_NAME_LEN)) {
         DMS_ERR("Invalid para, name length invalid. (dev_id=%u; module_type=%u; name_len=%u; max_name_len=%u)\n",
-            dev_id, info->module_type, name_len, UDIS_MAX_NAME_LEN - 1);
+                dev_id, info->module_type, name_len, UDIS_MAX_NAME_LEN - 1);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -95,12 +95,12 @@ int udis_get_device_info(unsigned int dev_id, struct udis_dev_info *info)
     in.in_len = sizeof(info->data);
 
     urd_usr_cmd_fill(&cmd, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_UDIS_DEVICE_INFO, NULL, 0);
-    urd_usr_cmd_para_fill(&cmd_para, (void*)&in, sizeof(struct udis_get_ioctl_in),
-        &out, sizeof(struct udis_get_ioctl_out));
+    urd_usr_cmd_para_fill(&cmd_para, (void *)&in, sizeof(struct udis_get_ioctl_in), &out,
+                          sizeof(struct udis_get_ioctl_out));
     ret = urd_dev_usr_cmd(dev_id, &cmd, &cmd_para);
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Get info from udis failed. (dev_id=%u; module_type=%u; name=%s; ret=%d)",
-            dev_id, info->module_type, info->name, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Get info from udis failed. (dev_id=%u; module_type=%u; name=%s; ret=%d)", dev_id,
+                              info->module_type, info->name, ret);
         return ret;
     }
 
@@ -109,6 +109,11 @@ int udis_get_device_info(unsigned int dev_id, struct udis_dev_info *info)
     info->last_update_time = out.last_update_time;
 
     return 0;
+}
+
+int halUdisGetDeviceInfo(unsigned int dev_id, void *info)
+{
+    return udis_get_device_info(dev_id, (struct udis_dev_info *)info);
 }
 
 int udis_set_device_info(unsigned int dev_id, const struct udis_dev_info *info)
@@ -130,8 +135,8 @@ int udis_set_device_info(unsigned int dev_id, const struct udis_dev_info *info)
     }
 
     if ((info->data_len == 0) || (info->data_len > UDIS_MAX_DATA_LEN)) {
-        DMS_ERR("Invalid data len. (dev_id=%u; module_type=%u; name=%s; data_len=%u; max_data_len=%u)\n",
-            dev_id, info->module_type, info->name, info->data_len, UDIS_MAX_DATA_LEN);
+        DMS_ERR("Invalid data len. (dev_id=%u; module_type=%u; name=%s; data_len=%u; max_data_len=%u)\n", dev_id,
+                info->module_type, info->name, info->data_len, UDIS_MAX_DATA_LEN);
         return DRV_ERROR_PARA_ERROR;
     }
 
@@ -149,13 +154,12 @@ int udis_set_device_info(unsigned int dev_id, const struct udis_dev_info *info)
     urd_usr_cmd_para_fill(&cmd_para, (void *)&in, sizeof(struct udis_set_ioctl_in), NULL, 0);
     ret = urd_dev_usr_cmd(dev_id, &cmd, &cmd_para);
     if (ret != 0) {
-        DMS_EX_NOTSUPPORT_ERR(ret, "Set info from udis failed. (dev_id=%u; module_type=%u; name=%s; ret=%d)",
-            dev_id, info->module_type, info->name, ret);
+        DMS_EX_NOTSUPPORT_ERR(ret, "Set info from udis failed. (dev_id=%u; module_type=%u; name=%s; ret=%d)", dev_id,
+                              info->module_type, info->name, ret);
         return ret;
     }
 
-    DMS_INFO("Set udis info success. (dev_id=%u; module_type=%u; name=%s)\n",
-        dev_id, info->module_type, info->name);
+    DMS_INFO("Set udis info success. (dev_id=%u; module_type=%u; name=%s)\n", dev_id, info->module_type, info->name);
 
     return 0;
 }

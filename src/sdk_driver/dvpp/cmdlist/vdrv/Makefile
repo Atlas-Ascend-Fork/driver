@@ -39,6 +39,7 @@ ifeq ($(ENABLE_OPEN_SRC), y)
     EXTRA_CFLAGS += -I${DRIVER_HAL_INC_DIR}/depends/libc_sec
     EXTRA_CFLAGS += -I$(DRIVER_KERNEL_DIR)/kernel_adapt/include
     EXTRA_CFLAGS += -I${C_SEC_INCLUDE}
+
     EXTRA_CFLAGS += -Iinclude/linux
 else
     ifeq ($(DAVINCI_HIAI_DKMS), y)

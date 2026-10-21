@@ -215,6 +215,8 @@ typedef enum drv_subevent_id {
     DRV_SUBEVENT_HDC_CLOSE_LINK_MSG,
     DRV_SUBEVENT_DPA_RES_MAP_MSG = 224, /* dpa use ids 224~255 */
     DRV_SUBEVENT_DPA_RES_UNMAP_MSG,
+    DRV_SUBEVENT_DPA_RES_READ_MSG,
+    DRV_SUBEVENT_DPA_RES_WRITE_MSG,
     DRV_SUBEVENT_DPA_END_MSG = 255,
     DRV_SUBEVENT_MAX_MSG
 } DRV_SUBEVENT_ID;
@@ -641,6 +643,8 @@ enum mbuf_op_type {
     SOFT_DEQUE_CONSQ,
     SOFT_DEQUE_ENQUE_PRODQ,
     SOFT_FREE,
+    RECYCLE_LEAK_MARK_START,
+    RECYCLE_LEAK_MARK_END = RECYCLE_LEAK_MARK_START + SOFT_FREE,
     MBUF_OP_TYPE_BUTT
 };
 
@@ -779,6 +783,14 @@ typedef struct {
 /* device cp only, not support share(prefetch/register/ipc/p2p) and op(host ldst/memcpy/memset) */
 #define MEM_DEV_CP_ONLY_BIT 32
 #define MEM_DEV_CP_ONLY (0X1UL << MEM_DEV_CP_ONLY_BIT)
+/* process snapshot classification, only used by process resource backup/restore */
+#define MEM_SNAPSHOT_OPTIONAL_BIT 33U
+#define MEM_SNAPSHOT_REQUIRED_BIT 34U
+#define MEM_SNAPSHOT_OPTIONAL (1ULL << MEM_SNAPSHOT_OPTIONAL_BIT)
+#define MEM_SNAPSHOT_REQUIRED (1ULL << MEM_SNAPSHOT_REQUIRED_BIT)
+/* Confidential-computing private memory cannot be used by copy interfaces. */
+#define MEM_DEV_PRIVATE_BIT 35
+#define MEM_DEV_PRIVATE (0X1ULL << MEM_DEV_PRIVATE_BIT)
 /* align size 5 bits width 20-24bit */
 #define MEM_ALIGN_BIT 20
 #define MEM_ALIGN_SIZE(x) (1U << (((x) >> MEM_ALIGN_BIT) & 0x1FU))
@@ -826,6 +838,8 @@ typedef struct {
 #define MEM_RSV_TYPE_DEVICE_SHARE (0x1u << MEM_RSV_TYPE_DEVICE_SHARE_BIT)
 #define MEM_RSV_TYPE_REMOTE_MAP_BIT 9 /* this va only map remote addr, not create double page table */
 #define MEM_RSV_TYPE_REMOTE_MAP (0x1u << MEM_RSV_TYPE_REMOTE_MAP_BIT)
+#define MEM_RSV_TYPE_HOST_UVA_BIT 10 /* reserve host uva, only map host physical address */
+#define MEM_RSV_TYPE_HOST_UVA (0x1u << MEM_RSV_TYPE_HOST_UVA_BIT)
 
 #define DEVMM_MEMCPY_BATCH_MAX_COUNT 4096
 
@@ -841,6 +855,7 @@ enum ADVISE_MEM_TYPE {
     ADVISE_DEV_MEM = 1,
     ADVISE_ACCESS_READONLY = 2,
     ADVISE_ACCESS_READWRITE = 3,
+    ADVISE_SNAPSHOT_REQUIRED = 4,
     ADVISE_TYPE_MAX
 };
 
@@ -864,6 +879,11 @@ enum MEMCPY_SUMBIT_TYPE {
     MEMCPY_SUMBIT_SYNC = 0,
     MEMCPY_SUMBIT_ASYNC = 1,
     MEMCPY_SUMBIT_MAX_TYPE
+};
+
+struct addr_range {
+    unsigned long long addr;
+    unsigned long long size;
 };
 
 struct drvMem2D {
@@ -897,6 +917,8 @@ struct MEMCPY2D {
 };
 
 #define MEM_REGISTER_READ_ONLY 0X1UL << 28UL
+/* HOST_PINNED can only be used alone or combined with HOST_MEM_MAP_DEV_V2 */
+#define MEM_REGISTER_HOST_PINNED 0X1UL << 29UL
 /* enables different options to be specified that affect the host register */
 enum drvRegisterTpye {
     HOST_MEM_MAP_DEV = 0,                           /* HOST_MEM map to device */
@@ -952,6 +974,8 @@ enum ctrlType {
     CTRL_TYPE_PROCESS_CP_MMAP = 6,
     CTRL_TYPE_PROCESS_CP_MUNMAP = 7,
     CTRL_TYPE_GET_DCACHE_ADDR = 8,
+    CTRL_TYPE_PAGEFAULT_INFO_QUERY = 9,
+    CTRL_TYPE_PAGEFAULT_INFO_CLEAR = 10,
     CTRL_TYPE_MAX
 };
 
@@ -1031,6 +1055,15 @@ struct ProcessCpMunmap {
     unsigned int devid;
     unsigned long long ptr;
     unsigned long long size; // reserved, must be 0 currently
+};
+
+struct svmPagefaultInfo {
+    unsigned long long fault_va;          /* Fault VA that triggered page fault failure */
+    unsigned long long valid_range_start; /* Start of the nearest valid accessible address range before fault VA */
+    unsigned long long valid_range_size;  /* Size of the nearest valid accessible address range */
+    unsigned int valid_range_side;  /* enum drv_mem_side: MEM_HOST_SIDE or MEM_DEV_SIDE, based on left_prop.devid */
+    unsigned int valid_range_devid; /* Device ID of the valid address range. Only valid when side == MEM_DEV_SIDE */
+    int valid_range_is_shared;      /* 1=shared (IPC/VMM import), 0=self-allocated */
 };
 
 #define MEM_MAP_ATTR_BIT 0
@@ -1328,6 +1361,13 @@ typedef enum drv_async_dma_type {
     DRV_ASYNC_DMA_TYPE_MAX
 } drvAsyncDmaType_t;
 
+typedef enum tagDrvAsyncJettyDmaDir {
+    TRS_ASYNC_JETTY_HOST_DEVICE = 0, /* h2d or d2h jetty use same urma eid or urma fe */
+    TRS_ASYNC_JETTY_DEVICE_TO_DEVICE = 1,
+    TRS_ASYNC_JETTY_D2D_CROSS_BOARD = 2,
+    TRS_ASYNC_JETTY_MAX_DIR
+} drvAsyncDmaJettyDir_t;
+
 struct drv_sqe_update_info {
     uint32_t sq_id;
     uint32_t sqe_pos;
@@ -1398,12 +1438,13 @@ struct halAsyncDmaInput2DPara {
     unsigned int rsv[TRS_ASYNC_CPY_2D_IN_RSV_LEN];
 };
 
-#define TRS_ASYNC_CPY_2D_DESTROY_RSV_LEN 8
+#define TRS_ASYNC_CPY_2D_DESTROY_RSV_LEN 6
 struct halAsyncDmaDestroy2DPara {
     drvSqCqType_t type;
     unsigned int tsId;
     unsigned int sqId;
     unsigned int ci; /* current jetty ci */
+    uint8_t *wqe;    /* wqe from struct halAsyncDmaOutputPara */
     unsigned int rsv[TRS_ASYNC_CPY_2D_DESTROY_RSV_LEN];
 };
 
@@ -1447,12 +1488,6 @@ typedef enum tagDrvAsyncDmaDir {
     TRS_ASYNC_DEVICE_TO_DEVICE = 6,
     TRS_ASYNC_MAX_DIR = 7
 } drvAsyncDmaDir_t;
-
-typedef enum tagDrvAsyncJettyDmaDir {
-    TRS_ASYNC_JETTY_HOST_DEVICE = 0, /* h2d or d2h jetty use same urma eid or urma fe */
-    TRS_ASYNC_JETTY_DEVICE_TO_DEVICE = 1,
-    TRS_ASYNC_JETTY_MAX_DIR = 2
-} drvAsyncDmaJettyDir_t;
 
 #define TRS_ASYNC_DMA_JETTY_HANDLE_RSV_LEN 8
 #define TRS_ASYNC_DMA_JETTY_HANDLE_LEN 48
@@ -1625,6 +1660,10 @@ typedef enum tagDrvFeature {
      */
     FEATURE_SVM_MEM_REGISTER_QUERY_AND_GET_ATTR = 11,
     FEATURE_APM_RES_MAP_REMOTE = 12,
+    FEATURE_SVM_MEM_REGISTER_HOST_PINNED = 13,
+    FEATURE_DMS_GET_BOARD_LOCATION = 14,
+    FEATURE_SVM_PROCESS_DEVICE_MEM_SNAPSHOT = 15,
+    FEATURE_SVM_GET_ADDR_SEG = 16,
     FEATURE_MAX
 } drvFeature_t;
 /*=============================== query feature END ===============================*/

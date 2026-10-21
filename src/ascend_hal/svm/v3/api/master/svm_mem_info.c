@@ -16,6 +16,9 @@
 #include "svm_flag.h"
 #include "svm_get_mem_size_info.h"
 #include "svm_get_mem_token_info.h"
+#include "va_mng.h"
+#include "devdrv_hardware_version.h"
+#include "svm_dbi.h"
 
 static int get_mem_size_info(u32 devid, u32 type, struct MemInfo *info)
 {
@@ -32,7 +35,7 @@ static int get_mem_check_info_para_check(struct MemAddrInfo *info)
     }
 
     if ((info->cnt == 0) || (info->cnt > SVM_ADDR_CHECK_MAX_NUM)) {
-        svm_err("Cnt out of range. (cnt=%u)\n", info->cnt);
+        svm_err("Cnt out of range. (cnt=%u; range=[1, %u])\n", info->cnt, (u32)SVM_ADDR_CHECK_MAX_NUM);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -80,7 +83,7 @@ int _get_mem_check_info(u32 devid, u32 type, struct MemAddrInfo *para)
         }
 
         if ((para->mem_type & svm_prop_to_mem_virt_mask(&prop)) == 0) {
-            svm_err("Mem type does not match. (va=0x%llx; cnt=%u; expect_mem_type=0x%x; real_mem_type=0x%x)\n",
+            svm_err("Mem type does not match. (va=0x%llx; cnt=%u; expected_mem_type=0x%x; real_mem_type=0x%x)\n",
                     (u64)(uintptr_t)para->addr[i], para->cnt, para->mem_type, svm_prop_to_mem_virt_mask(&prop));
             para->flag = false;
             return DRV_ERROR_INVALID_VALUE;
@@ -121,6 +124,11 @@ static int get_mem_token_info(u32 devid, u32 type, struct MemInfo *info)
         return DRV_ERROR_INVALID_VALUE;
     }
 
+    if ((va + size) <= va) {
+        svm_err("Address range is invalid. (va=0x%llx; size=0x%llx)\n", va, size);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
     /* For vmm segmented halMemMap scene, check each segment. */
     for (tmp_va = va; tmp_va < (va + size); tmp_va = (prop.start + prop.size)) {
         ret = svm_get_prop(tmp_va, &prop);
@@ -146,7 +154,7 @@ static int get_mem_token_info(u32 devid, u32 type, struct MemInfo *info)
         }
 
         if ((tmp_va != va) && ((token_id != pre_token_id) || (token_value != pre_token_value))) {
-            svm_err("token info is not match in va range. (devid=%u; va=0x%llx; size=0x%llx)\n", devid, va, size);
+            svm_err("token info does not match in va range. (devid=%u; va=0x%llx; size=0x%llx)\n", devid, va, size);
             return DRV_ERROR_INVALID_VALUE;
         }
         pre_token_id = token_id;
@@ -219,7 +227,7 @@ drvError_t halMemGetAddressRange(DVdeviceptr ptr, DVdeviceptr *pbase, size_t *ps
 
     if (!svm_flag_cap_is_support_normal_free(prop.flag) && !svm_flag_cap_is_support_vmm_unmap(prop.flag) &&
         !svm_flag_cap_is_support_vmm_ipc_unmap(prop.flag) && !svm_flag_cap_is_support_ipc_close(prop.flag)) {
-        svm_err("Va does not support. (va=0x%llx)\n", va);
+        svm_err("Va not support. (va=0x%llx)\n", va);
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -233,5 +241,86 @@ drvError_t halMemGetAddressRange(DVdeviceptr ptr, DVdeviceptr *pbase, size_t *ps
 
     svm_debug("MemGetAddressRange. ( base=0x%llx; size=%llu)\n", (pbase != NULL) ? (u64)(*pbase) : 0ULL,
               (psize != NULL) ? (u64)(*psize) : 0ULL);
+    return DRV_ERROR_NONE;
+}
+
+static drvError_t svm_check_pcie_th_support(uint32_t dev_id)
+{
+    int64_t hw_ver = 0;
+    u32 chip_type, hd_connect_type;
+    int ret;
+
+    ret = halGetDeviceInfo(dev_id, MODULE_TYPE_SYSTEM, INFO_TYPE_VERSION, &hw_ver);
+    if (ret != DRV_ERROR_NONE) {
+        svm_err("halGetDeviceInfo failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
+        return ret;
+    }
+
+    chip_type = PLAT_GET_CHIP((u64)hw_ver);
+    if ((chip_type != CHIP_CLOUD_V4) && (chip_type != CHIP_CLOUD_V5)) {
+        svm_debug("PCIE TH not support. (dev_id=%u; chip_type=%u)\n", dev_id, chip_type);
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    hd_connect_type = svm_get_device_connect_type(dev_id);
+    if (hd_connect_type != HOST_DEVICE_CONNECT_TYPE_PCIE) {
+        svm_debug("PCIE TH not support. (dev_id=%u; hd_connect_type=%u)\n", dev_id, hd_connect_type);
+        return DRV_ERROR_NOT_SUPPORT;
+    }
+
+    return DRV_ERROR_NONE;
+}
+
+drvError_t halHostGetDevicePointerAddrCount(uint32_t dev_id, uint32_t *count)
+{
+    drvError_t ret;
+
+    if (count == NULL) {
+        svm_err("Count para is null.\n");
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    ret = svm_check_pcie_th_support(dev_id);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    *count = PCIE_TH_VA_RANGE_COUNT;
+    return DRV_ERROR_NONE;
+}
+
+drvError_t halHostGetDevicePointerAddrRange(uint32_t dev_id, struct drv_addr_range *addr_range, uint32_t *count)
+{
+    u64 va = 0;
+    u64 size = 0;
+    u32 i;
+    drvError_t ret;
+
+    if ((addr_range == NULL) || (count == NULL)) {
+        svm_err("Invalid argument. (addr_range=%p; count=%p)\n", addr_range, (void *)count);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    if (*count < PCIE_TH_VA_RANGE_COUNT) {
+        svm_err("Count is invalid. (count=%u)\n", *count);
+        return DRV_ERROR_INVALID_VALUE;
+    }
+
+    ret = svm_check_pcie_th_support(dev_id);
+    if (ret != DRV_ERROR_NONE) {
+        return ret;
+    }
+
+    svm_get_pcie_th_va_range(&va, &size);
+
+    addr_range[0].start_addr = (void *)(uintptr_t)va;
+    addr_range[0].end_addr = (void *)(uintptr_t)(va + size);
+
+    for (i = PCIE_TH_VA_RANGE_COUNT; i < *count; i++) {
+        addr_range[i].start_addr = NULL;
+        addr_range[i].end_addr = NULL;
+    }
+
+    *count = PCIE_TH_VA_RANGE_COUNT;
     return DRV_ERROR_NONE;
 }

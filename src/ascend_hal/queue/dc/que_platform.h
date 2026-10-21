@@ -14,6 +14,9 @@
 #include "pbl_uda_user.h"
 #include "que_platform_common.h"
 
+extern bool g_enable_local_queue;
+extern bool g_default_client_queue;
+
 /* ============================================================================
  * Platform-specific queue interfaces - from que_host_adapt.c / que_device_adapt.c
  * Non-UBE related functions
@@ -26,6 +29,13 @@ int queue_query_support_inter_dev_que_platform(QueueQueryOutputPara *out_put);
 void que_get_inter_dev_local_devid_platform(struct shareQueInfo *que_info, unsigned int dev_id,
                                             unsigned int *local_dev_id);
 bool queue_inter_devid_invalid_platform(unsigned int dev_id);
+
+/*
+ * Check whether the device uses client-queue deployment mode.
+ * Host: queries the device feature bitmap.
+ * Device: determined by compile-time configuration.
+ */
+bool queue_is_client_queue_deploy(void);
 
 /* From queue.c */
 void queue_send_wake_up_rsp_platform(struct queue_manages *que_manage, int rsp_ret);

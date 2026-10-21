@@ -32,7 +32,7 @@ static int _pma_ub_ubdevshm_acquire(int master_tgid, u64 va, u64 size, int (*inv
 
     ret = svm_query_va_udevid(master_tgid, va, size, &udevid);
     if (ret != 0) {
-        svm_err("Get va udevid failed. (ret=%d; va=0x%llx; size=%llu bytes)\n", ret, va, size);
+        svm_err("Get va udevid failed. (ret=%d; va=0x%llx; size=%llu)\n", ret, va, size);
         return ret;
     }
     if (udevid == uda_get_host_id()) {
@@ -64,11 +64,11 @@ static int _pma_ub_ubdevshm_release(int master_tgid, u64 va, u64 size)
 
     ret = svm_query_va_udevid(master_tgid, va, size, &udevid);
     if (ret != 0) {
-        svm_err("Get va udevid failed. (ret=%d; va=0x%llx; size=%llu bytes)\n", ret, va, size);
+        svm_warn("Get va udevid check. (ret=%d; va=0x%llx; size=%llu)\n", ret, va, size);
         return ret;
     }
     if (udevid == uda_get_host_id()) {
-        svm_err("Not support host svm addr. (va=0x%llx; size=%llu)\n", va, size);
+        svm_warn("Not support host svm addr. (va=0x%llx; size=%llu)\n", va, size);
         return -EINVAL;
     }
 
@@ -99,8 +99,8 @@ static int pma_ub_ubdevshm_acquire_para_check(struct mem_uva *uva, union acquire
     }
 
     if ((attr->bs.require_pin != 0) || (attr->bs.require_invalidate != 1)) {
-        svm_info("Invalid acquire attr. (require_pin=%llu, require_invalidate=%llu)\n", attr->bs.require_pin,
-                 attr->bs.require_invalidate);
+        svm_debug("Invalid acquire attr. (require_pin=%llu, require_invalidate=%llu)\n", (u64)attr->bs.require_pin,
+                  (u64)attr->bs.require_invalidate);
         return -EOPNOTSUPP;
     }
 
@@ -153,9 +153,16 @@ static int pma_ub_ubdevshm_acquire(struct mem_uva *uva, union acquire_attr *attr
     return ret;
 }
 
+/*
+ * ubdevshm maintains an internal reference count after acquire, so release must
+ * be called correspondingly. Otherwise unregister may fail and cause a leak.
+ * Support calling release in invalid_func to align with the 1825 driver.
+ * This interface ignores failures and always returns success.
+ */
 static int pma_ub_ubdevshm_release(struct mem_uba *uba)
 {
     int master_tgid = ka_task_get_current_tgid();
+    int ret = 0;
 
     ka_task_might_sleep();
 
@@ -164,7 +171,12 @@ static int pma_ub_ubdevshm_release(struct mem_uba *uba)
         return -EINVAL;
     }
 
-    return _pma_ub_ubdevshm_release(master_tgid, uba->uba, uba->size);
+#ifdef EMU_ST /* EMU_ST support error test */
+    ret = _pma_ub_ubdevshm_release(master_tgid, uba->uba, uba->size);
+#else
+    (void)_pma_ub_ubdevshm_release(master_tgid, uba->uba, uba->size);
+#endif
+    return ret;
 }
 
 static struct ubdevshm_mem_ops g_pma_ub_ubdevshm_ops = {
@@ -172,27 +184,116 @@ static struct ubdevshm_mem_ops g_pma_ub_ubdevshm_ops = {
 
 static unsigned long g_ubdevshm_handle;
 
+static ka_mutex_t g_ubdevshm_lock;
+static bool g_ubdevshm_inited = false; /* true only after ubdevshm_register_ops succeeds */
+static typeof(&ubdevshm_register_ops) g_fn_register_ops = NULL;
+static typeof(&ubdevshm_unregister_ops) g_fn_unregister_ops = NULL;
+static typeof(&ubdevshm_register_segment) g_fn_register_segment = NULL;
+static typeof(&ubdevshm_unregister_segment) g_fn_unregister_segment = NULL;
+
+/* Release all cached ubdevshm symbols. Caller must hold g_ubdevshm_lock. */
+static void pma_ub_ubdevshm_symbols_put(void)
+{
+    if (g_fn_register_ops != NULL) {
+        __ka_system_symbol_put("ubdevshm_register_ops");
+        g_fn_register_ops = NULL;
+    }
+    if (g_fn_unregister_ops != NULL) {
+        __ka_system_symbol_put("ubdevshm_unregister_ops");
+        g_fn_unregister_ops = NULL;
+    }
+    if (g_fn_register_segment != NULL) {
+        __ka_system_symbol_put("ubdevshm_register_segment");
+        g_fn_register_segment = NULL;
+    }
+    if (g_fn_unregister_segment != NULL) {
+        __ka_system_symbol_put("ubdevshm_unregister_segment");
+        g_fn_unregister_segment = NULL;
+    }
+}
+
+/*
+ * Lazily resolve ubdevshm symbols on first business use and register ops.
+ * State machine:
+ *   - g_fn_register_ops == NULL            : symbols not yet fetched (state 0)
+ *   - g_fn_register_ops != NULL && !inited: symbols fetched, register_ops pending/failed (state 1)
+ *   - inited                             : register_ops succeeded, handle valid (state 2)
+ * On register_ops failure, symbols stay cached (decision D1); next call retries register_ops only.
+ */
+static int pma_ub_ubdevshm_symbols_get(void)
+{
+    g_fn_register_ops = (typeof(&ubdevshm_register_ops))(uintptr_t)__ka_system_symbol_get("ubdevshm_register_ops");
+    g_fn_unregister_ops = (typeof(&ubdevshm_unregister_ops))(uintptr_t)__ka_system_symbol_get(
+        "ubdevshm_unregister_ops");
+    g_fn_register_segment = (typeof(&ubdevshm_register_segment))(uintptr_t)__ka_system_symbol_get(
+        "ubdevshm_register_segment");
+    g_fn_unregister_segment = (typeof(&ubdevshm_unregister_segment))(uintptr_t)__ka_system_symbol_get(
+        "ubdevshm_unregister_segment");
+    if ((g_fn_register_ops == NULL) || (g_fn_unregister_ops == NULL) || (g_fn_register_segment == NULL) ||
+        (g_fn_unregister_segment == NULL)) {
+        pma_ub_ubdevshm_symbols_put();
+        return -ENOSYS;
+    }
+
+    return 0;
+}
+
+static int _pma_ub_ubdevshm_register_ops(void)
+{
+    int ret;
+
+    if (g_ubdevshm_inited) {
+        return 0;
+    }
+
+    if (g_fn_register_ops == NULL) {
+        ret = pma_ub_ubdevshm_symbols_get();
+        if (ret != 0) {
+            svm_err("Ubdevshm symbols not available, ubdevshm module may not be loaded.\n");
+            return ret;
+        }
+    }
+
+    ret = g_fn_register_ops(&g_pma_ub_ubdevshm_ops, &g_ubdevshm_handle);
+    if (ret != 0) {
+        svm_err("Ubdevshm_register_ops failed. (ret=%d)\n", ret);
+        return ret;
+    }
+
+    g_ubdevshm_inited = true;
+
+    return 0;
+}
+
 static int pma_ub_ubdevshm_register_ops(void)
 {
-    int ret = ubdevshm_register_ops(&g_pma_ub_ubdevshm_ops, &g_ubdevshm_handle);
-    if (ret != 0) {
-        svm_err("ubdevshm_register_ops failed. (ret=%d)\n", ret);
-    }
+    int ret;
+
+    ka_task_mutex_lock(&g_ubdevshm_lock);
+    ret = _pma_ub_ubdevshm_register_ops();
+    ka_task_mutex_unlock(&g_ubdevshm_lock);
 
     return ret;
 }
 
 static void pma_ub_ubdevshm_unregister_ops(void)
 {
-    int ret = ubdevshm_unregister_ops(&g_ubdevshm_handle);
-    if (ret != 0) {
-        svm_err("ubdevshm_register_ops failed. (ret=%d)\n", ret);
+    ka_task_mutex_lock(&g_ubdevshm_lock);
+    if (g_ubdevshm_inited) {
+        (void)g_fn_unregister_ops(&g_ubdevshm_handle);
+        g_ubdevshm_inited = false;
     }
+    pma_ub_ubdevshm_symbols_put();
+    ka_task_mutex_unlock(&g_ubdevshm_lock);
 }
 
 int pma_ub_ubdevshm_wrapper_init(void)
 {
-    return pma_ub_ubdevshm_register_ops();
+    ka_task_mutex_init(&g_ubdevshm_lock);
+#ifdef EMU_ST /* EMU_ST need */
+    (void)pma_ub_ubdevshm_register_ops();
+#endif
+    return 0; /* Do not touch ubdevshm here; resolved lazily on first business use. */
 }
 
 void pma_ub_ubdevshm_wrapper_uninit(void)
@@ -214,9 +315,9 @@ static int _pma_ub_ubdevshm_register_segment(int tgid, struct task_start_time *s
     int ret;
 
     pma_ub_ubdevshm_uva_pack(tgid, start_time, va, size, &uva);
-    ret = ubdevshm_register_segment(&g_ubdevshm_handle, &uva);
+    ret = g_fn_register_segment(&g_ubdevshm_handle, &uva);
     if (ret != 0) {
-        svm_err("ubdevshm_register_segment failed. (ret=%d; va=0x%llx; size=%llu; tgid=%d; start_time=%u)\n", ret, va,
+        svm_err("Ubdevshm_register_segment failed. (ret=%d; va=0x%llx; size=%llu; tgid=%d; start_time=%u)\n", ret, va,
                 size, tgid, (u32)start_time->time);
     }
 
@@ -229,9 +330,9 @@ static int _pma_ub_ubdevshm_unregister_segment(int tgid, struct task_start_time 
     int ret;
 
     pma_ub_ubdevshm_uva_pack(tgid, start_time, va, size, &uva);
-    ret = ubdevshm_unregister_segment(&g_ubdevshm_handle, &uva);
+    ret = g_fn_unregister_segment(&g_ubdevshm_handle, &uva);
     if (ret != 0) {
-        svm_err("ubdevshm_unregister_segment failed. (ret=%d)\n", ret);
+        svm_warn("Ubdevshm_unregister_segment check. (ret=%d)\n", ret);
     }
 
     return ret;
@@ -241,6 +342,11 @@ int pma_ub_ubdevshm_register_segment(u32 udevid, int tgid, u64 va, u64 size)
 {
     struct task_start_time start_time;
     int ret;
+
+    ret = pma_ub_ubdevshm_register_ops();
+    if (ret != 0) {
+        return ret;
+    }
 
     ret = svm_get_task_start_time(udevid, tgid, &start_time);
     if (ret != 0) {
@@ -255,6 +361,11 @@ int pma_ub_ubdevshm_unregister_segment(u32 udevid, int tgid, u64 va, u64 size)
 {
     struct task_start_time start_time;
     int ret;
+
+    ret = pma_ub_ubdevshm_register_ops();
+    if (ret != 0) {
+        return ret;
+    }
 
     ret = svm_get_task_start_time(udevid, tgid, &start_time);
     if (ret != 0) {

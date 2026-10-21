@@ -228,7 +228,7 @@ int devdrv_manager_get_core(ka_file_t *filep, unsigned int cmd, unsigned long ar
             }
             break;
         default:
-            devdrv_drv_err("invalid cmd.\n");
+            devdrv_drv_err("invalid cmd. (cmd=%u)\n", cmd);
             return -EINVAL;
     }
     return 0;
@@ -439,7 +439,7 @@ int devdrv_manager_host_get_group_info(struct devdrv_manager_msg_info *dev_manag
         return ret;
     }
     if (out_len != (DEVDRV_TS_GROUP_NUM * sizeof(struct ts_group_info) + sizeof(struct devdrv_manager_msg_head))) {
-        devdrv_drv_err("received response len is not equal to expected. (len=%d; expected=%ld)\n", out_len,
+        devdrv_drv_err("received response len %d is not equal to %ld\n", out_len,
                        DEVDRV_TS_GROUP_NUM * sizeof(struct ts_group_info));
         return -EINVAL;
     }
@@ -462,8 +462,8 @@ int devdrv_manager_get_group_para(struct devdrv_ioctl_info *ioctl_buf, struct ge
     }
     if ((ioctl_buf->input_len != sizeof(struct get_ts_group_para)) ||
         (ioctl_buf->input_len > DEVDRV_MANAGER_INFO_PAYLOAD_LEN)) {
-        devdrv_drv_err("input_len is invalid: should equal %ld and be less than %ld. (input_len=%d)\n",
-                       sizeof(struct get_ts_group_para), DEVDRV_MANAGER_INFO_PAYLOAD_LEN, ioctl_buf->input_len);
+        devdrv_drv_err("input_len %d is invalid: should equal %ld and be less than %ld\n", ioctl_buf->input_len,
+                       sizeof(struct get_ts_group_para), DEVDRV_MANAGER_INFO_PAYLOAD_LEN);
         return -EINVAL;
     }
     ret = copy_from_user_safe((void *)group_para, (void *)(ioctl_buf->input_buf), ioctl_buf->input_len);
@@ -502,13 +502,13 @@ int devdrv_manager_get_ts_group_info(ka_file_t *filep, unsigned int cmd, unsigne
         return -EINVAL;
     }
     if (phy_id >= ASCEND_DEV_MAX_NUM) {
-        devdrv_drv_err("phy device_id must be less than max. (phy_id=%d; max=%d)\n", phy_id, ASCEND_DEV_MAX_NUM);
+        devdrv_drv_err("group_para phy device_id %d must be less than %d\n", phy_id, ASCEND_DEV_MAX_NUM);
         return -EINVAL;
     }
     info = d_info->dev_info[phy_id];
     if (info == NULL) {
-        devdrv_drv_err("info is NULL: invalid virtual device id. (vir_dev_id=%d; phy_dev_id=%u)\n",
-                       group_para.device_id, phy_id);
+        devdrv_drv_err("info is NULL: invalid virtual device id = %d, phy dev_id is %u\n", group_para.device_id,
+                       phy_id);
         return -EINVAL;
     }
     ret = devdrv_manager_host_get_group_info(&dev_manager_msg_info, &group_para, info);
@@ -517,7 +517,7 @@ int devdrv_manager_get_ts_group_info(ka_file_t *filep, unsigned int cmd, unsigne
         return ret;
     }
     if (ioctl_buf.out_len > DEVDRV_MANAGER_INFO_PAYLOAD_LEN) {
-        devdrv_drv_err("out len is invalid: should be less than max. (out_len=%d; max=%ld)\n", ioctl_buf.out_len,
+        devdrv_drv_err("out len %d is invalid: should be less than %ld\n", ioctl_buf.out_len,
                        DEVDRV_MANAGER_INFO_PAYLOAD_LEN);
         return -EINVAL;
     }

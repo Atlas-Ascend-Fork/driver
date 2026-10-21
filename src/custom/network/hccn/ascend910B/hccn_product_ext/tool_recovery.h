@@ -15,17 +15,17 @@
 #include "cfg.h"
 #include "ds_net_ext.h"
 
-#define FILE_OPT_TYPE_APPEND_WRITE        0
-#define FILE_OPT_TYPE_MATCH_DEL           1
-#define FILE_OPT_TYPE_MATCH_REPLACES      2
-#define INDEX_ZERO           0
-#define INDEX_ONE            1
-#define INDEX_TWO            2
-#define INDEX_THREE          3
-#define INDEX_FOUR           4
-#define INDEX_FIVE           5
+#define FILE_OPT_TYPE_APPEND_WRITE 0
+#define FILE_OPT_TYPE_MATCH_DEL 1
+#define FILE_OPT_TYPE_MATCH_REPLACES 2
+#define INDEX_ZERO 0
+#define INDEX_ONE 1
+#define INDEX_TWO 2
+#define INDEX_THREE 3
+#define INDEX_FOUR 4
+#define INDEX_FIVE 5
 
-#define IP_RULE_EXSIT_FLAG         100
+#define IP_RULE_EXSIT_FLAG 100
 
 struct ip_rule_exsit_struct {
     char *ip_rule_out_buf;

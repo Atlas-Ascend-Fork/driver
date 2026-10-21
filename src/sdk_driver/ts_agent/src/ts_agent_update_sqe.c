@@ -12,6 +12,8 @@
  */
 
 #include "securec.h"
+#include "ka_compiler_pub.h"
+#include "ka_task_pub.h"
 #include "ts_agent_common.h"
 #include "tsch/task_struct.h"
 #include "tsch/mb_struct.h"
@@ -31,6 +33,9 @@
 typedef int (*sqe_hook_proc_t)(u32 devid, u32 tsid, int pid, u32 sqid, ts_stars_sqe_t *sqe);
 static sqe_hook_proc_t g_sqe_proc_fn[TS_STARS_SQE_TYPE_END] = {NULL};
 static ts_agent_dvpp_ops_t g_dvpp_ops = {NULL};
+#if defined(CFG_SOC_PLATFORM_CLOUD_V2)
+static int g_tsagent_sq_send_mode[TSAGENT_MAX_DEV_ID] = {0};
+#endif
 long dma_cnt[TSAGENT_MAX_DEV_ID] = {0};
 long dma_cnt_max[TSAGENT_MAX_DEV_ID] = {0};
 long dma_cnt_max_last[TSAGENT_MAX_DEV_ID] = {0};
@@ -198,6 +203,56 @@ bool tsagent_is_software_sq_version(u32 devid, u16 sqid)
 
     return g_sq_base_info[devid][sqid].swsq_flag;
 }
+
+static int tsagent_sq_send_mode_get(u32 devid)
+{
+    if (devid >= TSAGENT_MAX_DEV_ID) {
+        return TSAGENT_SQ_SEND_MODE_HIGH_SECURITY;
+    }
+
+    return KA_READ_ONCE(g_tsagent_sq_send_mode[devid]);
+}
+
+int tsagent_sq_send_mode_update(u32 devid, int mode)
+{
+    if ((devid >= TSAGENT_MAX_DEV_ID) || (mode < 0) || (mode >= TSAGENT_SQ_SEND_MODE_MAX)) {
+        ts_agent_err("invalid sq send mode update, devid=%u, max_devid=%u, mode=%d.", devid, TSAGENT_MAX_DEV_ID, mode);
+        return -EINVAL;
+    }
+
+    KA_WRITE_ONCE(g_tsagent_sq_send_mode[devid], mode);
+    ts_agent_debug("update sq send mode, devid=%u, mode=%d.", devid, mode);
+    return EOK;
+}
+
+static bool tsagent_sqe_type_is_check_only(u8 sqe_type)
+{
+    switch (sqe_type) {
+        case TS_STARS_SQE_TYPE_NOTIFY_RECORD:
+        case TS_STARS_SQE_TYPE_CDQM:
+        case TS_STARS_SQE_TYPE_WRITE_VALUE:
+#if !defined(CFG_SOC_PLATFORM_KPSTARS)
+        case TS_STARS_SQE_TYPE_EVENT_RECORD:
+        case TS_STARS_SQE_TYPE_SDMA:
+#endif
+            return true;
+        default:
+            return false;
+    }
+}
+
+static bool tsagent_sqe_should_skip_handler(u32 devid, int pid, const ts_stars_sqe_t *sqe)
+{
+    if ((tsagent_sq_send_mode_get(devid) != TSAGENT_SQ_SEND_MODE_HIGH_PERFORMANCE) ||
+        !tsagent_sqe_type_is_check_only(sqe->type)) {
+        return false;
+    }
+
+    ts_agent_debug("skip sqe handler in high performance mode, sqe_type=%u, devid=%u, "
+                   "stream_id=%u, task_id=%u, pid=%d.",
+                   sqe->type, devid, sqe->stream_id, sqe->task_id, pid);
+    return true;
+}
 #else
 void tsagent_sq_base_info_init(void)
 {
@@ -226,6 +281,12 @@ bool tsagent_is_software_sq_version(u32 devid, u16 sqid)
     (void)devid;
     (void)sqid;
     return false;
+}
+
+static int tsagent_sq_send_mode_get(u32 devid)
+{
+    (void)devid;
+    return TSAGENT_SQ_SEND_MODE_HIGH_SECURITY;
 }
 #endif
 
@@ -273,8 +334,9 @@ void tsagent_stream_id_to_sq_id_uninit(void)
 
 void tsagent_stream_id_to_sq_id_add(u32 devid, u32 stream_id, u16 sqid)
 {
-    if (stream_id == KA_U32_MAX)
+    if (stream_id == KA_U32_MAX) {
         return;
+    }
 
     if ((devid >= TSAGENT_MAX_DEV_ID) || (stream_id >= TS_AGENT_MAX_STREAM_NUM)) {
         ts_agent_err("devid=%u, stream_id=%u is invalid, sqid=%u.", devid, stream_id, sqid);
@@ -286,8 +348,9 @@ void tsagent_stream_id_to_sq_id_add(u32 devid, u32 stream_id, u16 sqid)
 
 void tsagent_stream_id_to_sq_id_del(u32 devid, u32 stream_id, u16 sqid)
 {
-    if (stream_id == KA_U32_MAX)
+    if (stream_id == KA_U32_MAX) {
         return;
+    }
 
     if ((devid >= TSAGENT_MAX_DEV_ID) || (stream_id >= TS_AGENT_MAX_STREAM_NUM)) {
         ts_agent_err("devid=%u, stream_id=%u is invalid, sqid=%u.", devid, stream_id, sqid);
@@ -454,13 +517,13 @@ static int sqe_proc_vm_pciedma_for_update_sqe(u32 devid, u32 tsid, int pid, u32 
     pcie_sqe->is_converted = 1U;
     pcie_sqe->passid = passid;
 
-    ts_agent_info("get ssid success passid =%u", passid);
+    ts_agent_debug("get ssid success passid =%u", passid);
     ret = trs_res_trans_v2p(devid, tsid, TRS_HW_SQ, sqid, &phy_sq_id);
     if (ret != 0) {
         ts_agent_err("trans v2p failed, ret=%d, devid=%u, tsid=%d, sq_id=%u", ret, devid, tsid, sqid);
         return -EINVAL;
     }
-    ts_agent_info("physical sq_id=%u", phy_sq_id);
+    ts_agent_debug("physical sq_id=%u", phy_sq_id);
     pcie_sqe->dst = ((u64)phy_sq_id << 32U) + (pcie_sqe->dst & 0x00000000FFFFFFFFULL);
 #endif
     return EOK;
@@ -520,7 +583,7 @@ static int sqe_proc_convert_pciedma_to_sdma(u32 devid, u32 tsid, int pid, u64 sd
     if (ret != EOK) {
         ts_agent_err("memcpy_s failed, ret=%d, devid=%u, pid=%d, tsid=%u", ret, devid, pid, tsid);
     } else {
-        ts_agent_info("convert pciedma to sdma success, devid=%u, pid=%d, tsid=%u", devid, pid, tsid);
+        ts_agent_debug("convert pciedma to sdma success, devid=%u, pid=%d, tsid=%u", devid, pid, tsid);
     }
 
     return ret;
@@ -561,7 +624,7 @@ static int sqe_proc_pm_pciedma_for_update_sqe(u32 devid, u32 tsid, int pid, u32 
     struct trs_dma_desc dma = {};
     // if vm kernel, vm kernel has been convert to 1
     if (pcie_sqe->is_converted == 1U) {
-        ts_agent_info("get passid from pcie sqe");
+        ts_agent_debug("get passid from pcie sqe");
         passid = pcie_sqe->passid;
     } else if (pcie_sqe->is_converted == 0U) {
         ret = hal_kernel_trs_get_ssid(devid, tsid, pid, &passid);
@@ -569,7 +632,7 @@ static int sqe_proc_pm_pciedma_for_update_sqe(u32 devid, u32 tsid, int pid, u32 
             ts_agent_err("get ssid failed, ret=%d, devid=%u, pid=%d, tsid=%u, sq_id=%u", ret, devid, pid, tsid, sqid);
             return -EINVAL;
         }
-        ts_agent_info("get passid success, passid = %u", passid);
+        ts_agent_debug("get passid success, passid = %u", passid);
     }
 
     pos = (u32)(pcie_sqe->dst & 0x00000000FFFFFFFFULL);
@@ -591,10 +654,10 @@ static int sqe_proc_pm_pciedma_for_update_sqe(u32 devid, u32 tsid, int pid, u32 
     pcie_sqe->sq_addr_low = (uintptr_t)dma.pciedma_desc.sq_addr & KA_U32_MAX;
     pcie_sqe->sq_addr_high = (u32)((uintptr_t)dma.pciedma_desc.sq_addr >> 32U);
     pcie_sqe->sq_tail_ptr = (u16)dma.pciedma_desc.sq_tail;
-    ts_agent_info("pciedma addr create success, devid=%u, sq_id=%u, pos=%u, pid=%d, src=%#llx, cnt=%llu, "
-                  "dma sq addr=%#lx, dma sq tail=%u, type=%u, ssid=%u",
-                  devid, sqid, pos, pid, pcie_sqe->src, pcie_sqe->length, (uintptr_t)dma.pciedma_desc.sq_addr,
-                  dma.pciedma_desc.sq_tail, pcie_sqe->header.type, passid);
+    ts_agent_debug("pciedma addr create success, devid=%u, sq_id=%u, pos=%u, pid=%d, src=%#llx, cnt=%llu, "
+                   "dma sq addr=%#lx, dma sq tail=%u, type=%u, ssid=%u",
+                   devid, sqid, pos, pid, pcie_sqe->src, pcie_sqe->length, (uintptr_t)dma.pciedma_desc.sq_addr,
+                   dma.pciedma_desc.sq_tail, pcie_sqe->header.type, passid);
 #endif
     return EOK;
 }
@@ -614,7 +677,7 @@ static int sqe_proc_pciedma_for_update_sqe(u32 devid, u32 tsid, int pid, ts_star
     ts_stars_pciedma_sqe_t *pcie_sqe = (ts_stars_pciedma_sqe_t *)sqe;
     u32 sqid = (u32)((pcie_sqe->dst & 0xFFFFFFFF00000000ULL) >> 32U);
     u64 dsa_cp_size = 40ULL;
-    ts_agent_info("sq_id=%u", sqid);
+    ts_agent_debug("sq_id=%u", sqid);
 
     if ((pcie_sqe->is_sqe_update == 1U) && ((pcie_sqe->length == 0ULL) || (pcie_sqe->length > TS_AGENT_SQE_SIZE) ||
                                             ((pcie_sqe->length + pcie_sqe->offset) > TS_AGENT_SQE_SIZE))) {
@@ -643,7 +706,7 @@ static int sqe_proc_pciedma_for_update_sqe(u32 devid, u32 tsid, int pid, ts_star
         sqe_error_dump(devid, sqe);
         return ret;
     }
-    ts_agent_info("dsa pm_pciedma in");
+    ts_agent_debug("dsa pm_pciedma in");
     return sqe_proc_pm_pciedma_for_update_sqe(devid, tsid, pid, sqid, pcie_sqe);
 }
 #endif
@@ -1140,10 +1203,16 @@ static int sqe_update_for_all_ffts_plus(u32 devid, u32 tsid, int pid, u32 sqid, 
 static int sqe_proc_ffts(u32 devid, u32 tsid, int pid, u32 sqid, ts_stars_sqe_t *sqe)
 {
     ts_ffts_plus_sqe_t *ffts_sqe = (ts_ffts_plus_sqe_t *)sqe;
+    bool high_performance_mode = (tsagent_sq_send_mode_get(devid) == TSAGENT_SQ_SEND_MODE_HIGH_PERFORMANCE);
+    if (high_performance_mode) {
+        ts_agent_debug("skip sqe check in high performance mode, sqe_type=%u, devid=%u, "
+                       "stream_id=%u, task_id=%u, pid=%d.",
+                       sqe->type, devid, sqe->stream_id, sqe->task_id, pid);
+    }
 
     // CMO SQE reuses FFTS SQE, bit3 of word2 identifies whether task type is CMO.
     if (ffts_sqe->cmo == 0x1U) {
-        return sqe_proc_cmo(devid, tsid, pid, sqe);
+        return high_performance_mode ? EOK : sqe_proc_cmo(devid, tsid, pid, sqe);
     }
 
     if (ffts_sqe->ffts_type != TS_FFTS_TYPE_FFTS_PLUS) {
@@ -1154,7 +1223,7 @@ static int sqe_proc_ffts(u32 devid, u32 tsid, int pid, u32 sqid, ts_stars_sqe_t 
         return -EINVAL;
     }
 
-    if (!KA_MM_IS_ALIGNED((ffts_sqe->context_address_base_l), 128U)) { // 128 aligned
+    if (!high_performance_mode && !KA_MM_IS_ALIGNED(ffts_sqe->context_address_base_l, 128U)) { // 128 aligned
         ts_agent_err("addr aligned check failed, devid=%u, stream_id=%u, task_id=%u, pid=%d, address_base_l=%#x", devid,
                      sqe->stream_id, sqe->task_id, pid, ffts_sqe->context_address_base_l);
         return -EINVAL;
@@ -1236,6 +1305,28 @@ static int check_mnt_ns(int pid, ts_stars_sqe_t *sqe)
 }
 #endif
 
+static void sqe_proc_topic_update_pid(u32 devid, int pid, ts_stars_sqe_t *sqe, ts_stars_aicpu_sqe_t *topic_sqe)
+{
+    // custom kfc cpu kernel needs to pass host pid
+    topic_sqe->p_l2ctrl_low = (topic_sqe->kernel_type == TS_CPU_KERNEL_TYPE_CUSTOM_KFC) ? (u32)pid :
+                                                                                          topic_sqe->p_l2ctrl_low;
+    if (uda_is_phy_dev(devid) == false) {
+        ts_stars_callback_sqe_t *callback_sqe = (ts_stars_callback_sqe_t *)sqe;
+
+        if (callback_sqe->topic_id == 26U) {
+            callback_sqe->res5 = (u32)pid;
+            ts_agent_debug("sqe pid update success, topic_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.",
+                           callback_sqe->topic_type, devid, sqe->stream_id, sqe->task_id, pid);
+        } else if (topic_sqe->topic_type <= TOPIC_TYPE_HOST_AICPU_FIRST) {
+            topic_sqe->p_l2ctrl_low = (u32)pid;
+            ts_agent_debug("sqe pid update success, topic_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.",
+                           topic_sqe->topic_type, devid, sqe->stream_id, sqe->task_id, pid);
+        } else {
+            // reserve
+        }
+    }
+}
+
 static int sqe_proc_topic(u32 devid, u32 tsid, int pid, u32 sqid, ts_stars_sqe_t *sqe)
 {
     ts_stars_aicpu_sqe_t *topic_sqe = (ts_stars_aicpu_sqe_t *)sqe;
@@ -1263,28 +1354,20 @@ static int sqe_proc_topic(u32 devid, u32 tsid, int pid, u32 sqid, ts_stars_sqe_t
     }
 #endif
 
-    // custom kfc cpu kernel needs to pass host pid
-    topic_sqe->p_l2ctrl_low = (topic_sqe->kernel_type == TS_CPU_KERNEL_TYPE_CUSTOM_KFC) ? (u32)pid :
-                                                                                          topic_sqe->p_l2ctrl_low;
-    if (uda_is_phy_dev(devid) == false) {
-        ts_stars_callback_sqe_t *callback_sqe = (ts_stars_callback_sqe_t *)sqe;
-
-        if (callback_sqe->topic_id == 26U) {
-            callback_sqe->res5 = (u32)pid;
-            ts_agent_debug("sqe pid update success, topic_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.",
-                           callback_sqe->topic_type, devid, sqe->stream_id, sqe->task_id, pid);
-        } else if (topic_sqe->topic_type <= TOPIC_TYPE_HOST_AICPU_FIRST) {
-            topic_sqe->p_l2ctrl_low = (u32)pid;
-            ts_agent_debug("sqe pid update success, topic_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.",
-                           topic_sqe->topic_type, devid, sqe->stream_id, sqe->task_id, pid);
-        } else {
-            // reserve
-        }
-    }
+    sqe_proc_topic_update_pid(devid, pid, sqe, topic_sqe);
 
 #if (!defined TS_AGENT_UT)
     if (topic_sqe->topic_type == (uint16_t)TOPIC_TYPE_HOST_CTRL_CPU) {
-        int ret = check_mnt_ns(pid, sqe);
+        int ret;
+
+        if (tsagent_sq_send_mode_get(devid) == TSAGENT_SQ_SEND_MODE_HIGH_PERFORMANCE) {
+            ts_agent_debug("skip sqe check in high performance mode, sqe_type=%u, devid=%u, "
+                           "stream_id=%u, task_id=%u, pid=%d.",
+                           sqe->type, devid, sqe->stream_id, sqe->task_id, pid);
+            return EOK;
+        }
+
+        ret = check_mnt_ns(pid, sqe);
         if (ret != EOK) {
             return -EINVAL;
         }
@@ -1310,11 +1393,40 @@ int tsagent_sqe_update_check_sqe_type(u32 devid, int pid, ts_stars_sqe_t *sqe)
 }
 #endif
 
+static int tsagent_sqe_update_by_handler(u32 devid, u32 tsid, struct trs_sqe_update_info *update_info,
+                                         ts_stars_sqe_t *sqe)
+{
+    sqe_hook_proc_t proc_fn = g_sqe_proc_fn[sqe->type];
+    int ret;
+
+    if (proc_fn == NULL) {
+        ts_agent_debug("sqe no need update, sqe_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.", sqe->type, devid,
+                       sqe->stream_id, sqe->task_id, update_info->pid);
+        return EOK;
+    }
+
+    ret = proc_fn(devid, tsid, update_info->pid, update_info->sqid, sqe);
+    if (ret != 0) {
+        ts_agent_err("sqe update failed, ret=%d, sqe_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.", ret,
+                     sqe->type, devid, sqe->stream_id, sqe->task_id, update_info->pid);
+        if (!((sqe->type == (uint8_t)TS_STARS_SQE_TYPE_PCIE_DMA) && (ret == -ESRCH))) {
+            sqe_error_dump(devid, sqe);
+        }
+        sqe->type = TS_STARS_SQE_TYPE_INVALID; /* set invalid flag */
+        /* if sqe is invalid, ts_agent will still sends this sqe to stars,
+           when stars finds invalid flag, it will report error info to runtime by cqe.
+        */
+        return EOK;
+    }
+
+    ts_agent_debug("sqe update success, sqe_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.", sqe->type, devid,
+                   sqe->stream_id, sqe->task_id, update_info->pid);
+    return EOK;
+}
+
 int tsagent_sqe_update(u32 devid, u32 tsid, struct trs_sqe_update_info *update_info)
 {
-    int ret = EOK;
     ts_stars_sqe_t *sqe = (ts_stars_sqe_t *)update_info->sqe;
-    sqe_hook_proc_t proc_fn = NULL;
 
     if (update_info->sqid == KA_U32_MAX) {
         ts_agent_debug("tsagent_sqe_update: stream_id=%u, sqe_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.",
@@ -1334,7 +1446,7 @@ int tsagent_sqe_update(u32 devid, u32 tsid, struct trs_sqe_update_info *update_i
 
 #ifndef TS_AGENT_UT
     if (sqe->kernel_credit == 0xFFU) {
-        ret = tsagent_sqe_update_check_sqe_type(devid, update_info->pid, sqe);
+        int ret = tsagent_sqe_update_check_sqe_type(devid, update_info->pid, sqe);
         if (ret != EOK) {
             sqe_error_dump(devid, sqe);
             sqe->type = TS_STARS_SQE_TYPE_INVALID;
@@ -1343,28 +1455,13 @@ int tsagent_sqe_update(u32 devid, u32 tsid, struct trs_sqe_update_info *update_i
     }
 #endif
 
-    proc_fn = g_sqe_proc_fn[sqe->type];
-    if (proc_fn == NULL) {
-        ts_agent_debug("sqe no need update, sqe_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.", sqe->type, devid,
-                       sqe->stream_id, sqe->task_id, update_info->pid);
+#if defined(CFG_SOC_PLATFORM_CLOUD_V2)
+    if (tsagent_sqe_should_skip_handler(devid, update_info->pid, sqe)) {
         return EOK;
     }
-    ret = proc_fn(devid, tsid, update_info->pid, update_info->sqid, sqe);
-    if (ret != 0) {
-        ts_agent_err("sqe update failed, ret=%d, sqe_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.", ret,
-                     sqe->type, devid, sqe->stream_id, sqe->task_id, update_info->pid);
-        if (!((sqe->type == (uint8_t)TS_STARS_SQE_TYPE_PCIE_DMA) && (ret == -ESRCH))) {
-            sqe_error_dump(devid, sqe);
-        }
-        sqe->type = TS_STARS_SQE_TYPE_INVALID; /* set invalid flag */
-        /* if sqe is invalid, ts_agent will still sends this sqe to stars,
-           when stars finds invalid flag, it will report error info to runtime by cqe.
-        */
-        return EOK;
-    }
-    ts_agent_debug("sqe update success, sqe_type=%u, devid=%u, stream_id=%u, task_id=%u, pid=%d.", sqe->type, devid,
-                   sqe->stream_id, sqe->task_id, update_info->pid);
-    return EOK;
+#endif
+
+    return tsagent_sqe_update_by_handler(devid, tsid, update_info, sqe);
 }
 
 void init_task_convert_func(void)

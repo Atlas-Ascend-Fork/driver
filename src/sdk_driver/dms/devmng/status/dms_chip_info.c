@@ -29,14 +29,14 @@ STATIC int dms_feature_get_chip_info(void *feature, char *in, u32 in_len, char *
     devdrv_query_chip_info_t chip_info = {0};
 
     if ((in == NULL) || (in_len != sizeof(unsigned int))) {
-        dms_err("Input data is NULL or input data length is wrong. (in_len=%u; correct_in_len=%lu)\n",
-            in_len, sizeof(unsigned int));
+        dms_err("Input data is NULL or input data length is wrong. (in_len=%u; correct_in_len=%lu)\n", in_len,
+                sizeof(unsigned int));
         return -EINVAL;
     }
 
     if ((out == NULL) || (out_len != sizeof(devdrv_query_chip_info_t))) {
-        dms_err("Output data is NULL or output data length is wrong. (out_len=%u; correct_out_len=%lu)\n",
-            out_len, sizeof(devdrv_query_chip_info_t));
+        dms_err("Output data is NULL or output data length is wrong. (out_len=%u; correct_out_len=%lu)\n", out_len,
+                sizeof(devdrv_query_chip_info_t));
         return -EINVAL;
     }
 
@@ -84,24 +84,15 @@ STATIC int dms_get_chip_type(void *feature, char *in, u32 in_len, char *out, u32
 
 BEGIN_DMS_MODULE_DECLARATION(DMS_MODULE_CHIP_INFO)
 BEGIN_FEATURE_COMMAND()
-ADD_FEATURE_COMMAND(DMS_MODULE_CHIP_INFO,
-    DMS_MAIN_CMD_BASIC,
-    DMS_SUBCMD_GET_CHIP_INFO,
-    NULL,
-    NULL,
-    DMS_SUPPORT_ALL_USER,
-    dms_feature_get_chip_info)
-ADD_FEATURE_COMMAND(DMS_MODULE_CHIP_INFO,
-    DMS_MAIN_CMD_BASIC,
-    DMS_SUBCMD_GET_CHIP_TYPE,
-    NULL,
-    NULL,
+ADD_FEATURE_COMMAND(DMS_MODULE_CHIP_INFO, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CHIP_INFO, NULL, NULL,
+                    DMS_SUPPORT_ALL_USER, dms_feature_get_chip_info)
+ADD_FEATURE_COMMAND(DMS_MODULE_CHIP_INFO, DMS_MAIN_CMD_BASIC, DMS_SUBCMD_GET_CHIP_TYPE, NULL, NULL,
 #ifdef CFG_HOST_ENV
-    DMS_ACC_ALL | DMS_ENV_NOT_NORMAL_DOCKER | DMS_VDEV_ALL,
+                    DMS_ACC_ALL | DMS_ENV_NOT_NORMAL_DOCKER | DMS_VDEV_ALL,
 #else
-    DMS_ACC_ALL | DMS_ENV_ALL | DMS_VDEV_ALL,
+                    DMS_ACC_ALL | DMS_ENV_ALL | DMS_VDEV_ALL,
 #endif
-    dms_get_chip_type)
+                    dms_get_chip_type)
 END_FEATURE_COMMAND()
 END_MODULE_DECLARATION()
 

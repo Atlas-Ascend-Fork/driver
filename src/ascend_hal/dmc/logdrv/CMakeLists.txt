@@ -30,7 +30,7 @@ target_include_directories(drv_log_obj PRIVATE
     ${C_SEC_INCLUDE}
     ${DRIVER_HAL_INC_DIR}
     ${DRIVER_USER_DIR}/inc
-    ${DRIVER_USER_DIR}/msnpureport/inc/slog
+    ${DRIVER_USER_DIR}/inc/slog
 )
 
 add_library(drv_log_base_obj OBJECT)
@@ -39,6 +39,7 @@ target_sources(drv_log_base_obj PRIVATE
     drv_log_user_kernel_api.c
     drv_log_user_common.c
     drv_share_log.c
+    $<$<STREQUAL:${ENABLE_UBE},true>:drv_urma_log.c>
 )
 
 target_compile_definitions(drv_log_base_obj PRIVATE
@@ -49,6 +50,8 @@ target_include_directories(drv_log_base_obj PRIVATE
     ${BASE_DIR}
     ${C_SEC_INCLUDE}
     ${DRIVER_HAL_INC_DIR}
+    ${DRIVER_USER_DIR}/pbl/commlib
     ${DRIVER_USER_DIR}/inc
-    ${DRIVER_USER_DIR}/msnpureport/inc/slog
+    ${DRIVER_USER_DIR}/inc/slog
+    $<IF:$<STREQUAL:${ENABLE_UBE},true>,/usr/include/ub/umdk/urma,${DRIVER_NETWORK_DIR}/inc/ascend950/urma/>
 )

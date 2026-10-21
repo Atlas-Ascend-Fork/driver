@@ -13,7 +13,7 @@
 
 #include "dm_msg_intf.h"
 
-#define PORT_TO_SLAVE(port) ((unsigned char)((port)&0xFF))
+#define PORT_TO_SLAVE(port) ((unsigned char)((port) & 0xFF))
 
 typedef struct DM_SMBUS_ADDR_S {
     int addr_type;
@@ -57,11 +57,11 @@ typedef struct DM_SMBUS_ADDR_S {
 
 #pragma pack(1)
 typedef struct SMBUS_MSG_S {
-    unsigned short type;                   /* message type */
-    unsigned short version;                /* message version */
-    unsigned short data_len;               /* message length, starting from data */
-    unsigned char reserved2[MAX_SMBUS_MSG_RESERVERED_LEN];           /* reserved for expansion */
-    unsigned char data[MAX_SMBUS_MSG_BUF]; /* message data */
+    unsigned short type;                                   /* message type */
+    unsigned short version;                                /* message version */
+    unsigned short data_len;                               /* message length, starting from data */
+    unsigned char reserved2[MAX_SMBUS_MSG_RESERVERED_LEN]; /* reserved for expansion */
+    unsigned char data[MAX_SMBUS_MSG_BUF];                 /* message data */
 } SMBUS_MSG_T;
 
 #pragma pack()

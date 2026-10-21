@@ -28,42 +28,40 @@
  * @return      : NA
  */
 STATIC void bbox_ap_base_info(const struct ap_top_head *top_head, const struct ap_current_info *current_info,
-                           const char *log_path, struct bbox_data_info *text, bool bcore)
+                              const char *log_path, struct bbox_data_info *text, bool bcore)
 {
     bbox_status ret;
     (void)bbox_data_reinit(text);
     if (bcore == true) {
         ret = bbox_data_print(text,
-                            "\ncore basic info:\n"
-                            "==================================================\n"
-                            "version\t\t0x%lx\n"
-                            "device num\t0x%x\n"
-                            "cpu num\t\t0x%x\n"
-                            "\ncore current info:\n"
-                            "==================================================\n"
-                            "device id\t0x%x\n"
-                            "exception id\t0x%x\n"
-                            "exception type\t0x%x\n"
-                            "core id\t\t0x%x\n",
-                            top_head->version, top_head->device_num, top_head->cpu_num,
-                            current_info->devid, current_info->excepid,
-                            current_info->e_type, current_info->coreid);
+                              "\ncore basic info:\n"
+                              "==================================================\n"
+                              "version\t\t0x%lx\n"
+                              "device num\t0x%x\n"
+                              "cpu num\t\t0x%x\n"
+                              "\ncore current info:\n"
+                              "==================================================\n"
+                              "device id\t0x%x\n"
+                              "exception id\t0x%x\n"
+                              "exception type\t0x%x\n"
+                              "core id\t\t0x%x\n",
+                              top_head->version, top_head->device_num, top_head->cpu_num, current_info->devid,
+                              current_info->excepid, current_info->e_type, current_info->coreid);
     } else {
         ret = bbox_data_print(text,
-                            "basic info:\n"
-                            "==================================================\n"
-                            "version\t\t0x%lx\n"
-                            "device num\t0x%x\n"
-                            "cpu num\t\t0x%x\n"
-                            "\ncurrent info:\n"
-                            "==================================================\n"
-                            "device id\t0x%x\n"
-                            "exception id\t0x%x\n"
-                            "exception type\t0x%x\n"
-                            "core id\t\t0x%x\n",
-                            top_head->version, top_head->device_num, top_head->cpu_num,
-                            current_info->devid, current_info->excepid,
-                            current_info->e_type, current_info->coreid);
+                              "basic info:\n"
+                              "==================================================\n"
+                              "version\t\t0x%lx\n"
+                              "device num\t0x%x\n"
+                              "cpu num\t\t0x%x\n"
+                              "\ncurrent info:\n"
+                              "==================================================\n"
+                              "device id\t0x%x\n"
+                              "exception id\t0x%x\n"
+                              "exception type\t0x%x\n"
+                              "core id\t\t0x%x\n",
+                              top_head->version, top_head->device_num, top_head->cpu_num, current_info->devid,
+                              current_info->excepid, current_info->e_type, current_info->coreid);
     }
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return, "print ap base info failed");
     ret = bbox_data_save_to_fs(text, log_path, FILE_AP_EH_ROOT);
@@ -89,25 +87,26 @@ STATIC void bbox_ap_base_info_dump(const struct ap_root_info *ap, const char *lo
  * @param [in]  : struct bbox_data_info *text     data cache to write
  * @return      : NA
  */
-STATIC void bbox_ap_log_info(const struct ap_log_info *log_info, const char *log_path, struct bbox_data_info *text, bool bcore)
+STATIC void bbox_ap_log_info(const struct ap_log_info *log_info, const char *log_path, struct bbox_data_info *text,
+                             bool bcore)
 {
     bbox_status ret;
 
     (void)bbox_data_reinit(text);
     if (bcore == true) {
         ret = bbox_data_print(text,
-                            "\ncore log info (UTC time):\n"
-                            "==================================================\n"
-                            "event flag\t%u\n"
-                            "log num\t\t%u\n",
-                            log_info->event_flag, log_info->log_num);
+                              "\ncore log info (UTC time):\n"
+                              "==================================================\n"
+                              "event flag\t%u\n"
+                              "log num\t\t%u\n",
+                              log_info->event_flag, log_info->log_num);
     } else {
         ret = bbox_data_print(text,
-                            "\nlog info (UTC time):\n"
-                            "==================================================\n"
-                            "event flag\t%u\n"
-                            "log num\t\t%u\n",
-                            log_info->event_flag, log_info->log_num);
+                              "\nlog info (UTC time):\n"
+                              "==================================================\n"
+                              "event flag\t%u\n"
+                              "log num\t\t%u\n",
+                              log_info->event_flag, log_info->log_num);
     }
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return, "print ap log info failed");
     ret = bbox_data_save_to_fs(text, log_path, FILE_AP_EH_ROOT);
@@ -120,8 +119,8 @@ STATIC void bbox_ap_log_info(const struct ap_log_info *log_info, const char *log
         const struct ap_log_record *log_buffer = &log_info->log_buffer[log_index];
         const char *module = bbox_get_core_name(log_buffer->coreid);
         const char *reason = bbox_get_reboot_reason(log_buffer->e_type);
-        ret = bbox_data_print(text,
-            "system exception code[0x%08X]: Device[%d], ModuleName[%s], ExceptionReason[%s], TimeStamp [%s].\n",
+        ret = bbox_data_print(
+            text, "system exception code[0x%08X]: Device[%d], ModuleName[%s], ExceptionReason[%s], TimeStamp [%s].\n",
             log_buffer->excepid, log_buffer->devid, PRINT_VALID_STR(module), PRINT_VALID_STR(reason), log_buffer->date);
         BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return, "print ap log item failed");
         ret = bbox_data_save_to_fs(text, log_path, FILE_AP_EH_ROOT);
@@ -131,7 +130,6 @@ STATIC void bbox_ap_log_info(const struct ap_log_info *log_info, const char *log
 
     return;
 }
-
 
 /*
  * @brief       : save ap log info to filesystem
@@ -154,22 +152,22 @@ STATIC void bbox_ap_log_info_dump(const struct ap_root_info *ap, const char *log
  * @param [in]  : bool bcore                                  core or linux
  * @return      : NA
  */
-STATIC void bbox_ap_regs_info(const struct ap_regs_info *dump_regs_info,
-                           u32 reg_regions_num, const char *log_path, struct bbox_data_info *text, bool bcore)
+STATIC void bbox_ap_regs_info(const struct ap_regs_info *dump_regs_info, u32 reg_regions_num, const char *log_path,
+                              struct bbox_data_info *text, bool bcore)
 {
     bbox_status ret;
     u32 i;
     (void)bbox_data_reinit(text);
     if (bcore == true) {
         ret = bbox_data_print(text,
-                            "\ncore register: \t%u\n"
-                            "==================================================\n",
-                            reg_regions_num);
+                              "\ncore register: \t%u\n"
+                              "==================================================\n",
+                              reg_regions_num);
     } else {
         ret = bbox_data_print(text,
-                            "\nregister: \t%u\n"
-                            "==================================================\n",
-                            reg_regions_num);
+                              "\nregister: \t%u\n"
+                              "==================================================\n",
+                              reg_regions_num);
     }
     BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return, "print regs info failed");
     ret = bbox_data_save_to_fs(text, log_path, FILE_AP_EH_ROOT);
@@ -177,12 +175,11 @@ STATIC void bbox_ap_regs_info(const struct ap_regs_info *dump_regs_info,
 
     for (i = 0; (i < reg_regions_num) && (i < REGS_DUMP_MAX_NUM); i++) {
         ret = bbox_data_print(text,
-                            "reg_name\t%s\n"
-                            "reg_size\t0x%x\n"
-                            "reg_base\t0x%llx\n",
-                            dump_regs_info[i].reg_name,
-                            dump_regs_info[i].reg_size,
-                            bbox_address_mask(dump_regs_info[i].reg_base));
+                              "reg_name\t%s\n"
+                              "reg_size\t0x%x\n"
+                              "reg_base\t0x%llx\n",
+                              dump_regs_info[i].reg_name, dump_regs_info[i].reg_size,
+                              bbox_address_mask(dump_regs_info[i].reg_base));
         BBOX_CHK_EXPR_CTRL(BBOX_ERR, ret != BBOX_SUCCESS, return, "print regs item failed");
         ret = bbox_data_save_to_fs(text, log_path, FILE_AP_EH_ROOT);
         BBOX_CHK_EXPR(ret != BBOX_SUCCESS, "save regs item failed");
@@ -271,8 +268,8 @@ STATIC void bbox_ap_pmu_regs_dump(const void *addr, u32 len, const char *log_pat
 static void bbox_ap_reg_dump(const struct ap_root_info *aproot, u32 len, const char *log_path, u32 devid, u32 regid)
 {
     u32 size = 0;
-    const u8 *addr = (u8 *)bbox_rdr_ap_vaddr_convert(aproot,
-        aproot->area_info.dump_regs_info[devid][regid].reg_dump_addr, &size);
+    const u8 *addr = (u8 *)bbox_rdr_ap_vaddr_convert(
+        aproot, aproot->area_info.dump_regs_info[devid][regid].reg_dump_addr, &size);
     if (((uintptr_t)addr > (uintptr_t)aproot) &&
         (uintptr_t)addr + aproot->area_info.dump_regs_info[devid][regid].reg_size < (uintptr_t)aproot + len) {
         if (strncmp(REG_NAME_PMU, aproot->area_info.dump_regs_info[devid][regid].reg_name, strlen(REG_NAME_PMU)) == 0) {
@@ -310,10 +307,8 @@ STATIC void bbox_ap_regs_dump(const struct ap_root_info *aproot, u32 len, const 
  */
 static inline bool bbox_ddr_check_ap(const struct ap_root_info *ap)
 {
-    return ((ap != NULL) &&
-            (ap->top_head.dump_magic == AP_DUMP_MAGIC) &&
-            (ap->top_head.end_magic == AP_DUMP_END_MAGIC) &&
-            (ap->top_head.device_num <= DEVICE_OS_MAX_NUM));
+    return ((ap != NULL) && (ap->top_head.dump_magic == AP_DUMP_MAGIC) &&
+            (ap->top_head.end_magic == AP_DUMP_END_MAGIC) && (ap->top_head.device_num <= DEVICE_OS_MAX_NUM));
 }
 
 /*
@@ -327,12 +322,14 @@ void bbox_ddr_dump_ap(const struct ap_root_info *ap, u32 len, const char *log_pa
 {
     BBOX_CHK_NULL_PTR(ap, return);
     BBOX_CHK_NULL_PTR(log_path, return);
-    BBOX_CHK_INVALID_PARAM(len < sizeof(struct ap_root_info), return, "%u", len);
+    if (len < sizeof(struct ap_root_info)) {
+        BBOX_ERR("len is too small. (len=%u, min_size=%u)", len, (u32)sizeof(struct ap_root_info));
+        return;
+    }
 
     if (!bbox_ddr_check_ap(ap)) {
-        BBOX_INF("data is invalid. magic(0x%x) version(0x%x) end magic(0x%x) device_num(%u)",
-                 ap->top_head.dump_magic, ap->top_head.version,
-                 ap->top_head.end_magic, ap->top_head.device_num);
+        BBOX_WAR("data is invalid. magic(0x%x) version(0x%x) end magic(0x%x) device_num(%u)", ap->top_head.dump_magic,
+                 ap->top_head.version, ap->top_head.end_magic, ap->top_head.device_num);
         return;
     }
 
@@ -342,4 +339,3 @@ void bbox_ddr_dump_ap(const struct ap_root_info *ap, u32 len, const char *log_pa
     // 2.dump regs
     bbox_ap_regs_dump(ap, len, log_path);
 }
-

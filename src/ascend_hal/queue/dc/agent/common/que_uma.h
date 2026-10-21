@@ -66,6 +66,7 @@ int que_uma_send_ack(struct que_ack_jfs *send_jetty, unsigned long long imm_data
 int que_uma_imm_wait(struct que_jfr *imm_recv_jetty, struct que_recv_para *recv_para, unsigned long long *imm_data,
                      int timeout);
 void que_print_urma_ctx_info(unsigned int devid, urma_jfs_t *jfs, urma_jfr_t *jfr, urma_jfc_t *jfc);
-void que_jfs_rw_wr_fill(struct que_jfs *qjfs, struct que_jfs_rw_wr *rw_wr, struct que_jfs_rw_wr_data *rw_data);
+int que_jfs_rw_wr_fill(struct que_jfs *qjfs, struct que_jfs_rw_wr *rw_wr, struct que_jfs_rw_wr_data *rw_data,
+                       bool need_verify);
 int que_uma_rw_post_async(unsigned long long usr_ctx, struct que_jfs *qjfs, struct que_jfs_rw_wr *rw_wr);
 #endif

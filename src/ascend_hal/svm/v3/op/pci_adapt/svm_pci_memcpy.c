@@ -93,8 +93,8 @@ static int svm_pci_async_copy_submit_batch(u32 devid, struct svm_async_copy_subm
 
     ret = svm_cmd_ioctl(devid, SVM_ASYNC_COPY_SUBMIT_BATCH, (void *)submit_para);
     if (ret != DRV_ERROR_NONE) {
-        svm_info("Async copy batch submit completed. (src_devid=%u; dst_devid=%u)\n", submit_para->src_devid,
-                 submit_para->dst_devid);
+        svm_info("Async copy batch submit completed. (ret=%d; src_devid=%u; dst_devid=%u)\n", ret,
+                 submit_para->src_devid, submit_para->dst_devid);
         return ret;
     }
 

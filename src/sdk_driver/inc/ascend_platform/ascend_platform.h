@@ -35,10 +35,16 @@
 #ifdef CONFIG_PLATFORM_950
 #include "ascend_platform_950.h"
 #endif
-#ifdef CONFIG_PLATFORM_910_96
-#include "ascend_platform_910_96.h"
+#ifdef CONFIG_PLATFORM_960
+#include "ascend_platform_960.h"
 #endif
 #ifdef CONFIG_PLATFORM_350
 #include "ascend_platform_350.h"
+#endif
+#ifdef CONFIG_PLATFORM_310N
+#include "ascend_platform_310N.h"
+#endif
+#ifdef CONFIG_PLATFORM_970
+#include "ascend_platform_970.h"
 #endif
 #endif

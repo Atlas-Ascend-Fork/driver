@@ -221,7 +221,7 @@ STATIC ka_dma_addr_t vdavinci_do_map_single(ka_device_t *dev, phys_addr_t paddr,
 
     ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
     vm_dom = vdavinci->vdev.domain;
-    if (!vm_dom || vm_dom->status != DOMAIN_PIN_STATUS_READY) {
+    if (!vm_dom || ka_base_atomic_read(&vm_dom->status) != DOMAIN_PIN_STATUS_READY) {
         ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
         vascend_err(dev, "dma pool status invalid\n");
         return KA_DMA_MAPPING_ERROR;
@@ -285,7 +285,7 @@ ka_dma_addr_t vdavinci_dma_map_single(ka_device_t *dev, void *ptr, size_t size, 
     page = ka_mm_virt_to_page(ptr);
     offset = ka_mm_offset_in_page(ptr);
     if (offset != 0) {
-        vascend_err(dev, "address should PAGE align, %zx\n", offset);
+        vascend_err(dev, "address should be page aligned, %zx\n", offset);
         return KA_DMA_MAPPING_ERROR;
     }
 

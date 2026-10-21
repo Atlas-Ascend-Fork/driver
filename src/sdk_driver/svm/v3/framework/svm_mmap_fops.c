@@ -18,6 +18,7 @@
 
 #include "kernel_version_adapt.h"
 #include "pbl/pbl_davinci_api.h"
+#include "dpa/dpa_apm_kernel.h"
 
 #include "svm_kern_log.h"
 #include "svm_ioctl_ex.h"
@@ -170,7 +171,7 @@ void svm_register_vma_fault_handle(svm_fault_handle handle)
         }
     }
 
-    svm_warn("Overflow. (handle_num=%d; max=%d)\n", i, SVM_FAULT_HANDLE_NUM);
+    svm_warn("Overflow.\n");
 }
 
 static ka_vm_fault_t svm_vma_fault_handle(ka_vm_area_struct_t *vma, ka_vm_fault_struct_t *vmf, int huge_fault_flag)
@@ -199,10 +200,9 @@ KA_DEFINE_VM_OPS_FAULT_FUNC(_svm_vma_fault);
 
 KA_DEFINE_VM_OPS_HUGE_FAULT_FUNC(svm_vma_fault_handle)
 
-static int _svm_mkwrite(ka_vm_operations_struct_t *vma, ka_vm_fault_struct_t *vmf)
+static int _svm_mkwrite(ka_vm_area_struct_t *vma, ka_vm_fault_struct_t *vmf)
 {
-    svm_vma_fault_print_err(vmf);
-    return SVM_FAULT_ERROR;
+    return svm_vma_fault_handle(vma, vmf, 0);
 }
 
 KA_DEFINE_VM_OPS_PFN_MKWRITE_FUNC(_svm_mkwrite)
@@ -339,11 +339,19 @@ int svm_mmap_fops_init(void)
         return ret;
     }
 
+    ret = hal_kernel_apm_vma_check_register(SVM_MODULE, svm_is_svm_vma);
+    if (ret != 0) {
+        svm_err("Vma check register fail. (ret=%d)\n", ret);
+        (void)drv_ascend_unregister_sub_module(SVM_MMAP_CHAR_DEV_NAME);
+        return ret;
+    }
+
     return 0;
 }
 
 void svm_mmap_fops_uninit(void)
 {
+    hal_kernel_apm_vma_check_unregister(SVM_MODULE);
     (void)drv_ascend_unregister_sub_module(SVM_MMAP_CHAR_DEV_NAME);
     svm_vma_fault_handle_uninit();
 }

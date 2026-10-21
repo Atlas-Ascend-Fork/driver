@@ -19,14 +19,17 @@
 #include "svm_sys_cmd.h"
 #include "svm_urma_to_ascend_flag.h"
 #include "svm_urma_seg_local.h"
+#include "svm_urma_chan.h"
+#include "va_allocator.h"
 
 #ifdef DRV_HOST
 #define SVM_URMA_TOKEN_DEFAULT_NUM 64u
+#define SVM_URMA_MAX_ACQUIRED_NUM_PER_TOKEN 512u
 #else
 #define SVM_URMA_TOKEN_DEFAULT_NUM 2u
+#define SVM_URMA_MAX_ACQUIRED_NUM_PER_TOKEN 1024u
 #endif
 #define SVM_URMA_TOKEN_CACHE_UP_THRES_NUM 128u
-#define SVM_URMA_MAX_ACQUIRED_NUM_PER_TOKEN 512u
 
 static void *g_seg_mng[SVM_MAX_DEV_AGENT_NUM] = {NULL};
 static void *g_self_user_seg_mng[SVM_MAX_DEV_AGENT_NUM] = {NULL};
@@ -102,6 +105,9 @@ static int _svm_urma_seg_local_dev_init(u32 devid)
     void *seg_mng = NULL;
     void *slef_user_seg_mng = NULL;
 
+#ifdef DRV_HOST
+    attr.acquire_token = svm_acquire_token;
+#endif
     seg_mng = ascend_urma_seg_mng_create(devid, &attr);
     if (seg_mng == NULL) {
         svm_err("Create urma seg mng failed. (devid=%d)\n", devid);
@@ -110,7 +116,7 @@ static int _svm_urma_seg_local_dev_init(u32 devid)
 
     slef_user_seg_mng = ascend_urma_seg_mng_create(devid, &attr);
     if (slef_user_seg_mng == NULL) {
-        svm_err("Create urma seg mng failed. (devid=%d)\n", devid);
+        svm_err("Create self user seg mng failed. (devid=%d)\n", devid);
         ascend_urma_seg_mng_destroy(seg_mng);
         return DRV_ERROR_INNER_ERR;
     }
@@ -191,8 +197,8 @@ int svm_urma_seg_local_get_info(u32 devid, u64 va, u32 seg_flag, struct svm_urma
     struct ascend_urma_seg_info info;
     int ret;
 
-    if (devid >= SVM_MAX_DEV_AGENT_NUM) {
-        svm_err("Invalid devid. (devid=%u)\n", devid);
+    if (user_devid >= SVM_MAX_DEV_AGENT_NUM) {
+        svm_err("Invalid devid. (devid=%u)\n", user_devid);
         return DRV_ERROR_INVALID_VALUE;
     }
 

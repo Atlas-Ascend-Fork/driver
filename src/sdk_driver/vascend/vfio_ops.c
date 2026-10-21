@@ -90,7 +90,10 @@ STATIC int vdavinci_pin_vpmem_pages(struct hw_vdavinci *vdavinci, ka_pin_info *p
         return -EINVAL;
     }
     for (i = 0; i < pin_info->npage; i++) {
-        pfn = hw_dvt_hypervisor_gfn_to_mfn(vdavinci, pin_info->gfn + i);
+        /* Call kvmdt directly: the pin path runs under the vm_dom->sem
+         * write side, taking the read side in the interface layer would
+         * self-deadlock on the non-recursive rwsem. */
+        pfn = g_hw_kvmdt_ops.gfn_to_mfn(vdavinci, pin_info->gfn + i);
         if (pfn == KVMDT_ERROR_PFN) {
             vascend_err(vdavinci_to_dev(vdavinci), "error pfn: 0x%lx, gfn: 0x%lx\n", pfn, pin_info->gfn + i);
             return -EFAULT;
@@ -127,7 +130,7 @@ STATIC int vdavinci_pin_hva_pages(struct hw_vdavinci *vdavinci, ka_pin_info *pin
     if (pin_info == NULL || pin_info->npage <= 0 || pin_info->pages == NULL) {
         return -EINVAL;
     }
-    hva = kvmdt_gfn_to_hva(vdavinci->handle, pin_info->gfn);
+    hva = kvmdt_gfn_to_hva(vdavinci, pin_info->gfn);
     if (hva == KVMDT_ERROR_PFN) {
         vascend_err(vdavinci_to_dev(vdavinci), "error hva: 0x%lx, gfn: 0x%lx\n", hva, pin_info->gfn);
         return -EFAULT;
@@ -374,15 +377,21 @@ int vdavinci_register_vfio_group(struct hw_vdavinci *vdavinci)
     }
     if (vdavinci->vdev.kvm == NULL) {
         vascend_err(vdavinci_to_dev(vdavinci), "kvm is null\n");
-        return -EINVAL;
+        goto unregister_group;
     }
     vdavinci->vdev.domain = vm_dom_info_get(vdavinci->vdev.kvm);
     if (vdavinci->vdev.domain == NULL) {
         vascend_err(vdavinci_to_dev(vdavinci), "get vm's domain failed\n");
-        return -EINVAL;
+        goto unregister_group;
     }
 
     return 0;
+
+unregister_group:
+    /* Roll back the notifiers registered above, otherwise a failed open
+     * leaks them past the vdavinci destruction. */
+    ka_vdev_unregister_vfio_group(&vdavinci->vdev);
+    return -EINVAL;
 }
 
 void vdavinci_unregister_vfio_group(struct hw_vdavinci *vdavinci)
@@ -394,19 +403,24 @@ void vdavinci_unregister_vfio_group(struct hw_vdavinci *vdavinci)
         return;
     }
     vm_dom = vdavinci->vdev.domain;
-    if (vm_dom == NULL) {
-        vascend_warn(vdavinci_to_dev(vdavinci), "vm's domain is null\n");
-        return;
-    }
-    if (ka_refcount_mutex_lock(&vm_dom->ref, g_vm_domains_lock)) {
+    /* Unregister the notifiers first: their callbacks write vdev.domain, and
+     * none can run once vfio_unregister_notifier has returned. */
+    ka_vdev_unregister_vfio_group(&vdavinci->vdev);
+    /* Clear domain under cache_lock before dropping the vm_dom reference:
+     * readers get vm_dom and take vm_dom->sem inside cache_lock. Once the
+     * last ref is dropped, down_write in vm_dom_info_release drains all
+     * remaining readers. */
+    ka_task_mutex_lock(&vdavinci->vdev.cache_lock);
+    vdavinci->vdev.domain = NULL;
+    ka_task_mutex_unlock(&vdavinci->vdev.cache_lock);
+
+    if (vm_dom != NULL && ka_refcount_mutex_lock(&vm_dom->ref, g_vm_domains_lock)) {
         ka_task_mutex_unlock(g_vm_domains_lock);
 
-        hw_vdavinci_release_vm(vdavinci);
+        hw_vdavinci_release_vm(vdavinci, vm_dom);
 
         vm_dom_info_release(&vm_dom->ref);
     }
-    vdavinci->vdev.domain = NULL;
-    ka_vdev_unregister_vfio_group(&vdavinci->vdev);
 }
 
 void vdavinci_put_vfio_device(struct hw_vdavinci *vdavinci)
@@ -433,13 +447,13 @@ int vdavinci_get_vfio_device(struct hw_vdavinci *vdavinci)
     return 0;
 }
 
-int vdavinci_rw_gpa(struct kvmdt_guest_info *info, unsigned long gpa, void *buf, unsigned long len, bool write)
+int vdavinci_rw_gpa(struct hw_vdavinci *vdavinci, unsigned long gpa, void *buf, unsigned long len, bool write)
 {
     ka_vfio_gpa info_gpa = {0};
 
-    info_gpa.kvm = info->kvm;
-    info_gpa.group = info->vdavinci->vdev.vfio_group;
-    info_gpa.device = info->vdavinci->vdev.vfio_device;
+    info_gpa.kvm = vdavinci->vdev.kvm;
+    info_gpa.group = vdavinci->vdev.vfio_group;
+    info_gpa.device = vdavinci->vdev.vfio_device;
 
     return ka_vfio_rw_gpa(&info_gpa, gpa, buf, len, write);
 }
@@ -496,7 +510,8 @@ bool vdavinci_gfn_is_vpmem(struct hw_vdavinci *vdavinci, unsigned long gfn)
     if (vdavinci == NULL) {
         return false;
     }
-    pfn = hw_dvt_hypervisor_gfn_to_mfn(vdavinci, gfn);
+    /* Same as vdavinci_pin_vpmem_pages: called under the sem write side. */
+    pfn = g_hw_kvmdt_ops.gfn_to_mfn(vdavinci, gfn);
     if (pfn == KVMDT_ERROR_PFN) {
         return false;
     }

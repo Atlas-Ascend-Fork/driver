@@ -97,5 +97,3 @@ drvError_t drvStartContainerServe(void)
     return DRV_ERROR_NOT_SUPPORT;
 #endif
 }
-
-

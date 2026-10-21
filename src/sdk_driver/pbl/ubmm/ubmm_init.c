@@ -51,7 +51,6 @@ static int ubmm_init_uba(u32 udevid)
     return ubmm_uba_pool_create(uba_base, uba_size);
 }
 
-
 int ubmm_init_dev_res(u32 udevid)
 {
     int ret;

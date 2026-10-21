@@ -37,7 +37,6 @@
 #define DMS_SENSOR_EVENT_REPORT_ENABLE 1
 #define DMS_SENSOR_EVENT_REPORT_DISABLE 0
 
-
 /* Sensor detection processing flag */
 #define DMS_SENSOR_PROC_ENABLE_FLAG 0
 #define DMS_SENSOR_PROC_DISABLE_FLAG 1
@@ -46,11 +45,9 @@
 #define DMS_SENSOR_OBJECT_ENABLE_FLAG 1
 #define DMS_SENSOR_OBJECT_DISABLE_FLAG 0
 
-
 /* Sensor properties */
 #define DMS_SENSOR_ATTRIB_THRES_SET_ENABLE 0x01 /* Sensor threshold can be set */
 #define DMS_SENSOR_ATTRIB_THRES_NONE 0          /* No property settings */
-
 
 /* Repeat mark of sensor information table */
 #define DMS_SENSOR_TABLE_REPEAT 1
@@ -85,7 +82,6 @@
 
 /* The maximum number of  sensor num every node */
 #define DMS_MAX_NODE_SENSOR_COUNT 64
-
 
 /* The mask used to get the lowest bit value */
 #define DMS_BITS_MASK 0x00000001
@@ -125,29 +121,30 @@ void dms_sensor_scan_proc(struct dms_dev_sensor_cb *dev_sensor_cb);
 void dms_printf_sensor_time_recorder(struct dms_dev_sensor_cb *pdev_sen_cb);
 
 unsigned int dms_sensor_check_result_process(unsigned short sensor_class, struct dms_sensor_object_cb *psensor_obj_cb,
-    unsigned int *status, unsigned char *event_type);
+                                             unsigned int *status, unsigned char *event_type);
 
 int dms_add_one_sensor_event(struct dms_sensor_object_cb *psensor_obj_cb,
-    struct dms_sensor_event_data_item *pevent_data);
+                             struct dms_sensor_event_data_item *pevent_data);
 int dms_get_event_string(unsigned char sensor_type, unsigned char event_offset, char *event_str, int inbuf_size);
 int dms_resume_all_sensor_event(struct dms_sensor_object_cb *psensor_obj_cb);
 int dms_check_sensor_data(struct dms_sensor_object_cb *sensor_obj_cb, unsigned char event_data);
 DMS_EVENT_LIST_ITEM *sensor_add_event_to_list(DMS_EVENT_LIST_ITEM **pp_event_list,
-    struct dms_sensor_event_data_item *pevent_data, struct dms_sensor_object_cb *psensor_obj_cb);
+                                              struct dms_sensor_event_data_item *pevent_data,
+                                              struct dms_sensor_object_cb *psensor_obj_cb);
 int dms_update_sensor_list(struct dms_sensor_object_cb *p_sensor_obj_cb, DMS_EVENT_LIST_ITEM *p_new_list);
 int dms_sensor_get_dev_health(struct dms_dev_sensor_cb *dev_sensor_cb);
 int dms_get_sensor_type_name(unsigned char sensor_type, char *type_name, int inbuf_size);
 int dms_sensor_clean_health_events(struct dms_dev_sensor_cb *dev_sensor_cb);
-int dms_sensor_mask_events(struct dms_dev_sensor_cb *dev_sensor_cb, u8 mask,
-    u16 node_type, u8 sensor_type, u8 event_state);
+int dms_sensor_mask_events(struct dms_dev_sensor_cb *dev_sensor_cb, u8 mask, u16 node_type, u8 sensor_type,
+                           u8 event_state);
 bool dms_sensor_check_mask_enable(unsigned int mask, unsigned int offset);
 unsigned int dms_sen_init_sensor(void);
 unsigned int dms_sen_exit_sensor_event(void);
 unsigned int dms_init_dev_sensor_cb(int deviceid, struct dms_dev_sensor_cb *sensor_cb);
 void dms_exit_dev_sensor_cb(struct dms_dev_sensor_cb *dev_sensor_cb);
-int dms_sensor_scan_one_node_object(struct dms_dev_sensor_cb *dev_sensor_cb,
-    struct dms_node_sensor_cb *node_sensor_cb, struct dms_sensor_object_cb *psensor_obj_cb,
-    struct dms_sensor_scan_time_recorder *ptime_recorder);
+int dms_sensor_scan_one_node_object(struct dms_dev_sensor_cb *dev_sensor_cb, struct dms_node_sensor_cb *node_sensor_cb,
+                                    struct dms_sensor_object_cb *psensor_obj_cb,
+                                    struct dms_sensor_scan_time_recorder *ptime_recorder);
 unsigned long dms_get_time_change(ka_ktime_t start, ka_ktime_t end);
 unsigned long dms_get_time_change_ms(ka_ktime_t start, ka_ktime_t end);
 int dms_mgnt_clockid_init(void);

@@ -100,7 +100,7 @@ STATIC void share_log_create_single_type(enum devdrv_module_type module_type, en
     if (len < 0) {
         (void)munmap(g_module_mng[module_type][log_type].start, size);
         (void)pthread_mutex_unlock(&share_log_mutex[log_type]);
-        LOG_PRINT_WARN("Snprintf_s ret abnormal. (len=%d)\n", len);
+        LOG_PRINT_WARN("Snprintf_s unsuccessfully. (len=%d)\n", len);
         return;
     }
 

@@ -45,14 +45,14 @@ static int _pmm_seg_bit_stats_op(struct pmm_ctx *pmm_ctx, u64 bit, u64 size, u32
 {
     if (op == PMM_SEG_BIT_STATS_OP_ADD) {
         if ((u64)(pmm_ctx->bit_size_stats[bit] + (u32)size) > PMM_MEM_SIZE_PER_BIT) {
-            svm_err("Pmm add failed. (stats.size=%u; sz=%llu)\n", pmm_ctx->bit_size_stats[bit], size);
+            svm_err("Pmm add fail. (stats.size=%u; sz=%llu)\n", pmm_ctx->bit_size_stats[bit], size);
             return -EINVAL;
         }
 
         pmm_ctx->bit_size_stats[bit] += (u32)size;
     } else {
         if (pmm_ctx->bit_size_stats[bit] < (u32)size) {
-            svm_err("Pmm del failed. (stats.size=%u; sz=%llu)\n", pmm_ctx->bit_size_stats[bit], size);
+            svm_err("Pmm del fail. (stats.size=%u; sz=%llu)\n", pmm_ctx->bit_size_stats[bit], size);
             return -EINVAL;
         }
 
@@ -238,21 +238,15 @@ int pmm_for_each_seg(u32 udevid, int tgid, int (*func)(void *priv, u64 va, u64 s
     return ret;
 }
 
-static void pmm_mem_recycle_single_addr(ka_vm_area_struct_t *vma, u64 va, u64 size, struct svm_pa_seg *pa_seg,
-                                        u64 seg_num)
+static void _pmm_mem_recycle_single_addr(ka_vm_area_struct_t *vma, u64 va, u64 size, struct svm_pa_seg *pa_seg,
+                                         u64 seg_num, u64 page_size)
 {
     bool is_local_mem = svm_pa_is_local_mem(pa_seg[0].pa);
     u32 free_page_flag = 0;
-    u64 page_size, i, j;
+    u64 i, j;
     int ret;
 
-    page_size = svm_get_page_size_by_pa_seg(va, size, pa_seg, seg_num);
-    if (page_size == 0) {
-        svm_warn("Invalid pa seg. (va=0x%llx; size=0x%llx; cur_seg_num=%llu)\n", va, size, seg_num);
-        return;
-    }
-
-    /* dose not unmap full vma to avlid dead lock
+    /* dose not unmap full vma to avoid dead lock
        call trace: pmm_recycle->_svm_notifier_invalid_start->pmm_recycle */
     if ((ka_mm_get_vm_start(vma) == va) && (ka_mm_get_vm_end(vma) == (va + size))) {
         u64 unmap_size = size / 2; /* 2: full unmap to 2 partly unmap */
@@ -284,6 +278,27 @@ static void pmm_mem_recycle_single_addr(ka_vm_area_struct_t *vma, u64 va, u64 si
             ka_page_t *page = svm_pa_to_page(pa_seg[i].pa + j);
             svm_free_pages(svm_page_size_to_page_gran(page_size), &page, 1, free_page_flag);
         }
+    }
+}
+
+static void pmm_mem_recycle_single_addr(ka_vm_area_struct_t *vma, u64 va, u64 size, struct svm_pa_seg *pa_seg,
+                                        u64 seg_num)
+{
+    u64 i, page_size, cur_size;
+    u64 cur_va = va;
+
+    for (i = 0; i < seg_num;) {
+        u64 tmp_seg_num = svm_get_same_page_size_seg_num_by_pa_seg(cur_va, &pa_seg[i], seg_num - i, &cur_size,
+                                                                   &page_size);
+        if (tmp_seg_num == 0) {
+            svm_warn("Invalid pa seg. (va=0x%llx; size=0x%llx; cur_seg_num=%llu)\n", cur_va, pa_seg[i].size,
+                     seg_num - i);
+            return;
+        }
+
+        _pmm_mem_recycle_single_addr(vma, cur_va, cur_size, &pa_seg[i], tmp_seg_num, page_size);
+        cur_va += cur_size;
+        i += tmp_seg_num;
     }
 }
 

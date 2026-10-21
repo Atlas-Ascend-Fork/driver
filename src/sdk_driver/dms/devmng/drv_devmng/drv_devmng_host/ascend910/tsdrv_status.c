@@ -21,8 +21,8 @@ static struct tsdrv_mng g_tsdrv_mng[ASCEND_DEV_MAX_NUM][DEVDRV_MAX_TS_NUM];
 
 void tsdrv_set_ts_status(u32 devid, u32 tsid, enum devdrv_ts_status status)
 {
-    if (devid >= ASCEND_DEV_MAX_NUM || tsid >= DEVDRV_MAX_TS_NUM || status < 0 || status > TS_MAX_STATUS) {
-        devdrv_drv_err("ts status abnormal. (devid=%u; tsid=%u; status=%u)\n", devid, tsid, status);
+    if (devid >= ASCEND_DEV_MAX_NUM || tsid >= DEVDRV_MAX_TS_NUM || status < 0 || status >= TS_MAX_STATUS) {
+        devdrv_drv_err("devid:%u, tsid:%u, status:%u\n", devid, tsid, status);
         return;
     }
 
@@ -48,7 +48,7 @@ bool tsdrv_is_ts_work(u32 devid, u32 tsid)
     enum devdrv_ts_status status;
 
     if (devid >= ASCEND_DEV_MAX_NUM || tsid >= DEVDRV_MAX_TS_NUM) {
-        devdrv_drv_err("ts status check failed. (devid=%u; tsid=%u)\n", devid, tsid);
+        devdrv_drv_err("devid:%u, tsid:%u\n", devid, tsid);
         return false;
     }
 
@@ -63,7 +63,7 @@ bool tsdrv_is_ts_sleep(u32 devid, u32 tsid)
     enum devdrv_ts_status status;
 
     if (devid >= ASCEND_DEV_MAX_NUM || tsid >= DEVDRV_MAX_TS_NUM) {
-        devdrv_drv_err("ts status check failed. (devid=%u; tsid=%u)\n", devid, tsid);
+        devdrv_drv_err("devid:%u, tsid:%u\n", devid, tsid);
         return false;
     }
 
@@ -76,7 +76,7 @@ KA_EXPORT_SYMBOL(tsdrv_is_ts_sleep);
 enum devdrv_ts_status tsdrv_get_ts_status(u32 devid, u32 tsid)
 {
     if (devid >= ASCEND_DEV_MAX_NUM || tsid >= DEVDRV_MAX_TS_NUM) {
-        devdrv_drv_err("ts status check failed. (devid=%u; tsid=%u)\n", devid, tsid);
+        devdrv_drv_err("devid:%u, tsid:%u\n", devid, tsid);
         return TS_MAX_STATUS;
     }
 

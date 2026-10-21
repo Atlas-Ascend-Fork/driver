@@ -15,12 +15,12 @@ LOCAL_MODULE := ts_agent
 
 LOCAL_KO_SRC_FOLDER := $(LOCAL_PATH)
 ifeq ($(PRODUCT_SIDE), host)
-LOCAL_DEPEND_KO := drv_devdrv_host asdrv_dms
+LOCAL_DEPEND_KO := drv_devdrv_host asdrv_dms asdrv_pbl
 else
     ifneq ($(filter ascend310B ascend310Brc ascend910B as31xm1, $(PRODUCT)), )
-        LOCAL_DEPEND_KO := asdrv_dms
+        LOCAL_DEPEND_KO := asdrv_dms asdrv_pbl
     else
-        LOCAL_DEPEND_KO := drv_devdrv asdrv_dms
+        LOCAL_DEPEND_KO := drv_devdrv asdrv_dms asdrv_pbl
     endif
 endif
 LOCAL_INSTALLED_KO_FILES := ts_agent.ko

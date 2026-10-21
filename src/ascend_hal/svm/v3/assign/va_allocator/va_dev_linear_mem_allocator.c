@@ -34,8 +34,6 @@ int va_dev_linear_mem_enable(void)
             svm_err("Reserve va failed. (ret=%d; size=0x%llx)\n", ret, g_linear_size);
             return ret;
         }
-
-        g_linear_size -= svm_va_get_gap();
     }
 
     return DRV_ERROR_NONE;

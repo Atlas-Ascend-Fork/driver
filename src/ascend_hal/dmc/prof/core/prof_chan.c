@@ -107,7 +107,7 @@ STATIC drvError_t prof_chan_init(struct prof_chan_mng *chan_mng, uint32_t dev_id
     /* host sample mode device handle */
     if (event_flag && chan_mng->support_host_sample) {
         if (!prof_support_host_sample(dev_id, chan_id)) {
-            PROF_ERR("Device not support host sample. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
+            PROF_ERR("Device does not support host sample. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
             return DRV_ERROR_INNER_ERR;
         }
     }
@@ -231,8 +231,9 @@ drvError_t prof_chan_stop(uint32_t dev_id, uint32_t chan_id, struct prof_user_st
 
     ret = chan_mng->ops->stop(dev_id, chan_id, para, chan_mng->priv);
     if (ret != DRV_ERROR_NONE) {
-        PROF_WARN("Stop the channel abnormal. (dev_id=%u, chan_id=%u, ret=%d)\n", dev_id, chan_id, (int)ret);
+        PROF_ERR("Stop the channel unsuccessfully. (dev_id=%u, chan_id=%u, ret=%d)\n", dev_id, chan_id, (int)ret);
     }
+    para->h2d_ret = ret;
 
     if (!para->support_host_sample || (para->host_sample_release_flag == PROF_STOP_STAGE_RELEASE) ||
         (para->host_sample_release_flag == PROF_STOP_STAGE_PAUSE_AND_RELEASE)) {

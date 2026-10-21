@@ -10,6 +10,7 @@
 
 #ifndef UDIS_USER_H
 #define UDIS_USER_H
+#include "ascend_inpackage_hal.h"
 
 typedef enum {
     UDIS_MODULE_DEVMNG = 0,
@@ -54,7 +55,6 @@ struct udis_core_util_info {
     unsigned char core[128];
 };
 
-int udis_get_device_info(unsigned int dev_id, struct udis_dev_info *info);
-int udis_set_device_info(unsigned int dev_id, const struct udis_dev_info *info);
-
+__attribute__((visibility("default"))) int udis_get_device_info(unsigned int dev_id, struct udis_dev_info *info);
+__attribute__((visibility("default"))) int udis_set_device_info(unsigned int dev_id, const struct udis_dev_info *info);
 #endif

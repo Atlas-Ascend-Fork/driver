@@ -46,13 +46,12 @@ drvError_t drvBindHostPid(struct drvBindHostpidInfo info)
             usleep(APM_BIND_RETRY_DELAY);
         }
     } while (retry);
-    if (ret != 0) {
+    if ((ret != 0) && (ret != DRV_ERROR_NOT_SUPPORT)) {
         apm_err("Bind pid failed. (ret=%d; devid=%u; master_pid=%d; proc_type=%d; mode=%d)\n", ret, para.devid,
                 para.master_pid, para.proc_type, para.mode);
-        return ret;
     }
 
-    return DRV_ERROR_NONE;
+    return ret;
 }
 
 drvError_t drvUnbindHostPid(struct drvBindHostpidInfo info)
@@ -90,8 +89,8 @@ static inline int apm_trans_first_proc_type_from_bitmap(unsigned int proc_type_b
     return proc_type;
 }
 
-int apm_query_master_pid(unsigned int cmd, int slave_pid, unsigned int *udevid, unsigned int *master_pid,
-                         unsigned int *proc_type)
+int apm_query_master_info(unsigned int cmd, int slave_pid, unsigned int *udevid, unsigned int *master_pid,
+                          unsigned int *master_tgid, unsigned int *proc_type)
 {
     struct apm_cmd_query_master_info para = {.slave_pid = (unsigned int)slave_pid};
     int ret;
@@ -114,6 +113,10 @@ int apm_query_master_pid(unsigned int cmd, int slave_pid, unsigned int *udevid, 
         *master_pid = (unsigned int)para.master_pid;
     }
 
+    if (master_tgid != NULL) {
+        *master_tgid = (unsigned int)para.master_tgid;
+    }
+
     if (proc_type != NULL) {
         *proc_type = (unsigned int)apm_trans_first_proc_type_from_bitmap(para.proc_type_bitmap);
     }
@@ -124,19 +127,33 @@ int apm_query_master_pid(unsigned int cmd, int slave_pid, unsigned int *udevid, 
 drvError_t drvQueryProcessHostPid(int pid, unsigned int *chip_id, unsigned int *vfid, unsigned int *host_pid,
                                   unsigned int *cp_type)
 {
+    unsigned int master_tgid;
+
     if (vfid != NULL) {
         *vfid = 0;
     }
 
-    return apm_query_master_pid(APM_QUERY_MASTER_INFO, pid, chip_id, host_pid, cp_type);
+    return apm_query_master_info(APM_QUERY_MASTER_INFO, pid, chip_id, host_pid, &master_tgid, cp_type);
 }
 
 int halQueryMasterPidByDeviceSlave(unsigned int devid, int slave_pid, unsigned int *master_pid, unsigned int *proc_type)
 {
-    return apm_query_master_pid(APM_QUERY_MASTER_INFO_BY_DEVICE_SLAVE, slave_pid, &devid, master_pid, proc_type);
+    unsigned int master_tgid;
+    return apm_query_master_info(APM_QUERY_MASTER_INFO_BY_DEVICE_SLAVE, slave_pid, &devid, master_pid, &master_tgid,
+                                 proc_type);
 }
 
 int halQueryMasterPidByHostSlave(int slave_pid, unsigned int *udevid, unsigned int *master_pid, unsigned int *proc_type)
 {
-    return apm_query_master_pid(APM_QUERY_MASTER_INFO_BY_HOST_SLAVE, slave_pid, udevid, master_pid, proc_type);
+    unsigned int master_tgid;
+    return apm_query_master_info(APM_QUERY_MASTER_INFO_BY_HOST_SLAVE, slave_pid, udevid, master_pid, &master_tgid,
+                                 proc_type);
+}
+
+int halQueryMasterTgidByDeviceSlave(unsigned int devid, int slave_pid, unsigned int *master_tgid,
+                                    unsigned int *proc_type)
+{
+    unsigned int master_pid;
+    return apm_query_master_info(APM_QUERY_MASTER_INFO_BY_DEVICE_SLAVE, slave_pid, &devid, &master_pid, master_tgid,
+                                 proc_type);
 }

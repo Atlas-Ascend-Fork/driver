@@ -79,21 +79,21 @@ STATIC int __list_lock_destroy(mmMutex_t *mutex)
 /*
  *  Lock the mutex signal
  */
-//lint -e454
+// lint -e454
 STATIC int __list_lock(mmMutex_t *mutex)
 {
     return mmMutexLock(mutex);
 }
-//lint +e454
+// lint +e454
 /*
  *  Unlock the mutex signal
  */
-//lint -e455
+// lint -e455
 STATIC int __list_unlock(mmMutex_t *mutex)
 {
     return mmMutexUnLock(mutex);
 }
-//lint +e455
+// lint +e455
 /*****************************************************************************
  function    : list_create
  description : create a doubly linked list, and initialize the relevant variables
@@ -138,7 +138,7 @@ int list_create(LIST_T **list, LIST_CMP_T cmp, LIST_DEL_T del)
 
     ls->lock = __list_lock;
     ls->unlock = __list_unlock;
-    ls->size = 0;  /* the list is currently empty, with a size of 0 */
+    ls->size = 0; /* the list is currently empty, with a size of 0 */
     ls->head.next = &ls->head;
     ls->head.prev = &ls->head;
     ls->head.list = (void *)ls;
@@ -160,7 +160,7 @@ STATIC void __node_remove(LIST_NODE_T *node)
 STATIC void __node_item_free(LIST_NODE_T *node)
 {
     LIST_T *list = (LIST_T *)node->list;
-    LIST_DEL_T del = list->del;  /* the del method of list (function handle) */
+    LIST_DEL_T del = list->del; /* the del method of list (function handle) */
 
     if (del != NULL) {
         del(node->item);
@@ -215,7 +215,7 @@ void list_destroy(LIST_T *list)
     (void)list->lock(&list->mutex);
     node = list->head.next;
 
-    while (node != &list->head) {  /* not the last node (the last node points to the head node) */
+    while (node != &list->head) { /* not the last node (the last node points to the head node) */
         next = node->next;
         __node_del(node);
         node = next;
@@ -359,7 +359,7 @@ STATIC int __list_node_init(LIST_T *list, LIST_NODE_T **new_node, void *item)
     (*new_node)->prev = NULL;
     (*new_node)->next = NULL;
     (*new_node)->removed = 0;
-    (*new_node)->ref_cnt = 1;  /* the newly created node is referenced for the first time */
+    (*new_node)->ref_cnt = 1; /* the newly created node is referenced for the first time */
     return 0;
 }
 
@@ -391,7 +391,7 @@ STATIC LIST_NODE_T *__list_nth(LIST_T *list, int n)
 {
     int n_temp = n;
     LIST_NODE_T *node = NULL;
-    node = list->head.next;  /* the first node in the linked list */
+    node = list->head.next; /* the first node in the linked list */
 
     while ((n_temp-- > 0) && (node != &list->head)) {
         node = node->next;
@@ -400,7 +400,7 @@ STATIC LIST_NODE_T *__list_nth(LIST_T *list, int n)
     if (node == &list->head) {
         return NULL;
     } else {
-        return node;  /* find the Nth node and return it */
+        return node; /* find the Nth node and return it */
     }
 }
 
@@ -622,7 +622,7 @@ int list_insert_ascend(LIST_T *list, void *item, LIST_CMP_T custom_cmp)
     node = list->head.prev; /* last node */
 
     while ((node != &list->head) && (cmp(node->item, item) > 0)) {
-        node = node->prev;  /* insert a larger node before a smaller node */
+        node = node->prev; /* insert a larger node before a smaller node */
     }
 
     _list_add(new_node, node, node->next);
@@ -666,7 +666,7 @@ int list_insert_descend(LIST_T *list, void *item, LIST_CMP_T custom_cmp)
     node = list->head.prev; /* last node */
 
     while ((node != &list->head) && (cmp(node->item, item) < 0)) {
-        node = node->prev;  /* insert a smaller node before a larger node */
+        node = node->prev; /* insert a smaller node before a larger node */
     }
 
     _list_add(new_node, node, node->next);
@@ -904,7 +904,7 @@ LIST_NODE_T *list_iter_next(LIST_ITER_T *iter)
 
     if (last != NULL) {
         next = last->next;
-        __node_put(last, 0);  /* the last node is no longer operated on; reference count -1 */
+        __node_put(last, 0); /* the last node is no longer operated on; reference count -1 */
     } else {
         next = list->head.next;
     }
@@ -913,9 +913,9 @@ LIST_NODE_T *list_iter_next(LIST_ITER_T *iter)
 
     while (next != &list->head) {
         if (!next->removed) {
-            __node_get(next);  /* the next node needs to be operated; reference count +1 */
+            __node_get(next); /* the next node needs to be operated; reference count +1 */
             iter->i_cur = next;
-            break;  /* if a valid node is obtained, return this node */
+            break; /* if a valid node is obtained, return this node */
         }
 
         next = next->next;

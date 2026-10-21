@@ -41,6 +41,7 @@
 struct devdrv_ctrl g_ctrls[MAX_DEV_CNT];
 struct devdrv_dev_state_ctrl g_state_ctrl;
 struct devdrv_pci_state_ctrl g_pci_state_ctrl;
+STATIC u32 g_startup_udevids[MAX_DEV_CNT];
 STATIC struct devdrv_client *g_clients[DEVDRV_CLIENT_TYPE_MAX] = {
     NULL,
 };
@@ -56,7 +57,7 @@ STATIC struct devdrv_p2p_config_info (*g_p2p_msg_chan_add_cnt)[DEVDRV_P2P_SUPPOR
 ka_mutex_t g_devdrv_ctrl_mutex; /* Used to walk the hash */
 ka_mutex_t g_devdrv_remove_rescan_mutex;
 ka_mutex_t g_devdrv_p2p_mutex;
-STATIC u64 g_devdrv_ctrl_hot_reset_status = 0;
+STATIC u32 g_devdrv_ctrl_hot_reset_status[MAX_DEV_CNT] = {0};
 STATIC u32 g_env_boot_mode[MAX_PF_DEV_CNT] = {0};
 
 struct devdrv_pci_ctrl_mng g_pci_ctrl_mng;
@@ -78,9 +79,14 @@ ka_mutex_t *devdrv_get_ctrl_mutex(void)
 
 bool devdrv_is_dev_hot_reset(void)
 {
-    if (g_devdrv_ctrl_hot_reset_status != 0) {
-        return true;
+    u32 i;
+
+    for (i = 0; i < MAX_DEV_CNT; i++) {
+        if (g_devdrv_ctrl_hot_reset_status[i] == 1) {
+            return true;
+        }
     }
+
     return false;
 }
 
@@ -149,14 +155,14 @@ void devdrv_pci_ctrl_del_wait(u32 dev_id, struct devdrv_pci_ctrl *pci_ctrl)
     ref_cnt = ka_base_atomic_read(&pci_ctrl->ref_cnt);
     while ((ref_cnt > 0) && (wait_cnt < REF_CNT_CHECK_LIMIT)) {
         if ((wait_cnt % REF_CNT_CHECK_PRINT_FREQUENCY) == 0) {
-            devdrv_info("Device is being used, please wait. (dev_id=%u; ref_cnt=%d; wait_cnt=%u)\n", dev_id, ref_cnt,
+            devdrv_info("Device is being used, please wait. (dev_id=%u;ref_cnt=%d;wait_cnt=%u)\n", dev_id, ref_cnt,
                         wait_cnt);
         }
         wait_cnt++;
         ka_system_usleep_range(REF_CNT_CHECK_WAIT_L, REF_CNT_CHECK_WAIT_H);
         ref_cnt = ka_base_atomic_read(&pci_ctrl->ref_cnt);
     }
-    devdrv_info("Device is ready for hotreset. (dev_id=%u; ref_cnt=%d; wait_cnt=%u)\n", dev_id, ref_cnt, wait_cnt);
+    devdrv_info("Device is ready for hotreset. (dev_id=%u;ref_cnt=%d;wait_cnt=%u)\n", dev_id, ref_cnt, wait_cnt);
 }
 
 void devdrv_pci_ctrl_del(u32 dev_id, struct devdrv_pci_ctrl *pci_ctrl)
@@ -240,12 +246,12 @@ int devdrv_alloc_attr_info(void)
         KA_GFP_KERNEL);
     if (g_p2p_msg_chan_add_cnt == NULL) {
 #ifndef DRV_UT
+        devdrv_kfree(g_notify_p2p_attr_info);
+        g_notify_p2p_attr_info = NULL;
         devdrv_kfree(g_p2p_attr_info);
         g_p2p_attr_info = NULL;
         devdrv_kfree(g_h2d_attr_info);
         g_h2d_attr_info = NULL;
-        devdrv_kfree(g_notify_p2p_attr_info);
-        g_notify_p2p_attr_info = NULL;
         devdrv_err("Alloc g_p2p_msg_chan_add_cnt failed.\n");
 #endif
         return -ENOMEM;
@@ -410,6 +416,28 @@ int devdrv_pci_get_pfvf_type_by_devid(u32 index_id)
     return pfvf_type;
 }
 
+int devdrv_pci_get_pm_devid_by_vm_devid(u32 index_id, u32 *pm_index_id)
+{
+    struct devdrv_pci_ctrl *pci_ctrl = NULL;
+
+    if (pm_index_id == NULL) {
+        devdrv_err("Input parameter pm_index_id is null. (index_id=%u)\n", index_id);
+        return -EINVAL;
+    }
+
+    pci_ctrl = devdrv_get_top_half_pci_ctrl_by_id(index_id);
+    if ((pci_ctrl == NULL) || (pci_ctrl->shr_para == NULL)) {
+        return -EINVAL;
+    }
+
+    if (pci_ctrl->virtfn_flag == DEVDRV_SRIOV_TYPE_VF) {
+        *pm_index_id = pci_ctrl->shr_para->host_dev_id;
+    } else {
+        *pm_index_id = index_id;
+    }
+    return 0;
+}
+
 int devdrv_sriov_init_instance(u32 dev_id)
 {
     int ret, type;
@@ -511,7 +539,7 @@ STATIC int devdrv_set_sriov_and_mdev_mode(u32 index_id, u32 boot_mode)
         return -EINVAL;
     }
 
-    devdrv_info("Set sriov mode. (pf_id=%u; boot_mode=%u)\n", pf_id, boot_mode);
+    devdrv_info("Set sriov mode. (pf_id=%u;boot_mode=%u)\n", pf_id, boot_mode);
     g_env_boot_mode[pf_id] = boot_mode;
     return 0;
 }
@@ -541,8 +569,7 @@ int devdrv_pcie_sriov_enable(u32 index_id, u32 boot_mode)
 
     total_vfs = ka_pci_sriov_get_totalvfs(pci_ctrl->pdev);
     if (total_vfs < DEVDRV_MAX_SRIOV_INSTANCE) {
-        devdrv_err("Vf total num less than max_num. (index_id=%u;total_vfs=%d;max_num=%d)\n", index_id, total_vfs,
-                   DEVDRV_MAX_SRIOV_INSTANCE);
+        devdrv_err("Vf total num less than max_num.(index_id=%u, total_vfs=%d)\n", index_id, total_vfs);
         return -EINVAL;
     }
 
@@ -695,10 +722,8 @@ int devdrv_get_sriov_and_mdev_mode(u32 dev_id, u32 *boot_mode)
 int devdrv_mdev_pm_init_msi_interrupt(u32 dev_id)
 {
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
-    int ret, pf_dev_id;
-    u32 index_id, data_len;
-    struct devdrv_host_dma_addr_to_pa_cmd cmd_data = {0};
-    struct devdrv_pci_ctrl *pci_ctrl_pf = NULL;
+    int ret;
+    u32 index_id;
 
     (void)uda_udevid_to_add_id(dev_id, &index_id);
     pci_ctrl = devdrv_get_top_half_pci_ctrl_by_id(index_id);
@@ -713,31 +738,12 @@ int devdrv_mdev_pm_init_msi_interrupt(u32 dev_id)
         return ret;
     }
 
-    if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_AGENT_SMMU)) {
-        return 0;
-    }
-
     /* hccs peh's msi-x table need retranslation by agent-smmu after request */
-    if ((pci_ctrl->connect_protocol == CONNECT_PROTOCOL_HCCS) &&
-        (devdrv_is_mdev_pm_boot_mode_inner(index_id) == true)) {
-        /* vf has no msg chan in pm，so must use pf's admin chan */
-        pf_dev_id = devdrv_sriov_get_pf_devid_by_vf_ctrl(pci_ctrl);
-        pci_ctrl_pf = devdrv_get_bottom_half_pci_ctrl_by_id((u32)pf_dev_id);
-        if ((pci_ctrl_pf == NULL) || (pci_ctrl_pf->msg_dev == NULL)) {
-            devdrv_uninit_interrupt_normal(pci_ctrl);
-            return -EINVAL;
-        }
-
-        data_len = sizeof(struct devdrv_host_dma_addr_to_pa_cmd);
-        cmd_data.sub_cmd = DEVDRV_PEH_VF_MSI_TABLE_REFRESH;
-        cmd_data.host_devid = pci_ctrl->dev_id;
-        ret = devdrv_admin_msg_chan_send(pci_ctrl_pf->msg_dev, DEVDRV_HCCS_HOST_DMA_ADDR_MAP, &cmd_data, data_len, NULL,
-                                         data_len);
-        if (ret != 0) {
-            devdrv_uninit_interrupt_normal(pci_ctrl);
-            devdrv_err("Msi irq table reset failed. (devid=%u;ret=%d)\n", pci_ctrl->dev_id, ret);
-            return ret;
-        }
+    ret = devdrv_peh_register_irq_by_vector_index(pci_ctrl);
+    if (ret != 0) {
+        devdrv_uninit_interrupt_normal(pci_ctrl);
+        devdrv_err("Msi irq table reset fail. (devid=%u;ret=%d)\n", pci_ctrl->dev_id, ret);
+        return ret;
     }
 
     return 0;
@@ -781,8 +787,7 @@ void devdrv_mdev_free_vf_dma_sqcq_on_pm(u32 devid)
         return;
     }
 
-    if ((pci_ctrl->env_boot_mode != DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT) &&
-        (pci_ctrl->env_boot_mode != DEVDRV_MDEV_VF_PM_BOOT)) {
+    if (pci_ctrl->ops.is_mdev_vf_pm == false) {
         devdrv_info("Not mdev vf dma sqcq on pm, return now. (dev_id=%u)\n", devid);
         return;
     }
@@ -861,8 +866,8 @@ bool devdrv_is_mdev_vm_full_spec(u32 udevid)
     }
     pci_ctrl = (struct devdrv_pci_ctrl *)ctrl->priv;
 
-    if ((pci_ctrl->ops.is_mdev_vm_full_spec != NULL) && (pci_ctrl->ops.is_mdev_vm_full_spec(pci_ctrl) == true)) {
-        return true;
+    if (pci_ctrl->ops.is_mdev_vm_full_spec != NULL) {
+        return pci_ctrl->ops.is_mdev_vm_full_spec(pci_ctrl);
     }
 
     return false;
@@ -912,7 +917,7 @@ int devdrv_get_connect_protocol_by_dev(ka_device_t *dev)
     struct devdrv_pdev_ctrl *pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_driver_dev_get_drvdata(dev);
 
     if (pdev_ctrl == NULL) {
-        devdrv_err_spinlock("Input parameter is invalid.\n");
+        devdrv_err_spinlock("Input parameter is invalid. (pdev_ctrl_is_null=%d;)\n", (pdev_ctrl == NULL));
         return CONNECT_PROTOCOL_UNKNOWN;
     }
 
@@ -1184,17 +1189,17 @@ int devdrv_alloc_devid_inturn(u32 beg, u32 stride)
 STATIC int devdrv_get_devid_by_funcid(u32 state, int func_id_check, int func_id_this, int i, int *dev_id)
 {
     if ((func_id_check == 0) || (func_id_check == 1)) {
-        devdrv_info("Function match. (this_func=%d; func_id_check=%d)\n", func_id_this, func_id_check);
+        devdrv_info("Function match. (this_func=%d;func_id_check=%d)\n", func_id_this, func_id_check);
         if (state != DEVDRV_DEV_STARTUP_UNPROBED) {
             /* bus same ,has startup, function check */
             if (func_id_check == func_id_this) {
                 /* bus same, has startup, func match */
-                devdrv_err("All already is wrong.\n");
+                devdrv_err("Func %d has been started.\n", func_id_this);
                 return -EINVAL;
             } else {
                 /* new func */
                 *dev_id = (i / DEVDRV_MAX_FUNC_NUM) * DEVDRV_MAX_FUNC_NUM + func_id_this;
-                devdrv_info("New func. (dev_id=%d; new_dev_id=%d)\n", i, *dev_id);
+                devdrv_info("New func. (dev_id=%d;new_dev_id=%d)\n", i, *dev_id);
                 return 1;
             }
         } else {
@@ -1206,7 +1211,7 @@ STATIC int devdrv_get_devid_by_funcid(u32 state, int func_id_check, int func_id_
             } else {
                 /* new func, alloc dev id, but go on to find match id. */
                 *dev_id = (i / DEVDRV_MAX_FUNC_NUM) * DEVDRV_MAX_FUNC_NUM + func_id_this;
-                devdrv_info("New func. (dev_id=%d; new_dev_id=%d)\n", i, *dev_id);
+                devdrv_info("New func. (dev_id=%d;new_dev_id=%d)\n", i, *dev_id);
             }
         }
     } else {
@@ -1237,7 +1242,7 @@ int devdrv_alloc_devid_stride_2(struct devdrv_ctrl *ctrl_this)
             }
             func_id_check = (int)g_ctrls[i].func_id;
             state = (u32)g_ctrls[i].startup_flg;
-            devdrv_info("Bus and slot match in this devdrv_ctrl. (dev_id=%u; func_id_check=%d; state=%d)\n", i,
+            devdrv_info("Bus and slot match in this devdrv_ctrl. (dev_id=%u;func_id_check=%d;state=%d)\n", i,
                         func_id_check, state);
             ret = devdrv_get_devid_by_funcid(state, func_id_check, func_id_this, i, &dev_id_check);
             if (ret < 0) {
@@ -1362,6 +1367,7 @@ int devdrv_pci_get_device_boot_status(u32 index_id, u32 *boot_status)
 {
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_ctrl *ctrl = NULL;
+
     if (index_id >= MAX_DEV_CNT) {
         devdrv_err("Input parameter is invalid. (index_id=%u)\n", index_id);
         return -EINVAL;
@@ -1405,14 +1411,14 @@ void drvdrv_dev_startup_record(u32 dev_id)
             g_state_ctrl.state_flag[dev_id] = DEVDRV_STATE_PROBE;
             g_state_ctrl.dev_num++;
         }
-        devdrv_info("Probe new device, add to report. (dev_id=%u; dev_num=%u)\n", dev_id, g_state_ctrl.dev_num);
+        devdrv_info("Probe new device, add to report. (dev_id=%u;dev_num=%u)\n", dev_id, g_state_ctrl.dev_num);
     } else {
         /* not first time to enable sriov */
         if (g_state_ctrl.state_flag[dev_id] == DEVDRV_STATE_UNPROBE) {
             g_state_ctrl.state_flag[dev_id] = DEVDRV_STATE_PROBE;
             g_state_ctrl.dev_num++;
         }
-        devdrv_info("Device needn't record, just report. (dev_id=%u; dev_num=%u)\n", dev_id, g_state_ctrl.dev_num);
+        devdrv_info("Device needn't record, just report. (dev_id=%u;dev_num=%u)\n", dev_id, g_state_ctrl.dev_num);
     }
 
     ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
@@ -1433,12 +1439,18 @@ after hot reset devid=4:
 */
 void drvdrv_dev_startup_report(u32 dev_id)
 {
+    u32 i;
+
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
     if (g_state_ctrl.startup_callback != NULL) {
         /* report all probed mini when first time reset */
         if (g_state_ctrl.first_flag == 0) {
             if (g_state_ctrl.dev_num != 0) {
-                (g_state_ctrl.startup_callback)(g_state_ctrl.dev_num, g_state_ctrl.devid, MAX_DEV_CNT,
+                /* convert add id to udevid format before reporting to dev manager */
+                for (i = 0; (i < g_state_ctrl.dev_num) && (i < MAX_DEV_CNT); i++) {
+                    (void)uda_add_id_to_udevid(g_state_ctrl.devid[i], &g_startup_udevids[i]);
+                }
+                (g_state_ctrl.startup_callback)(g_state_ctrl.dev_num, g_startup_udevids, MAX_DEV_CNT,
                                                 g_state_ctrl.dev_num);
             }
             devdrv_info("Device startup report. (dev_num=%u)\n", g_state_ctrl.dev_num);
@@ -1446,6 +1458,8 @@ void drvdrv_dev_startup_report(u32 dev_id)
         } else {
             /* report one probed mini when hotreset or vf probe */
             g_state_ctrl.reset_devid = dev_id;
+            /* convert add id to udevid format before reporting to dev manager */
+            (void)uda_add_id_to_udevid(g_state_ctrl.reset_devid, &g_state_ctrl.reset_devid);
             (g_state_ctrl.startup_callback)(g_state_ctrl.dev_num, &g_state_ctrl.reset_devid, MAX_DEV_CNT, 1);
             devdrv_info("Device startup report. (dev_id=%u)\n", dev_id);
         }
@@ -1459,7 +1473,7 @@ void drvdrv_dev_startup_report(u32 dev_id)
 
 void drvdrv_dev_state_notifier(struct devdrv_pci_ctrl *pci_ctrl)
 {
-    u32 dev_id;
+    u32 dev_id, udevid;
 
     if (pci_ctrl == NULL) {
         devdrv_info("Input parameter is null.\n");
@@ -1483,7 +1497,8 @@ void drvdrv_dev_state_notifier(struct devdrv_pci_ctrl *pci_ctrl)
 
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
     if (g_state_ctrl.state_notifier_callback != NULL) {
-        (g_state_ctrl.state_notifier_callback)(g_state_ctrl.dev_num, dev_id, (u32)GOING_TO_DISABLE_DEV);
+        (void)uda_add_id_to_udevid(dev_id, &udevid);
+        (g_state_ctrl.state_notifier_callback)(g_state_ctrl.dev_num, udevid, (u32)GOING_TO_DISABLE_DEV);
     } else {
         devdrv_info("state_notifier_callback is NULL. (dev_id=%u)\n", dev_id);
     }
@@ -1598,8 +1613,8 @@ void devdrv_peer_fault_notifier(u32 status)
 
 void devdrv_hb_broken_stop_msg_send_inner(u32 index_id)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
 
     if (index_id >= MAX_DEV_CNT) {
         devdrv_info("Input parameter is invalid. (index_id=%u)\n", index_id);
@@ -1652,7 +1667,8 @@ int devdrv_pcie_reinit_inner(u32 index_id)
         return -EINVAL;
     }
     chip_type = devdrv_get_dev_chip_type_inner(index_id);
-    if ((chip_type == HISI_CLOUD_V4) || (chip_type == HISI_CLOUD_V5) || (chip_type == HISI_MINI_V4)) {
+    if ((chip_type == HISI_CLOUD_V4) || (chip_type == HISI_CLOUD_V5) || (chip_type == HISI_MINI_V4) ||
+        (chip_type == HISI_MINI_V5) || (chip_type == HISI_CLOUD_V6)) {
         return 0;
     }
 
@@ -1684,9 +1700,10 @@ KA_EXPORT_SYMBOL(devdrv_pcie_reinit);
 
 struct devdrv_dma_dev *devdrv_get_dma_dev(u32 dev_id)
 {
-    struct devdrv_ctrl *ctrl = devdrv_get_bottom_half_devctrl_by_id(dev_id);
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
 
+    ctrl = devdrv_get_bottom_half_devctrl_by_id(dev_id);
     if ((ctrl == NULL) || (ctrl->priv == NULL)) {
         devdrv_err_spinlock("Get devdrv_ctrl failed. (dev_id=%u)\n", dev_id);
         return NULL;
@@ -1702,9 +1719,10 @@ u32 devdrv_get_devid_by_dev(const struct devdrv_msg_dev *msg_dev)
     u32 i, udevid;
 
     if (msg_dev == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (msg_dev_is_null=%d;)\n", (msg_dev == NULL));
         return MAX_DEV_CNT;
     }
+
     for (i = 0; i < MAX_DEV_CNT; i++) {
         pci_ctrl = (struct devdrv_pci_ctrl *)g_ctrls[i].priv;
         if (pci_ctrl == NULL) {
@@ -1810,10 +1828,12 @@ void *devdrv_pci_pcimsg_alloc_trans_queue(u32 udevid, struct devdrv_trans_msg_ch
 int devdrv_pci_pcimsg_realease_trans_queue(void *msg_chan)
 {
     struct devdrv_msg_chan *chan = NULL;
+
     if (msg_chan == NULL) {
         devdrv_err("msg_chan is invalid.\n");
         return -EINVAL;
     }
+
     chan = devdrv_find_msg_chan(msg_chan);
     if (chan == NULL) {
         if (devdrv_is_dev_hot_reset() == true) {
@@ -1857,7 +1877,7 @@ void *devdrv_pci_msg_alloc_non_trans_queue(u32 index_id, struct devdrv_non_trans
 int devdrv_pcimsg_free_non_trans_queue_inner(void *msg_chan)
 {
     if (msg_chan == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (msg_chan_is_null=%d;)\n", (msg_chan == NULL));
         return -EINVAL;
     }
 
@@ -1867,10 +1887,12 @@ int devdrv_pcimsg_free_non_trans_queue_inner(void *msg_chan)
 int devdrv_pci_msg_free_non_trans_queue(void *msg_chan)
 {
     struct devdrv_msg_chan *chan = NULL;
+
     if (msg_chan == NULL) {
         devdrv_err("msg chan is invalid.\n");
         return -EINVAL;
     }
+
     chan = devdrv_find_msg_chan(msg_chan);
     if (chan == NULL) {
         if (devdrv_is_dev_hot_reset() == true) {
@@ -1887,7 +1909,7 @@ int devdrv_pci_msg_free_non_trans_queue(void *msg_chan)
 int devdrv_register_black_callback(struct devdrv_black_callback *black_callback)
 {
     if (black_callback == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (black_callback_is_null=%d;)\n", (black_callback == NULL));
         return -EINVAL;
     }
 
@@ -1897,7 +1919,7 @@ int devdrv_register_black_callback(struct devdrv_black_callback *black_callback)
     }
 
     g_black_box.callback = black_callback->callback;
-    devdrv_info("bbox callback is registered.\n");
+    devdrv_info("bbox callback is register.\n");
 
     return 0;
 }
@@ -1923,12 +1945,12 @@ KA_EXPORT_SYMBOL(devdrv_unregister_black_callback);
 
 int devdrv_register_client(struct devdrv_client *client)
 {
-    int ret;
-    u32 dev_id;
     struct devdrv_client_instance *instance = NULL;
+    u32 dev_id;
+    int ret;
 
     if (client == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (client_is_null=%d;)\n", (client == NULL));
         return -EINVAL;
     }
 
@@ -1955,7 +1977,7 @@ int devdrv_register_client(struct devdrv_client *client)
         if (client->init_instance == NULL) {
             continue;
         }
-        devdrv_info("devdrv_register_client, before init_instance. (type=%d; dev_id=%u)\n", (int)client->type, dev_id);
+        devdrv_info("devdrv_register_client, before init_instance. (type=%d;dev_id=%u)\n", (int)client->type, dev_id);
         ka_task_mutex_lock(&instance->flag_mutex);
         if (instance->flag == 0) {
             instance->flag = 1;
@@ -1989,7 +2011,7 @@ int devdrv_unregister_client(const struct devdrv_client *client)
     int dev_id;
 
     if (client == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (client_is_null=%d;)\n", (client == NULL));
         return -EINVAL;
     }
 
@@ -2016,9 +2038,9 @@ int devdrv_unregister_client(const struct devdrv_client *client)
             ka_task_mutex_lock(&instance->flag_mutex);
             instance->flag = 0;
             ka_task_mutex_unlock(&instance->flag_mutex);
-            devdrv_info("Uninit instance start. (dev_id=%d; client_type=%u)\n", dev_id, (u32)client->type);
+            devdrv_info("Uninit instance start. (dev_id=%d;client_type=%u)\n", dev_id, (u32)client->type);
             client->uninit_instance(instance);
-            devdrv_info("Uninit instance end. (dev_id=%d; client_type=%u)\n", dev_id, (u32)client->type);
+            devdrv_info("Uninit instance end. (dev_id=%d;client_type=%u)\n", dev_id, (u32)client->type);
             instance->dev_ctrl = NULL;
             instance->priv = NULL;
         }
@@ -2033,7 +2055,8 @@ KA_EXPORT_SYMBOL(devdrv_unregister_client);
 STATIC int devdrv_get_addr_info_para_check(u32 index, const u64 *addr, const size_t *size)
 {
     if ((index != 0) || (addr == NULL) || (size == NULL)) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (index=%u;addr_is_null=%d;size_is_null=%d;)\n", index, (addr == NULL),
+                   (size == NULL));
         return -EINVAL;
     }
     return 0;
@@ -2217,9 +2240,9 @@ STATIC int devdrv_get_mdev_addr_info(struct devdrv_pci_ctrl *pci_ctrl, enum devd
 
 int devdrv_get_addr_info_inner(u32 index_id, enum devdrv_addr_type type, u32 index, u64 *addr, size_t *size)
 {
-    int ret;
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
+    int ret;
 
     ret = devdrv_get_addr_info_para_check(index, addr, size);
     if (ret != 0) {
@@ -2261,16 +2284,17 @@ KA_EXPORT_SYMBOL(devdrv_get_addr_info);
 
 int devdrv_pcie_read_proc(u32 dev_id, enum devdrv_addr_type type, u32 offset, unsigned char *value, u32 len)
 {
-    int ret;
-    size_t size;
-    u64 phy_addr;
-    u32 i, index_id;
     void __ka_mm_iomem *mem_base = NULL;
+    u32 i, index_id;
+    u64 phy_addr;
+    size_t size;
+    int ret;
 
     if ((value == NULL) || (len == 0) || (len > DEVDRV_VALUE_SIZE)) {
         devdrv_err("Input parameter is invalid. (len=%d; offset=%d; dev_id=%u)\n", len, offset, dev_id);
         return -EINVAL;
     }
+
     (void)uda_udevid_to_add_id(dev_id, &index_id);
     ret = devdrv_get_addr_info_inner(index_id, type, 0, &phy_addr, &size);
     if (ret != 0) {
@@ -2287,10 +2311,10 @@ int devdrv_pcie_read_proc(u32 dev_id, enum devdrv_addr_type type, u32 offset, un
 
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
 
-    if (g_devdrv_ctrl_hot_reset_status == 1) {
+    if (g_devdrv_ctrl_hot_reset_status[index_id] == 1) {
         ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
-        devdrv_err("Pcie hotreset, but device mask on process. (dev %d; mask=%llu)\n", dev_id,
-                   g_devdrv_ctrl_hot_reset_status);
+        devdrv_err("Pcie hotreset, but device on process. (dev_id=%u; status=%u)\n", dev_id,
+                   g_devdrv_ctrl_hot_reset_status[index_id]);
         return -EAGAIN;
     }
 
@@ -2342,10 +2366,10 @@ int devdrv_pcie_write_proc(u32 dev_id, enum devdrv_addr_type type, u32 offset, u
 
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
 
-    if (g_devdrv_ctrl_hot_reset_status == 1) {
+    if (g_devdrv_ctrl_hot_reset_status[index_id] == 1) {
         ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
-        devdrv_err("Pcie hotreset, but device mask on process. (dev %d; mask=%llu)\n", dev_id,
-                   g_devdrv_ctrl_hot_reset_status);
+        devdrv_err("Pcie hotreset, but device on process. (dev_id=%u; status=%u)\n", dev_id,
+                   g_devdrv_ctrl_hot_reset_status[index_id]);
         return -EAGAIN;
     }
 
@@ -2370,8 +2394,8 @@ KA_EXPORT_SYMBOL(devdrv_pcie_write_proc);
 
 int devdrv_get_ts_drv_irq_vector_id(u32 udevid, u32 index, unsigned int *entry)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
     u32 id, index_id;
     int i;
 
@@ -2407,8 +2431,8 @@ KA_EXPORT_SYMBOL(devdrv_get_ts_drv_irq_vector_id);
 
 int devdrv_get_topic_sched_irq_vector_id(u32 udevid, u32 index, unsigned int *entry)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
     u32 index_id;
 
     if (entry == NULL) {
@@ -2437,8 +2461,8 @@ KA_EXPORT_SYMBOL(devdrv_get_topic_sched_irq_vector_id);
 
 int devdrv_get_cdqm_irq_vector_id(u32 udevid, u32 index, unsigned int *entry)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
     u32 index_id;
 
     if (entry == NULL) {
@@ -2466,8 +2490,8 @@ KA_EXPORT_SYMBOL(devdrv_get_cdqm_irq_vector_id);
 
 int devdrv_get_irq_vector(u32 udevid, u32 entry, unsigned int *irq)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
     u32 main_entry, index_id;
 
     if (irq == NULL) {
@@ -2483,7 +2507,8 @@ int devdrv_get_irq_vector(u32 udevid, u32 entry, unsigned int *irq)
     }
     pci_ctrl = (struct devdrv_pci_ctrl *)ctrl->priv;
 
-    if (entry >= (u32)pci_ctrl->msix_irq_num * (pci_ctrl->dev_id_in_pdev + 1)) {
+    if ((entry < (u32)pci_ctrl->msix_irq_num * (pci_ctrl->dev_id_in_pdev)) ||
+        (entry >= (u32)pci_ctrl->msix_irq_num * (pci_ctrl->dev_id_in_pdev + 1))) {
         devdrv_err("Parameter entry is error. (udevid=%u; dev_id_in_pdev=%u; entry=%u)\n", udevid,
                    pci_ctrl->dev_id_in_pdev, entry);
         return -EINVAL;
@@ -2496,12 +2521,20 @@ int devdrv_get_irq_vector(u32 udevid, u32 entry, unsigned int *irq)
 }
 KA_EXPORT_SYMBOL(devdrv_get_irq_vector);
 
+int devdrv_peh_register_irq_by_vector_index(struct devdrv_pci_ctrl *pci_ctrl)
+{
+    /* hccs peh's Virtualization pass-through or smmu enabled, msi-x table will be va,
+       need retranslation to pa by agent-smmu after request */
+    if (pci_ctrl->ops.peh != NULL) {
+        return pci_ctrl->ops.peh->msi_x_table_retrans(pci_ctrl);
+    }
+    return 0;
+}
+
 int devdrv_register_irq_by_vector_index_inner(u32 index_id, int vector_index,
                                               ka_irqreturn_t (*callback_func)(int, void *), void *para,
                                               const char *name)
 {
-    struct devdrv_host_dma_addr_to_pa_cmd cmd_data = {0};
-    u32 data_len;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
     int ret = 0;
 
@@ -2517,30 +2550,11 @@ int devdrv_register_irq_by_vector_index_inner(u32 index_id, int vector_index,
         return ret;
     }
 
-    if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_AGENT_SMMU)) {
-        return 0;
-    }
-
-    /* hccs peh's Virtualization pass-through or smmu enabled, msi-x table will be va,
-       need retranslation to pa by agent-smmu after request */
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT)) {
-        return 0;
-    }
-
-    if ((pci_ctrl->connect_protocol == CONNECT_PROTOCOL_HCCS) &&
-        (((ka_pci_get_is_physfn(pci_ctrl->pdev) == 0) && (ka_pci_get_is_virtfn(pci_ctrl->pdev) == 0)) ||
-         ((pci_ctrl->env_boot_mode == DEVDRV_SRIOV_VF_BOOT) && (pci_ctrl->shr_para->sid != 0)))) {
-        data_len = sizeof(struct devdrv_host_dma_addr_to_pa_cmd);
-        cmd_data.sub_cmd = DEVDRV_PEH_MSI_TABLE_REFRESH;
-        cmd_data.host_devid = pci_ctrl->dev_id;
-        ret = devdrv_admin_msg_chan_send(pci_ctrl->msg_dev, DEVDRV_HCCS_HOST_DMA_ADDR_MAP, &cmd_data, data_len, NULL,
-                                         data_len);
-        if (ret != 0) {
-            (void)devdrv_unregister_irq_func((void *)pci_ctrl, vector_index, para);
-            devdrv_err("Msi irq table reset failed. (index_id=%u; ret=%d)\n", pci_ctrl->dev_id, ret);
-            return ret;
-        }
+    ret = devdrv_peh_register_irq_by_vector_index(pci_ctrl);
+    if (ret != 0) {
+        (void)devdrv_unregister_irq_func((void *)pci_ctrl, vector_index, para);
+        devdrv_err("Msi irq table reset failed. (index_id=%u; ret=%d)\n", pci_ctrl->dev_id, ret);
+        return ret;
     }
 
     return 0;
@@ -2612,8 +2626,8 @@ KA_EXPORT_SYMBOL(devdrv_register_irq_func_expand);
 
 int devdrv_unregister_irq_func_expand(u32 dev_id, int vector, void *para)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
     u32 index_id;
 
     (void)uda_udevid_to_add_id(dev_id, &index_id);
@@ -2638,8 +2652,8 @@ KA_EXPORT_SYMBOL(devdrv_unregister_irq_func_expand);
 
 int devdrv_get_pci_dev_info(u32 devid, struct devdrv_pci_dev_info *dev_info)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
     u32 index_id;
 
     if (dev_info == NULL) {
@@ -2664,8 +2678,8 @@ KA_EXPORT_SYMBOL(devdrv_get_pci_dev_info);
 
 int devdrv_get_pcie_id_info_inner(u32 index_id, struct devdrv_base_device_info *dev_info)
 {
-    struct devdrv_ctrl *ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
 
     if (dev_info == NULL) {
         devdrv_info("Input parameter is invalid. (index_id=%u)\n", index_id);
@@ -2702,8 +2716,8 @@ KA_EXPORT_SYMBOL(devdrv_get_pcie_id_info);
 STATIC struct devdrv_dma_desc_rbtree_node *devdrv_dma_desc_node_search(ka_task_spinlock_t *lock, ka_rb_root_t *root,
                                                                        u64 hash_va)
 {
-    ka_rb_node_t *node = NULL;
     struct devdrv_dma_desc_rbtree_node *dma_desc_node = NULL;
+    ka_rb_node_t *node = NULL;
 
     if (lock != NULL) {
         ka_task_spin_lock_bh(lock);
@@ -2735,8 +2749,8 @@ STATIC int devdrv_dma_desc_node_insert(ka_task_spinlock_t *lock, ka_rb_root_t *r
                                        struct devdrv_dma_desc_rbtree_node *dma_desc_node)
 {
     struct devdrv_dma_desc_rbtree_node *this = NULL;
-    ka_rb_node_t *parent = NULL;
     ka_rb_node_t **new_node = NULL;
+    ka_rb_node_t *parent = NULL;
 
     ka_task_spin_lock_bh(lock);
     new_node = ka_base_get_rb_root_node_addr(root);
@@ -2793,8 +2807,8 @@ STATIC int devdrv_dma_link_prepare_para_check(u32 devid, const struct devdrv_dma
 
 STATIC int devdrv_dma_link_alloc_sq_cq_addr(struct devdrv_dma_prepare *dma_prepare, ka_device_t *dev, u32 node_cnt)
 {
-    u64 size;
     ka_gfp_t gfp = KA_GFP_KERNEL | __KA_GFP_ACCOUNT | __KA_GFP_NOWARN | __KA_GFP_RETRY_MAYFAIL;
+    u64 size;
 
     size = ((u64)node_cnt + DEVDRV_RESERVE_NUM) * sizeof(struct devdrv_dma_sq_node);
     dma_prepare->sq_size = size;
@@ -2875,12 +2889,12 @@ int devdrv_dma_prepare_alloc_sq_addr_inner(u32 index_id, u32 node_cnt, struct de
     }
 
     if (node_cnt > (pci_ctrl->res.dma_res.sq_depth - pci_ctrl->res.dma_res.sq_rsv_num)) {
-        devdrv_err_spinlock("node_cnt is illegal. (index_id=%u, node_cnt=%u)\n", index_id, node_cnt);
+        devdrv_err_spinlock("node_cnt is illegal. (index_id=%u, node_cnt=%u, max=%u)\n", index_id, node_cnt,
+                            pci_ctrl->res.dma_res.sq_depth - pci_ctrl->res.dma_res.sq_rsv_num);
         return -EINVAL;
     }
 
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT)) {
+    if (pci_ctrl->ops.is_mdev_vf_vm) {
         return devdrv_dma_prepare_alloc_sq_addr_by_vpc(index_id, node_cnt, dma_prepare);
     }
 
@@ -2964,8 +2978,7 @@ void devdrv_dma_prepare_free_sq_addr_inner(u32 index_id, struct devdrv_dma_prepa
         return;
     }
 
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT)) {
+    if (pci_ctrl->ops.is_mdev_vf_vm) {
         devdrv_dma_prepare_free_sq_addr_by_vpc(index_id, dma_prepare_tmp);
     }
 
@@ -2987,8 +3000,7 @@ void devdrv_dma_prepare_free_sq_addr_inner(u32 index_id, struct devdrv_dma_prepa
         dma_prepare_tmp->sq_base = NULL;
     }
 
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_PM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_PM_BOOT)) {
+    if (pci_ctrl->ops.is_mdev_vf_pm) {
         devdrv_kfree(dma_prepare_tmp);
         dma_prepare_tmp = NULL;
     }
@@ -3133,8 +3145,7 @@ int devdrv_dma_fill_desc_of_sq_inner(u32 index_id, struct devdrv_dma_prepare *dm
         return -EINVAL;
     }
 
-    if ((pci_ctrl->env_boot_mode == DEVDRV_MDEV_VF_VM_BOOT) ||
-        (pci_ctrl->env_boot_mode == DEVDRV_MDEV_FULL_SPEC_VF_VM_BOOT)) {
+    if (pci_ctrl->ops.is_mdev_vf_vm) {
         return devdrv_dma_fill_desc_of_sq_by_vpc(index_id, dma_prepare, dma_node, node_cnt, fill_status);
     }
 
@@ -3203,7 +3214,8 @@ int devdrv_dma_fill_desc_of_sq_ext_inner(u32 index_id, void *sq_base, struct dev
         } else if (dma_node[i].direction == DEVDRV_DMA_HOST_TO_DEVICE) {
             current_sq_node->opcode = DEVDRV_DMA_READ;
         } else {
-            devdrv_err("DMA direction parameter is invalid. (index_id=%u)\n", index_id);
+            devdrv_err("DMA direction is invalid. (index_id=%u, direction=%u, valid=0-1)\n", index_id,
+                       dma_node[i].direction);
             return -EINVAL;
         }
         current_sq_node->pf = pci_ctrl->ep_pf_index;
@@ -3247,8 +3259,9 @@ int devdrv_dma_fill_desc_of_sq_ext_inner(u32 index_id, void *sq_base, struct dev
             return -EINVAL;
         }
 
-        if (pci_ctrl->ops.flush_cache != NULL) {
-            pci_ctrl->ops.flush_cache((u64)(uintptr_t)current_sq_node, sizeof(struct devdrv_dma_sq_node), CACHE_CLEAN);
+        if (pci_ctrl->ops.peh != NULL) {
+            pci_ctrl->ops.peh->flush_cache((u64)(uintptr_t)current_sq_node, sizeof(struct devdrv_dma_sq_node),
+                                           CACHE_CLEAN);
         }
     }
     return 0;
@@ -3449,7 +3462,7 @@ int devdrv_dma_link_free_inner(struct devdrv_dma_prepare *dma_prepare)
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
 
     if (dma_prepare == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (dma_prepare_is_null=%d;)\n", (dma_prepare == NULL));
         return -EINVAL;
     }
 
@@ -3484,7 +3497,7 @@ int devdrv_dma_link_free_inner(struct devdrv_dma_prepare *dma_prepare)
 int devdrv_pci_dma_link_free(struct devdrv_dma_prepare *dma_prepare)
 {
     if (dma_prepare == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (dma_prepare_is_null=%d;)\n", (dma_prepare == NULL));
         return -EINVAL;
     }
 
@@ -3534,7 +3547,8 @@ int devdrv_pci_dma_sqcq_desc_check(u32 devid, struct devdrv_dma_desc_info *dma_d
     }
 
     if (dma_desc_info->sq_size > dma_desc_node->dma_prepare->sq_size) {
-        devdrv_err("Sq size is invalid. (dev_id=%u)\n", devid);
+        devdrv_err("Sq size is invalid. (dev_id=%u, sq_size=%llu, max=%llu)\n", devid, dma_desc_info->sq_size,
+                   dma_desc_node->dma_prepare->sq_size);
         return -EINVAL;
     }
 
@@ -3560,7 +3574,7 @@ int devdrv_register_pci_devctrl(struct devdrv_pci_ctrl *pci_ctrl)
     pci_dev_ctrl.func_id = pci_ctrl->func_id;
     pci_dev_ctrl.virtfn_flag = pci_ctrl->virtfn_flag;
     dev_id = devdrv_slave_dev_add(&pci_dev_ctrl);
-    devdrv_info("Get bus value. (dev_id=%d; bus=%pK)\n", dev_id, pci_dev_ctrl.bus);
+    devdrv_info("Get bus value. (dev_id=%d;bus=%pK)\n", dev_id, pci_dev_ctrl.bus);
 
     if (dev_id < 0) {
         devdrv_err("Pci device register failed. (dev_id=%u)\n", dev_id);
@@ -3586,7 +3600,7 @@ int devdrv_dev_online(struct devdrv_pci_ctrl *pci_ctrl)
     struct devdrv_pci_ctrl *ctrl = NULL;
     u32 i;
 
-    devdrv_info("Device online. (dev_id=%u; chip_type=%d)\n", pci_ctrl->dev_id, pci_ctrl->chip_type);
+    devdrv_info("Device online. (dev_id=%u;chip_type=%d)\n", pci_ctrl->dev_id, pci_ctrl->chip_type);
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
 
     if (pci_ctrl->ops.get_p2p_support_max_devnum != NULL) {
@@ -3657,8 +3671,8 @@ void *devdrv_pci_dma_alloc_coherent(ka_device_t *dev, size_t size, ka_dma_addr_t
     void *addr = NULL;
 
     if ((size == 0) || (dev == NULL) || (dma_addr == NULL)) {
-        devdrv_err("Input parameter is invalid. (size=%lu, dev is %s, dma_addr is %s)\n", size,
-                   dev == NULL ? "null" : "not null", dma_addr == NULL ? "null" : "not null");
+        devdrv_err("Input parameter is invalid. (size=%lu;dev_is_null=%d;dma_addr_is_null=%d;)\n", size, (dev == NULL),
+                   (dma_addr == NULL));
         return NULL;
     }
     pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_driver_dev_get_drvdata(dev);
@@ -3716,8 +3730,8 @@ void devdrv_pci_dma_free_coherent(ka_device_t *dev, size_t size, void *addr, ka_
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
 
     if ((dev == NULL) || (addr == NULL) || (size == 0)) {
-        devdrv_err("Input parameter is invalid. (size=%lu, dev is %s, addr is %s)\n", size,
-                   dev == NULL ? "null" : "not null", addr == NULL ? "null" : "not null");
+        devdrv_err("Input parameter is invalid. (size=%lu;dev_is_null=%d;addr_is_null=%d;)\n", size, (dev == NULL),
+                   (addr == NULL));
         return;
     }
     pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_driver_dev_get_drvdata(dev);
@@ -3755,8 +3769,8 @@ ka_dma_addr_t devdrv_pci_dma_map_single(ka_device_t *dev, void *ptr, size_t size
     int ret;
 
     if ((dev == NULL) || (ptr == NULL) || (size == 0)) {
-        devdrv_err("Input parameter is invalid. (size=%lu, dev is %s, ptr is %s)\n", size,
-                   dev == NULL ? "null" : "not null", ptr == NULL ? "null" : "not null");
+        devdrv_err("Input parameter is invalid. (size=%lu;dev_is_null=%d;ptr_is_null=%d;)\n", size, (dev == NULL),
+                   (ptr == NULL));
         return (~(ka_dma_addr_t)0);
     }
     pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_driver_dev_get_drvdata(dev);
@@ -3775,7 +3789,7 @@ ka_dma_addr_t devdrv_pci_dma_map_single(ka_device_t *dev, void *ptr, size_t size
         /* hccs peh's Virtualization pass-through */
         if ((ka_pci_get_is_physfn(pci_ctrl->pdev) == 0) && (ka_pci_get_is_virtfn(pci_ctrl->pdev) == 0)) {
             dma_tmp = (ka_dma_addr_t)ka_mm_virt_to_phys(ptr);
-            ret = devdrv_smmu_iova_to_phys_proc(pci_ctrl, &dma_tmp, 1, &dma_addr);
+            ret = devdrv_peh_smmu_iova_to_phys(pci_ctrl, &dma_tmp, 1, &dma_addr);
             if (ret != 0) {
                 return (~(ka_dma_addr_t)0);
             }
@@ -3809,7 +3823,7 @@ void devdrv_pci_dma_unmap_single(ka_device_t *dev, ka_dma_addr_t addr, size_t si
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
 
     if ((dev == NULL) || (size == 0)) {
-        devdrv_err_spinlock("Input parameter is invalid. (size=%lu)\n", size);
+        devdrv_err_spinlock("Input parameter is invalid. (size=%lu;dev_is_null=%d;)\n", size, (dev == NULL));
         return;
     }
     pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_driver_dev_get_drvdata(dev);
@@ -3847,8 +3861,8 @@ ka_dma_addr_t devdrv_pci_dma_map_page_attrs(ka_device_t *dev, ka_page_t *page, s
     int ret;
 
     if ((dev == NULL) || (page == NULL) || (size == 0) || (offset > KA_HPAGE_SIZE)) {
-        devdrv_err("Input parameter is invalid. (size=%lu, offset=%lu, dev is %s, page is %s)\n", size, offset,
-                   dev == NULL ? "null" : "not null", page == NULL ? "null" : "not null");
+        devdrv_err("Input parameter is invalid. (size=%lu;offset=%lu;dev_is_null=%d;page_is_null=%d;)\n", size, offset,
+                   (dev == NULL), (page == NULL));
         return (~(ka_dma_addr_t)0);
     }
     pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_driver_dev_get_drvdata(dev);
@@ -3867,7 +3881,7 @@ ka_dma_addr_t devdrv_pci_dma_map_page_attrs(ka_device_t *dev, ka_page_t *page, s
         /* hccs peh's Virtualization pass-through */
         if ((ka_pci_get_is_physfn(pci_ctrl->pdev) == 0) && (ka_pci_get_is_virtfn(pci_ctrl->pdev) == 0)) {
             dma_tmp = (ka_dma_addr_t)(ka_mm_page_to_phys(page) + offset);
-            ret = devdrv_smmu_iova_to_phys_proc(pci_ctrl, &dma_tmp, 1, &dma_addr);
+            ret = devdrv_peh_smmu_iova_to_phys(pci_ctrl, &dma_tmp, 1, &dma_addr);
             if (ret != 0) {
                 return (~(ka_dma_addr_t)0);
             }
@@ -3906,7 +3920,7 @@ void devdrv_pci_dma_unmap_page_attrs(ka_device_t *dev, ka_dma_addr_t addr, size_
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
 
     if (dev == NULL || size == 0) {
-        devdrv_err("Input parameter is invalid. (size=%lu).\n", size);
+        devdrv_err("Input parameter is invalid. (size=%lu;dev_is_null=%d;)\n", size, (dev == NULL));
         return;
     }
     pdev_ctrl = (struct devdrv_pdev_ctrl *)ka_driver_dev_get_drvdata(dev);
@@ -3953,7 +3967,7 @@ ka_dma_addr_t devdrv_pci_dma_map_resource(ka_device_t *dev, phys_addr_t phys_add
                                           ka_dma_data_direction_t dir, unsigned long attrs)
 {
     if ((dev == NULL) || (size == 0)) {
-        devdrv_err("Input parameter is invalid. (size=%lu)\n", size);
+        devdrv_err("Input parameter is invalid. (size=%lu;dev_is_null=%d;)\n", size, (dev == NULL));
         return (~(ka_dma_addr_t)0);
     }
 
@@ -3964,7 +3978,7 @@ void devdrv_pci_dma_unmap_resource(ka_device_t *dev, ka_dma_addr_t addr, size_t 
                                    unsigned long attrs)
 {
     if ((dev == NULL) || (size == 0)) {
-        devdrv_err("Input parameter is invalid. (size=%lu)\n", size);
+        devdrv_err("Input parameter is invalid. (size=%lu;dev_is_null=%d;)\n", size, (dev == NULL));
         return;
     }
 
@@ -3974,7 +3988,7 @@ void devdrv_pci_dma_unmap_resource(ka_device_t *dev, ka_dma_addr_t addr, size_t 
 int devdrv_get_reserve_mem_info(u32 devid, enum devdrv_msg_client_type msg_type, phys_addr_t *pa, size_t *size)
 {
     if ((pa == NULL) || (size == NULL)) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (pa_is_null=%d;size_is_null=%d;)\n", (pa == NULL), (size == NULL));
         return -EINVAL;
     }
 
@@ -3993,7 +4007,7 @@ STATIC int devdrv_iommu_map_addr(struct devdrv_pci_ctrl *src_pci_ctrl, struct de
     if (devdrv_is_alloc_pa_addr(dst_pci_ctrl) == true) {
         /* hccs peh's Virtualization pass-through, need convert by agent-smmu */
         if ((ka_pci_get_is_physfn(dst_pci_ctrl->pdev) == 0) && (ka_pci_get_is_virtfn(dst_pci_ctrl->pdev) == 0)) {
-            ret = devdrv_smmu_iova_to_phys_proc(dst_pci_ctrl, &addr, 1, dma_addr);
+            ret = devdrv_peh_smmu_iova_to_phys(dst_pci_ctrl, &addr, 1, dma_addr);
             if (ret != 0) {
                 devdrv_err("Call devdrv_smmu_iova_to_phys failed. (dev_id=%u)\n", dst_pci_ctrl->dev_id);
                 return ret;
@@ -4083,7 +4097,7 @@ STATIC int devdrv_add_p2p_msg_chan(struct devdrv_pci_ctrl *pci_ctrl_src, struct 
     }
 
     g_p2p_msg_chan_add_cnt[pci_ctrl_src->dev_id][dst_devid].cnt++;
-    devdrv_info("Enable p2p msg chan success. (dev_id=%u, dst_devid=%u)\n", pci_ctrl_src->dev_id, dst_devid);
+    devdrv_info("Enable p2p msg chan success. (dev_id=%u;dst_devid=%u)\n", pci_ctrl_src->dev_id, dst_devid);
     return ret;
 }
 
@@ -4128,7 +4142,7 @@ STATIC int devdrv_del_p2p_msg_chan(struct devdrv_pci_ctrl *pci_ctrl_src, u32 dst
     devdrv_iommu_unmap_addr(pci_ctrl_src, dma_addr, size);
 
     g_p2p_msg_chan_add_cnt[pci_ctrl_src->dev_id][dst_devid].cnt--;
-    devdrv_info("Disable p2p msg chan success. (dev_id=%u, dst_devid=%u)\n", pci_ctrl_src->dev_id, dst_devid);
+    devdrv_info("Disable p2p msg chan success. (dev_id=%u;dst_devid=%u)\n", pci_ctrl_src->dev_id, dst_devid);
     return ret;
 }
 
@@ -4347,13 +4361,13 @@ STATIC int devdrv_uninit_p2p_io_mem(struct devdrv_pci_ctrl *pci_ctrl_src, u32 ds
         ret_io = devdrv_del_p2p_tx_atu(pci_ctrl_src, dst_devid, ATU_TYPE_TX_IO);
     }
 
-    return ret_mem | ret_io;
+    return (unsigned int)ret_mem | (unsigned int)ret_io;
 }
 
 STATIC int devdrv_p2p_cfg_enable(u32 dev_id, u32 peer_dev_id, u32 type)
 {
-    struct devdrv_pci_ctrl *pci_ctrl = g_ctrls[dev_id].priv;
     struct devdrv_pci_ctrl *pci_ctrl_peer = g_ctrls[peer_dev_id].priv;
+    struct devdrv_pci_ctrl *pci_ctrl = g_ctrls[dev_id].priv;
     int ret;
 
     ret = devdrv_add_p2p_msg_chan(pci_ctrl, pci_ctrl_peer);
@@ -4387,9 +4401,9 @@ STATIC int devdrv_p2p_cfg_enable(u32 dev_id, u32 peer_dev_id, u32 type)
 
 STATIC int devdrv_p2p_cfg_disable(u32 dev_id, u32 peer_dev_id, u32 type)
 {
-    struct devdrv_ctrl *ctrl = NULL;
-    struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl_peer = NULL;
+    struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *ctrl = NULL;
     int ret = 0;
 
     /* Should support p2p cfg disable after a device hangs */
@@ -4427,7 +4441,7 @@ STATIC int devdrv_is_two_dev_on_same_chip(u32 dev_id, u32 peer_dev_id)
     /* 2DIe : 1PCIe 2PF */
     if ((dev_func_num == DEVDRV_MAX_FUNC_NUM) || (peer_dev_func_num == DEVDRV_MAX_FUNC_NUM)) {
         if ((dev_id / dev_func_num) == (peer_dev_id / peer_dev_func_num)) {
-            devdrv_warn("dev_id and peer_dev_id is on the same chip. (dev_id=%u; peer_dev_id=%u)\n", dev_id,
+            devdrv_warn("dev_id and peer_dev_id are on the same chip. (dev_id=%u; peer_dev_id=%u)\n", dev_id,
                         peer_dev_id);
             return -EPERM;
         }
@@ -4446,12 +4460,12 @@ STATIC int devdrv_is_two_dev_on_same_chip(u32 dev_id, u32 peer_dev_id)
     }
 
     if (pf_id == peer_pf_id) {
-        devdrv_err("dev_id and peer_dev_id is same. (dev_id=%u; peer_dev_id=%u)\n", dev_id, peer_dev_id);
+        devdrv_err("dev_id and peer_dev_id are the same. (dev_id=%u; peer_dev_id=%u)\n", dev_id, peer_dev_id);
         return -EINVAL;
     }
 
     if ((vf_id != 0) || (peer_vf_id != 0)) {
-        devdrv_warn("Vf not support p2p. (vf_id=%u; peer_vf_id=%u)\n", vf_id, peer_vf_id);
+        devdrv_warn("VF does not support p2p. (vf_id=%u; peer_vf_id=%u)\n", vf_id, peer_vf_id);
         return -EINVAL;
     }
 
@@ -4460,10 +4474,10 @@ STATIC int devdrv_is_two_dev_on_same_chip(u32 dev_id, u32 peer_dev_id)
 
 int devdrv_p2p_para_check(int pid, u32 dev_id, u32 peer_dev_id)
 {
-    struct devdrv_ctrl *dev_ctrl = NULL;
-    struct devdrv_ctrl *dev_ctrl_peer = NULL;
-    struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl_peer = NULL;
+    struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *dev_ctrl_peer = NULL;
+    struct devdrv_ctrl *dev_ctrl = NULL;
     u32 devdrv_p2p_support_max_devnum;
 
     dev_ctrl = devdrv_get_bottom_half_devctrl_by_id(dev_id);
@@ -4483,7 +4497,7 @@ int devdrv_p2p_para_check(int pid, u32 dev_id, u32 peer_dev_id)
     }
 
     if (pci_ctrl->pdev == pci_ctrl_peer->pdev) {
-        devdrv_warn("dev_id and peer_dev_id is on the same chip. (pid=%d; dev_id=%u; peer_dev_id=%u)\n", pid, dev_id,
+        devdrv_warn("dev_id and peer_dev_id are on the same chip. (pid=%d; dev_id=%u; peer_dev_id=%u)\n", pid, dev_id,
                     peer_dev_id);
         return -EINVAL;
     }
@@ -4557,8 +4571,8 @@ STATIC int devdrv_get_idle_p2p_attr_proc_id(const struct devdrv_p2p_attr_info *p
 
 int devdrv_enable_p2p_inner(int pid, u32 index_id, u32 peer_index_id, u32 p2p_type)
 {
-    struct devdrv_p2p_attr_info *p2p_attr = NULL;
     struct devdrv_p2p_attr_info *p2p_peer_attr = NULL;
+    struct devdrv_p2p_attr_info *p2p_attr = NULL;
     int ret, idx;
 
     ret = devdrv_p2p_para_check(pid, index_id, peer_index_id);
@@ -4629,12 +4643,16 @@ STATIC int devdrv_enable_p2p_all(int pid, u32 index_id, u32 peer_index_id)
 
 int devdrv_enable_p2p(int pid, u32 udevid, u32 peer_udevid, u32 type)
 {
-    u32 index_id, peer_index_id;
-    u32 chip_type;
+    u32 index_id, peer_index_id, chip_type;
     int ret;
 
     (void)uda_udevid_to_add_id(udevid, &index_id);
-    (void)uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    ret = uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    if (ret != 0) {
+        devdrv_err("udevid check failed. (pid=%d; udevid=%u; peer_udevid=%u; type=%u; ret=%d)\n", pid, udevid,
+                   peer_udevid, type, ret);
+        return ret;
+    }
     if (type == DEVDRV_P2P_TYPE_MEM) {
         chip_type = devdrv_get_dev_chip_type_inner(index_id);
         /* form cloud v4, this type only enable mem atu, old card need enable all */
@@ -4688,10 +4706,9 @@ STATIC int devdrv_device_p2p_del_ref(struct devdrv_p2p_attr_info *p2p_attr, int 
 
 int devdrv_disable_p2p_inner(int pid, u32 index_id, u32 peer_index_id, u32 p2p_type)
 {
-    struct devdrv_p2p_attr_info *p2p_attr = NULL;
     struct devdrv_p2p_attr_info *p2p_peer_attr = NULL;
-    int ret, idx;
-    int pid_temp = 0;
+    struct devdrv_p2p_attr_info *p2p_attr = NULL;
+    int pid_temp = 0, ret, idx;
 
     ret = devdrv_p2p_para_check(pid, index_id, peer_index_id);
     if (ret != 0) {
@@ -4761,12 +4778,16 @@ STATIC int devdrv_disable_p2p_all(int pid, u32 index_id, u32 peer_index_id)
 
 int devdrv_disable_p2p(int pid, u32 udevid, u32 peer_udevid, u32 type)
 {
-    u32 index_id, peer_index_id;
-    u32 chip_type;
+    u32 index_id, peer_index_id, chip_type;
     int ret;
 
     (void)uda_udevid_to_add_id(udevid, &index_id);
-    (void)uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    ret = uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    if (ret != 0) {
+        devdrv_err("udevid check failed. (pid=%d; udevid=%u; peer_udevid=%u; type=%u; ret=%d)\n", pid, udevid,
+                   peer_udevid, type, ret);
+        return ret;
+    }
 
     if (type == DEVDRV_P2P_TYPE_MEM) {
         chip_type = devdrv_get_dev_chip_type_inner(index_id);
@@ -4797,8 +4818,8 @@ KA_EXPORT_SYMBOL(devdrv_disable_p2p);
 
 bool devdrv_is_p2p_enabled_inner(u32 index_id, u32 peer_index_id)
 {
-    struct devdrv_p2p_attr_info *p2p_attr = NULL;
     struct devdrv_p2p_attr_info *p2p_peer_attr = NULL;
+    struct devdrv_p2p_attr_info *p2p_attr = NULL;
     int ret;
 
     ret = devdrv_p2p_para_check(0, index_id, peer_index_id);
@@ -4815,8 +4836,14 @@ bool devdrv_is_p2p_enabled_inner(u32 index_id, u32 peer_index_id)
 bool devdrv_is_p2p_enabled(u32 udevid, u32 peer_udevid)
 {
     u32 index_id, peer_index_id;
+    int ret;
+
     (void)uda_udevid_to_add_id(udevid, &index_id);
-    (void)uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    ret = uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    if (ret != 0) {
+        devdrv_err("udevid check failed. (udevid=%u; peer_udevid=%u; ret=%d)\n", udevid, peer_udevid, ret);
+        return false;
+    }
     return devdrv_is_p2p_enabled_inner(index_id, peer_index_id);
 }
 KA_EXPORT_SYMBOL(devdrv_is_p2p_enabled);
@@ -4871,11 +4898,10 @@ KA_EXPORT_SYMBOL(devdrv_flush_p2p);
 
 int devdrv_get_p2p_capability_inner(u32 index_id, u64 *capability)
 {
+    u32 val[DEVDRV_MAX_CAPABILITY_VALUE_NUM] = {0};
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_ctrl *dev_ctrl = NULL;
-    int vndr;
-    u32 val[DEVDRV_MAX_CAPABILITY_VALUE_NUM] = {0};
-    int ret, i;
+    int vndr, ret, i;
 
     if ((index_id >= MAX_DEV_CNT) || (capability == NULL)) {
         devdrv_err("Input parameter is invalid. (index_id=%u)\n", index_id);
@@ -4919,7 +4945,7 @@ KA_EXPORT_SYMBOL(devdrv_get_p2p_capability);
 STATIC bool devdrv_pci_topo_support_p2p(const ka_pci_dev_t *upper, const ka_pci_dev_t *peer_upper)
 {
     if (upper->bus->self == NULL || peer_upper->bus->self == NULL) {
-        devdrv_info("One or both device under root port, not support p2p.\n");
+        devdrv_info("One or both devices are under the root port, so p2p is not supported.\n");
         return false;
     }
 
@@ -4962,10 +4988,10 @@ STATIC int devdrv_get_p2p_access_status_physical(u32 devid, u32 peer_devid, int 
 
     if (devdrv_pci_topo_support_p2p(ka_pci_get_bus_self(pci_ctrl->pdev), ka_pci_get_bus_self(peer_pci_ctrl->pdev))) {
         *status = DEVDRV_P2P_ACCESS_ENABLE;
-        devdrv_info("Topo support p2p. (dev_id=%u; peer_devid=%u)\n", devid, peer_devid);
+        devdrv_info("Topo support p2p. (dev_id=%u;peer_devid=%u)\n", devid, peer_devid);
     } else {
         *status = DEVDRV_P2P_ACCESS_DISABLE;
-        devdrv_info("Topo not support p2p. (dev_id=%u; peer_devid=%u)\n", devid, peer_devid);
+        devdrv_info("Topo does not support p2p. (dev_id=%u; peer_devid=%u)\n", devid, peer_devid);
     }
 
     return 0;
@@ -4978,8 +5004,7 @@ STATIC int devdrv_get_p2p_access_status_virtual(u32 devid, u32 peer_devid, int *
     u64 capability, peer_capability;
     u64 group, peer_group;
     u64 sign, peer_sign;
-    int p2p_status;
-    int ret;
+    int p2p_status, ret;
 
     pci_ctrl = devdrv_get_bottom_half_pci_ctrl_by_id(devid);
     if (pci_ctrl == NULL) {
@@ -5020,14 +5045,14 @@ STATIC int devdrv_get_p2p_access_status_virtual(u32 devid, u32 peer_devid, int *
 
     if ((sign != DEVDRV_VIRT_MACH_SIGN) || (peer_sign != DEVDRV_VIRT_MACH_SIGN)) {
         *status = DEVDRV_P2P_ACCESS_DISABLE;
-        devdrv_info("Not virt mach signature. (dev_id=%u; sign=%llx; peer_dev=%u; sign=%llx)\n", devid, sign,
-                    peer_devid, peer_sign);
+        devdrv_info("Not virt mach signature. (dev_id=%u;sign=%llx;peer_dev=%u;sign=%llx)\n", devid, sign, peer_devid,
+                    peer_sign);
         return 0;
     }
 
     if (group != peer_group) {
         *status = DEVDRV_P2P_ACCESS_DISABLE;
-        devdrv_info("Different group. (dev_id=%u; group=%llu; peer_dev=%u; group=%llu)\n", devid, group, peer_devid,
+        devdrv_info("Different group. (dev_id=%u;group=%llu;peer_dev=%u;group=%llu)\n", devid, group, peer_devid,
                     peer_group);
         return 0;
     }
@@ -5038,7 +5063,7 @@ STATIC int devdrv_get_p2p_access_status_virtual(u32 devid, u32 peer_devid, int *
 
 int devdrv_get_p2p_access_status_inner(u32 index_id, u32 peer_index_id, int *status)
 {
-    unsigned int host_flag;
+    u32 host_flag;
     int ret;
 
     if ((index_id >= MAX_DEV_CNT) || (peer_index_id >= MAX_DEV_CNT) || (status == NULL) ||
@@ -5074,9 +5099,14 @@ int devdrv_get_p2p_access_status_inner(u32 index_id, u32 peer_index_id, int *sta
 int devdrv_get_p2p_access_status(u32 udevid, u32 peer_udevid, int *status)
 {
     u32 index_id, peer_index_id;
+    int ret;
 
     (void)uda_udevid_to_add_id(udevid, &index_id);
-    (void)uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    ret = uda_udevid_to_add_id(peer_udevid, &peer_index_id);
+    if (ret != 0) {
+        devdrv_err("udevid check failed. (udevid=%u; peer_udevid=%u; ret=%d)\n", udevid, peer_udevid, ret);
+        return -ENXIO;
+    }
     return devdrv_get_p2p_access_status_inner(index_id, peer_index_id, status);
 }
 KA_EXPORT_SYMBOL(devdrv_get_p2p_access_status);
@@ -5109,10 +5139,10 @@ void devdrv_clear_p2p_resource(u32 devid)
 
 int devdrv_devmem_addr_bar_to_dma(u32 devid, u32 dst_devid, phys_addr_t host_bar_addr, ka_dma_addr_t *dma_addr)
 {
-    int ret;
-    struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl_dst = NULL;
+    struct devdrv_pci_ctrl *pci_ctrl = NULL;
     u32 index_id, peer_index_id;
+    int ret;
 
     if (dma_addr == NULL) {
         devdrv_err("Input parameter dma_addr is null. (dev_id=%d; peer_dev_id=%d)\n", devid, dst_devid);
@@ -5129,7 +5159,7 @@ int devdrv_devmem_addr_bar_to_dma(u32 devid, u32 dst_devid, phys_addr_t host_bar
 
     ret = devdrv_p2p_para_check(0, index_id, peer_index_id);
     if (ret != 0) {
-        devdrv_warn("Src_dev and dst_dev not support p2p. (dev_id=%d; peer_dev_id=%d)\n", devid, dst_devid);
+        devdrv_warn("Src_dev and dst_dev do not support p2p. (dev_id=%d; peer_dev_id=%d)\n", devid, dst_devid);
         return -EPERM;
     }
 
@@ -5179,7 +5209,8 @@ int devdrv_pcie_prereset(u32 index_id)
     }
 
     chip_type = devdrv_get_dev_chip_type_inner(index_id);
-    if ((chip_type == HISI_CLOUD_V4) || (chip_type == HISI_CLOUD_V5) || (chip_type == HISI_MINI_V4)) {
+    if ((chip_type == HISI_CLOUD_V4) || (chip_type == HISI_CLOUD_V5) || (chip_type == HISI_MINI_V4) ||
+        (chip_type == HISI_MINI_V5) || (chip_type == HISI_CLOUD_V6)) {
         return 0;
     }
 
@@ -5439,11 +5470,11 @@ int devdrv_device_txatu_config(int pid, u32 udevid, ka_dma_addr_t host_dma_addr,
     }
     pci_ctrl = (struct devdrv_pci_ctrl *)ctrl->priv;
     if (pci_ctrl->virtfn_flag == DEVDRV_SRIOV_TYPE_VF) {
-        devdrv_warn("Vf not support tx atu. (pid=%d; udevid=%u)\n", pid, udevid);
+        devdrv_warn("Vf does not support tx atu. (pid=%d; udevid=%u)\n", pid, udevid);
         return -EOPNOTSUPP;
     }
     if ((size == 0) || ((size % ATU_SIZE_ALIGN) != 0)) {
-        devdrv_err("Size is illegal. (pid=%d;udevid=%u;size=0x%llx;align=0x%x)\n", pid, udevid, size, ATU_SIZE_ALIGN);
+        devdrv_err("Size is illegal. (pid=%d; udevid=%u; size=0x%llx)\n", pid, udevid, size);
         return -EINVAL;
     }
     ka_task_mutex_lock(&g_devdrv_p2p_mutex);
@@ -5471,7 +5502,7 @@ int devdrv_device_txatu_config(int pid, u32 udevid, ka_dma_addr_t host_dma_addr,
         devdrv_event("Enable h2d success. (pid=%d; udevid=%u)\n", pid, udevid);
     }
     devdrv_device_txatu_cfg_ref_proc(h2d_attr, index);
-    devdrv_info("Device txatu config ok. (pid=%d; udevid=%d; ref=%d; total_ref=%d)\n", pid, udevid,
+    devdrv_info("Device txatu config ok. (pid=%d;udevid=%d;ref=%d;total_ref=%d)\n", pid, udevid,
                 h2d_attr->proc_ref[index], h2d_attr->ref);
 out:
     ka_task_mutex_unlock(&g_devdrv_p2p_mutex);
@@ -5507,12 +5538,12 @@ STATIC int devdrv_device_txatu_del_msg_proc(struct devdrv_msg_dev *msg_dev, ka_d
 
 int devdrv_device_txatu_del(int pid, u32 udevid, ka_dma_addr_t host_dma_addr)
 {
-    struct devdrv_ctrl *ctrl;
     struct devdrv_h2d_attr_info *h2d_attr = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
-    int ret = 0;
-    int index;
+    struct devdrv_ctrl *ctrl;
     u32 index_id;
+    int index;
+    int ret = 0;
 
     (void)uda_udevid_to_add_id(udevid, &index_id);
     ctrl = devdrv_get_bottom_half_devctrl_by_id(index_id);
@@ -5538,7 +5569,7 @@ int devdrv_device_txatu_del(int pid, u32 udevid, ka_dma_addr_t host_dma_addr)
     }
 
     if ((h2d_attr->ref <= 0) || (h2d_attr->proc_ref[index] <= 0)) {
-        devdrv_err("h2d_attr information is error. (pid=%d; udevid=%d; proc_ref=%d; total_ref=%d)\n", pid, udevid,
+        devdrv_err("h2d_attr information is erroneous. (pid=%d; udevid=%d; proc_ref=%d; total_ref=%d)\n", pid, udevid,
                    h2d_attr->proc_ref[index], h2d_attr->ref);
         ret = -ESRCH;
         goto out;
@@ -5554,7 +5585,7 @@ int devdrv_device_txatu_del(int pid, u32 udevid, ka_dma_addr_t host_dma_addr)
         h2d_attr->valid = 0;
     }
 
-    devdrv_info("Device txatu delete ok. (pid=%d; udevid=%d; proc_ref=%d; total_ref=%d)\n", pid, udevid,
+    devdrv_info("Device txatu delete ok. (pid=%d;udevid=%d;proc_ref=%d;total_ref=%d)\n", pid, udevid,
                 h2d_attr->proc_ref[index], h2d_attr->ref);
 out:
     ka_task_mutex_unlock(&g_devdrv_p2p_mutex);
@@ -5613,7 +5644,7 @@ bool devdrv_get_device_boot_finish(u32 dev_id)
 
     ctrl = devdrv_get_bottom_half_devctrl_by_id(index_id);
     if ((ctrl == NULL) || (ctrl->priv == NULL)) {
-        devdrv_warn("Dev ctrl not probe finish now. (dev_id=%u)\n", dev_id);
+        devdrv_warn("Dev ctrl has not finished probing. (dev_id=%u)\n", dev_id);
         return false;
     }
     pci_ctrl = (struct devdrv_pci_ctrl *)ctrl->priv;
@@ -5681,9 +5712,9 @@ void devdrv_set_startup_status(struct devdrv_pci_ctrl *pci_ctrl, int status)
 
     if (status == DEVDRV_STARTUP_STATUS_INIT) {
         startup_status->module_bit_map = 0;
-        devdrv_info("Startup status init. (dev_id=%u; jiffies=%ld)\n", pci_ctrl->dev_id, ka_jiffies);
+        devdrv_info("Startup status init. (dev_id=%u;jiffies=%ld)\n", pci_ctrl->dev_id, ka_jiffies);
     } else {
-        devdrv_info("Set new status. (dev_id=%u; pre_status=%d; current=%d; use_time=%dms)\n", pci_ctrl->dev_id,
+        devdrv_info("Set new status. (dev_id=%u;pre_status=%d;current=%d;use_time=%dms)\n", pci_ctrl->dev_id,
                     startup_status->status, status, ka_system_jiffies_to_msecs(ka_jiffies - startup_status->timestamp));
     }
 
@@ -5695,9 +5726,9 @@ void devdrv_set_startup_status(struct devdrv_pci_ctrl *pci_ctrl, int status)
 
 int devdrv_set_module_init_finish(int udevid, int module)
 {
+    struct devdrv_startup_status *startup_status = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_ctrl *ctrl = NULL;
-    struct devdrv_startup_status *startup_status = NULL;
     u32 index_id;
 
     (void)uda_udevid_to_add_id((u32)udevid, &index_id);
@@ -5718,7 +5749,7 @@ int devdrv_set_module_init_finish(int udevid, int module)
 
     ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
 
-    devdrv_info("Module init finish. (udevid=%d; module=%d)\n", udevid, module);
+    devdrv_info("Module init finish. (udevid=%d;module=%d)\n", udevid, module);
 
     return 0;
 }
@@ -5760,7 +5791,7 @@ STATIC bool devdrv_can_hotreset(struct devdrv_pci_ctrl *pci_ctrl)
 
     ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
 
-    devdrv_info("Can hotreset ok. (status=%d; module_bit_map=0x%x; timestamp=%ld; cur=%ld; ret=%d)\n",
+    devdrv_info("Can hotreset ok. (status=%d;module_bit_map=0x%x;timestamp=%ld;cur=%ld;ret=%d)\n",
                 startup_status->status, startup_status->module_bit_map, startup_status->timestamp, ka_jiffies, ret);
 
     return ret;
@@ -5768,9 +5799,9 @@ STATIC bool devdrv_can_hotreset(struct devdrv_pci_ctrl *pci_ctrl)
 
 ka_pci_dev_t *devdrv_get_device_pf(ka_pci_dev_t *pdev, unsigned int pf_num)
 {
+    ka_pci_dev_t *dev = NULL;
     unsigned int devfn;
     int domain_nr;
-    ka_pci_dev_t *dev = NULL;
 
     devfn = KA_PCI_DEVFN(KA_PCI_SLOT(ka_pci_get_devfn(pdev)), pf_num);
     domain_nr = ka_pci_domain_nr(ka_pci_get_bus(pdev));
@@ -5915,8 +5946,8 @@ check:
 
 STATIC bool devdrv_pre_hotreset_check(int dev_num)
 {
-    struct devdrv_ctrl *dev_ctrl = NULL;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    struct devdrv_ctrl *dev_ctrl = NULL;
     int i, ready_dev_num;
     bool ret = false;
 
@@ -5930,13 +5961,13 @@ STATIC bool devdrv_pre_hotreset_check(int dev_num)
             if (devdrv_can_hotreset(pci_ctrl)) {
                 ready_dev_num++;
             } else {
-                devdrv_info("Device cannot hotreset.(dev_id=%d; status=%d)\n", dev_ctrl->dev_id,
+                devdrv_info("Device cannot hotreset.(dev_id=%d;status=%d)\n", dev_ctrl->dev_id,
                             pci_ctrl->startup_status.status);
             }
         }
     }
 
-    devdrv_info("Get ready_dev_num. (dev_num=%d; ready_dev_num=%d)\n", dev_num, ready_dev_num);
+    devdrv_info("Get ready_dev_num. (dev_num=%d;ready_dev_num=%d)\n", dev_num, ready_dev_num);
 
     if (ready_dev_num == dev_num) {
         ret = true;
@@ -6079,7 +6110,7 @@ STATIC void devdrv_pci_hot_reset(struct devdrv_ctrl *dev_ctrl)
         ret = ka_pci_reset_function(dev_ctrl->pdev);
         ka_pci_pm_runtime_put(ka_pci_get_dev(dev_ctrl->pdev));
         if (ret < 0) {
-            devdrv_info("Reset vf function. (dev_id=%d; ret=%d)\n", dev_ctrl->dev_id, ret);
+            devdrv_info("Reset vf function. (dev_id=%d;ret=%d)\n", dev_ctrl->dev_id, ret);
         }
 #endif
         return;
@@ -6102,7 +6133,7 @@ STATIC void devdrv_pci_hot_reset(struct devdrv_ctrl *dev_ctrl)
             }
 #endif
             ret = devdrv_pci_try_reset_function(dev_ctrl->pdev, dev_ctrl->dev_id);
-            devdrv_info("Reset function. (dev_id=%d; ret=%d)\n", dev_ctrl->dev_id, ret);
+            devdrv_info("Reset function. (dev_id=%d;ret=%d)\n", dev_ctrl->dev_id, ret);
 #if defined(ASCEND910_93_EX) && defined(ENABLE_BUILD_PRODUCT)
             ret = pci_set_bus_enable_lnkctl_a3(dev_ctrl_slave->bus->self);
             if (!ret) {
@@ -6112,7 +6143,7 @@ STATIC void devdrv_pci_hot_reset(struct devdrv_ctrl *dev_ctrl)
             }
         } else {
             ret = devdrv_pci_try_reset_function(dev_ctrl->pdev, dev_ctrl->dev_id);
-            devdrv_info("Reset function. (dev_id=%d; ret=%d)\n", dev_ctrl->dev_id, ret);
+            devdrv_info("Reset function. (dev_id=%d;ret=%d)\n", dev_ctrl->dev_id, ret);
         }
 #endif
     }
@@ -6129,7 +6160,7 @@ STATIC void devdrv_do_hot_reset(void)
 
         if (dev_ctrl->master_flag == 1) {
             if (dev_ctrl->bus != NULL) {
-                devdrv_info("Device do hot reset. (dev_id=%u)\n", dev_ctrl->dev_id);
+                devdrv_info("Device does hot reset. (dev_id=%u)\n", dev_ctrl->dev_id);
                 devdrv_pci_hot_reset(dev_ctrl);
             }
         }
@@ -6140,8 +6171,8 @@ STATIC void devdrv_after_hot_reset(int num)
 {
     struct devdrv_ctrl *dev_ctrl = NULL;
     int delay_count = 0;
-    int i;
     int num_after;
+    int i;
 
     for (i = 0; i < MAX_DEV_CNT; i++) {
         dev_ctrl = &g_ctrls[i];
@@ -6189,7 +6220,7 @@ STATIC void devdrv_after_hot_reset(int num)
         ka_system_ssleep(DEVDRV_HOT_RESET_DELAY);
     } while (delay_count < DEVDRV_MAX_DELAY_COUNT);
 
-    devdrv_info("Get rescan cost time. (delay_count=%d; num_before=%d; num_after=%d)\n", delay_count, num, num_after);
+    devdrv_info("Get rescan cost time. (delay_count=%d;num_before=%d;num_after=%d)\n", delay_count, num, num_after);
 }
 
 void devdrv_set_hccs_link_status(u32 dev_id, u32 val)
@@ -6198,7 +6229,7 @@ void devdrv_set_hccs_link_status(u32 dev_id, u32 val)
 
     pci_ctrl = devdrv_get_bottom_half_pci_ctrl_by_id(dev_id);
     if ((pci_ctrl == NULL) || (pci_ctrl->shr_para == NULL)) {
-        devdrv_err("Get pci_ctrl failed. (dev_id=%u)\n", dev_id);
+        devdrv_err("Get pci_ctrl fail. (dev_id=%u)\n", dev_id);
         return;
     }
 
@@ -6211,7 +6242,7 @@ STATIC int devdrv_get_hccs_link_status(u32 dev_id, u32 *val)
 
     pci_ctrl = devdrv_get_top_half_pci_ctrl_by_id(dev_id);
     if ((pci_ctrl == NULL) || (pci_ctrl->shr_para == NULL)) {
-        devdrv_err("Get pci_ctrl failed. (dev_id=%u)\n", dev_id);
+        devdrv_err("Get pci_ctrl fail. (dev_id=%u)\n", dev_id);
         return -EINVAL;
     }
 
@@ -6221,8 +6252,8 @@ STATIC int devdrv_get_hccs_link_status(u32 dev_id, u32 *val)
 
 STATIC bool devdrv_is_amp_system(u32 dev_id, int node_id, int chip_id)
 {
-    struct devdrv_pci_ctrl *pci_ctrl = NULL;
     struct devdrv_shr_para __ka_mm_iomem *shr_para = NULL;
+    struct devdrv_pci_ctrl *pci_ctrl = NULL;
     u32 hccs_status;
     int ret;
     u32 i;
@@ -6270,7 +6301,7 @@ STATIC int devdrv_hot_reset_check_all_davinci_dev_in_pdev(ka_pci_dev_t *pdev)
     for (i = 0; i < pdev_ctrl->dev_num; i++) {
         pci_ctrl = pdev_ctrl->pci_ctrl[i];
         if (devdrv_can_hotreset(pci_ctrl) == false) {
-            devdrv_info("Device cannot hotreset. (dev_id=%u; status=%d)\n", pci_ctrl->dev_id,
+            devdrv_info("Device cannot hotreset. (dev_id=%u;status=%d)\n", pci_ctrl->dev_id,
                         pci_ctrl->startup_status.status);
             return -EAGAIN;
         }
@@ -6312,7 +6343,7 @@ STATIC void devdrv_device_vf_bus_attach(struct devdrv_ctrl *dev_ctrl)
 
     do {
         num = (u32)ka_base_device_attach(ka_pci_get_dev(dev_ctrl->pdev));
-        devdrv_info("Pcie vf flr reset, rescan device. (bdf=%02x:%02x.%d; dev_num=%u)\n",
+        devdrv_info("Pcie vf flr reset, rescan device. (bdf=%02x:%02x.%d;dev_num=%u)\n",
                     ka_pci_get_bus_number(dev_ctrl->pdev), KA_PCI_SLOT(ka_pci_get_devfn(dev_ctrl->pdev)),
                     KA_PCI_FUNC(ka_pci_get_devfn(dev_ctrl->pdev)), num);
         if (dev_ctrl->priv != NULL) {
@@ -6428,7 +6459,7 @@ STATIC int devdrv_unbind_single_chip(u32 main_dev_id, u32 slave_dev_id)
     }
 
     if (devdrv_can_hotreset(main_pci_ctrl) == false) {
-        devdrv_info("Main device cannot hotreset. (dev_id=%u; status=%d)\n", main_dev_id,
+        devdrv_info("Main device cannot hotreset. (dev_id=%u;status=%d)\n", main_dev_id,
                     main_pci_ctrl->startup_status.status);
         devdrv_pci_ctrl_put(main_pci_ctrl);
         devdrv_pci_ctrl_put(slave_pci_ctrl);
@@ -6436,7 +6467,7 @@ STATIC int devdrv_unbind_single_chip(u32 main_dev_id, u32 slave_dev_id)
     }
 
     if (devdrv_can_hotreset(slave_pci_ctrl) == false) {
-        devdrv_info("Slave device cannot hotreset. (dev_id=%u; status=%d)\n", slave_dev_id,
+        devdrv_info("Slave device cannot hotreset. (dev_id=%u;status=%d)\n", slave_dev_id,
                     slave_pci_ctrl->startup_status.status);
         devdrv_pci_ctrl_put(main_pci_ctrl);
         devdrv_pci_ctrl_put(slave_pci_ctrl);
@@ -6478,7 +6509,7 @@ STATIC int devdrv_hot_reset_single_chip(u32 dev_id)
     /* unbind main & slave device */
     ret = devdrv_unbind_single_chip(main_dev_id, slave_dev_id);
     if (ret != 0) {
-        devdrv_info("Not ready to unbind device. (main_dev_id=%u; slave_dev_id=%u)\n", main_dev_id, slave_dev_id);
+        devdrv_info("Not ready to unbind device. (main_dev_id=%u;slave_dev_id=%u)\n", main_dev_id, slave_dev_id);
         return ret;
     }
 
@@ -6490,7 +6521,7 @@ STATIC int devdrv_hot_reset_single_chip(u32 dev_id)
     ka_system_msleep(1); /* sleep 1ms for free cpu */
 
     /* do hotreset */
-    devdrv_info("Device hot reset begin. (main_dev_id=%u; slave_dev_id=%u)\n", main_dev_id, slave_dev_id);
+    devdrv_info("Device hot reset begin. (main_dev_id=%u;slave_dev_id=%u)\n", main_dev_id, slave_dev_id);
 
     main_dev_ctrl = &g_ctrls[main_dev_id];
     devdrv_pci_hot_reset(main_dev_ctrl);
@@ -6548,21 +6579,24 @@ STATIC int devdrv_hot_reset_all_device(void)
 
 int devdrv_pcie_hotreset_assemble(u32 index_id)
 {
-    int ret = 0;
-    u32 dev_id_tmp = index_id;
-    u32 main_dev_id, slave_dev_id;
     struct devdrv_pci_ctrl *pci_ctrl = NULL;
+    u32 i, main_dev_id, slave_dev_id;
+    u32 dev_id_tmp = index_id;
+    int ret = 0;
 
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
+    if (index_id == 0xffff) {
+        for (i = 0; i < MAX_DEV_CNT; i++) {
+            if (g_devdrv_ctrl_hot_reset_status[i] == 1) {
+                ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
+                devdrv_err("Pcie hotreset, but device on process. (dev_id=%u; status=%u)\n", i,
+                           g_devdrv_ctrl_hot_reset_status[i]);
+                return -EAGAIN;
+            }
+        }
 
-    if (index_id == 0xff) {
-        if (g_devdrv_ctrl_hot_reset_status != 0) {
-            ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
-            devdrv_err("Pcie hotreset, but device on process. (index_id=%u; dev_mask=%llu)\n", index_id,
-                       g_devdrv_ctrl_hot_reset_status);
-            return -EAGAIN;
-        } else {
-            g_devdrv_ctrl_hot_reset_status = DEVDRV_PCIE_HOT_RESET_ALL_DEVICE_MASK;
+        for (i = 0; i < MAX_DEV_CNT; i++) {
+            g_devdrv_ctrl_hot_reset_status[i] = 1;
         }
     } else if (index_id < MAX_DEV_CNT) {
         pci_ctrl = devdrv_get_top_half_pci_ctrl_by_id(index_id);
@@ -6576,13 +6610,13 @@ int devdrv_pcie_hotreset_assemble(u32 index_id)
             dev_id_tmp = main_dev_id;
         }
 
-        if (((g_devdrv_ctrl_hot_reset_status >> dev_id_tmp) & 1U) == 1) {
+        if (g_devdrv_ctrl_hot_reset_status[dev_id_tmp] == 1) {
             ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
-            devdrv_err("Pcie hotreset, but device on process. (index_id=%u; dev_mask=%llu)\n", index_id,
-                       g_devdrv_ctrl_hot_reset_status);
+            devdrv_err("Pcie hotreset, but device on process. (index_id=%u; status=%u)\n", index_id,
+                       g_devdrv_ctrl_hot_reset_status[dev_id_tmp]);
             return -EAGAIN;
         } else {
-            g_devdrv_ctrl_hot_reset_status |= (1ULL << dev_id_tmp);
+            g_devdrv_ctrl_hot_reset_status[dev_id_tmp] = 1;
         }
     } else {
         ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
@@ -6592,7 +6626,7 @@ int devdrv_pcie_hotreset_assemble(u32 index_id)
 
     ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
 
-    if (index_id == 0xff) {
+    if (index_id == 0xffff) {
         ret = devdrv_hot_reset_all_device();
     } else if (pci_ctrl->multi_die == DEVDRV_MULTI_DIE_ONE_CHIP) {
         ret = devdrv_hot_reset_single_chip(index_id);
@@ -6605,10 +6639,12 @@ int devdrv_pcie_hotreset_assemble(u32 index_id)
     }
 
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
-    if (index_id == 0xff) {
-        g_devdrv_ctrl_hot_reset_status = 0;
+    if (index_id == 0xffff) {
+        for (i = 0; i < MAX_DEV_CNT; i++) {
+            g_devdrv_ctrl_hot_reset_status[i] = 0;
+        }
     } else {
-        g_devdrv_ctrl_hot_reset_status &= ~(1ULL << dev_id_tmp);
+        g_devdrv_ctrl_hot_reset_status[dev_id_tmp] = 0;
     }
     ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
 
@@ -6617,8 +6653,8 @@ int devdrv_pcie_hotreset_assemble(u32 index_id)
 
 int devdrv_get_master_devid_in_the_same_os_inner(u32 index_id, u32 *master_index_id)
 {
-    struct devdrv_ctrl *ctrl, *peer_ctrl;
     struct devdrv_pci_ctrl *pci_ctrl, *peer_pci_ctrl;
+    struct devdrv_ctrl *ctrl, *peer_ctrl;
     u32 i;
 
     if ((index_id >= MAX_DEV_CNT) || master_index_id == NULL) {
@@ -6659,7 +6695,7 @@ int devdrv_get_master_devid_in_the_same_os_inner(u32 index_id, u32 *master_index
             return 0;
         }
     }
-    devdrv_err("Can not find master index_id. (index_id=%u)\n", index_id);
+    devdrv_err("Failed to find master index_id. (index_id=%u)\n", index_id);
     return -EINVAL;
 }
 
@@ -6749,7 +6785,7 @@ int devdrv_get_hccs_link_status_and_group_id(u32 devid, u32 *hccs_status, u32 hc
     }
 
     if (!devdrv_feature_is_support(pci_ctrl->features, DEVDRV_FEATURE_HCCS_LINK_INFO)) {
-        devdrv_warn("Not support to get hccs link info. (dev_id=%u)\n", devid);
+        devdrv_warn("Do not support getting hccs link info. (dev_id=%u)\n", devid);
         return -EPERM;
     }
 
@@ -6782,7 +6818,7 @@ int devdrv_get_runtime_runningplat(u32 udevid, u64 *running_plat)
         return -EINVAL;
     }
     ctrl = devdrv_get_top_half_devctrl_by_id(index_id);
-    if (ctrl == NULL) {
+    if ((ctrl == NULL) || (ctrl->priv == NULL)) {
         devdrv_err("Get dev_ctrl failed. (udevid=%u)\n", udevid);
         return -ENODEV;
     }
@@ -6803,12 +6839,12 @@ int devdrv_set_runtime_runningplat(u32 udevid, u64 running_plat)
 
     (void)uda_udevid_to_add_id(udevid, &index_id);
     if (index_id >= MAX_DEV_CNT) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (index_id=%u;)\n", index_id);
         return -EINVAL;
     }
 
     ctrl = devdrv_get_top_half_devctrl_by_id(index_id);
-    if (ctrl == NULL) {
+    if ((ctrl == NULL) || (ctrl->priv == NULL)) {
         devdrv_err("Get dev_ctrl failed. (udevid=%u)\n", udevid);
         return -ENODEV;
     }
@@ -6828,12 +6864,12 @@ int devdrv_get_heartbeat_count(u32 devid, u64 *count)
     u32 index_id;
 
     if (count == NULL) {
-        devdrv_err("Input parameter is invalid.\n");
+        devdrv_err("Input parameter is invalid. (count_is_null=%d;)\n", (count == NULL));
         return -EINVAL;
     }
     (void)uda_udevid_to_add_id(devid, &index_id);
     ctrl = devdrv_get_bottom_half_devctrl_by_id(index_id);
-    if (ctrl == NULL) {
+    if ((ctrl == NULL) || (ctrl->priv == NULL)) {
         devdrv_err("Get dev_ctrl failed. (dev_id=%u)\n", devid);
         return -ENODEV;
     }
@@ -6851,7 +6887,7 @@ int devdrv_set_heartbeat_count(u32 devid, u64 count)
 
     (void)uda_udevid_to_add_id(devid, &index_id);
     ctrl = devdrv_get_bottom_half_devctrl_by_id(index_id);
-    if (ctrl == NULL) {
+    if ((ctrl == NULL) || (ctrl->priv == NULL)) {
         devdrv_err("Get dev_ctrl failed. (dev_id=%u)\n", devid);
         return -ENODEV;
     }
@@ -6911,7 +6947,8 @@ int devdrv_get_theoretical_capability_inner(u32 index_id, u64 *bandwidth, u64 *p
     *bandwidth = pci_ctrl->res.link_info.bandwidth;
     *packspeed = pci_ctrl->res.link_info.packspeed;
     if ((*bandwidth == 0) || (*packspeed == 0)) {
-        devdrv_warn("Invalid bandwidth or packspeed. (index_id=%u)\n", index_id);
+        devdrv_warn("Invalid bandwidth or packspeed. (index_id=%u, bandwidth=%llu, packspeed=%llu)\n", index_id,
+                    *bandwidth, *packspeed);
         return -ENODATA;
     }
 
@@ -7000,7 +7037,7 @@ int devdrv_pcie_get_dev_topology(u32 index_id, u32 peer_index_id, int *topo_type
     }
 
     if (index_id == peer_index_id) {
-        devdrv_err("Input devid and peer_index_id is equal, invalid.(index_id=%u;peer_index_id=%u)\n", index_id,
+        devdrv_err("Input devid and peer_index_id are equal, invalid. (index_id=%u; peer_index_id=%u)\n", index_id,
                    peer_index_id);
         return -EINVAL;
     }
@@ -7075,7 +7112,7 @@ int devdrv_get_p2p_addr(u32 dev_id, u32 remote_dev_id, enum devdrv_p2p_addr_type
     }
 
     if (pci_ctrl->ops.get_p2p_addr == NULL) {
-        devdrv_err("No support get p2p addr. (dev_id=%u; remote_dev_id=%u)\n", dev_id, remote_dev_id);
+        devdrv_err("Do not support getting p2p addr. (dev_id=%u; remote_dev_id=%u)\n", dev_id, remote_dev_id);
         return -EINVAL;
     }
 
@@ -7118,21 +7155,21 @@ int devdrv_pcie_reset_atomic(u32 index_id)
         return -EINVAL;
     }
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
-    if (((g_devdrv_ctrl_hot_reset_status >> index_id) & 1U) == 1) {
+    if (g_devdrv_ctrl_hot_reset_status[index_id] == 1) {
         ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
-        devdrv_err("Pcie hotreset, but device on process. (index_id=%u; dev_mask=%llu)\n", index_id,
-                   g_devdrv_ctrl_hot_reset_status);
+        devdrv_err("Pcie hotreset, but device on process. (index_id=%u; status=%u)\n", index_id,
+                   g_devdrv_ctrl_hot_reset_status[index_id]);
 
         return -EAGAIN;
     }
-    g_devdrv_ctrl_hot_reset_status |= (1ULL << index_id);
+    g_devdrv_ctrl_hot_reset_status[index_id] = 1;
     ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
 
     (void)devdrv_pci_try_reset_function(dev_ctrl->pdev, dev_ctrl->dev_id);
     ka_system_ssleep(delay);
 
     ka_task_mutex_lock(&g_devdrv_ctrl_mutex);
-    g_devdrv_ctrl_hot_reset_status &= ~(1ULL << index_id);
+    g_devdrv_ctrl_hot_reset_status[index_id] = 0;
     ka_task_mutex_unlock(&g_devdrv_ctrl_mutex);
     return 0;
 }

@@ -20,9 +20,9 @@
 extern SYSTEM_CB_T *g_sys_main_cb;
 
 typedef struct msg_proc_st {
-    SYSTEM_CB_T* cb;
-    DM_INTF_S* intf;
-    DM_RECV_ST*  msg;
+    SYSTEM_CB_T *cb;
+    DM_INTF_S *intf;
+    DM_RECV_ST *msg;
 #ifdef IAM_CONFIG
     int task_index;
 #endif
@@ -46,4 +46,10 @@ void dm_message_handle(DM_INTF_S *intf, DM_RECV_ST *req, const void *userdata, i
 void pid_handler(int sig);
 
 int get_dmp_thread_num(void);
+#ifdef IAM_CONFIG
+void dev_mon_inc_queue_monitor_thread_cnt(void);
+void dev_mon_dec_queue_monitor_thread_cnt(void);
+int dev_mon_get_queue_monitor_thread_cnt(void);
+#endif
+
 #endif

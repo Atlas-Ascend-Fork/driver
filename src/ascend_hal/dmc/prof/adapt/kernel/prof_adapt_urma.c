@@ -114,7 +114,7 @@ static drvError_t prof_urma_chan_stop(uint32_t dev_id, uint32_t chan_id, struct 
 
     prof_buff_wait_read_empty(chan_priv->buff, dev_id, chan_id);
 
-    return DRV_ERROR_NONE;
+    return ret;
 }
 
 static drvError_t prof_urma_chan_flush(uint32_t dev_id, uint32_t chan_id, uint32_t *data_len, char *priv)

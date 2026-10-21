@@ -122,6 +122,7 @@ STATIC int vmngh_msg_cluster_recv_common(void *msg_chan_in, struct vmng_msg_chan
     if (*client_proc_info.real_out_len > client_proc_info.out_data_len) {
         vmng_err("Real out len check failed. (dev_id=%u; fid=%u; common_type=%u; real_out_len=%u; out_data_len=%u)\n",
                  dev_id, fid, common_msg_type, *client_proc_info.real_out_len, client_proc_info.out_data_len);
+        return -EINVAL;
     }
     ret = memcpy_s(proc_info->data, *client_proc_info.real_out_len, client_proc_info.data,
                    *client_proc_info.real_out_len);

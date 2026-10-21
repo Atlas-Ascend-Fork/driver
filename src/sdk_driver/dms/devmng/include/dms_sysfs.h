@@ -26,7 +26,7 @@ struct dsmi_dfx {
     int last_write_ret;
 };
 
-#define DSMI_LOG_BUF_SIZE    4095
+#define DSMI_LOG_BUF_SIZE 4095
 struct dsmi_log_ctrl {
     struct dsmi_dfx dfx;
     char buf[DSMI_LOG_BUF_SIZE];

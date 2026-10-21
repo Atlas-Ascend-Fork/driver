@@ -24,8 +24,7 @@
 
 int devdrv_manager_shm_info_check(struct devdrv_info *dev_info)
 {
-    if ((dev_info == NULL) || (dev_info->shm_status == NULL) ||
-        (dev_info->shm_head == NULL)) {
+    if ((dev_info == NULL) || (dev_info->shm_status == NULL) || (dev_info->shm_head == NULL)) {
         devdrv_drv_err("dev_info is NULL or dev_info->shm_status/shm_head is NULL.\n");
         return -EFAULT;
     }
@@ -34,8 +33,7 @@ int devdrv_manager_shm_info_check(struct devdrv_info *dev_info)
         (dev_info->shm_head->head_info.magic != DEVMNG_SHM_INFO_HEAD_MAGIC)) {
         devdrv_drv_warn("dev(%u) version of share memory in host is 0x%llx, "
                         "the version in device is 0x%llx, magic is 0x%x.\n",
-                        dev_info->dev_id, DEVMNG_SHM_INFO_HEAD_VERSION,
-                        dev_info->shm_head->head_info.version,
+                        dev_info->dev_id, DEVMNG_SHM_INFO_HEAD_VERSION, dev_info->shm_head->head_info.version,
                         dev_info->shm_head->head_info.magic);
         return -EFAULT;
     }
@@ -48,10 +46,9 @@ int devmng_dms_get_health_code(u32 devid, u32 *health_code, u32 health_len)
     struct devdrv_info *dev_info = NULL;
     int i, ret;
 
-    if ((devid >= ASCEND_DEV_MAX_NUM) || (health_code == NULL) ||
-        (health_len != VMNG_VDEV_MAX_PER_PDEV)) {
-        devdrv_drv_err("Invalid parameter. (devid=%u; health_code=\"%s\"; health_len=%u)\n",
-                       devid, (health_code == NULL) ? "NULL" : "OK", health_len);
+    if ((devid >= ASCEND_DEV_MAX_NUM) || (health_code == NULL) || (health_len != VMNG_VDEV_MAX_PER_PDEV)) {
+        devdrv_drv_err("Invalid parameter. (devid=%u; health_code=\"%s\"; health_len=%u)\n", devid,
+                       (health_code == NULL) ? "NULL" : "OK", health_len);
         return -EINVAL;
     }
 
@@ -99,57 +96,19 @@ int devdrv_manager_get_pf_vf_id(u32 udevid, u32 *pf_id, u32 *vf_id)
     return 0;
 }
 
-STATIC int devmng_get_mem_by_devmanage_shm_pf(u32 dev_id, u64 *shm_addr, size_t *shm_size)
+STATIC int devmng_get_mem_by_devmanage_shm(u32 dev_id, u64 *shm_addr, size_t *shm_size)
 {
     int ret;
     struct soc_rsv_mem_info rsv_mem = {0};
 
     ret = soc_resmng_dev_get_rsv_mem(dev_id, "DEVMNG_RSV_MEM", &rsv_mem);
     if (ret != 0) {
-        devdrv_drv_err("Get devmng rsv mem addr fail. (dev_id=%u; ret=%d)\n", dev_id, ret);
+        devdrv_drv_err("Get devmng rsv mem addr failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
         return ret;
     }
     *shm_addr = rsv_mem.rsv_mem;
-    *shm_size = DEVDRV_SHM_TOTAL_SIZE_PF;
+    *shm_size = rsv_mem.rsv_mem_size;
 
-    return ret;
-}
-
-STATIC int devmng_get_mem_by_devmanage_shm_vf(u32 dev_id, u64 *shm_addr, size_t *shm_size)
-{
-    int ret;
-    u32 pf_id = 0;
-    u32 vf_id = 0;
-    u64 shm_addr_pf = 0;
-    size_t shm_size_pf = 0;
-
-    devdrv_manager_get_pf_vf_id(dev_id, &pf_id, &vf_id);
-
-    ret = devmng_get_mem_by_devmanage_shm_pf(pf_id, &shm_addr_pf, &shm_size_pf);
-    if (ret != 0) {
-        devdrv_drv_err("Get pf rsv mem addr fail. (dev_id=%u; pf_id=%u, ret=%d)\n", dev_id, pf_id, ret);
-        return ret;
-    }
-
-    *shm_addr = shm_addr_pf + DEVDRV_SHM_TOTAL_VF_OFFSET + (vf_id * DEVDRV_SHM_TOTAL_SIZE_VF);
-    *shm_size = DEVDRV_SHM_TOTAL_SIZE_VF;
-
-    return ret;
-}
-
-STATIC int devmng_get_mem_by_devmanage_shm(u32 dev_id, u64 *shm_addr, size_t *shm_size)
-{
-    int ret;
-
-    if (uda_is_pf_dev(dev_id)) {
-        ret = devmng_get_mem_by_devmanage_shm_pf(dev_id, shm_addr, shm_size);
-    } else {
-        ret = devmng_get_mem_by_devmanage_shm_vf(dev_id, shm_addr, shm_size);
-    }
-    if (ret != 0) {
-        devdrv_drv_err("Get devmng rsv mem addr fail. (dev_id=%u; ret=%d)\n", dev_id, ret);
-        return ret;
-    }
     return ret;
 }
 #endif
@@ -167,8 +126,7 @@ STATIC int devmng_shm_init_pcie(struct devdrv_info *dev_info)
         return ret;
     }
 #else
-    ret = adap_get_addr_info(dev_info->dev_id, DEVDRV_ADDR_DEVMNG_RESV_BASE,
-                             0, &shm_addr, &shm_size);
+    ret = adap_get_addr_info(dev_info->dev_id, DEVDRV_ADDR_DEVMNG_RESV_BASE, 0, &shm_addr, &shm_size);
     if (ret != 0) {
         devdrv_drv_err("Get shm addr by pcie fail. (dev_id=%u; ret=%d)\n", dev_info->dev_id, ret);
         return ret;
@@ -192,20 +150,20 @@ STATIC int devmng_shm_init_ub(struct devdrv_info *dev_info)
     dev_info->shm_size_register_rao = DEVDRV_SHM_GEGISTER_RAO_SIZE;
     dev_info->shm_vaddr = ka_mm_kzalloc(dev_info->shm_size_register_rao, KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (dev_info->shm_vaddr == NULL) {
-        devdrv_drv_err("Kzalloc rao mem fail. (dev_id=%u, shm_size=0x%x)\n",
-                       dev_info->dev_id, dev_info->shm_size);
+        devdrv_drv_err("Kzalloc rao mem fail. (dev_id=%u, shm_size=0x%x)\n", dev_info->dev_id, dev_info->shm_size);
         return -ENOMEM;
     }
 
-    ret = devdrv_register_rao_client(dev_info->dev_id, DEVDRV_RAO_CLIENT_DEVMNG,
-                                     (u64)(dev_info->shm_vaddr), dev_info->shm_size_register_rao, DEVDRV_RAO_PERM_RMT_READ);
+    ret = devdrv_register_rao_client(dev_info->dev_id, DEVDRV_RAO_CLIENT_DEVMNG, (u64)(dev_info->shm_vaddr),
+                                     dev_info->shm_size_register_rao, DEVDRV_RAO_PERM_RMT_READ);
     if (ret != 0) {
         devdrv_drv_err("Register rao client fail. (dev_id=%u, ret=%d)\n", dev_info->dev_id, ret);
         ka_mm_kfree(dev_info->shm_vaddr);
         dev_info->shm_vaddr = NULL;
         return ret;
     }
-    devdrv_drv_info("Register raorequest client success. (dev_id=%u, size=0x%x)\n", dev_info->dev_id, dev_info->shm_size_register_rao);
+    devdrv_drv_info("Register raorequest client success. (dev_id=%u, size=0x%x)\n", dev_info->dev_id,
+                    dev_info->shm_size_register_rao);
 
     dev_info->shm_size = dev_info->shm_size_register_rao;
     return ret;
@@ -224,27 +182,25 @@ int devmng_shm_init(struct devdrv_info *dev_info)
         ret = devmng_shm_init_pcie(dev_info);
     }
     if (ret != 0) {
-        devdrv_drv_err("Get mem fail. (dev_id=%u; ret=%d)\n", dev_info->dev_id, ret);
+        devdrv_drv_err("Get mem failed. (dev_id=%u; ret=%d)\n", dev_info->dev_id, ret);
         return ret;
     }
 
     dev_info->shm_head = (U_SHM_INFO_HEAD __ka_mm_iomem *)((uintptr_t)dev_info->shm_vaddr);
-    dev_info->shm_head->head_info.offset_soc    = sizeof(U_SHM_INFO_HEAD);
-    dev_info->shm_head->head_info.offset_board  = dev_info->shm_head->head_info.offset_soc +
-                                                  sizeof(U_SHM_INFO_SOC);
-    dev_info->shm_head->head_info.offset_status = dev_info->shm_head->head_info.offset_board +
-                                                  sizeof(U_SHM_INFO_BOARD);
+    dev_info->shm_head->head_info.offset_soc = sizeof(U_SHM_INFO_HEAD);
+    dev_info->shm_head->head_info.offset_board = dev_info->shm_head->head_info.offset_soc + sizeof(U_SHM_INFO_SOC);
+    dev_info->shm_head->head_info.offset_status = dev_info->shm_head->head_info.offset_board + sizeof(U_SHM_INFO_BOARD);
     dev_info->shm_head->head_info.offset_heartbeat = dev_info->shm_head->head_info.offset_status +
-                                                  sizeof(U_SHM_INFO_STATUS);
+                                                     sizeof(U_SHM_INFO_STATUS);
 
-    dev_info->shm_soc    = (U_SHM_INFO_SOC __ka_mm_iomem *)((uintptr_t)((uintptr_t)dev_info->shm_vaddr +
-                           dev_info->shm_head->head_info.offset_soc));
-    dev_info->shm_status = (U_SHM_INFO_STATUS __ka_mm_iomem *)((uintptr_t)((uintptr_t)dev_info->shm_vaddr +
-                           dev_info->shm_head->head_info.offset_status));
-    dev_info->shm_board  = (U_SHM_INFO_BOARD __ka_mm_iomem *)((uintptr_t)((uintptr_t)dev_info->shm_vaddr +
-                           dev_info->shm_head->head_info.offset_board));
-    dev_info->shm_heartbeat = (U_SHM_INFO_HEARTBEAT __ka_mm_iomem *)((uintptr_t)((uintptr_t)dev_info->shm_vaddr +
-                           dev_info->shm_head->head_info.offset_heartbeat));
+    dev_info->shm_soc = (U_SHM_INFO_SOC __ka_mm_iomem *)((uintptr_t)((uintptr_t)dev_info->shm_vaddr +
+                                                                     dev_info->shm_head->head_info.offset_soc));
+    dev_info->shm_status = (U_SHM_INFO_STATUS __ka_mm_iomem *)((
+        uintptr_t)((uintptr_t)dev_info->shm_vaddr + dev_info->shm_head->head_info.offset_status));
+    dev_info->shm_board = (U_SHM_INFO_BOARD __ka_mm_iomem *)((uintptr_t)((uintptr_t)dev_info->shm_vaddr +
+                                                                         dev_info->shm_head->head_info.offset_board));
+    dev_info->shm_heartbeat = (U_SHM_INFO_HEARTBEAT __ka_mm_iomem *)((
+        uintptr_t)((uintptr_t)dev_info->shm_vaddr + dev_info->shm_head->head_info.offset_heartbeat));
     return 0;
 }
 

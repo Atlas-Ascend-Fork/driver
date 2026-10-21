@@ -21,15 +21,16 @@
 #define PCI_VENDOR_ID_HUAWEI 0x19e5
 #define DEVDRV_DIVERSITY_PCIE_VENDOR_ID 0xFFFF
 static const ka_pci_device_id_t ts_agent_adapt_tbl[] = {
-    { KA_PCI_VDEVICE(HUAWEI, 0xd105),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd802),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd803),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd804),           0 },
-    { KA_PCI_VDEVICE(HUAWEI, 0xd806),           0 },   // david pci vdevice id
-    { KA_PCI_VDEVICE(HUAWEI, 0xd808),           0 },
-    { DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0 },
-    {}
-};
+    {KA_PCI_VDEVICE(HUAWEI, 0xd105), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd802), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd803), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd804), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd806), 0}, // david pci vdevice id
+    {KA_PCI_VDEVICE(HUAWEI, 0xd807), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd808), 0},
+    {KA_PCI_VDEVICE(HUAWEI, 0xd200), 0},
+    {DEVDRV_DIVERSITY_PCIE_VENDOR_ID, 0xd500, KA_PCI_ANY_ID, KA_PCI_ANY_ID, 0, 0, 0},
+    {}};
 KA_MODULE_DEVICE_TABLE(pci, ts_agent_adapt_tbl);
 
 STATIC int __ka_init ts_agent_init(void)

@@ -19,7 +19,7 @@
 #include "devmng_user_common.h"
 
 int DmsGetInfoFromLpAdapter(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *buf_size)
+                            unsigned int *buf_size)
 {
     int ret;
     int chip_type = 0;
@@ -54,7 +54,7 @@ int DmsSetTemperature(unsigned int dev_id, unsigned int sub_cmd, void *in_buf, u
 }
 
 int DmsGetTemperatureAdapter(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *out_buf,
-    unsigned int *buf_size)
+                             unsigned int *buf_size)
 {
     int ret;
     int chip_type = 0;

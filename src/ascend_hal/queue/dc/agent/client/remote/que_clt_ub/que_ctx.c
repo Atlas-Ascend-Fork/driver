@@ -302,13 +302,13 @@ bool que_is_need_sync_wait(unsigned int devid, unsigned int qid, unsigned int su
     }
     if (subevent_id == DRV_SUBEVENT_ENQUEUE_MSG) {
         if (sub_flag[qid].f2nf) {
-            QUEUE_LOG_INFO("sub event not need wait when enque. (dev_id=%u; qid=%u)\n", devid, qid);
+            QUEUE_LOG_INFO("sub event does not need to wait when enque. (dev_id=%u; qid=%u)\n", devid, qid);
             que_ctx_put(ctx);
             return false;
         }
     } else {
         if (sub_flag[qid].en_que) {
-            QUEUE_LOG_INFO("sub event not need wait when deque. (dev_id=%u; qid=%u)\n", devid, qid);
+            QUEUE_LOG_INFO("sub event does not need to wait when deque. (dev_id=%u; qid=%u)\n", devid, qid);
             que_ctx_put(ctx);
             return false;
         }

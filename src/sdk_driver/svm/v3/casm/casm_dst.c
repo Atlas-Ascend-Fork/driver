@@ -20,6 +20,7 @@
 #include "ka_ioctl_pub.h"
 
 #include "pbl_feature_loader.h"
+#include "dpa_kernel_interface.h"
 
 #include "casm_kernel.h"
 #include "svm_kern_log.h"
@@ -57,14 +58,15 @@ void svm_casm_register_dst_ops(const struct svm_casm_dst_ops *ops)
     casm_dst_ops = (struct svm_casm_dst_ops *)ops;
 }
 
-static int casm_remote_src_info_query_handle(u32 udevid, u64 key, struct svm_global_va *src_va)
+static int casm_remote_src_info_query_handle(u32 udevid, u64 key, struct svm_global_va *src_va,
+                                             struct casm_src_prop *src_prop)
 {
     if (casm_dst_ops == NULL) {
         svm_err("No casm dst ops. (key=0x%llx)\n", key);
         return -EINVAL;
     }
 
-    return casm_dst_ops->src_info_query(udevid, key, src_va);
+    return casm_dst_ops->src_info_query(udevid, key, src_va, src_prop);
 }
 
 static int casm_remote_src_info_get_handle(u32 udevid, u64 key, struct svm_global_va *src_va, int *owner_tgid)
@@ -104,7 +106,7 @@ static int casm_src_info_query(u32 udevid, u64 key, struct svm_global_va *src_va
             return -EINVAL;
         }
     } else {
-        ret = casm_remote_src_info_query_handle(udevid, key, src_va);
+        ret = casm_remote_src_info_query_handle(udevid, key, src_va, &src_ex->src_prop);
         if (ret != 0) {
             return ret;
         }
@@ -159,12 +161,24 @@ static int casm_src_info_get(u32 udevid, u64 key, struct svm_global_va *src_va, 
 
 static void casm_src_info_put(u32 udevid, u64 key, struct svm_global_va *src_va, struct casm_src_ex_info *ex_info)
 {
+    u32 host_id = uda_get_host_id();
+    int tgid, ret;
+
     if (ex_info->is_local) {
-        int ret = svm_smp_unpin_mem(src_va->udevid, ex_info->owner_tgid, src_va->va, src_va->size, true);
-        if (ret != 0) {
-            svm_warn("Mem unpin failed. (udevid=%u; va=0x%llx; size=0x%llx; tgid=%d)\n", src_va->udevid, src_va->va,
-                     src_va->size, ex_info->owner_tgid);
+#ifndef EMU_ST /* UT have not proc bind info, do not delete. */
+        if (src_va->udevid != host_id) {
+            ret = hal_kernel_apm_query_slave_tgid_by_master(ex_info->owner_tgid, src_va->udevid, PROCESS_CP1, &tgid);
         }
+        if ((src_va->udevid == host_id) || (ret != 0) || (src_va->tgid == tgid)) {
+#endif
+            ret = svm_smp_unpin_mem(src_va->udevid, ex_info->owner_tgid, src_va->va, src_va->size, true);
+            if (ret != 0) {
+                svm_warn("Mem unpin failed. (udevid=%u; va=0x%llx; size=0x%llx; tgid=%d)\n", src_va->udevid, src_va->va,
+                         src_va->size, ex_info->owner_tgid);
+            }
+#ifndef EMU_ST /* UT have not proc bind info, do not delete. */
+        }
+#endif
     } else {
         casm_remote_src_info_put_handle(udevid, key, src_va, ex_info->owner_tgid);
     }
@@ -263,7 +277,7 @@ static int casm_add_dst_node(struct casm_dst_ctx *dst_ctx, struct range_rbtree_n
     struct casm_dst_node *node = NULL;
     int ret;
 
-    node = (struct casm_dst_node *)svm_vzalloc(sizeof(*node));
+    node = (struct casm_dst_node *)svm_kzalloc(sizeof(*node), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (node == NULL) {
         svm_err("No mem. (va=0x%llx)\n", range_node->start);
         return -ENOMEM;
@@ -279,7 +293,7 @@ static int casm_add_dst_node(struct casm_dst_ctx *dst_ctx, struct range_rbtree_n
     ret = range_rbtree_insert(&dst_ctx->range_tree, &node->range_node);
     ka_task_write_unlock_bh(&dst_ctx->lock);
     if (ret != 0) {
-        svm_vfree(node);
+        svm_kfree(node);
         svm_err("Insert failed. (va=0x%llx)\n", range_node->start);
     }
 
@@ -300,7 +314,7 @@ static int casm_del_dst_node(struct casm_dst_ctx *dst_ctx, u64 va, u64 size)
     range_rbtree_erase(&dst_ctx->range_tree, &node->range_node);
     ka_task_write_unlock_bh(&dst_ctx->lock);
 
-    svm_vfree(node);
+    svm_kfree(node);
     return 0;
 }
 
@@ -319,7 +333,7 @@ int casm_mem_pin(u32 udevid, u64 va, u64 size, u64 key)
         return ret;
     }
 
-    if (size != src_va.size) {
+    if ((size == 0) || ((va + size) < va) || (size != src_va.size)) {
         svm_err("Size is invalid. (va=0x%llx; size=0x%llx; src_size=0x%llx)\n", va, size, src_va.size);
         (void)casm_src_info_put(udevid, key, &src_va, &ex_info);
         return -EINVAL;
@@ -353,6 +367,11 @@ int casm_mem_unpin(u32 udevid, int tgid, u64 va, u64 size) /* for ut test, canno
     u64 key;
     int ret;
 
+    if ((size == 0) || ((va + size) < va)) {
+        svm_err("Size is invalid. (va=0x%llx; size=0x%llx)\n", va, size);
+        return -EINVAL;
+    }
+
     ctx = casm_ctx_get(udevid, tgid);
     if (ctx == NULL) {
         svm_err("Get task ctx failed. (udevid=%u; tgid=%d)\n", udevid, tgid);
@@ -363,7 +382,7 @@ int casm_mem_unpin(u32 udevid, int tgid, u64 va, u64 size) /* for ut test, canno
     ret = casm_get_src_info(dst_ctx, &range_node, &key, &src_va, &ex_info);
     if (ret != 0) {
         casm_ctx_put(ctx);
-        svm_err("Get src failed. (udevid=%u; va=0x%llx; size=0x%llx bytes)\n", udevid, va, size);
+        svm_err("Get src failed. (udevid=%u; va=0x%llx; size=0x%llx)\n", udevid, va, size);
         return ret;
     }
 
@@ -461,7 +480,7 @@ static int casm_get_src_va_ex_info(u32 udevid, struct svm_global_va *src_va, str
 static int casm_ioctl_get_src_va(u32 udevid, u32 cmd, unsigned long arg)
 {
     struct svm_casm_get_src_va_para para;
-    struct casm_src_ex src_ex;
+    struct casm_src_ex src_ex = {0};
     int ret;
 
     ret = (int)ka_base_copy_from_user(&para, (void __ka_user *)(uintptr_t)arg, sizeof(para));
@@ -475,6 +494,7 @@ static int casm_ioctl_get_src_va(u32 udevid, u32 cmd, unsigned long arg)
         return ret;
     }
     para.updated_va = src_ex.updated_va;
+    para.src_prop = src_ex.src_prop;
 
     para.ex_info = 0;
     if (casm_get_src_va_ex_info_handle != NULL) {
@@ -487,7 +507,7 @@ static int casm_ioctl_get_src_va(u32 udevid, u32 cmd, unsigned long arg)
 
     if (ka_base_copy_to_user((void __ka_user *)(uintptr_t)arg, &para, sizeof(para)) != 0) {
         svm_err("copy_to_user fail.\n");
-        return -EFAULT;
+        return -EINVAL;
     }
 
     return ret;

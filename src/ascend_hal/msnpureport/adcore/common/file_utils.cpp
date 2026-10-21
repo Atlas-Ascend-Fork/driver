@@ -8,12 +8,38 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include "file_utils.h"
 #include <cctype>
+#include <limits>
+
+#include "file_utils.h"
 #include "log/adx_log.h"
 #include "ide_os_type.h"
 namespace Adx {
-static const std::string MAPPING_FILE_NAME   = "mapping.csv";
+static const std::string MAPPING_FILE_NAME = "mapping.csv";
+constexpr uint32_t UINT32_SIZE_MAX = std::numeric_limits<uint32_t>::max();
+
+static IdeErrorT WriteDataToFile(int32_t fd, IdeSendBuffT data, uint32_t len)
+{
+    IdeU8Pt writeData = static_cast<IdeU8Pt>(const_cast<IdeBuffT>(data));
+    uint32_t remainingLen = len;
+    do {
+        mmSsize_t writeLen = mmWrite(fd, writeData + (len - remainingLen), remainingLen);
+        if (writeLen < 0) {
+            char errBuf[MAX_ERRSTR_LEN + 1] = {0};
+            IDE_LOGE("Write failed, info: %s, write ratio: %u/%u",
+                     mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN), len - remainingLen, len);
+            return IDE_DAEMON_NO_SPACE_ERROR;
+        }
+        if (static_cast<uint64_t>(writeLen) > remainingLen) {
+            char errBuf[MAX_ERRSTR_LEN + 1] = {0};
+            IDE_LOGE("Write length invalid. (info=%s, writeLen larger than remaining length)",
+                     mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN));
+            return IDE_DAEMON_UNKNOW_ERROR;
+        }
+        remainingLen -= static_cast<uint32_t>(writeLen);
+    } while (remainingLen != 0);
+    return IDE_DAEMON_NONE_ERROR;
+}
 
 /**
  * @brief Write data to file
@@ -45,8 +71,8 @@ IdeErrorT FileUtils::WriteFile(const std::string &fileName, IdeSendBuffT data, u
             IDE_LOGE("add mapping item [ %s ] failed", hashValue.c_str());
         }
         wrFile = wrPath + OS_SPLIT_STR + hashValue;
-        IDE_LOGW("file name [ %s ] too long rename as [ %s ] and the mapping record in mapping.csv",
-            fileName.c_str(), wrFile.c_str());
+        IDE_LOGW("file name [ %s ] too long rename as [ %s ] and the mapping record in mapping.csv", fileName.c_str(),
+                 wrFile.c_str());
         fd = mmOpen2(wrFile.c_str(), O_APPEND | M_RDWR | M_CREAT, M_IREAD | M_IWRITE);
         IDE_CTRL_VALUE_FAILED(fd >= 0, return IDE_DAEMON_INVALID_PATH_ERROR, "file path error");
     }
@@ -60,22 +86,9 @@ IdeErrorT FileUtils::WriteFile(const std::string &fileName, IdeSendBuffT data, u
         }
     }
 
-    IdeU8Pt wrData = static_cast<IdeU8Pt>(const_cast<IdeBuffT>(data));
-    uint32_t reserve = len;
-    do {
-        mmSsize_t writeLen = mmWrite(fd, wrData + (len - reserve), reserve);
-        if (writeLen < 0) {
-            char errBuf[MAX_ERRSTR_LEN + 1] = {0};
-            IDE_LOGE("Write failed, info: %s, write ratio: %u/%u",
-                     mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN), len - reserve, len);
-            FILE_MMCLOSE_AND_SET_INVALID(fd);
-            return IDE_DAEMON_NO_SPACE_ERROR;
-        }
-        reserve -= writeLen;
-    } while (reserve != 0);
-
+    IdeErrorT ret = WriteDataToFile(fd, data, len);
     FILE_MMCLOSE_AND_SET_INVALID(fd);
-    return IDE_DAEMON_NONE_ERROR;
+    return ret;
 }
 
 /**
@@ -112,32 +125,15 @@ IdeErrorT FileUtils::AddMappingFileItem(const std::string &filePath, const std::
     }
 
     std::string mapItem = hashValue + ',' + filename + '\n';
-    uint32_t mapItemDataLen = mapItem.length();
-    uint32_t residLen = mapItemDataLen;
-    do {
-        mmSsize_t writeLen = mmWrite(fd, const_cast<IdeStringBuffer>(mapItem.c_str()) +
-                                     (mapItemDataLen - residLen), residLen);
-        if (writeLen < 0) {
-            char errBuf[MAX_ERRSTR_LEN + 1] = {0};
-            IDE_LOGE("Write failed, info: %s, write ratio: %u/%u",
-                     mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN),
-                     mapItemDataLen - residLen, mapItemDataLen);
-            FILE_MMCLOSE_AND_SET_INVALID(fd);
-            return IDE_DAEMON_NO_SPACE_ERROR;
-        }
-        if (residLen >= static_cast<uint32_t>(writeLen)) {
-            residLen -= writeLen;
-        } else {
-            char errBuf[MAX_ERRSTR_LEN + 1] = {0};
-            IDE_LOGE("Write failed, info : %s, writeLen larger than residLen",
-                     mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN));
-            FILE_MMCLOSE_AND_SET_INVALID(fd);
-            return IDE_DAEMON_UNKNOW_ERROR;
-        }
-    } while (residLen != 0);
-
+    if (mapItem.length() > UINT32_SIZE_MAX) {
+        IDE_LOGE("Mapping item length invalid. (length=%zu)", mapItem.length());
+        FILE_MMCLOSE_AND_SET_INVALID(fd);
+        return IDE_DAEMON_INVALID_PARAM_ERROR;
+    }
+    uint32_t mapItemDataLen = static_cast<uint32_t>(mapItem.length());
+    IdeErrorT ret = WriteDataToFile(fd, static_cast<IdeSendBuffT>(mapItem.c_str()), mapItemDataLen);
     FILE_MMCLOSE_AND_SET_INVALID(fd);
-    return IDE_DAEMON_NONE_ERROR;
+    return ret;
 }
 
 /**
@@ -240,7 +236,7 @@ bool FileUtils::IsDiskFull(const std::string &path, uint64_t size)
     int32_t ret = mmGetDiskFreeSpace(path.c_str(), &diskSize);
     IDE_CTRL_VALUE_FAILED(ret == EN_OK, return true, "get disk free space fail");
     IDE_CTRL_VALUE_FAILED(diskSize.freeSize > DISK_RESERVED_SPACE, return true,
-        "the %s more than disk reserved space(1Mb)", path.c_str());
+                          "the %s more than disk reserved space(1Mb)", path.c_str());
     IDE_CTRL_VALUE_FAILED(size < diskSize.freeSize, return true, "the %s is full", path.c_str());
     return false;
 }
@@ -285,8 +281,7 @@ bool FileUtils::CheckNonCrossPath(const std::string &path)
         return false;
     }
 
-    if (path.find("/..") != std::string::npos ||
-        path.find("/\\.\\.") != std::string::npos) {
+    if (path.find("/..") != std::string::npos || path.find("/\\.\\.") != std::string::npos) {
         return false;
     }
 
@@ -394,24 +389,23 @@ bool FileUtils::IsAbsolutePath(const std::string &path)
     if (path.length() < WIN_PATH_MIN_LENGTH) {
         return false;
     }
-    return (path[1] == COLON) &&
-        ((path[0] >= 'a' && path[0] <= 'z') ||
-        (path[0] >= 'A' && path[0] <= 'Z'));
+    return (path[1] == COLON) && ((path[0] >= 'a' && path[0] <= 'z') || (path[0] >= 'A' && path[0] <= 'Z'));
 #endif
 }
 
-bool FileUtils::IsPathHasPermission(const std::string &path) {
+bool FileUtils::IsPathHasPermission(const std::string &path)
+{
     std::string trustedPath;
     int32_t ret = FilePathIsReal(path, trustedPath);
     if (ret != IDE_DAEMON_OK) {
         IDE_LOGE("The path %s is not a real path.", path.c_str());
         return false;
     }
-	constexpr uint32_t accessMode = static_cast<uint32_t>(M_R_OK) | static_cast<uint32_t>(M_W_OK);
-	if (mmAccess2(trustedPath.c_str(), static_cast<INT32>(accessMode)) != EN_OK) {
+    constexpr uint32_t accessMode = static_cast<uint32_t>(M_R_OK) | static_cast<uint32_t>(M_W_OK);
+    if (mmAccess2(trustedPath.c_str(), static_cast<INT32>(accessMode)) != EN_OK) {
         IDE_LOGE("The path %s does not have read and write permission", trustedPath.c_str());
-	    return false;
-	}
-	return true;
+        return false;
+    }
+    return true;
 }
-}
+} // namespace Adx

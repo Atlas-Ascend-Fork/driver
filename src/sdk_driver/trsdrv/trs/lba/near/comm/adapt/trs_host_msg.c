@@ -57,7 +57,7 @@ static struct trs_host_msg *trs_host_msg_create(u32 devid, struct devdrv_non_tra
     if (ret != 0) {
         (void)devdrv_pcimsg_free_non_trans_queue(chan);
         trs_kfree(host_msg);
-        trs_err("Set msg chan priv failed. (devid=%u; ret=%d)\n", devid, ret);
+        trs_err("Set msg chan priv fail. (devid=%u; ret=%d)\n", devid, ret);
         return NULL;
     }
     host_msg->devid = devid;
@@ -167,7 +167,7 @@ int trs_host_msg_chan_recv_check(u32 devid, struct trs_msg_data *data, u32 in_da
     return 0;
 }
 
-int trs_host_msg_send(u32 devid, void *msg, size_t size)
+static int trs_host_msg_send_comm(u32 devid, void *msg, size_t size)
 {
     struct trs_msg_data *tmp_msg = (struct trs_msg_data *)msg;
     struct trs_host_msg *host_msg = NULL;
@@ -186,9 +186,20 @@ int trs_host_msg_send(u32 devid, void *msg, size_t size)
                                &out_len);
     trs_host_msg_put(host_msg);
 
-    return (ret == 0) ? (int)tmp_msg->header.result : ret;
+    return ret;
+}
+
+int trs_host_msg_send(u32 devid, void *msg, size_t size)
+{
+    int ret = trs_host_msg_send_comm(devid, msg, size);
+    return (ret == 0) ? (int)(((struct trs_msg_data *)msg)->header.result) : ret;
 }
 KA_EXPORT_SYMBOL_GPL(trs_host_msg_send);
+
+int trs_host_msg_send_pure_ret(u32 devid, void *msg, size_t size)
+{
+    return trs_host_msg_send_comm(devid, msg, size);
+}
 
 int trs_host_msg_init(u32 ts_inst_id)
 {

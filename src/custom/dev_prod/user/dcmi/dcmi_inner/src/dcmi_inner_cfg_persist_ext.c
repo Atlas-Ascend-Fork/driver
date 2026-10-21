@@ -1771,16 +1771,18 @@ int dcmi_cfg_qos_master_check_is_cover(const char *cmdline, char *buf_tmp)
     int ret = 0;
     ret = sscanf_s(buf_tmp,
                    "npu-smi set -t qos-master-config -i %u -c %u -s %u %*d %*d 0x%*llx 0x%*llx 0x%*llx 0x%*llx %*u\n",
-                   &card_id_tmp, &chip_id_tmp, &master_id_tmp); // 进行排序，只需要前三个参数
-    if (ret < 3U) {                                             // sscanf_s返回值为入参个数
+                   &card_id_tmp, &chip_id_tmp,
+                   &master_id_tmp); // 进行排序，只需要前三个参数
+    if (ret < 3U) {                 // sscanf_s返回值为入参个数
         gplog(LOG_ERR, "call sscanf_s failed. ret is %d", ret);
         return ret;
     }
 
     ret = sscanf_s(cmdline,
                    "npu-smi set -t qos-master-config -i %u -c %u -s %u %*d %*d 0x%*llx 0x%*llx 0x%*llx 0x%*llx %*u\n",
-                   &card_id_cmd, &chip_id_cmd, &master_id_cmd); // 进行排序，只需要前三个参数
-    if (ret < 3U) {                                             // sscanf_s返回值为入参个数
+                   &card_id_cmd, &chip_id_cmd,
+                   &master_id_cmd); // 进行排序，只需要前三个参数
+    if (ret < 3U) {                 // sscanf_s返回值为入参个数
         gplog(LOG_ERR, "call sscanf_s failed. ret is %d", ret);
         return ret;
     }
@@ -1802,8 +1804,9 @@ int dcmi_cfg_check_qos_master_cmdline_is_correct(const char *cmdline, unsigned i
     int ret = 0;
     ret = sscanf_s(cmdline,
                    "npu-smi set -t qos-master-config -i %u -c %u -s %u %*d %*d 0x%*llx 0x%*llx 0x%*llx 0x%*llx %*u\n",
-                   card_id, chip_id, master_id); // 进行排序，只需要前三个参数
-    if (ret < 3U) {                              // sscanf_s返回值为入参个数
+                   card_id, chip_id,
+                   master_id); // 进行排序，只需要前三个参数
+    if (ret < 3U) {            // sscanf_s返回值为入参个数
         gplog(LOG_ERR, "call sscanf_s failed. ret is %d", ret);
     }
     return ret;

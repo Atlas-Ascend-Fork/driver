@@ -14,6 +14,7 @@
 #include "comm_kernel_interface.h"
 #include "virtmnghost_unit.h"
 #include "virtmng_public_def.h"
+#include "virtmnghost_feature.h"
 #include "virtmnghost_sysfs.h"
 
 STATIC struct vmngh_pci_dev *vmngh_sysfs_get_valid_pdev(ka_device_t *dev)
@@ -99,7 +100,6 @@ STATIC ssize_t vmngh_sysfs_mdev_info(ka_device_t *dev, ka_device_attribute_t *at
 
 static KA_DRIVER_DEVICE_ATTR(mdev_info, KA_S_IRUSR | KA_S_IRGRP, vmngh_sysfs_mdev_info, NULL);
 
-#ifdef CFG_SOC_PLATFORM_CLOUD_V2
 STATIC ssize_t vmngh_sysfs_vm_full_vf_enable_show(ka_device_t *dev, ka_device_attribute_t *attr, char *buf)
 {
     struct vmngh_pci_dev *vmngh_pdev = NULL;
@@ -153,7 +153,7 @@ STATIC ssize_t vmngh_sysfs_vm_full_vf_enable_store(ka_device_t *dev, ka_device_a
             vmng_event("Enable full spec support, only full spec vf can select. (devid=%u; uid=%u)\n",
                        vmngh_pdev->dev_id, ka_task_get_current_cred_uid());
         } else {
-            vmng_err("Mdevs may be alive, please remove all mdevs.(devid=%u;uid=%u)\n", vmngh_pdev->dev_id,
+            vmng_err("Mdevs may be alive, please remove all mdevs.(devid=%u; uid=%u)\n", vmngh_pdev->dev_id,
                      ka_task_get_current_cred_uid());
             ka_task_mutex_unlock(&vmngh_pdev->vpdev_mutex);
             return -1;
@@ -161,6 +161,8 @@ STATIC ssize_t vmngh_sysfs_vm_full_vf_enable_store(ka_device_t *dev, ka_device_a
     } else {
         vmng_err("Invalid input vf_vnic enable. (devid=%u; input=%d; uid=%u)\n", vmngh_pdev->dev_id, input,
                  ka_task_get_current_cred_uid());
+        ka_task_mutex_unlock(&vmngh_pdev->vpdev_mutex);
+        return -1;
     }
     ka_task_mutex_unlock(&vmngh_pdev->vpdev_mutex);
 #endif
@@ -169,19 +171,25 @@ STATIC ssize_t vmngh_sysfs_vm_full_vf_enable_store(ka_device_t *dev, ka_device_a
 }
 static KA_DRIVER_DEVICE_ATTR(vm_full_vf_enable, (KA_S_IWUSR | KA_S_IRUSR | KA_S_IWGRP | KA_S_IRGRP),
                              vmngh_sysfs_vm_full_vf_enable_show, vmngh_sysfs_vm_full_vf_enable_store);
-#endif
 
 // clang-format off
-static ka_attribute_t *g_vmngh_sysfs_attrs[] = {
+static ka_attribute_t *g_vmngh_sysfs_base_attrs[] = {
     ka_fs_get_dev_attr(dev_attr_mdev_info)
-#ifdef CFG_SOC_PLATFORM_CLOUD_V2
-    ka_fs_get_dev_attr(dev_attr_vm_full_vf_enable)
-#endif
     NULL,
 };
 
-static const ka_attribute_group_t g_vmngh_sysfs_group = {
-    ka_fs_init_ag_attrs(g_vmngh_sysfs_attrs)
+static ka_attribute_t *g_vmngh_sysfs_full_attrs[] = {
+    ka_fs_get_dev_attr(dev_attr_mdev_info)
+    ka_fs_get_dev_attr(dev_attr_vm_full_vf_enable)
+    NULL,
+};
+
+static const ka_attribute_group_t g_vmngh_sysfs_base_group = {
+    ka_fs_init_ag_attrs(g_vmngh_sysfs_base_attrs)
+};
+
+static const ka_attribute_group_t g_vmngh_sysfs_full_group = {
+    ka_fs_init_ag_attrs(g_vmngh_sysfs_full_attrs)
 };
 // clang-format on
 
@@ -190,8 +198,8 @@ STATIC bool vmng_get_sysfs_creat_group_capbility(ka_pci_dev_t *pcidev, int dev_i
     int devnum_by_pdev;
 
     devnum_by_pdev = devdrv_get_davinci_dev_num_by_pdev(pcidev);
-    if (devnum_by_pdev == 0) {
-        vmng_err("Davinci device num is zero. (dev_id=%u)\n", dev_id);
+    if (devnum_by_pdev <= 0) {
+        vmng_err("Invalid davinci device num. (dev_id=%d; devnum_by_pdev=%d)\n", dev_id, devnum_by_pdev);
         return false;
     }
 
@@ -211,7 +219,11 @@ int vmngh_sysfs_init(u32 dev_id, ka_pci_dev_t *pcidev)
     }
 
     if (vmng_get_sysfs_creat_group_capbility(pcidev, (int)dev_id)) {
-        ret = ka_sysfs_create_group(&pcidev->dev.kobj, &g_vmngh_sysfs_group);
+        if (vmngh_feature_not_support(dev_id, VMNG_FEATURE_VM_FULL_VF_EN)) {
+            ret = ka_sysfs_create_group(&pcidev->dev.kobj, &g_vmngh_sysfs_base_group);
+        } else {
+            ret = ka_sysfs_create_group(&pcidev->dev.kobj, &g_vmngh_sysfs_full_group);
+        }
         if (ret != 0) {
             vmng_err("Create group failed. (dev_id=%u; ret=%d)\n", dev_id, ret);
             return ret;
@@ -227,6 +239,10 @@ void vmngh_sysfs_exit(u32 dev_id, ka_pci_dev_t *pcidev)
     }
 
     if (vmng_get_sysfs_creat_group_capbility(pcidev, (int)dev_id)) {
-        ka_sysfs_remove_group(&pcidev->dev.kobj, &g_vmngh_sysfs_group);
+        if (vmngh_feature_not_support(dev_id, VMNG_FEATURE_VM_FULL_VF_EN)) {
+            ka_sysfs_remove_group(&pcidev->dev.kobj, &g_vmngh_sysfs_base_group);
+        } else {
+            ka_sysfs_remove_group(&pcidev->dev.kobj, &g_vmngh_sysfs_full_group);
+        }
     }
 }

@@ -26,7 +26,7 @@ static int32_t param_check(dvpp_cmdlist_param_t *param, void *sqe)
     }
 
     if (param == NULL) {
-        DVPP_CMDLIST_LOG_ERROR("input param in null.\n");
+        DVPP_CMDLIST_LOG_ERROR("input param is null.\n");
         return -1;
     }
 
@@ -41,7 +41,7 @@ static int32_t param_check(dvpp_cmdlist_param_t *param, void *sqe)
     }
 
     if (param->node_cnt > DVPP_MAX_NODE_NUM) {
-        DVPP_CMDLIST_LOG_ERROR("node_cnt can not exceed %u, node_cnt: %u\n", DVPP_MAX_NODE_NUM, param->node_cnt);
+        DVPP_CMDLIST_LOG_ERROR("node_cnt cannot exceed %u, node_cnt: %u\n", DVPP_MAX_NODE_NUM, param->node_cnt);
         return -1;
     }
 
@@ -53,7 +53,7 @@ static int32_t param_check(dvpp_cmdlist_param_t *param, void *sqe)
 
     for (i = 0; i < param->batch_cnt; i++) {
         if (param->node_cnt_of_batch[i] > DVPP_MAX_NODE_NUM) {
-            DVPP_CMDLIST_LOG_ERROR("node_cnt_of_batch[%u] can not exceed %u, node_cnt_of_batch: %u\n", i,
+            DVPP_CMDLIST_LOG_ERROR("node_cnt_of_batch[%u] cannot exceed %u, node_cnt_of_batch: %u\n", i,
                                    DVPP_MAX_NODE_NUM, param->node_cnt_of_batch[i]);
             return -1;
         }

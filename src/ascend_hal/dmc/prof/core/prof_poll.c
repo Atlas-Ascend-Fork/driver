@@ -21,8 +21,8 @@ struct prof_poll_mng {
     uint32_t head;
     uint32_t tail;
 
-    uint8_t poll_flag[DEV_NUM][PROF_CHANNEL_NUM_MAX];  /* Handling concurrency through atomic operations */
-    int fd_num; /* Handling concurrency through atomic operations */
+    uint8_t poll_flag[DEV_NUM][PROF_CHANNEL_NUM_MAX]; /* Handling concurrency through atomic operations */
+    int fd_num;                                       /* Handling concurrency through atomic operations */
 
     sem_t sem;
 };
@@ -80,13 +80,13 @@ STATIC void prof_poll_enqueue(struct prof_poll_mng *poll_mng, uint32_t dev_id, u
     poll_mng->tail = (poll_mng->tail + 1U) % PROF_POLL_DEPTH;
 }
 
-STATIC drvError_t prof_poll_batch_dequeue(struct prof_poll_mng *poll_mng, uint8_t *out_buf,
-     uint32_t max_num, uint32_t num)
+STATIC drvError_t prof_poll_batch_dequeue(struct prof_poll_mng *poll_mng, uint8_t *out_buf, uint32_t max_num,
+                                          uint32_t num)
 {
     int ret;
 
-    ret = memcpy_s(out_buf, max_num * sizeof(prof_poll_info_t),
-        (uint8_t *)&poll_mng->queue[poll_mng->head], num * sizeof(prof_poll_info_t));
+    ret = memcpy_s(out_buf, max_num * sizeof(prof_poll_info_t), (uint8_t *)&poll_mng->queue[poll_mng->head],
+                   num * sizeof(prof_poll_info_t));
     if (ret != 0) {
         PROF_ERR("Failed to copy poll_info. (ret=%d, max_num=%u, num=%u)\n", ret, max_num, num);
         return DRV_ERROR_MEMORY_OPT_FAIL;
@@ -107,7 +107,7 @@ STATIC void prof_poll_disable_flag(struct prof_poll_mng *poll_mng, uint32_t dev_
 }
 
 STATIC void prof_poll_batch_disable_flag(struct prof_poll_mng *poll_mng, struct prof_poll_info *poll_info,
-    uint32_t poll_num)
+                                         uint32_t poll_num)
 {
     uint32_t i;
 
@@ -132,6 +132,11 @@ void prof_poll_chan_stop(uint32_t dev_id, uint32_t chan_id)
 {
     struct prof_poll_mng *poll_mng = prof_poll_get_mng();
 
+    if ((dev_id >= DEV_NUM) || (chan_id >= PROF_CHANNEL_NUM_MAX)) {
+        PROF_ERR("Invalid para.(dev_id=%u,chan_id=%u)\n", dev_id, chan_id);
+        return;
+    }
+
     if (poll_mng == NULL) {
         PROF_ERR("Failed to get poll_mng. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
         return;
@@ -148,6 +153,11 @@ void prof_poll_report(uint32_t dev_id, uint32_t chan_id)
 {
     struct prof_poll_mng *poll_mng = prof_poll_get_mng();
 
+    if ((dev_id >= DEV_NUM) || (chan_id >= PROF_CHANNEL_NUM_MAX)) {
+        PROF_ERR("Invalid para. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
+        return;
+    }
+
     if (poll_mng == NULL) {
         PROF_ERR("Failed to get poll_mng. (dev_id=%u, chan_id=%u)\n", dev_id, chan_id);
         return;
@@ -162,8 +172,8 @@ void prof_poll_report(uint32_t dev_id, uint32_t chan_id)
     }
 }
 
-STATIC int prof_poll_copy(struct prof_poll_mng *poll_mng, struct prof_poll_info *out_buf,
-    uint32_t max_num, uint32_t *poll_num)
+STATIC int prof_poll_copy(struct prof_poll_mng *poll_mng, struct prof_poll_info *out_buf, uint32_t max_num,
+                          uint32_t *poll_num)
 {
     uint32_t num, polled_num;
     drvError_t ret;
@@ -185,7 +195,7 @@ STATIC int prof_poll_copy(struct prof_poll_mng *poll_mng, struct prof_poll_info 
 
         *poll_num = num;
         return PROF_OK;
-    } 
+    }
 
     /* Scenario 3: head > tail, segmented reading */
     num = PROF_POLL_DEPTH - poll_mng->head;
@@ -204,7 +214,7 @@ STATIC int prof_poll_copy(struct prof_poll_mng *poll_mng, struct prof_poll_info 
     num = poll_mng->tail;
     num = ((num + polled_num) > max_num) ? (max_num - polled_num) : num;
     ret = prof_poll_batch_dequeue(poll_mng, ((uint8_t *)out_buf + polled_num * sizeof(prof_poll_info_t)),
-        (max_num - polled_num), num);
+                                  (max_num - polled_num), num);
     if (ret != DRV_ERROR_NONE) {
         /* Should return success and the copied channels */
         *poll_num = polled_num;
@@ -241,7 +251,8 @@ int prof_poll_read(struct prof_poll_info *out_buf, uint32_t max_num, int timeout
     ret = sem_timedwait(&poll_mng->sem, &ts);
     if (ret != 0) {
         if ((errno == ETIMEDOUT) || (errno == EINTR)) {
-            PROF_DEBUG("Function [sem_timedwait] invoked was timeout or interrupted. (ret=%d, result_code=%d)\n", ret, errno);
+            PROF_DEBUG("Function [sem_timedwait] invoked timed out or interrupted. (ret=%d, result_code=%d)\n", ret,
+                       errno);
         } else {
             PROF_ERR("Failed to invoke function [sem_timedwait]. (ret=%d, errno=%d)\n", ret, errno);
             return PROF_ERROR;

@@ -46,12 +46,12 @@ static int svm_get_transway_cap_check(struct svm_prop *src_prop, struct svm_prop
     }
 
     if (svm_flag_cap_is_support_get_d2d_transway(src_prop->flag) == false) {
-        svm_info("Src va is not support get transway.\n");
+        svm_info("Src va does not support get transway.\n");
         return DRV_ERROR_NOT_SUPPORT;
     }
 
     if (svm_flag_cap_is_support_get_d2d_transway(dst_prop->flag) == false) {
-        svm_info("Dst va does not support getting transway.\n");
+        svm_info("Dst va does not support get transway.\n");
         return DRV_ERROR_NOT_SUPPORT;
     }
 

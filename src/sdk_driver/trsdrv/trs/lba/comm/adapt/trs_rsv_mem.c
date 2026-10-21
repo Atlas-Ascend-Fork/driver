@@ -57,8 +57,8 @@ static struct trs_rsv_mem *trs_rsv_mem_create(struct trs_id_inst *inst, int type
     if (ret != 0) {
         ka_base_gen_pool_destroy(pool);
         trs_kfree(rsv_mem);
-        trs_err("Get pool add virt fail. (devid=%u; tsid=%u; type=%d; total_size=0x%lx bytes)\n", inst->devid,
-                inst->tsid, type, attr->total_size);
+        trs_err("Get pool add virt fail. (devid=%u; tsid=%u; type=%d; total_size=0x%lx)\n", inst->devid, inst->tsid,
+                type, attr->total_size);
         return NULL;
     }
 

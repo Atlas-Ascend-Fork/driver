@@ -30,9 +30,9 @@
 #define STATIC static
 #endif
 
-#define DM_MSG_QUEUE_TIMEOUT_CNT  5
-#define DM_MSG_QUEUE_TIMEOUT_MAX  8
-#define DM_MSG_QUEUE_TIMEOUT    45000   /* 45s */
+#define DM_MSG_QUEUE_TIMEOUT_CNT 5
+#define DM_MSG_QUEUE_TIMEOUT_MAX 8
+#define DM_MSG_QUEUE_TIMEOUT 45000 /* 45s */
 
 static int dm_msg_queue_init(int *ul_queue_id, mmKey_t msgkey, struct msqid_ds *data)
 {
@@ -72,7 +72,7 @@ static int dm_msg_queue_init(int *ul_queue_id, mmKey_t msgkey, struct msqid_ds *
  return     : 0 on success or errno on failure
  *****************************************************************************/
 unsigned long dm_private_queue_create(const char *pch_name, mmKey_t msgkey, unsigned long ul_length,
-    unsigned long *pul_queue_id, unsigned long ul_max_msg_size)
+                                      unsigned long *pul_queue_id, unsigned long ul_max_msg_size)
 {
     int ul_queue_id;
     signed char q_name[DM_QUEUE_NAME_LEN_MAX] = {0};
@@ -114,7 +114,6 @@ unsigned long dm_private_queue_create(const char *pch_name, mmKey_t msgkey, unsi
     return 0;
 }
 
-
 /*****************************************************************************
  function   : dm_queue_read
  description: reading message from a queue synchronously
@@ -127,7 +126,7 @@ unsigned long dm_private_queue_create(const char *pch_name, mmKey_t msgkey, unsi
               DM_NULL_LONG indicates reading failure.
  *****************************************************************************/
 unsigned long dm_queue_read(unsigned long ul_queue_id, unsigned long ul_time_out, void *p_buffer_addr,
-    unsigned long ul_buffer_size)
+                            unsigned long ul_buffer_size)
 {
     int i;
     long ul_return_code;
@@ -145,8 +144,7 @@ unsigned long dm_queue_read(unsigned long ul_queue_id, unsigned long ul_time_out
 
         if (ul_return_code == sizeof(void *)) {
             ret = memcpy_s(p_buffer_addr, ul_buffer_size, read_buf.mtext, ul_buffer_size);
-            DRV_CHECK_RETV_DO_SOMETHING((ret == 0), DM_NULL_LONG, free(read_buf.mtext);
-                                        read_buf.mtext = 0;
+            DRV_CHECK_RETV_DO_SOMETHING((ret == 0), DM_NULL_LONG, free(read_buf.mtext); read_buf.mtext = 0;
                                         DEV_MON_ERR("memcpy_s error\n"));
             free(read_buf.mtext);
             read_buf.mtext = 0;
@@ -157,8 +155,7 @@ unsigned long dm_queue_read(unsigned long ul_queue_id, unsigned long ul_time_out
             ul_return_code = mmMsgRcv((mmMsgid)ul_queue_id, &read_buf, sizeof(void *), IPC_NOWAIT);
             if (ul_return_code == sizeof(void *)) {
                 ret = memcpy_s(p_buffer_addr, ul_buffer_size, read_buf.mtext, ul_buffer_size);
-                DRV_CHECK_RETV_DO_SOMETHING((ret == 0), DM_NULL_LONG, free(read_buf.mtext);
-                                            read_buf.mtext = 0;
+                DRV_CHECK_RETV_DO_SOMETHING((ret == 0), DM_NULL_LONG, free(read_buf.mtext); read_buf.mtext = 0;
                                             DEV_MON_ERR("memcpy_s error\n"));
                 free(read_buf.mtext);
                 read_buf.mtext = 0;
@@ -190,8 +187,7 @@ STATIC bool dm_queue_write_check(struct timespec start, unsigned int *wr_cnt, in
                     (start.tv_sec * MS_PER_SECOND + start.tv_nsec / NS_PER_MSECOND);
 
         if (recv_time > DM_MSG_QUEUE_TIMEOUT) {
-            DEV_MON_ERR("Message queue abnormal. (wr_cnt=%u; recv_time=%llums)\n",
-                (*wr_cnt), recv_time);
+            DEV_MON_ERR("Message queue abnormal. (wr_cnt=%u; recv_time=%llums)\n", (*wr_cnt), recv_time);
             *ret = DEV_MON_MSG_QUEUE_BREAK;
             return false;
         }
@@ -212,7 +208,7 @@ int dm_queue_asy_write(unsigned long ul_queue_id, const void *p_buffer_addr, uns
     int ul_return_code;
     ST_DM_QUEUE_MSG_TYPE send_buf = {0};
     unsigned int wr_cnt = 0;
-    struct timespec time_start = { 0, 0 };
+    struct timespec time_start = {0, 0};
     int ret;
 
     if ((ul_queue_id == DM_NULL_LONG) || (p_buffer_addr == NULL) || (ul_buffer_size == 0)) {
@@ -220,9 +216,8 @@ int dm_queue_asy_write(unsigned long ul_queue_id, const void *p_buffer_addr, uns
     }
 
     send_buf.mtext = malloc(ul_buffer_size);
-
     if (send_buf.mtext == NULL) {
-        DEV_MON_ERR("can't alloc memory!\n");
+        DEV_MON_ERR("can't alloc memory, errno=%d.\n", errno);
         return DM_ERR;
     }
 
@@ -236,8 +231,7 @@ int dm_queue_asy_write(unsigned long ul_queue_id, const void *p_buffer_addr, uns
 
     send_buf.mtype = MMPA_DEFAULT_MSG_TYPE;
     ret = memcpy_s(send_buf.mtext, ul_buffer_size, p_buffer_addr, ul_buffer_size);
-    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), DM_ERR, free(send_buf.mtext);
-                                send_buf.mtext = NULL;
+    DRV_CHECK_RETV_DO_SOMETHING((ret == 0), DM_ERR, free(send_buf.mtext); send_buf.mtext = NULL;
                                 DEV_MON_ERR("memcpy_s error\n"));
 
     (void)clock_gettime(CLOCK_MONOTONIC, &time_start);

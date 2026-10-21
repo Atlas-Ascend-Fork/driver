@@ -15,6 +15,7 @@
 #define _HDCDRV_HOST_H_
 
 #include "ka_task_pub.h"
+#include "hdc_kernel_interface.h"
 #include "hdcdrv_adapter.h"
 #include "hdcdrv_host_adapt.h"
 
@@ -48,4 +49,7 @@ int hdcdrv_unregister_common_msg_client(u32 devid);
 void hdcdrv_module_param_init(void);
 void hdcdrv_init_hotreset_param(void);
 void hdcdrv_uninit_hotreset_param(void);
+
+#define DEVDRV_STATUS_HDC_CLOSE_FLAG 0xEEEEDDDDU
+
 #endif

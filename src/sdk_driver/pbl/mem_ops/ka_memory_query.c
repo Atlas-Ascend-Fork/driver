@@ -17,7 +17,7 @@
 #include "pbl_ka_mem_query.h"
 
 static struct svm_mem_query_ops g_svm_mem_query_ops = {0};
-ka_rw_semaphore_t g_svm_mem_query_lock;
+static KA_TASK_DECLARE_RWSEM(g_svm_mem_query_lock);
 
 int hal_kernel_get_mem_pa_list(u32 devid, int tgid, struct ka_mem_attr *mem, u64 *pa_num, struct ka_pa_wraper *pa_list)
 {

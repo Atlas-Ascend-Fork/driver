@@ -655,14 +655,14 @@ int dms_feature_get_hccs_info(void *feature, char *in, u32 in_len, char *out, u3
         case DMS_HCCS_SUB_CMD_STATISTIC_INFO:
             ret = dms_get_hccs_statistic_info(input, &out_size);
             if (ret != 0) {
-                dms_ex_notsupport_err(ret, "Get hccs statistic fail. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
+                dms_ex_notsupport_err(ret, "Get hccs statistic failed. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
                 return ret;
             }
             break;
         case DMS_HCCS_SUB_CMD_STATISTIC_INFO_EXT:
             ret = dms_get_hccs_statistic_info_ext(input, &out_size);
             if (ret != 0) {
-                dms_ex_notsupport_err(ret, "Get hccs statistic fail. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
+                dms_ex_notsupport_err(ret, "Get hccs statistic failed. (dev_id=%u; ret=%d)\n", input->dev_id, ret);
                 return ret;
             }
             break;
@@ -737,7 +737,7 @@ int dms_hccs_statistic_task_unregister(u32 dev_id)
     }
 
     if (dev_id >= ASCEND_PDEV_MAX_NUM) {
-        dms_err("Invalid input. (dev_id=%u)\n", dev_id);
+        dms_err("Invalid input. (dev_id=%u, valid range=[0, %u))\n", dev_id, ASCEND_PDEV_MAX_NUM);
         return -EINVAL;
     }
 

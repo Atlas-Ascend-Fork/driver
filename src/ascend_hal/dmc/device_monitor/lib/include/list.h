@@ -62,4 +62,3 @@ static inline int list_empty(const struct list_node *head)
     for ((pos) = (head)->next, (n) = (pos)->next; (pos) != (head); (pos) = (n), (n) = (pos)->next)
 
 #endif
-

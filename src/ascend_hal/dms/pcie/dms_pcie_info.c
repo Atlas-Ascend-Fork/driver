@@ -8,8 +8,6 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
-#include <limits.h>
-#include <sys/ioctl.h>
 #include "securec.h"
 #include "mmpa_api.h"
 #include "dms_user_common.h"
@@ -17,20 +15,19 @@
 #include "ascend_hal.h"
 #include "dms/dms_devdrv_info_comm.h"
 #include "devmng_common.h"
-#include "devdrv_user_common.h"
 #include "devmng_user_common.h"
 #include "dsmi_common_interface.h"
-#include "devmng_cmd_def.h"
 #include "dms_device_info.h"
 #include "dms_pcie.h"
 #include "ascend_dev_num.h"
 
 #ifdef CFG_FEATURE_DMS_ARCH_V1
-    #ifdef __linux
-        #define fd_is_invalid(fd) ((fd) < 0)
-    #else
-        #define fd_is_invalid(fd) ((fd) == (mmProcess)DEVDRV_INVALID_FD_OR_INDEX)
-    #endif
+#ifdef __linux
+#include "devmng_cmd_def.h"
+#define fd_is_invalid(fd) ((fd) < 0)
+#else
+#define fd_is_invalid(fd) ((fd) == (mmProcess)DEVDRV_INVALID_FD_OR_INDEX)
+#endif
 #endif
 
 #ifndef CFG_DMS_HOT_RESET_USER_UNSUPPORT

@@ -108,7 +108,7 @@ static void pmm_ctx_release(void *priv)
 {
     struct pmm_ctx *ctx = (struct pmm_ctx *)priv;
     pmm_ctx_uninit(ctx);
-    svm_vfree(ctx);
+    svm_kfree(ctx);
 }
 
 int pmm_init_task(u32 udevid, int tgid, void *start_time)
@@ -117,7 +117,7 @@ int pmm_init_task(u32 udevid, int tgid, void *start_time)
     void *task_ctx = NULL;
     int ret;
 
-    pmm_ctx = (struct pmm_ctx *)svm_vzalloc(sizeof(*pmm_ctx));
+    pmm_ctx = (struct pmm_ctx *)svm_kzalloc(sizeof(*pmm_ctx), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
     if (pmm_ctx == NULL) {
         svm_err("No mem. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -ENOMEM;
@@ -128,27 +128,27 @@ int pmm_init_task(u32 udevid, int tgid, void *start_time)
     ret = pmm_ctx_init(pmm_ctx);
     if (ret != 0) {
         svm_err("Pmm ctx init failed. (ret=%d)\n", ret);
-        svm_vfree(pmm_ctx);
+        svm_kfree(pmm_ctx);
         return ret;
     }
 
     task_ctx = svm_task_ctx_get(udevid, tgid);
     if (task_ctx == NULL) {
         pmm_ctx_uninit(pmm_ctx);
-        svm_vfree(pmm_ctx);
+        svm_kfree(pmm_ctx);
         svm_err("Invalid dev task. (udevid=%u; tgid=%d)\n", udevid, tgid);
         return -EINVAL;
     }
+
+    pmm_ctx->task_ctx = task_ctx;
 
     ret = svm_task_set_feature_priv(task_ctx, pmm_feature_id, "pmm", (void *)pmm_ctx, pmm_ctx_release);
     if (ret != 0) {
         svm_task_ctx_put(task_ctx);
         pmm_ctx_uninit(pmm_ctx);
-        svm_vfree(pmm_ctx);
+        svm_kfree(pmm_ctx);
         return ret;
     }
-
-    pmm_ctx->task_ctx = task_ctx;
 
     svm_inst_trace("Init task. (udevid=%u; tgid=%d)\n", udevid, tgid);
 

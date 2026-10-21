@@ -39,15 +39,26 @@ if(EXISTS ${RDMA_CORE_SEARCH_PATHS})
     file(COPY ${RDMA_CORE_SEARCH_PATHS} DESTINATION ${RDMA_CORE_BUILD_PATH})
     message(STATUS "Successfully copied ${RDMA_CORE_SEARCH_PATHS} to ${RDMA_CORE_BUILD_PATH}.")
 else()
-    set(RDMA_CORE_URL "https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/rdma-core/rdma-core-42.7.tar.gz")
-    set(RDMA_CORE_PATCH_URL "https://gitcode.com/cann-src-third-party/rdma-core/releases/download/v42.7-h3/rdma-core-42.7.patch")
-    file(DOWNLOAD ${RDMA_CORE_PATCH_URL} ${RDMA_CORE_BUILD_PATH}/rdma-core-42.7.patch 
+    if (EXISTS "${CANN_3RD_LIB_PATH}/rdma-core-42.7.tar.gz")
+        set(RDMA_CORE_URL "file://${CANN_3RD_LIB_PATH}/rdma-core-42.7.tar.gz")
+    else()
+        set(RDMA_CORE_URL "https://cann-3rd.obs.cn-north-4.myhuaweicloud.com/rdma-core/rdma-core-42.7.tar.gz")
+    endif()
+
+    if (EXISTS "${CANN_3RD_LIB_PATH}/rdma-core-42.7.patch")
+        set(RDMA_CORE_PATCH_URL "file://${CANN_3RD_LIB_PATH}/rdma-core-42.7.patch")
+    else()
+        set(RDMA_CORE_PATCH_URL "https://gitcode.com/cann-src-third-party/rdma-core/releases/download/\
+v42.7-h3/rdma-core-42.7.patch")
+    endif()
+
+    file(DOWNLOAD ${RDMA_CORE_PATCH_URL} ${EXTERN_DEPEND_DOWNLOAD_DIR}/rdma-core-42.7.patch
         EXPECTED_HASH SHA256=7ed858a480fbf7828d15a2b4c9aedb49cee0569eb05044651951f8ef49e2ed79)
     set(RDMA_CORE_DOWNLOAD_COMMAND
         URL ${RDMA_CORE_URL}
         URL_HASH SHA256=aa935de1fcd07c42f7237b0284b5697b1ace2a64f2bcfca3893185bc91b8c74d
         DOWNLOAD_DIR ${RDMA_CORE_SRC_DIR}
-        PATCH_COMMAND patch -p1 < ${RDMA_CORE_BUILD_PATH}/rdma-core-42.7.patch
+        PATCH_COMMAND patch -p1 < ${EXTERN_DEPEND_DOWNLOAD_DIR}/rdma-core-42.7.patch
     )
 
     message(STATUS "downloading ${RDMA_CORE_URL} to ${RDMA_CORE_SRC_DIR}")

@@ -26,17 +26,17 @@ extern "C" {
 #define DCMIDLLEXPORT _declspec(dllexport)
 #endif
 
-#define MAX_VER_LEN 255  // Maximum length of version string
+#define MAX_VER_LEN 255 // Maximum length of version string
 
-#define MAX_CARD_NUM 64  // The system supports up to 64 cards
+#define MAX_CARD_NUM 64 // The system supports up to 64 cards
 
-#define MAX_CHIP_NAME_LEN 32  // Maximum length of chip name
+#define MAX_CHIP_NAME_LEN 32 // Maximum length of chip name
 
-#define MAX_LENTH 256  // Maximum length of string
+#define MAX_LENTH 256 // Maximum length of string
 
-#define DIE_ID_COUNT 5  // Number of die ID characters
+#define DIE_ID_COUNT 5 // Number of die ID characters
 
-#define MAX_CORE_NUM 16  // Maximum AI CPU
+#define MAX_CORE_NUM 16 // Maximum AI CPU
 
 #define DCMI_SENSOR_DATA_MAX_LEN 16
 
@@ -47,24 +47,24 @@ extern "C" {
 #define SYSLOG_RETRY_TIME 5000000 // 5s
 
 #define DCMI_COMPUTE_GROUP_INFO_RES_NUM 8
-#define DCMI_AICORE_MASK_NUM            2
+#define DCMI_AICORE_MASK_NUM 2
 
 #define DCMI_MAX_SPEC_RESERVE 8
-#define DCMI_VF_FLAG_BIT 9  // VF: computing virtualization scenario
+#define DCMI_VF_FLAG_BIT 9 // VF: computing virtualization scenario
 
-#define IV_MAX_LEN       64
+#define IV_MAX_LEN 64
 
-#define KEY_MAX_LEN      512
+#define KEY_MAX_LEN 512
 
 #define RESERVED_MAX_LEN 512
 
-#define MAX_RECORD_ECC_ADDR_COUNT   64
+#define MAX_RECORD_ECC_ADDR_COUNT 64
 
-#define TOPO_INFO_MAX_LENTH          32 // topo info max length
+#define TOPO_INFO_MAX_LENTH 32 // topo info max length
 
-#define PRIORITY_NUM           8
+#define PRIORITY_NUM 8
 
-#define RESERVE_NUMBER_EXT                          6
+#define RESERVE_NUMBER_EXT 6
 
 #define TS_RSEV_MAX_LENTH 36
 
@@ -97,23 +97,23 @@ struct dcmi_pcie_info {
 };
 
 struct dcmi_pcie_info_all {
-    unsigned int venderid;          /* 厂商id */
-    unsigned int subvenderid;       /* 厂商子id */
-    unsigned int deviceid;          /* 设备id */
-    unsigned int subdeviceid;       /* 设备子id */
-    int domain;                     /* pcie domain */
+    unsigned int venderid;    /* 厂商id */
+    unsigned int subvenderid; /* 厂商子id */
+    unsigned int deviceid;    /* 设备id */
+    unsigned int subdeviceid; /* 设备子id */
+    int domain;               /* pcie domain */
     unsigned int bdf_busid;
     unsigned int bdf_deviceid;
     unsigned int bdf_funcid;
-    unsigned char reserve[32];      /* the size of dcmi_pcie_info_all is 64 */
+    unsigned char reserve[32]; /* the size of dcmi_pcie_info_all is 64 */
 };
 
 struct dcmi_ub_id_info {
-    unsigned short device_id;          /* 设备id */
-    unsigned short vendor_id;          /* 厂商id */
-    unsigned short module_vendor_id;   /* 厂商子id */
-    unsigned short module_id;          /* 设备子id */
-    unsigned char reserved[32];        /* consistent with the definition of hisi. */
+    unsigned short device_id;        /* 设备id */
+    unsigned short vendor_id;        /* 厂商id */
+    unsigned short module_vendor_id; /* 厂商子id */
+    unsigned short module_id;        /* 设备子id */
+    unsigned char reserved[32];      /* consistent with the definition of hisi. */
 };
 
 struct dcmi_board_info {
@@ -191,20 +191,20 @@ struct dcmi_hbm_info {
 };
 
 struct dcmi_memory_info {
-    unsigned long long memory_size;        /* unit:MB */
+    unsigned long long memory_size; /* unit:MB */
     unsigned int freq;
     unsigned int utiliza;
 };
 
 struct dcmi_get_memory_info_stru {
-    unsigned long long memory_size;        /* unit:MB */
-    unsigned long long memory_available;   /* free + hugepages_free * hugepagesize */
+    unsigned long long memory_size;      /* unit:MB */
+    unsigned long long memory_available; /* free + hugepages_free * hugepagesize */
     unsigned int freq;
-    unsigned long hugepagesize;             /* unit:KB */
+    unsigned long hugepagesize; /* unit:KB */
     unsigned long hugepages_total;
     unsigned long hugepages_free;
-    unsigned int utiliza;                  /* ddr memory info usages */
-    unsigned char reserve[60];             /* the size of dcmi_memory_info is 96 */
+    unsigned int utiliza;      /* ddr memory info usages */
+    unsigned char reserve[60]; /* the size of dcmi_memory_info is 96 */
 };
 
 struct dcmi_hbm_product_info {
@@ -220,7 +220,7 @@ struct dcmi_dvpp_ratio {
     int jpegd_ratio;
 };
 
-enum  SM_KEY_TYPE {
+enum SM_KEY_TYPE {
     SM3_NORMAL_SUMMARY = 0,
     SM4_CBC_ENCRYPT = 1,
     SM4_CBC_DECRYPT = 2
@@ -257,7 +257,7 @@ struct dcmi_capability_group_info {
     unsigned int sdma_number;
     unsigned int aicpu_number;
     unsigned int active_sq_number;
-    unsigned int aicore_mask[DCMI_AICORE_MASK_NUM];          /* as output in dcmi_get_capability_group_info */
+    unsigned int aicore_mask[DCMI_AICORE_MASK_NUM]; /* as output in dcmi_get_capability_group_info */
     unsigned int res[DCMI_COMPUTE_GROUP_INFO_RES_NUM - DCMI_AICORE_MASK_NUM];
 };
 
@@ -355,8 +355,8 @@ enum dcmi_port_type {
 };
 
 enum dcmi_revo_type {
-    DCMI_REVOCATION_TYPE_SOC = 0,      /* for SOC revocation */
-    DCMI_REVOCATION_TYPE_CMS_CRL = 1,  /* for CMS CRL file upgrade */
+    DCMI_REVOCATION_TYPE_SOC = 0,         /* for SOC revocation */
+    DCMI_REVOCATION_TYPE_CMS_CRL = 1,     /* for CMS CRL file upgrade */
     DCMI_REVOCATION_TYPE_CMS_CRL_EXT = 2, /* for extended CRL upgrade */
     DCMI_REVOCATION_TYPE_MAX
 };
@@ -392,7 +392,7 @@ enum dcmi_main_cmd {
     DCMI_MAIN_CMD_MAX
 };
 
-#define DCMI_PCIE_SUB_CMD_PCIE_ERROR_INFO   1
+#define DCMI_PCIE_SUB_CMD_PCIE_ERROR_INFO 1
 
 typedef enum {
     DCMI_DEVICE_SHARE_SUB_CMD_COMMON = 0,
@@ -400,12 +400,12 @@ typedef enum {
 } DCMI_DEVICE_SHARE_SUB_CMD;
 
 struct dcmi_pcie_link_error_info {
-    unsigned int tx_err_cnt; // Pcie发送错误计数
-    unsigned int rx_err_cnt; // Pcie接收错误计数
+    unsigned int tx_err_cnt;   // Pcie发送错误计数
+    unsigned int rx_err_cnt;   // Pcie接收错误计数
     unsigned int lcrc_err_cnt; // Pcie DLLP LCRC校验错误计数
     unsigned int ecrc_err_cnt; // Pcie TLP ECRC校验错误计数
-    unsigned int retry_cnt; // Pcie链路重传计数
-    unsigned int rsv[32]; // 保留
+    unsigned int retry_cnt;    // Pcie链路重传计数
+    unsigned int rsv[32];      // 保留
 };
 
 typedef enum {
@@ -420,7 +420,7 @@ typedef enum {
 struct dcmi_host_aicpu_info {
     unsigned int num;
     unsigned long long bitmap[DCMI_HOST_AICPU_BITMAP_LEN];
-    unsigned int work_mode; /* thread or process */
+    unsigned int work_mode;                               /* thread or process */
     unsigned char reserved[DCMI_HOST_AICPU_RESERVED_LEN]; /* reserved data must be set to 0 */
 };
 
@@ -433,21 +433,21 @@ typedef enum {
     DCMI_HCCS_CMD_MAX,
 } DCMI_HCCS_SUB_CMD;
 
-#define DCMI_HCCS_MAX_PCS_NUM   16
-#define DCMI_HCCS_RES_FIELD_NUM 64  // 预留字段未使用
-#define DCMI_HCCS_910B_PCS_NUM  7   // macro 1-7为hccs
-#define DCMI_HCCS_310P_PCS_NUM  0   // 310P HPCS数量为1
-#define LANE_MODE_OFFSET        9
-#define LINK_LANE_OFFSET        1
-#define FIRST_ERROR_LANE        8
-#define LANE_MODE_BIT_NUM       4
-#define NET_MACRO_ID_MAX        0
-#define MACRO_LANE_MAX_NUM      4   // macro上有4个lane
+#define DCMI_HCCS_MAX_PCS_NUM 16
+#define DCMI_HCCS_RES_FIELD_NUM 64 // 预留字段未使用
+#define DCMI_HCCS_910B_PCS_NUM 7   // macro 1-7为hccs
+#define DCMI_HCCS_310P_PCS_NUM 0   // 310P HPCS数量为1
+#define LANE_MODE_OFFSET 9
+#define LINK_LANE_OFFSET 1
+#define FIRST_ERROR_LANE 8
+#define LANE_MODE_BIT_NUM 4
+#define NET_MACRO_ID_MAX 0
+#define MACRO_LANE_MAX_NUM 4 // macro上有4个lane
 
-#define DCMI_HCCS_910_93_MACRO_NUM1       7   // macro (天成 A+K A+X)M1-M7用作hccs
-#define DCMI_HCCS_910_93_MACRO_NUM2       6   // macro (天工)M2-M7用作hccs
-#define DCMI_HCCS_910_93_MACRO_OFFSET1  1   // 910A3 M1-M7用作hccs
-#define DCMI_HCCS_910_93_MACRO_OFFSET2  2   // 910A3 M2-M7用作hccs
+#define DCMI_HCCS_910_93_MACRO_NUM1 7    // macro (天成 A+K A+X)M1-M7用作hccs
+#define DCMI_HCCS_910_93_MACRO_NUM2 6    // macro (天工)M2-M7用作hccs
+#define DCMI_HCCS_910_93_MACRO_OFFSET1 1 // 910A3 M1-M7用作hccs
+#define DCMI_HCCS_910_93_MACRO_OFFSET2 2 // 910A3 M2-M7用作hccs
 
 struct dcmi_hccs_lane_info {
     unsigned int hccs_port_pcs_bitmap;
@@ -460,7 +460,7 @@ struct dcmi_hccs_statistic_info {
     unsigned int rx_cnt[DCMI_HCCS_MAX_PCS_NUM];
     unsigned int crc_err_cnt[DCMI_HCCS_MAX_PCS_NUM];
     unsigned int retry_cnt[DCMI_HCCS_MAX_PCS_NUM];
-    unsigned int reserved_field_cnt[DCMI_HCCS_RES_FIELD_NUM];  // 预留64个字段供后续扩充使用
+    unsigned int reserved_field_cnt[DCMI_HCCS_RES_FIELD_NUM]; // 预留64个字段供后续扩充使用
 };
 
 struct dcmi_hccs_statistic_info_u64 {
@@ -468,7 +468,7 @@ struct dcmi_hccs_statistic_info_u64 {
     unsigned long long rx_cnt[DCMI_HCCS_MAX_PCS_NUM];
     unsigned long long crc_err_cnt[DCMI_HCCS_MAX_PCS_NUM];
     unsigned long long retry_cnt[DCMI_HCCS_MAX_PCS_NUM];
-    unsigned long long reserved[DCMI_HCCS_RES_FIELD_NUM];  // 预留64个字段供后续扩充使用
+    unsigned long long reserved[DCMI_HCCS_RES_FIELD_NUM]; // 预留64个字段供后续扩充使用
 };
 
 #define DCMI_HCCS_STATUS_RESERVED_LEN 4
@@ -479,20 +479,20 @@ struct dcmi_hccs_statues {
     unsigned char reserve[DCMI_HCCS_STATUS_RESERVED_LEN];
 };
 
-#define DCMI_UB_PORT_NUM 36        // NPU芯片端口数量
+#define DCMI_UB_PORT_NUM 36 // NPU芯片端口数量
 typedef enum {
-    DCMI_UB_ALL_PORT_NO_LINK = 0,  // 所有端口未建链
-    DCMI_UB_ALL_PORT_LINK,         // 所有端口建链
-    DCMI_UB_PARTIAL_PORT_LINK,     // 部分端口建链
-    DCMI_UB_NO_NEED_LINK,          // 断链标记 无需建链
-} dcmi_entire_ub_status;           /* 芯片维度： 0-2: actual link status, 3: link requirement */
+    DCMI_UB_ALL_PORT_NO_LINK = 0, // 所有端口未建链
+    DCMI_UB_ALL_PORT_LINK,        // 所有端口建链
+    DCMI_UB_PARTIAL_PORT_LINK,    // 部分端口建链
+    DCMI_UB_NO_NEED_LINK,         // 断链标记 无需建链
+} dcmi_entire_ub_status;          /* 芯片维度： 0-2: actual link status, 3: link requirement */
 
 typedef enum {
-    DCMI_UB_PORT_STATUS_NONE_LANE = 0,  // 芯片端口不存在
-    DCMI_UB_PORT_STATUS_FULL_LANE,      // 端口建链 全带宽
-    DCMI_UB_PORT_STATUS_PARTIAL_LANE,   // 端口建链 部分带宽
-    DCMI_UB_PORT_STATUS_INITIAL,        // 初始化状态 未建链
-} dcmi_ub_port_status;                  /* 芯片端口维度 */
+    DCMI_UB_PORT_STATUS_NONE_LANE = 0, // 芯片端口不存在
+    DCMI_UB_PORT_STATUS_FULL_LANE,     // 端口建链 全带宽
+    DCMI_UB_PORT_STATUS_PARTIAL_LANE,  // 端口建链 部分带宽
+    DCMI_UB_PORT_STATUS_INITIAL,       // 初始化状态 未建链
+} dcmi_ub_port_status;                 /* 芯片端口维度 */
 
 struct dcmi_ub_port_link_status {
     dcmi_entire_ub_status ub_link_status;
@@ -548,8 +548,8 @@ typedef enum {
 #define DCMI_QOS_TARGET_NUM_MAX 16U
 #define DCMI_QOS_CFG_RESERVED_LEN 8
 #define DCMI_QOS_INDEX_OFFSET 8
-#define DCMI_QOS_SUB_CMD_MAKE(qos_index, qos_sub_cmd) (((qos_index) << \
-    DCMI_QOS_INDEX_OFFSET) | (qos_sub_cmd))
+#define DCMI_QOS_GROUP_RESERVED_LEN 7 /* keep both sides of union 32 bytes, 对齐 dsmi qos_master_config */
+#define DCMI_QOS_SUB_CMD_MAKE(qos_index, qos_sub_cmd) (((qos_index) << DCMI_QOS_INDEX_OFFSET) | (qos_sub_cmd))
 
 struct dcmi_qos_bw_config {
     unsigned char mode;
@@ -583,16 +583,22 @@ struct dcmi_qos_master_config {
     int mpamid;
     int qos;
     int pmg;
-    unsigned long long bitmap[4]; /* max support 64 * 4  */
-    unsigned int mode; /* 0--regs valid, 2--sqe valid */
+    union {
+        unsigned long long bitmap[4]; /* mode 0/2: max support 64 * 4 */
+        struct {
+            unsigned int master_group_id; /* mode 3: compute group ID, 对齐 dsmi qos_master_config */
+            unsigned int group_reserved[DCMI_QOS_GROUP_RESERVED_LEN];
+        } group;
+    };
+    unsigned int mode; /* 0--regs valid, 2--sqe valid, 3--group id valid */
     int reserved[DCMI_QOS_CFG_RESERVED_LEN - 1];
 };
 
 struct dcmi_qos_gbl_config {
     unsigned int enable;
-    unsigned int autoqos_fuse_en;         /* 0--enable, 1--disable */
-    unsigned int mpamqos_fuse_mode;       /* 0--average, 1--max, 2--replace */
-    unsigned int mpam_subtype;            /* 0--all, 1--wr, 2--rd, 3--none */
+    unsigned int autoqos_fuse_en;   /* 0--enable, 1--disable */
+    unsigned int mpamqos_fuse_mode; /* 0--average, 1--max, 2--replace */
+    unsigned int mpam_subtype;      /* 0--all, 1--wr, 2--rd, 3--none */
     int reserved[DCMI_QOS_CFG_RESERVED_LEN];
 };
 
@@ -611,10 +617,10 @@ struct dcmi_spod_info {
     unsigned int server_index;
     unsigned int chassis_id;
     unsigned int super_pod_type;
-    unsigned int reserve[6];        /* the size of dcmi_spod_info is 48 */
+    unsigned int reserve[6]; /* the size of dcmi_spod_info is 48 */
 };
 
-#define DCMI_UTIL_RESERVED_LEN  8
+#define DCMI_UTIL_RESERVED_LEN 8
 struct dcmi_multi_utilization_info {
     unsigned int aic_util;
     unsigned int aiv_util;
@@ -625,9 +631,9 @@ struct dcmi_multi_utilization_info {
 
 /* DCMI sub commond for TS  */
 typedef enum {
-    DCMI_TS_SUB_CMD_AICORE_UTILIZATION_RATE = 0,  // Obtains the single-core usage of AI Core.
-    DCMI_TS_SUB_CMD_VECTORCORE_UTILIZATION_RATE,  // Obtains the single-core usage of Vector Core.
-    DCMI_TS_SUB_CMD_FFTS_TYPE, // Obtains the type of FFTS or FFTS+
+    DCMI_TS_SUB_CMD_AICORE_UTILIZATION_RATE = 0, // Obtains the single-core usage of AI Core.
+    DCMI_TS_SUB_CMD_VECTORCORE_UTILIZATION_RATE, // Obtains the single-core usage of Vector Core.
+    DCMI_TS_SUB_CMD_FFTS_TYPE,                   // Obtains the type of FFTS or FFTS+
     DCMI_TS_SUB_CMD_SET_FAULT_MASK,
     DCMI_TS_SUB_CMD_GET_FAULT_MASK,
     DCMI_TS_SUB_CMD_LAUNCH_AICORE_STL,
@@ -655,15 +661,14 @@ typedef enum {
 #define DCMI_SUB_CMD_MEMORY_GET_MATA_READ_ONCE 31
 
 /* DCMI sub commond for os power module */
-#define DCMI_OS_TYPE_OFFSET     24
-#define DCMI_OS_TYPE_CFG_BIT    0xff000000
+#define DCMI_OS_TYPE_OFFSET 24
+#define DCMI_OS_TYPE_CFG_BIT 0xff000000
 #define DCMI_POWER_TYPE_CFG_BIT 0x00ffffff
-#define DCMI_OS_SUB_CMD_MAKE(os_type, power_type) (((os_type) << \
-    DCMI_OS_TYPE_OFFSET) | (power_type))
+#define DCMI_OS_SUB_CMD_MAKE(os_type, power_type) (((os_type) << DCMI_OS_TYPE_OFFSET) | (power_type))
 
 typedef enum {
-    DCMI_SUB_OS_SD = 0,        // SD域
-    DCMI_SUB_OS_ALL = 0xFE,    // 所有域
+    DCMI_SUB_OS_SD = 0,     // SD域
+    DCMI_SUB_OS_ALL = 0xFE, // 所有域
     DCMI_SUB_OS_INVALID = 0xFF,
 } DCMI_SUB_OS_TYPE;
 
@@ -678,32 +683,32 @@ typedef enum {
     DCMI_UFS_SUB_CMD_INVALID = 0xFF,
 } DCMI_UFS_SUB_CMD;
 
-#define DCMI_INLINE_CRYPTO_RESERVED_LEN      4
-#define DCMI_UFS_DEFAULT_KEY_NUM             8
-#define DCMI_UFS_MAX_MN_LEN  18         /**< ufs max manufacturer name length */
-#define DCMI_UFS_MAX_SN_LEN  254        /**< ufs max serial number length */
-#define DCMI_UFS_MAX_PI_LEN  34         /**< ufs max product identification */
-#define DCMI_UFS_DESC_LEN    255
+#define DCMI_INLINE_CRYPTO_RESERVED_LEN 4
+#define DCMI_UFS_DEFAULT_KEY_NUM 8
+#define DCMI_UFS_MAX_MN_LEN 18  /**< ufs max manufacturer name length */
+#define DCMI_UFS_MAX_SN_LEN 254 /**< ufs max serial number length */
+#define DCMI_UFS_MAX_PI_LEN 34  /**< ufs max product identification */
+#define DCMI_UFS_DESC_LEN 255
 
 typedef enum {
-    DCMI_UFS_FAST_MODE = 1,      // 高速模式
-    DCMI_UFS_SLOW_MODE = 2,      // 低速模式
-    DCMI_UFS_FASTAUTO_MODE = 4,  // 自动高速模式
-    DCMI_UFS_SLOWAUTO_MODE = 5,  // 自动低速模式
-    DCMI_UFS_UNCHANGED = 7,      // 不做改变
-} DCMI_UFS_PWR_MODE;      // UFS速率模式
+    DCMI_UFS_FAST_MODE = 1,     // 高速模式
+    DCMI_UFS_SLOW_MODE = 2,     // 低速模式
+    DCMI_UFS_FASTAUTO_MODE = 4, // 自动高速模式
+    DCMI_UFS_SLOWAUTO_MODE = 5, // 自动低速模式
+    DCMI_UFS_UNCHANGED = 7,     // 不做改变
+} DCMI_UFS_PWR_MODE;            // UFS速率模式
 
 typedef enum {
-    DCMI_UFS_DONT_CHANGE,        // 不做改变
-    DCMI_UFS_GEAR_1,             // 速率等级1
-    DCMI_UFS_GEAR_2,             // 速率等级2
-    DCMI_UFS_GEAR_3,             // 速率等级3
-} DCMI_UFS_GEAR;        // 高速模式下的速率等级
+    DCMI_UFS_DONT_CHANGE, // 不做改变
+    DCMI_UFS_GEAR_1,      // 速率等级1
+    DCMI_UFS_GEAR_2,      // 速率等级2
+    DCMI_UFS_GEAR_3,      // 速率等级3
+} DCMI_UFS_GEAR;          // 高速模式下的速率等级
 
 typedef enum {
-    DCMI_UFS_PA_HS_MODE_A = 1,   // 频率模式A
-    DCMI_UFS_PA_HS_MODE_B = 2,   // 频率模式B
-} DCMI_UFS_HS_MODE;        // 高速模式下的频率模式
+    DCMI_UFS_PA_HS_MODE_A = 1, // 频率模式A
+    DCMI_UFS_PA_HS_MODE_B = 2, // 频率模式B
+} DCMI_UFS_HS_MODE;            // 高速模式下的频率模式
 
 typedef enum {
     DCMI_UFS_PM_LEVEL_0, /**< UFS_ACTIVE_PWR_MODE, UIC_LINK_ACTIVE_STATE */
@@ -721,16 +726,16 @@ typedef enum {
     DCMI_UFS_DEV_CLK_38M4,
     DCMI_UFS_DEV_CLK_52M0,
     DCMI_UFS_DEV_CLK_INVAL,
-} DCMI_UFS_DEV_CLOCK;     // 查询设备时钟频率
+} DCMI_UFS_DEV_CLOCK; // 查询设备时钟频率
 
 typedef struct dcmi_ufs_config_stru {
-    DCMI_UFS_PWR_MODE pwr_mode;             /**< Link Rate Mode */
-    DCMI_UFS_GEAR pwr_gear;                 /**< Link Rate */
-    DCMI_UFS_HS_MODE hs_series;             /**< HS Series, Only query, not configuration */
-    DCMI_UFS_PM_LEVEL suspend_pwr_level;    /**< HS Series, Only query, not configuration */
-    unsigned int auto_h8;                   /**< enable autoH8: 0-disable, 1-enable */
-    unsigned int lane_count;                /**< active lanes count */
-    DCMI_UFS_DEV_CLOCK device_refclk;       /**< Reference Clock Frequency value, Only query, not configuration */
+    DCMI_UFS_PWR_MODE pwr_mode;          /**< Link Rate Mode */
+    DCMI_UFS_GEAR pwr_gear;              /**< Link Rate */
+    DCMI_UFS_HS_MODE hs_series;          /**< HS Series, Only query, not configuration */
+    DCMI_UFS_PM_LEVEL suspend_pwr_level; /**< HS Series, Only query, not configuration */
+    unsigned int auto_h8;                /**< enable autoH8: 0-disable, 1-enable */
+    unsigned int lane_count;             /**< active lanes count */
+    DCMI_UFS_DEV_CLOCK device_refclk;    /**< Reference Clock Frequency value, Only query, not configuration */
 } DCMI_UFS_CONFIG_STRU;
 
 typedef struct dcmi_ufs_partition_stru {
@@ -753,54 +758,54 @@ typedef struct dcmi_ufs_key_index_stru {
 } DCMI_UFS_KEY_INDEX_STRU;
 
 typedef enum {
-    DCMI_UFS_STATE_LINKOFF,     // 断开连接状态
-    DCMI_UFS_STATE_ACTIVE,      // 正常状态
-    DCMI_UFS_STATE_HIBERN8,     // 低功耗状态
-} DCMI_UFS_STATE;               // UFS状态
+    DCMI_UFS_STATE_LINKOFF, // 断开连接状态
+    DCMI_UFS_STATE_ACTIVE,  // 正常状态
+    DCMI_UFS_STATE_HIBERN8, // 低功耗状态
+} DCMI_UFS_STATE;           // UFS状态
 
 typedef enum {
-    DCMI_UFS_UIC_LINK_OFF_STATE  = 0,     /**< Link powered down or disabled */
-    DCMI_UFS_UIC_LINK_ACTIVE_STATE   = 1, /**< Link is in Fast/Slow/Sleep state */
-    DCMI_UFS_UIC_LINK_HIBERN8_STATE  = 2, /**< Link is in Hibernate state */
+    DCMI_UFS_UIC_LINK_OFF_STATE = 0,     /**< Link powered down or disabled */
+    DCMI_UFS_UIC_LINK_ACTIVE_STATE = 1,  /**< Link is in Fast/Slow/Sleep state */
+    DCMI_UFS_UIC_LINK_HIBERN8_STATE = 2, /**< Link is in Hibernate state */
 } DCMI_UFS_LINK_STATE;
 
 typedef enum {
-    DCMI_UFS_DEV_PWR_ACTIVE = 1,                // 正常工作状态
-    DCMI_UFS_DEV_PWR_SLEEP  = 2,                // 休眠状态
-    DCMI_UFS_DEV_PWR_POWERDOWN  = 3,            // 关机状态
-} DCMI_UFS_DEV_PWR_STATE;                       // UFS电源状态
+    DCMI_UFS_DEV_PWR_ACTIVE = 1,    // 正常工作状态
+    DCMI_UFS_DEV_PWR_SLEEP = 2,     // 休眠状态
+    DCMI_UFS_DEV_PWR_POWERDOWN = 3, // 关机状态
+} DCMI_UFS_DEV_PWR_STATE;           // UFS电源状态
 
 typedef struct dcmi_ufs_descriptor_stru {
     unsigned char automotive_health[DCMI_UFS_DESC_LEN]; // 自定义描述符，部分厂家支持
     unsigned char device_health[DCMI_UFS_DESC_LEN];
     unsigned char device[DCMI_UFS_DESC_LEN];
-    unsigned char osv_report[DCMI_UFS_DESC_LEN]; // 自定义描述符，部分厂家支持
+    unsigned char osv_report[DCMI_UFS_DESC_LEN];       // 自定义描述符，部分厂家支持
     unsigned char nand_info_report[DCMI_UFS_DESC_LEN]; // 自定义描述符，部分厂家支持
     unsigned char reserved[DCMI_UFS_DESC_LEN];
 } DCMI_UFS_DESCRIPTOR_STRU;
 
 typedef struct dcmi_ufs_status_stru {
-    DCMI_UFS_STATE status;                      /**< ufs status */
-    DCMI_UFS_PWR_MODE rx_pwr_mode;              /**< rx rate mode */
-    DCMI_UFS_PWR_MODE tx_pwr_mode;              /**< tx rate mode */
-    DCMI_UFS_GEAR rx_pwr_gear;                  /**< rx rate */
-    DCMI_UFS_GEAR tx_pwr_gear;                  /**< tx rate */
-    unsigned int rx_lanes;                      /**< rx lanes */
-    unsigned int tx_lanes;                      /**< tx lanes */
-    DCMI_UFS_LINK_STATE link_pwr_status;        /**< link power status */
-    DCMI_UFS_DEV_PWR_STATE device_pwr_status;   /**< device power status */
-    int temperature;                            /**< ufs device temperature */
-    unsigned int fault_status;                  /**< ufs device exception status */
-    unsigned int total_capacity;                /**< total raw device capacity */
-    unsigned int model_number;                  /**< ufs device sub class */
-    unsigned int device_life_time;              /**< ufs device life time used */
-    unsigned int fw_ver;                        /**< product revision level */
-    unsigned int fw_update_enable;              /**< whether to support firmware update: 0-not support, 1-support */
-    unsigned char product_name[DCMI_UFS_MAX_PI_LEN];         /**< ufs device product identification */
-    unsigned char manufacturer_name[DCMI_UFS_MAX_MN_LEN];    /** <ufs device manufacturer name */
-    unsigned char serial_number[DCMI_UFS_MAX_SN_LEN];        /** <ufs device serial number */
-    unsigned int spec_version;                  /**< ufs device specification version */
-    unsigned int device_version;                /**< ufs device device version */
+    DCMI_UFS_STATE status;                    /**< ufs status */
+    DCMI_UFS_PWR_MODE rx_pwr_mode;            /**< rx rate mode */
+    DCMI_UFS_PWR_MODE tx_pwr_mode;            /**< tx rate mode */
+    DCMI_UFS_GEAR rx_pwr_gear;                /**< rx rate */
+    DCMI_UFS_GEAR tx_pwr_gear;                /**< tx rate */
+    unsigned int rx_lanes;                    /**< rx lanes */
+    unsigned int tx_lanes;                    /**< tx lanes */
+    DCMI_UFS_LINK_STATE link_pwr_status;      /**< link power status */
+    DCMI_UFS_DEV_PWR_STATE device_pwr_status; /**< device power status */
+    int temperature;                          /**< ufs device temperature */
+    unsigned int fault_status;                /**< ufs device exception status */
+    unsigned int total_capacity;              /**< total raw device capacity */
+    unsigned int model_number;                /**< ufs device sub class */
+    unsigned int device_life_time;            /**< ufs device life time used */
+    unsigned int fw_ver;                      /**< product revision level */
+    unsigned int fw_update_enable;            /**< whether to support firmware update: 0-not support, 1-support */
+    unsigned char product_name[DCMI_UFS_MAX_PI_LEN];      /**< ufs device product identification */
+    unsigned char manufacturer_name[DCMI_UFS_MAX_MN_LEN]; /** <ufs device manufacturer name */
+    unsigned char serial_number[DCMI_UFS_MAX_SN_LEN];     /** <ufs device serial number */
+    unsigned int spec_version;                            /**< ufs device specification version */
+    unsigned int device_version;                          /**< ufs device device version */
 } DCMI_UFS_STATUS_STRU;
 
 /* DCMI sub commond for DCMI_MAIN_CMD_EX_COMPUTING */
@@ -813,7 +818,7 @@ typedef struct dcmi_ufs_status_stru {
 #define DCMI_CHIP_INF_SUB_CMD_CUST_BOARD_INF 3
 
 #define DCMI_SRIOV_DISABLE 0
-#define DCMI_SRIOV_ENABLE  1
+#define DCMI_SRIOV_ENABLE 1
 
 /* DCMI sub vdev mng CMD def */
 typedef enum {
@@ -850,8 +855,8 @@ typedef enum {
     DCMI_CERT_SUB_CMD_MAX,
 } DCMI_EX_CERT_SUB_CMD;
 
-#define DCMI_LP_WORK_TOPS_MAX      10
-#define DCMI_LP_WORK_TOPS_RESERVE  32
+#define DCMI_LP_WORK_TOPS_MAX 10
+#define DCMI_LP_WORK_TOPS_RESERVE 32
 #define DCMI_LP_POWER_RESERVED_LEN 32
 
 typedef struct dcmi_lp_cur_tops_stru {
@@ -887,7 +892,7 @@ typedef struct dcmi_lp_power_info {
 
 typedef struct dcmi_aicfreq_tops_stru {
     unsigned int aic_freq;
-    const char* tops;
+    const char *tops;
 } DCMI_AICFRQ_TOPS_STRU;
 
 enum dcmi_component_type {
@@ -975,16 +980,16 @@ enum dcmi_freq_type {
     DCMI_FREQ_VECTORCORE_CURRENT = 12
 };
 
-#define    DCMI_UTILIZATION_RATE_DDR             1
-#define    DCMI_UTILIZATION_RATE_AICORE          2
-#define    DCMI_UTILIZATION_RATE_AICPU           3
-#define    DCMI_UTILIZATION_RATE_CTRLCPU         4
-#define    DCMI_UTILIZATION_RATE_DDR_BANDWIDTH   5
-#define    DCMI_UTILIZATION_RATE_HBM             6
-#define    DCMI_UTILIZATION_RATE_HBM_BANDWIDTH   10
-#define    DCMI_UTILIZATION_RATE_VECTORCORE      12
-#define    DCMI_UTILIZATION_RATE_NPU             13
-#define    DCMI_UTILIZATION_RATE_AICUBE          14
+#define DCMI_UTILIZATION_RATE_DDR 1
+#define DCMI_UTILIZATION_RATE_AICORE 2
+#define DCMI_UTILIZATION_RATE_AICPU 3
+#define DCMI_UTILIZATION_RATE_CTRLCPU 4
+#define DCMI_UTILIZATION_RATE_DDR_BANDWIDTH 5
+#define DCMI_UTILIZATION_RATE_HBM 6
+#define DCMI_UTILIZATION_RATE_HBM_BANDWIDTH 10
+#define DCMI_UTILIZATION_RATE_VECTORCORE 12
+#define DCMI_UTILIZATION_RATE_NPU 13
+#define DCMI_UTILIZATION_RATE_AICUBE 14
 
 enum dcmi_manager_sensor_id {
     DCMI_CLUSTER_TEMP_ID = 0,
@@ -1072,12 +1077,12 @@ struct dcmi_event {
 
 typedef void (*dcmi_fault_event_callback)(struct dcmi_event *event);
 
-#define DCMI_VDEV_RES_NAME_LEN      16
-#define DCMI_VDEV_FOR_RESERVE       32
-#define DCMI_SOC_SPLIT_MAX          32
-#define DCMI_ULONG_LONG_SIZE        sizeof(unsigned long long)
-#define DCMI_UINT_SIZE              sizeof(unsigned int)
-#define DCMI_VDEV_SIZE              ((2 * DCMI_ULONG_LONG_SIZE) + DCMI_UINT_SIZE)
+#define DCMI_VDEV_RES_NAME_LEN 16
+#define DCMI_VDEV_FOR_RESERVE 32
+#define DCMI_SOC_SPLIT_MAX 32
+#define DCMI_ULONG_LONG_SIZE sizeof(unsigned long long)
+#define DCMI_UINT_SIZE sizeof(unsigned int)
+#define DCMI_VDEV_SIZE ((2 * DCMI_ULONG_LONG_SIZE) + DCMI_UINT_SIZE)
 
 /* Tls Cert Mananger */
 #define CERT_NAME_MAX_LEN 16
@@ -1087,7 +1092,7 @@ typedef void (*dcmi_fault_event_callback)(struct dcmi_event *event);
 #define MAX_CERT_COUNT (15U)
 #define NPU_CERT_MAX_SIZE 2048
 #define DCMI_CERT_SUB_CMD_INIT_TLS_PUB_KEY 0
-#define DCMI_CERT_SUB_CMD_TLS_CERT_INFO    2
+#define DCMI_CERT_SUB_CMD_TLS_CERT_INFO 2
 #define CERT_PERIOD_MIN 7
 #define CERT_PERIOD_MAX 180
 
@@ -1132,7 +1137,7 @@ struct dcmi_base_resource {
     unsigned long long task_timeout;
     unsigned int vfg_id;
     unsigned char vip_mode;
-    unsigned char reserved[DCMI_VDEV_FOR_RESERVE - 1];  /* bytes aligned */
+    unsigned char reserved[DCMI_VDEV_FOR_RESERVE - 1]; /* bytes aligned */
 };
 
 /* total types of computing resource */
@@ -1273,8 +1278,8 @@ typedef enum {
 } DCMI_POWER_STATE;
 
 typedef enum {
-    DCMI_POWER_RESUME_MODE_BUTTON,   /* resume by button */
-    DCMI_POWER_RESUME_MODE_TIME,     /* resume by time */
+    DCMI_POWER_RESUME_MODE_BUTTON, /* resume by button */
+    DCMI_POWER_RESUME_MODE_TIME,   /* resume by time */
     DCMI_POWER_RESUME_MODE_MAX,
 } DCMI_LP_RESUME_MODE;
 
@@ -1307,15 +1312,15 @@ struct dcmi_multi_ecc_time_data {
 
 struct dcmi_ecc_common_data {
     unsigned long long physical_addr;
-    unsigned int stack_pc_id;           /* hbmc_id */
-    unsigned int reg_addr_h;            /* row col */
-    unsigned int reg_addr_l;            /* sid bank */
+    unsigned int stack_pc_id; /* hbmc_id */
+    unsigned int reg_addr_h;  /* row col */
+    unsigned int reg_addr_l;  /* sid bank */
     unsigned int ecc_count;
     int timestamp;
 };
 #pragma pack()
 
-#define AGENTDRV_PROF_DATA_NUM 3   /* pcie bandwidth MIN/MAX/AVG */
+#define AGENTDRV_PROF_DATA_NUM 3 /* pcie bandwidth MIN/MAX/AVG */
 struct dcmi_pcie_link_bandwidth_info {
     int profiling_time;
     unsigned int tx_p_bw[AGENTDRV_PROF_DATA_NUM];
@@ -1336,7 +1341,7 @@ struct dcmi_hccs_bandwidth_info {
     double rx_bandwidth[DCMI_HCCS_MAX_PCS_NUM];
 };
 
-#define UB_BANDWIDTH_RESERVED_LEN    2
+#define UB_BANDWIDTH_RESERVED_LEN 2
 struct dcmi_ub_bandwidth_info {
     unsigned int tx_bandwidth;
     unsigned int rx_bandwidth;
@@ -1395,7 +1400,7 @@ struct dcmi_port_pkt_stats_info {
             unsigned long long retry_req_sum;
             unsigned long long retry_ack_sum;
             unsigned long long crc_error_sum;
-            union  {
+            union {
                 struct {
                     unsigned long long core_mib_rxpausepkts;
                     unsigned long long core_mib_txpausepkts;
@@ -1410,7 +1415,7 @@ struct dcmi_port_pkt_stats_info {
         };
         unsigned long long pkt_num[UBOE_PKT_STAT_NUM];
     };
-    unsigned char reserved[128];        /* 预留后续可能修改空间 */
+    unsigned char reserved[128]; /* 预留后续可能修改空间 */
 };
 
 #define VL_NUM_PER_PORT 16
@@ -1422,7 +1427,7 @@ struct dcmi_credit_info {
     unsigned int link_cur_used_pri_credit[VL_NUM_PER_PORT];
 };
 
-#define NETDEV_MAX_NUM      8
+#define NETDEV_MAX_NUM 8
 #define NETDEV_NAME_MAX_LEN 16
 
 struct dcmi_netdev_list_info {
@@ -1436,16 +1441,16 @@ struct dcmi_netdev_list_info {
 #define UBOE_MODE 1
 
 struct port_info {
-    int port_index;         // port标识
-    int mode;               // 属性 UB_MODE/UBOE_MODE
+    int port_index; // port标识
+    int mode;       // 属性 UB_MODE/UBOE_MODE
 };
 struct die_port_list_info {
-    int die_index;          // udie标识
-    int port_nums;          // 该udie下可用port数量
-    struct port_info port_list_data[MAX_PORT_NUMS];    // port信息
+    int die_index;                                  // udie标识
+    int port_nums;                                  // 该udie下可用port数量
+    struct port_info port_list_data[MAX_PORT_NUMS]; // port信息
 };
 struct dcmi_port_list_info {
-    int die_nums;           // 可用udie数量
+    int die_nums;                                          // 可用udie数量
     struct die_port_list_info die_list_data[MAX_DIE_NUMS]; // udie信息
 };
 
@@ -1462,7 +1467,7 @@ struct dcmi_serdes_quality_base {
 
 typedef struct dcmi_serdes_quality_info {
     unsigned int macro_id;
-    unsigned int reserved1;     /* reserve for byte alignment */
+    unsigned int reserved1; /* reserve for byte alignment */
     struct dcmi_serdes_quality_base serdes_quality_info[SERDES_INFO_NUM];
     unsigned int reserved2[SERDES_RESERVED_LEN];
 } DCMI_SERDES_QUALITY_INFO;
@@ -1484,16 +1489,16 @@ typedef struct dcmi_serdes_full_eye {
 } DCMI_SERDES_FULL_EYE;
 
 enum {
-    DCMI_TOPO_TYPE_SELF = 0,     /* 芯片本身 */
-    DCMI_TOPO_TYPE_SYS,          /* 通过PCIe连接且穿过NUMA nodes， nodes之间通过SMP连接，如：QPI、 UPI */
-    DCMI_TOPO_TYPE_PHB,          /* 通过PCIe连接且穿过同一个CPU的 PCIe host bridge */
-    DCMI_TOPO_TYPE_HCCS,         /* 通过HCCS链接 */
-    DCMI_TOPO_TYPE_PXB,          /* 通过PCIe连接穿过多个PCIe switch */
-    DCMI_TOPO_TYPE_PIX,          /* 通过PCIe连接穿过一个PCIe switch */
-    DCMI_TOPO_TYPE_SIO,          /* 通过SIO总线连接 */
-    DCMI_TOPO_TYPE_HCCS_SW,      /* 通过交换的HCCS链接 */
-    DCMI_TOPO_TYPE_UB,           /* 通过UB总线连接 */
-    DCMI_TOPO_TYPE_BUTT,         /* 未知关系 */
+    DCMI_TOPO_TYPE_SELF = 0, /* 芯片本身 */
+    DCMI_TOPO_TYPE_SYS,      /* 通过PCIe连接且穿过NUMA nodes， nodes之间通过SMP连接，如：QPI、 UPI */
+    DCMI_TOPO_TYPE_PHB,      /* 通过PCIe连接且穿过同一个CPU的 PCIe host bridge */
+    DCMI_TOPO_TYPE_HCCS,     /* 通过HCCS链接 */
+    DCMI_TOPO_TYPE_PXB,      /* 通过PCIe连接穿过多个PCIe switch */
+    DCMI_TOPO_TYPE_PIX,      /* 通过PCIe连接穿过一个PCIe switch */
+    DCMI_TOPO_TYPE_SIO,      /* 通过SIO总线连接 */
+    DCMI_TOPO_TYPE_HCCS_SW,  /* 通过交换的HCCS链接 */
+    DCMI_TOPO_TYPE_UB,       /* 通过UB总线连接 */
+    DCMI_TOPO_TYPE_BUTT,     /* 未知关系 */
     DCMI_TOPO_TYOE_MAX,
 };
 
@@ -1586,7 +1591,8 @@ typedef struct dcmi_serdes_prbs_param_base {
     unsigned int serdes_prbs_lane_count;
 } DCMI_SERDES_PRBS_PARAM_BASE;
 
-typedef DCMI_SERDES_PRBS_PARAM_BASE DCMI_SERDES_PRBS_GET_PARAM;  // get时仅需传入基础信息param base，具体获取类型通过sub_cmd区分
+typedef DCMI_SERDES_PRBS_PARAM_BASE
+    DCMI_SERDES_PRBS_GET_PARAM; // get时仅需传入基础信息param base，具体获取类型通过sub_cmd区分
 
 typedef struct dcmi_serdes_prbs_set_param {
     DCMI_SERDES_PRBS_PARAM_BASE param_base;
@@ -1596,7 +1602,7 @@ typedef struct dcmi_serdes_prbs_set_param {
 
 typedef struct dcmi_prbs_operate_param {
     unsigned int main_cmd;
-    unsigned int sub_cmd;                     // 标识是设置打流命令还是查询打流结果命令
+    unsigned int sub_cmd; // 标识是设置打流命令还是查询打流结果命令
     union {
         DCMI_SERDES_PRBS_SET_PARAM set_param;
         DCMI_SERDES_PRBS_GET_PARAM get_param;
@@ -1607,18 +1613,19 @@ typedef struct dcmiv2_serdes_prbs_param_base {
     unsigned int udie_id;
     unsigned int port_id;
 } DCMIV2_SERDES_PRBS_PARAM_BASE;
- 
-typedef DCMIV2_SERDES_PRBS_PARAM_BASE DCMIV2_SERDES_PRBS_GET_PARAM;  // get时仅需传入基础信息param base，具体获取类型通过sub_cmd区分
- 
+
+typedef DCMIV2_SERDES_PRBS_PARAM_BASE
+    DCMIV2_SERDES_PRBS_GET_PARAM; // get时仅需传入基础信息param base，具体获取类型通过sub_cmd区分
+
 typedef struct dcmiv2_serdes_prbs_set_param {
     DCMIV2_SERDES_PRBS_PARAM_BASE param_base;
     unsigned int serdes_prbs_type;
     unsigned int serdes_prbs_direction;
 } DCMIV2_SERDES_PRBS_SET_PARAM;
- 
+
 typedef struct dcmiv2_prbs_operate_param {
     unsigned int main_cmd;
-    unsigned int sub_cmd;                     // 标识是设置打流命令还是查询打流结果命令
+    unsigned int sub_cmd; // 标识是设置打流命令还是查询打流结果命令
     union {
         DCMIV2_SERDES_PRBS_SET_PARAM set_param;
         DCMIV2_SERDES_PRBS_GET_PARAM get_param;
@@ -1635,11 +1642,10 @@ typedef struct {
     unsigned int check_type;
     unsigned int error_status;
     unsigned int error_cnt;
-    unsigned long error_rate;          /* used by PAM4 only */
-    unsigned int alos_status;         /* 0:not los, 1:los */
+    unsigned long error_rate; /* used by PAM4 only */
+    unsigned int alos_status; /* 0:not los, 1:los */
     unsigned long time_val;
 } SERDES_PRBS_STATUS_S;
-
 
 typedef struct dcmi_prbs_operate_result {
     union {
@@ -1688,10 +1694,10 @@ enum dcmi_serdes_npu_adaptive_status {
     DCMI_SERDES_NPU_ADAPTIVE_UPDATE,
 }; // 需与 driver仓 MAX_PRBS_FLAG_SIZE 同步修改
 
-#define IP_ADDR_LEN 16                  // length of ipv4 string
-#define DCMI_PING_PACKET_NUM_MAX 1000   // supernodes ping packet number
+#define IP_ADDR_LEN 16                // length of ipv4 string
+#define DCMI_PING_PACKET_NUM_MAX 1000 // supernodes ping packet number
 #define BRO_DEVICE_OFFSET 8
-#define MULTI_DEVICE_NUM  2
+#define MULTI_DEVICE_NUM 2
 
 // supernodes ping result
 enum dcmi_ping_result {
@@ -1704,8 +1710,8 @@ enum dcmi_ping_result {
 
 // supernodes ping operate
 struct dcmi_ping_operate_info {
-    char dst_addr[IP_ADDR_LEN];             // 输入ipv4地址。与sdid互斥，同时输入时，以dst_addr为准
-    unsigned int sdid;                      // 输入sdid数值
+    char dst_addr[IP_ADDR_LEN]; // 输入ipv4地址。与sdid互斥，同时输入时，以dst_addr为准
+    unsigned int sdid;          // 输入sdid数值
     unsigned int packet_size;
     unsigned int packet_send_num;
     unsigned int packet_interval;
@@ -1715,7 +1721,7 @@ struct dcmi_ping_operate_info {
 
 // supernodes ping reply
 struct dcmi_ping_reply_info {
-    char dst_addr[IP_ADDR_LEN];             // 存储目的地址字符串
+    char dst_addr[IP_ADDR_LEN]; // 存储目的地址字符串
     enum dcmi_ping_result ret[DCMI_PING_PACKET_NUM_MAX];
     unsigned int total_packet_send_num;
     unsigned int total_packet_recv_num;
@@ -1737,7 +1743,7 @@ struct dcmi_ping_reply_info_v2 {
 #define ADDR_MAX_LEN 16
 
 struct dcmi_hccsping_mesh_operate {
-    char dst_addr_list[IP_ADDR_LIST_LEN];   // IPV4地址/sdid列表，二者选其一，以英文逗号分割.
+    char dst_addr_list[IP_ADDR_LIST_LEN]; // IPV4地址/sdid列表，二者选其一，以英文逗号分割.
     int pkt_size;
     int pkt_send_num;
     int pkt_interval;
@@ -1767,13 +1773,13 @@ struct dcmi_hccsping_mesh_info {
 
 struct dcmi_hccsping_mesh_info_v2 {
     struct dcmi_hccsping_mesh_info info;
-    unsigned char L1_plane_check_res[HCCS_PING_MESH_MAX_NUM];   // 到每个目的地址的hccs链路存在故障的L1平面汇总
+    unsigned char L1_plane_check_res[HCCS_PING_MESH_MAX_NUM]; // 到每个目的地址的hccs链路存在故障的L1平面汇总
     unsigned char reserved[HCCS_PING_MESH_MAX_NUM];
 };
 
 // traceroute struct info
-#define IP_ADRESS_MAX_LEN           48
-#define TRACEROUTE_RESERVE_MAX_LEN  64
+#define IP_ADRESS_MAX_LEN 48
+#define TRACEROUTE_RESERVE_MAX_LEN 64
 
 struct dcmi_traceroute_info {
     int max_ttl;
@@ -1799,8 +1805,8 @@ struct dcmi_network_node_info {
     char reserve[TRACEROUTE_RESERVE_MAX_LEN];
 };
 
-#define IP_MAX_LEN                  48
-#define TRACERT_PARAM_RES_LEN    7
+#define IP_MAX_LEN 48
+#define TRACERT_PARAM_RES_LEN 7
 
 struct dcmi_traceroute_params {
     int max_ttl;
@@ -1813,7 +1819,7 @@ struct dcmi_traceroute_params {
     bool reset_flag;
     char reserved[TRACERT_PARAM_RES_LEN];
 };
- 
+
 struct traceroute_result {
     int func_mask;
     char src_ip[IP_MAX_LEN];
@@ -1840,41 +1846,41 @@ struct dcmi_pfc_duration_info {
 
 struct dcmi_bond_pfc_duration_info {
     unsigned char slave0_name[NETDEV_NAME_MAX_LEN];
-    unsigned long long slave0_tx[PRIORITY_NUM];    // 0~7  8个优先级队列
+    unsigned long long slave0_tx[PRIORITY_NUM]; // 0~7  8个优先级队列
     unsigned long long slave0_rx[PRIORITY_NUM];
     unsigned char slave1_name[NETDEV_NAME_MAX_LEN];
-    unsigned long long slave1_tx[PRIORITY_NUM];    // 0~7  8个优先级队列
+    unsigned long long slave1_tx[PRIORITY_NUM]; // 0~7  8个优先级队列
     unsigned long long slave1_rx[PRIORITY_NUM];
 };
 
 struct dcmi_netdev_pfc_duration_info {
     union {
         struct dcmi_bond_pfc_duration_info duration_info;
-        unsigned long long reserved[36];       // 36
+        unsigned long long reserved[36]; // 36
     };
 };
 
-#define MAX_QPN_NUM   8192
+#define MAX_QPN_NUM 8192
 
 struct dcmi_qpn_list {
     unsigned int qp_num;
     unsigned int qpn_list[MAX_QPN_NUM];
 };
 
-#define IP_ADDRESS_LEN   40
+#define IP_ADDRESS_LEN 40
 struct dcmi_qp_info {
-    unsigned char status;        // qp状态
-    unsigned char type;          // qp类型
-    char ip[IP_ADDRESS_LEN];     // 目标ip地址
-    unsigned short src_port;     // 源端口
-    unsigned int src_qpn;        // 源qp号
-    unsigned int dst_qpn;        // 目标qp号
-    unsigned int send_psn;       // 发送的psn
-    unsigned int recv_psn;       // 接收的psn
-    char reserved[32];           // 保留字段
+    unsigned char status;    // qp状态
+    unsigned char type;      // qp类型
+    char ip[IP_ADDRESS_LEN]; // 目标ip地址
+    unsigned short src_port; // 源端口
+    unsigned int src_qpn;    // 源qp号
+    unsigned int dst_qpn;    // 目标qp号
+    unsigned int send_psn;   // 发送的psn
+    unsigned int recv_psn;   // 接收的psn
+    char reserved[32];       // 保留字段
 };
 
-#define DCMI_HCCS_MAX_PCS_NUM  16
+#define DCMI_HCCS_MAX_PCS_NUM 16
 struct dcmi_hccs_credit_info {
     unsigned int credit_num[DCMI_HCCS_MAX_PCS_NUM];
     unsigned int reserve[DCMI_HCCS_MAX_PCS_NUM * 4];
@@ -1896,9 +1902,9 @@ struct dcmi_spod_node_status {
 typedef union dcmi_urma_eid {
     unsigned char raw[DCMI_URMA_EID_SIZE]; /* Network Order */
     struct {
-        unsigned long reserved;          /* If IPv4 mapped to IPv6, == 0 */
-        unsigned int prefix;        /* If IPv4 mapped to IPv6, == 0x0000ffff */
-        unsigned int addr;          /* If IPv4 mapped to IPv6, == IPv4 addr */
+        unsigned long reserved; /* If IPv4 mapped to IPv6, == 0 */
+        unsigned int prefix;    /* If IPv4 mapped to IPv6, == 0x0000ffff */
+        unsigned int addr;      /* If IPv4 mapped to IPv6, == IPv4 addr */
     } in4;
     struct {
         unsigned long subnet_prefix;
@@ -1912,47 +1918,47 @@ typedef struct dcmi_urma_eid_info {
 } dcmi_urma_eid_info_t;
 
 enum dcmi_multi_die_policy {
-    DCMI_MULTI_DIE_UNION_POLICY = 0,  // A3 多die必须同时通入容器
-    DCMI_MULTI_DIE_INDEP_POLICY = 1,  // A3 支持单die单独通入容器
+    DCMI_MULTI_DIE_UNION_POLICY = 0, // A3 多die必须同时通入容器
+    DCMI_MULTI_DIE_INDEP_POLICY = 1, // A3 支持单die单独通入容器
     DCMI_MULTI_DIE_POLICY_MAX = 2
 };
 
-#define EID_MAX_LEN             48
-#define UBPING_MESH_MAX_NUM     48
-#define UB_PING_RESERVE_NUM        4
+#define EID_MAX_LEN 48
+#define UBPING_MESH_MAX_NUM 48
+#define UB_PING_RESERVE_NUM 4
 
 struct ubping_pair_info {
-    char src_eid[EID_MAX_LEN];   // 源eid地址 0000:0000:0000:0000:0000:0000:df00:001c
-    char dst_eid[EID_MAX_LEN];   // 目的eid地址 0000:0000:0000:0000:0000:0000:df00:001c
+    char src_eid[EID_MAX_LEN]; // 源eid地址 0000:0000:0000:0000:0000:0000:df00:001c
+    char dst_eid[EID_MAX_LEN]; // 目的eid地址 0000:0000:0000:0000:0000:0000:df00:001c
 };
 
 struct dcmi_ub_ping_operate {
-    struct ubping_pair_info ub_pair_info;  // 源/目的eid对
-    int pkt_size;             // ping报文大小，取值范围：0~4046，默认值为4046，注这里需要看ip over urma的mtu值是多少
-    int pkt_send_num;            // ping报文发送轮数, 默认为3轮；
-    int pkt_interval;            // ping报文间隔，多久发送一次，默认值为1S；
-    int timeout;             // ping超时时间，发送失败了后直接停止；
-    unsigned int reserve[UB_PING_RESERVE_NUM];                // 预留字段
+    struct ubping_pair_info ub_pair_info; // 源/目的eid对
+    int pkt_size; // ping报文大小，取值范围：0~4046，默认值为4046，注这里需要看ip over urma的mtu值是多少
+    int pkt_send_num;                          // ping报文发送轮数, 默认为3轮；
+    int pkt_interval;                          // ping报文间隔，多久发送一次，默认值为1S；
+    int timeout;                               // ping超时时间，发送失败了后直接停止；
+    unsigned int reserve[UB_PING_RESERVE_NUM]; // 预留字段
 };
 
 struct ub_ping_result {
-    unsigned int suc_pkt_num;    // ping成功次数
-    unsigned int fail_pkt_num;    // ping失败次数
-    long max_time;                // ping最大时延
-    long min_time;                // ping最小时延
-    long avg_time;                // ping平均时延
-    long tp95_time;               // ping时延TP95分位数
-    unsigned int reserve[UB_PING_RESERVE_NUM];                 // 预留字段
+    unsigned int suc_pkt_num;                  // ping成功次数
+    unsigned int fail_pkt_num;                 // ping失败次数
+    long max_time;                             // ping最大时延
+    long min_time;                             // ping最小时延
+    long avg_time;                             // ping平均时延
+    long tp95_time;                            // ping时延TP95分位数
+    unsigned int reserve[UB_PING_RESERVE_NUM]; // 预留字段
 };
 
 typedef enum {
-    EVIDENCE_TYPE_NONE = 0,   // 返回失败。
-    EVIDENCE_TYPE_QUOTE = 1,   // 仅包含Quote+PCR
-    EVIDENCE_TYPE_BOOT_MEASUREMENTS = 2, // 仅包含BIOS启动日志
-    EVIDENCE_TYPE_BOOT_MEASUREMENTS_AND_PCR = 3, // 仅包含Quote+PCR+BIOS启动日志
-    EVIDENCE_TYPE_RUNTIME_MEASUREMENTS = 4, // 仅包含IMA日志
-    EVIDENCE_TYPE_RUN_TIME_MEASUREMENTS_AND_PCR = 5,  // 仅包含Quote+PCR+BIOS启动日志
-    EVIDENCE_TYPE_ALL = 7,     // 包含Quote+PCR+BIOS启动日志+IMA日志
+    EVIDENCE_TYPE_NONE = 0,                          // 返回失败。
+    EVIDENCE_TYPE_QUOTE = 1,                         // 仅包含Quote+PCR
+    EVIDENCE_TYPE_BOOT_MEASUREMENTS = 2,             // 仅包含BIOS启动日志
+    EVIDENCE_TYPE_BOOT_MEASUREMENTS_AND_PCR = 3,     // 仅包含Quote+PCR+BIOS启动日志
+    EVIDENCE_TYPE_RUNTIME_MEASUREMENTS = 4,          // 仅包含IMA日志
+    EVIDENCE_TYPE_RUN_TIME_MEASUREMENTS_AND_PCR = 5, // 仅包含Quote+PCR+BIOS启动日志
+    EVIDENCE_TYPE_ALL = 7,                           // 包含Quote+PCR+BIOS启动日志+IMA日志
 } EVIDENCE_TYPE;
 
 #define MAX_CHALLENGE_LEN 32
@@ -1962,7 +1968,7 @@ struct attest_ctx {
     char challenge[MAX_CHALLENGE_LEN];
 };
 
-struct dsmi_computing_power_info;  // 前向声明
+struct dsmi_computing_power_info; // 前向声明
 union tag_sensor_info;
 
 /*----------------------------------------------*
@@ -1971,27 +1977,27 @@ union tag_sensor_info;
 
 #define DCMI_OK 0
 #define DCMI_ERROR_CODE_BASE (-8000)
-#define DCMI_ERR_CODE_INVALID_PARAMETER             (DCMI_ERROR_CODE_BASE - 1)
-#define DCMI_ERR_CODE_OPER_NOT_PERMITTED            (DCMI_ERROR_CODE_BASE - 2)
-#define DCMI_ERR_CODE_MEM_OPERATE_FAIL              (DCMI_ERROR_CODE_BASE - 3)
-#define DCMI_ERR_CODE_SECURE_FUN_FAIL               (DCMI_ERROR_CODE_BASE - 4)
-#define DCMI_ERR_CODE_INNER_ERR                     (DCMI_ERROR_CODE_BASE - 5)
-#define DCMI_ERR_CODE_TIME_OUT                      (DCMI_ERROR_CODE_BASE - 6)
-#define DCMI_ERR_CODE_INVALID_DEVICE_ID             (DCMI_ERROR_CODE_BASE - 7)
-#define DCMI_ERR_CODE_DEVICE_NOT_EXIST              (DCMI_ERROR_CODE_BASE - 8)
-#define DCMI_ERR_CODE_IOCTL_FAIL                    (DCMI_ERROR_CODE_BASE - 9)
-#define DCMI_ERR_CODE_SEND_MSG_FAIL                 (DCMI_ERROR_CODE_BASE - 10)
-#define DCMI_ERR_CODE_RECV_MSG_FAIL                 (DCMI_ERROR_CODE_BASE - 11)
-#define DCMI_ERR_CODE_NOT_REDAY                     (DCMI_ERROR_CODE_BASE - 12)
-#define DCMI_ERR_CODE_NOT_SUPPORT_IN_CONTAINER      (DCMI_ERROR_CODE_BASE - 13)
-#define DCMI_ERR_CODE_FILE_OPERATE_FAIL             (DCMI_ERROR_CODE_BASE - 14)
-#define DCMI_ERR_CODE_RESET_FAIL                    (DCMI_ERROR_CODE_BASE - 15)
-#define DCMI_ERR_CODE_ABORT_OPERATE                 (DCMI_ERROR_CODE_BASE - 16)
-#define DCMI_ERR_CODE_IS_UPGRADING                  (DCMI_ERROR_CODE_BASE - 17)
-#define DCMI_ERR_CODE_RESOURCE_OCCUPIED             (DCMI_ERROR_CODE_BASE - 20)
-#define DCMI_ERR_CODE_PARTITION_NOT_RIGHT           (DCMI_ERROR_CODE_BASE - 22)
-#define DCMI_ERR_CODE_CONFIG_INFO_NOT_EXIST         (DCMI_ERROR_CODE_BASE - 23)
-#define DCMI_ERR_CODE_NOT_SUPPORT                   (DCMI_ERROR_CODE_BASE - 255)
+#define DCMI_ERR_CODE_INVALID_PARAMETER (DCMI_ERROR_CODE_BASE - 1)
+#define DCMI_ERR_CODE_OPER_NOT_PERMITTED (DCMI_ERROR_CODE_BASE - 2)
+#define DCMI_ERR_CODE_MEM_OPERATE_FAIL (DCMI_ERROR_CODE_BASE - 3)
+#define DCMI_ERR_CODE_SECURE_FUN_FAIL (DCMI_ERROR_CODE_BASE - 4)
+#define DCMI_ERR_CODE_INNER_ERR (DCMI_ERROR_CODE_BASE - 5)
+#define DCMI_ERR_CODE_TIME_OUT (DCMI_ERROR_CODE_BASE - 6)
+#define DCMI_ERR_CODE_INVALID_DEVICE_ID (DCMI_ERROR_CODE_BASE - 7)
+#define DCMI_ERR_CODE_DEVICE_NOT_EXIST (DCMI_ERROR_CODE_BASE - 8)
+#define DCMI_ERR_CODE_IOCTL_FAIL (DCMI_ERROR_CODE_BASE - 9)
+#define DCMI_ERR_CODE_SEND_MSG_FAIL (DCMI_ERROR_CODE_BASE - 10)
+#define DCMI_ERR_CODE_RECV_MSG_FAIL (DCMI_ERROR_CODE_BASE - 11)
+#define DCMI_ERR_CODE_NOT_REDAY (DCMI_ERROR_CODE_BASE - 12)
+#define DCMI_ERR_CODE_NOT_SUPPORT_IN_CONTAINER (DCMI_ERROR_CODE_BASE - 13)
+#define DCMI_ERR_CODE_FILE_OPERATE_FAIL (DCMI_ERROR_CODE_BASE - 14)
+#define DCMI_ERR_CODE_RESET_FAIL (DCMI_ERROR_CODE_BASE - 15)
+#define DCMI_ERR_CODE_ABORT_OPERATE (DCMI_ERROR_CODE_BASE - 16)
+#define DCMI_ERR_CODE_IS_UPGRADING (DCMI_ERROR_CODE_BASE - 17)
+#define DCMI_ERR_CODE_RESOURCE_OCCUPIED (DCMI_ERROR_CODE_BASE - 20)
+#define DCMI_ERR_CODE_PARTITION_NOT_RIGHT (DCMI_ERROR_CODE_BASE - 22)
+#define DCMI_ERR_CODE_CONFIG_INFO_NOT_EXIST (DCMI_ERROR_CODE_BASE - 23)
+#define DCMI_ERR_CODE_NOT_SUPPORT (DCMI_ERROR_CODE_BASE - 255)
 
 #define DCMI_VERSION_1
 #define DCMI_VERSION_2
@@ -2032,24 +2038,24 @@ DCMIDLLEXPORT int dcmi_get_card_customized_info(int card_id, char *info, int len
 
 DCMIDLLEXPORT int dcmi_set_device_clear_pcie_error(int card_id, int device_id);
 
-DCMIDLLEXPORT int dcmi_get_device_pcie_error_cnt(
-    int card_id, int device_id, struct dcmi_chip_pcie_err_rate *pcie_err_code_info);
+DCMIDLLEXPORT int dcmi_get_device_pcie_error_cnt(int card_id, int device_id,
+                                                 struct dcmi_chip_pcie_err_rate *pcie_err_code_info);
 
-DCMIDLLEXPORT int dcmi_get_device_die_v2(
-    int card_id, int device_id, enum dcmi_die_type input_type, struct dcmi_die_id *die_id);
+DCMIDLLEXPORT int dcmi_get_device_die_v2(int card_id, int device_id, enum dcmi_die_type input_type,
+                                         struct dcmi_die_id *die_id);
 
 DCMIDLLEXPORT int dcmi_get_device_health(int card_id, int device_id, unsigned int *health);
 
-DCMIDLLEXPORT int dcmi_get_device_errorcode_v2(
-    int card_id, int device_id, int *error_count, unsigned int *error_code_list, unsigned int list_len);
+DCMIDLLEXPORT int dcmi_get_device_errorcode_v2(int card_id, int device_id, int *error_count,
+                                               unsigned int *error_code_list, unsigned int list_len);
 
-DCMIDLLEXPORT int dcmi_get_device_errorcode_string(
-    int card_id, int device_id, unsigned int error_code, unsigned char *error_info, int buf_size);
+DCMIDLLEXPORT int dcmi_get_device_errorcode_string(int card_id, int device_id, unsigned int error_code,
+                                                   unsigned char *error_info, int buf_size);
 
 DCMIDLLEXPORT int dcmi_get_device_flash_count(int card_id, int device_id, unsigned int *flash_count);
 
-DCMIDLLEXPORT int dcmi_get_device_flash_info_v2(
-    int card_id, int device_id, unsigned int flash_index, struct dcmi_flash_info *flash_info);
+DCMIDLLEXPORT int dcmi_get_device_flash_info_v2(int card_id, int device_id, unsigned int flash_index,
+                                                struct dcmi_flash_info *flash_info);
 
 DCMIDLLEXPORT int dcmi_get_device_aicore_info(int card_id, int device_id, struct dcmi_aicore_info *aicore_info);
 
@@ -2079,29 +2085,29 @@ DCMIDLLEXPORT int dcmi_get_device_voltage(int card_id, int device_id, unsigned i
 
 DCMIDLLEXPORT int dcmi_get_device_p2p_enable(int card_id, int device_id, int *enable_flag);
 
-DCMIDLLEXPORT int dcmi_get_device_ecc_info(
-    int card_id, int device_id, enum dcmi_device_type input_type, struct dcmi_ecc_info *device_ecc_info);
+DCMIDLLEXPORT int dcmi_get_device_ecc_info(int card_id, int device_id, enum dcmi_device_type input_type,
+                                           struct dcmi_ecc_info *device_ecc_info);
 
 DCMIDLLEXPORT int dcmi_set_device_clear_ecc_statistics_info(int card_id, int device_id);
 
-DCMIDLLEXPORT int dcmi_get_device_frequency(
-    int card_id, int device_id, enum dcmi_freq_type input_type, unsigned int *frequency);
+DCMIDLLEXPORT int dcmi_get_device_frequency(int card_id, int device_id, enum dcmi_freq_type input_type,
+                                            unsigned int *frequency);
 
 DCMIDLLEXPORT int dcmi_get_device_hbm_info(int card_id, int device_id, struct dcmi_hbm_info *hbm_info);
 
 DCMIDLLEXPORT int dcmi_get_device_memory_info_v2(int card_id, int device_id, struct dcmi_memory_info *memory_info);
 
 DCMIDLLEXPORT int dcmi_get_device_memory_info_v3(int card_id, int device_id,
-    struct dcmi_get_memory_info_stru *memory_info);
+                                                 struct dcmi_get_memory_info_stru *memory_info);
 
-DCMIDLLEXPORT int dcmi_get_device_utilization_rate(
-    int card_id, int device_id, int input_type, unsigned int *utilization_rate);
+DCMIDLLEXPORT int dcmi_get_device_utilization_rate(int card_id, int device_id, int input_type,
+                                                   unsigned int *utilization_rate);
 
 DCMIDLLEXPORT int dcmi_get_device_multi_utilization_rate(int card_id, int device_id,
-    struct dcmi_multi_utilization_info *util_info);
+                                                         struct dcmi_multi_utilization_info *util_info);
 
-DCMIDLLEXPORT int dcmi_get_device_sensor_info(
-    int card_id, int device_id, enum dcmi_manager_sensor_id sensor_id, union dcmi_sensor_info *sensor_info);
+DCMIDLLEXPORT int dcmi_get_device_sensor_info(int card_id, int device_id, enum dcmi_manager_sensor_id sensor_id,
+                                              union dcmi_sensor_info *sensor_info);
 
 DCMIDLLEXPORT int dcmi_set_container_service_enable(void);
 
@@ -2109,24 +2115,25 @@ DCMIDLLEXPORT int dcmi_get_device_board_id(int card_id, int device_id, unsigned 
 
 DCMIDLLEXPORT int dcmi_get_device_component_count(int card_id, int device_id, unsigned int *component_count);
 
-DCMIDLLEXPORT int dcmi_get_device_component_list(
-    int card_id, int device_id, enum dcmi_component_type *component_table, unsigned int component_count);
+DCMIDLLEXPORT int dcmi_get_device_component_list(int card_id, int device_id, enum dcmi_component_type *component_table,
+                                                 unsigned int component_count);
 
-DCMIDLLEXPORT int dcmi_get_device_component_static_version(
-    int card_id, int device_id, enum dcmi_component_type component_type, unsigned char *version_str, unsigned int len);
+DCMIDLLEXPORT int dcmi_get_device_component_static_version(int card_id, int device_id,
+                                                           enum dcmi_component_type component_type,
+                                                           unsigned char *version_str, unsigned int len);
 
 DCMIDLLEXPORT int dcmi_get_device_cgroup_info(int card_id, int device_id, struct dcmi_cgroup_info *cg_info);
 
 DCMIDLLEXPORT int dcmi_get_device_llc_perf_para(int card_id, int device_id, struct dcmi_llc_perf *perf_para);
 
 DCMIDLLEXPORT int dcmi_set_device_info(int card_id, int device_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd,
-    const void *buf, unsigned int buf_size);
+                                       const void *buf, unsigned int buf_size);
 
-DCMIDLLEXPORT int dcmi_get_device_info(
-    int card_id, int device_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd, void *buf, unsigned int *size);
+DCMIDLLEXPORT int dcmi_get_device_info(int card_id, int device_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd,
+                                       void *buf, unsigned int *size);
 
-DCMIDLLEXPORT int dcmi_set_device_sec_revocation(
-    int card_id, int device_id, enum dcmi_revo_type input_type, const unsigned char *file_data, unsigned int file_size);
+DCMIDLLEXPORT int dcmi_set_device_sec_revocation(int card_id, int device_id, enum dcmi_revo_type input_type,
+                                                 const unsigned char *file_data, unsigned int file_size);
 
 DCMIDLLEXPORT int dcmi_get_device_mac_count(int card_id, int device_id, int *count);
 
@@ -2134,17 +2141,17 @@ DCMIDLLEXPORT int dcmi_set_device_mac(int card_id, int device_id, int mac_id, co
 
 DCMIDLLEXPORT int dcmi_get_device_mac(int card_id, int device_id, int mac_id, char *mac_addr, unsigned int len);
 
-DCMIDLLEXPORT int dcmi_get_device_gateway(
-    int card_id, int device_id, enum dcmi_port_type input_type, int port_id, struct dcmi_ip_addr *gateway);
+DCMIDLLEXPORT int dcmi_get_device_gateway(int card_id, int device_id, enum dcmi_port_type input_type, int port_id,
+                                          struct dcmi_ip_addr *gateway);
 
-DCMIDLLEXPORT int dcmi_set_device_gateway(
-    int card_id, int device_id, enum dcmi_port_type input_type, int port_id, struct dcmi_ip_addr *gateway);
+DCMIDLLEXPORT int dcmi_set_device_gateway(int card_id, int device_id, enum dcmi_port_type input_type, int port_id,
+                                          struct dcmi_ip_addr *gateway);
 
 DCMIDLLEXPORT int dcmi_set_device_ip(int card_id, int device_id, enum dcmi_port_type input_type, int port_id,
-    struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask);
+                                     struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask);
 
 DCMIDLLEXPORT int dcmi_get_device_ip(int card_id, int device_id, enum dcmi_port_type input_type, int port_id,
-    struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask);
+                                     struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask);
 
 DCMIDLLEXPORT int dcmi_get_device_network_health(int card_id, int device_id, enum dcmi_rdfx_detect_result *result);
 
@@ -2182,8 +2189,8 @@ DCMIDLLEXPORT int dcmi_get_fault_device_num_in_card(int card_id, int *device_num
 
 DCMIDLLEXPORT int dcmi_mcu_check_i2c(int card_id, int *health_status, int buf_size);
 
-DCMIDLLEXPORT int dcmi_set_device_user_config(
-    int card_id, int device_id, const char *config_name, unsigned int buf_size, char *buf);
+DCMIDLLEXPORT int dcmi_set_device_user_config(int card_id, int device_id, const char *config_name,
+                                              unsigned int buf_size, char *buf);
 
 DCMIDLLEXPORT int dcmi_mcu_collect_log(int card_id, int log_type);
 
@@ -2196,7 +2203,7 @@ DCMIDLLEXPORT int dcmi_get_device_outband_channel_state(int card_id, int device_
 DCMIDLLEXPORT int dcmi_get_device_aicpu_count_info(int card_id, int device_id, unsigned char *count_info);
 
 DCMIDLLEXPORT int dcmi_create_vdevice(int card_id, int device_id, struct dcmi_create_vdev_res_stru *vdev,
-    struct dcmi_create_vdev_out *out);
+                                      struct dcmi_create_vdev_out *out);
 
 DCMIDLLEXPORT int dcmi_set_destroy_vdevice(int card_id, int device_id, unsigned int vdevid);
 
@@ -2205,16 +2212,16 @@ DCMIDLLEXPORT int dcmi_get_board_id(int card_id, int device_id, int *board_id);
 DCMIDLLEXPORT int dcmi_get_first_power_on_date(int card_id, unsigned int *first_power_on_date);
 
 DCMIDLLEXPORT int dcmi_get_fault_event(int card_id, int device_id, int timeout, struct dcmi_event_filter filter,
-    struct dcmi_event *event);
+                                       struct dcmi_event *event);
 
 DCMIDLLEXPORT int dcmi_get_device_current_fault_event(int card_id, int device_id, struct dcmi_event *event_buf,
-    int input_event_buf_length, int *output_event_cnt);
+                                                      int input_event_buf_length, int *output_event_cnt);
 
 DCMIDLLEXPORT int dcmi_subscribe_fault_event(int card_id, int device_id, struct dcmi_event_filter filter,
-    dcmi_fault_event_callback handler);
+                                             dcmi_fault_event_callback handler);
 
-DCMIDLLEXPORT int dcmi_get_device_resource_info(int card_id, int device_id,
-    struct dcmi_proc_mem_info *proc_info, int *proc_num);
+DCMIDLLEXPORT int dcmi_get_device_resource_info(int card_id, int device_id, struct dcmi_proc_mem_info *proc_info,
+                                                int *proc_num);
 
 DCMIDLLEXPORT int dcmi_get_device_dvpp_ratio_info(int card_id, int device_id, struct dcmi_dvpp_ratio *usage);
 
@@ -2259,51 +2266,53 @@ DCMIDLLEXPORT int dcmi_set_power_state(int card_id, int device_id, struct dcmi_p
 DCMIDLLEXPORT int dcmi_get_device_compatibility(int card_id, int device_id, enum dcmi_device_compat *compatibility);
 
 DCMIDLLEXPORT int dcmi_create_capability_group(int card_id, int device_id, int ts_id,
-    struct dcmi_capability_group_info *group_info);
+                                               struct dcmi_capability_group_info *group_info);
 
 DCMIDLLEXPORT int dcmi_delete_capability_group(int card_id, int device_id, int ts_id, int group_id);
 
 DCMIDLLEXPORT int dcmi_get_capability_group_info(int card_id, int device_id, int ts_id, int group_id,
-    struct dcmi_capability_group_info *group_info, int group_count);
+                                                 struct dcmi_capability_group_info *group_info, int group_count);
 
 DCMIDLLEXPORT int dcmi_get_capability_group_aicore_usage(int card_id, int device_id, int group_id, int *rate);
 
 DCMIDLLEXPORT int dcmi_get_multi_ecc_time_info(int card_id, struct dcmi_multi_ecc_time_data *multi_ecc_time_data);
 
 DCMIDLLEXPORT int dcmi_get_multi_ecc_record_info(int card_id, unsigned int *ecc_count, unsigned char read_type,
-    unsigned char module_type, struct dcmi_ecc_common_data *ecc_common_data_s);
+                                                 unsigned char module_type,
+                                                 struct dcmi_ecc_common_data *ecc_common_data_s);
 
 DCMIDLLEXPORT int dcmi_get_pcie_link_bandwidth_info(int card_id, int device_id,
-    struct dcmi_pcie_link_bandwidth_info *pcie_link_bandwidth_info);
+                                                    struct dcmi_pcie_link_bandwidth_info *pcie_link_bandwidth_info);
 
 DCMIDLLEXPORT int dcmi_get_hccs_avail_credit_info(int card_id, int device_id,
-    struct dcmi_hccs_credit_info *hccs_avail_credit_info);
+                                                  struct dcmi_hccs_credit_info *hccs_avail_credit_info);
 
-DCMIDLLEXPORT int dcmi_get_topo_info_by_device_id(int card_id1, int device_id1,
-    int card_id2, int device_id2, int *topo_type);
+DCMIDLLEXPORT int dcmi_get_topo_info_by_device_id(int card_id1, int device_id1, int card_id2, int device_id2,
+                                                  int *topo_type);
 
 DCMIDLLEXPORT int dcmi_get_affinity_cpu_info_by_device_id(int card_id, int device_id, char *affinity_cpu, int *length);
 
 DCMIDLLEXPORT int dcmi_get_multi_ecc_time_info_v2(int card_id, int device_id,
-    struct dcmi_multi_ecc_time_data *multi_ecc_time_data);
+                                                  struct dcmi_multi_ecc_time_data *multi_ecc_time_data);
 
 DCMIDLLEXPORT int dcmi_get_multi_ecc_record_info_v2(int card_id, int device_id, struct dcmi_ecc_record_type type,
-    unsigned int *ecc_count, struct dcmi_ecc_common_data *ecc_common_data_s);
+                                                    unsigned int *ecc_count,
+                                                    struct dcmi_ecc_common_data *ecc_common_data_s);
 
 DCMIDLLEXPORT int dcmi_get_serdes_quality_info(int card_id, int device_id, unsigned int macro_id,
-    struct dcmi_serdes_quality_info *serdes_quality_info);
+                                               struct dcmi_serdes_quality_info *serdes_quality_info);
 
 DCMIDLLEXPORT int dcmi_get_serdes_full_eye(int card_id, int device_id,
-    struct dcmi_serdes_full_eye *serdes_full_eye_info);
+                                           struct dcmi_serdes_full_eye *serdes_full_eye_info);
 
-DCMIDLLEXPORT int dcmi_get_rdma_bandwidth_info(int card_id, int device_id, int port_id,
-    unsigned int prof_time, struct dcmi_network_rdma_bandwidth_info *network_rdma_bandwidth_info);
+DCMIDLLEXPORT int dcmi_get_rdma_bandwidth_info(int card_id, int device_id, int port_id, unsigned int prof_time,
+                                               struct dcmi_network_rdma_bandwidth_info *network_rdma_bandwidth_info);
 
 DCMIDLLEXPORT int dcmi_get_netdev_pkt_stats_info(int card_id, int device_id, int port_id,
-    struct dcmi_network_pkt_stats_info *network_pkt_stats_info);
+                                                 struct dcmi_network_pkt_stats_info *network_pkt_stats_info);
 
 DCMIDLLEXPORT int dcmi_get_netdev_tc_stat_info(int card_id, int device_id,
-    struct dcmi_tc_stat_data *network_tc_stat_info);
+                                               struct dcmi_tc_stat_data *network_tc_stat_info);
 
 DCMIDLLEXPORT int dcmi_set_device_clear_tc_pkt_stats(int card_id, int device_id);
 
@@ -2318,7 +2327,7 @@ DCMIDLLEXPORT int dcmi_get_ping_info_v2(int card_id, int device_id, int port_id,
                                         struct dcmi_ping_reply_info_v2 *dcmi_reply);
 
 DCMIDLLEXPORT int dcmi_start_hccsping_mesh(int card_id, int device_id, int port_id,
-                                            struct dcmi_hccsping_mesh_operate *hccsping_mesh);
+                                           struct dcmi_hccsping_mesh_operate *hccsping_mesh);
 
 DCMIDLLEXPORT int dcmi_stop_hccsping_mesh(int card_id, int device_id, int port_id, unsigned int task_id);
 
@@ -2332,17 +2341,17 @@ DCMIDLLEXPORT int dcmi_get_hccsping_mesh_state(int card_id, int device_id, int p
                                                unsigned int *state);
 
 DCMIDLLEXPORT int dcmi_set_traceroute(int card_id, int device_id, struct dcmi_traceroute_info param_in,
-    struct dcmi_network_node_info *ret_info, unsigned int ret_info_size);
+                                      struct dcmi_network_node_info *ret_info, unsigned int ret_info_size);
 
 DCMIDLLEXPORT int dcmi_get_pfc_duration_info(int card_id, int device_id,
-    struct dcmi_pfc_duration_info *pfc_duration_info);
+                                             struct dcmi_pfc_duration_info *pfc_duration_info);
 
 DCMIDLLEXPORT int dcmi_clear_pfc_duration(int card_id, int device_id);
 
 DCMIDLLEXPORT int dcmi_get_qpn_list(int card_id, int device_id, int port_id, struct dcmi_qpn_list *list);
 
-DCMIDLLEXPORT int dcmi_get_qp_info(int card_id, int device_id, int port_id,
-                                   unsigned int qpn, struct dcmi_qp_info *qp_info);
+DCMIDLLEXPORT int dcmi_get_qp_info(int card_id, int device_id, int port_id, unsigned int qpn,
+                                   struct dcmi_qp_info *qp_info);
 
 DCMIDLLEXPORT int dcmi_get_device_cpu_freq_info(int card_id, int device_id, int *enable_flag);
 
@@ -2365,8 +2374,8 @@ DCMIDLLEXPORT int dcmi_get_spod_node_status(int card_id, int device_id, unsigned
  * @return  0 for success, others for fail
  * @note Ascend910_93
  */
-DCMIDLLEXPORT int dcmi_get_attest_evidence(int card_id, int device_id, struct attest_ctx *ctx,
-    unsigned char *evidence, unsigned int *evidence_len);
+DCMIDLLEXPORT int dcmi_get_attest_evidence(int card_id, int device_id, struct attest_ctx *ctx, unsigned char *evidence,
+                                           unsigned int *evidence_len);
 /**
  * @brief: get akcert.
  * @param [in] card_id card id
@@ -2379,719 +2388,715 @@ DCMIDLLEXPORT int dcmi_get_attest_evidence(int card_id, int device_id, struct at
 DCMIDLLEXPORT int dcmi_get_attest_akcert(int card_id, int device_id, unsigned char *ak_cert, unsigned int *ak_cert_len);
 
 /**
-* @brief 获取对应芯片上urma device数量
-* @param card_id    [in]  指定NPU管理单元ID
-* @param device_id  [in]  指定设备编号
-* @param dev_cnt    [out] urma device数量
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取对应芯片上urma device数量
+ * @param card_id    [in]  指定NPU管理单元ID
+ * @param device_id  [in]  指定设备编号
+ * @param dev_cnt    [out] urma device数量
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmi_get_urma_device_cnt(int card_id, int device_id, unsigned int *dev_cnt);
 
 /**
-* @brief 获取对应芯片指定urma device的eid列表
-* @param card_id    [in]  指定NPU管理单元ID
-* @param device_id  [in]  指定设备编号
-* @param dev_index  [in]  urma device编号
-* @param eid_list   [out] 对应urma device的eid列表，约定最大长度为32个eid
-* @param eid_cnt    [in/out] 输入时代表传入的eid_list长度，输出时对应urma device的eid数量
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取对应芯片指定urma device的eid列表
+ * @param card_id    [in]  指定NPU管理单元ID
+ * @param device_id  [in]  指定设备编号
+ * @param dev_index  [in]  urma device编号
+ * @param eid_list   [out] 对应urma device的eid列表，约定最大长度为32个eid
+ * @param eid_cnt    [in/out] 输入时代表传入的eid_list长度，输出时对应urma device的eid数量
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmi_get_eid_list_by_urma_dev_index(int card_id, int device_id, unsigned int dev_index,
-    dcmi_urma_eid_info_t *eid_list, unsigned int *eid_cnt);
+                                                      dcmi_urma_eid_info_t *eid_list, unsigned int *eid_cnt);
 
 /**
-* @brief 查询驱动版本
-* @param driver_ver  [out] 用户申请的空间，用于存放返回的版本号.
-* @param len    [in] driver_ver空间的长度。
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询驱动版本
+ * @param driver_ver  [out] 用户申请的空间，用于存放返回的版本号.
+ * @param len    [in] driver_ver空间的长度。
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_driver_version(char *driver_ver, unsigned int len);
 
 /**
-* @brief 查询DCMI版本
-* @param dcmi_ver  [out] 用户申请的空间，用于存放返回的版本号。
-* @param len    [int] dcmi_ver空间的长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询DCMI版本
+ * @param dcmi_ver  [out] 用户申请的空间，用于存放返回的版本号。
+ * @param len    [int] dcmi_ver空间的长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_dcmi_version(char *dcmi_ver, unsigned int len);
 
 /**
-* @brief 获取指定设备的URMA（Unified Remote Memory Access） device数量
-* @param device_id  [in]  芯片逻辑ID
-* @param dev_cnt    [out] URMA device数量
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备的URMA（Unified Remote Memory Access） device数量
+ * @param device_id  [in]  芯片逻辑ID
+ * @param dev_cnt    [out] URMA device数量
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_urma_device_cnt(int dev_id, unsigned int *dev_cnt);
 
 /**
-* @brief 获取指定芯片上对应URMA device的EID（entity ID）列表。
-* @param device_id  [in]  芯片逻辑ID
-* @param dev_index  [in]  URMA device编号
-* @param eid_list   [out] URMA device的EID列表
-* @param eid_cnt    [in/out] 输入表示EID列表长度，最大长度为32个EID;输出表示URMA device的EID数量。
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定芯片上对应URMA device的EID（entity ID）列表。
+ * @param device_id  [in]  芯片逻辑ID
+ * @param dev_index  [in]  URMA device编号
+ * @param eid_list   [out] URMA device的EID列表
+ * @param eid_cnt    [in/out] 输入表示EID列表长度，最大长度为32个EID;输出表示URMA device的EID数量。
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_eid_list_by_urma_dev_index(int dev_id, unsigned int dev_index,
-    dcmi_urma_eid_info_t *eid_list, unsigned int *eid_cnt);
+                                                        dcmi_urma_eid_info_t *eid_list, unsigned int *eid_cnt);
 
 /**
-* @brief 获取对应芯片的芯片信息
-* @param device_id  [in]  芯片逻辑ID
-* @param chip_info   [out] chip_info信息，包含chip_name, chip_ver, aicore_cnt, npu_name
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取对应芯片的芯片信息
+ * @param device_id  [in]  芯片逻辑ID
+ * @param chip_info   [out] chip_info信息，包含chip_name, chip_ver, aicore_cnt, npu_name
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_chip_info(int dev_id, struct dcmi_chip_info_v2 *chip_info);
 
 /**
-* @brief 获取指定设备的PCIe信息
-* @param device_id  [in]  芯片逻辑ID
-* @param pcie_info   [out] PCIe信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备的PCIe信息
+ * @param device_id  [in]  芯片逻辑ID
+ * @param pcie_info   [out] PCIe信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_pcie_info(int dev_id, struct dcmi_pcie_info_all *pcie_info);
 
 /**
-* @brief 获取指定设备的UB四元组信息
-* @param device_id   [in]  芯片逻辑ID
-* @param ub_id_info  [out] UB四元组信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备的UB四元组信息
+ * @param device_id   [in]  芯片逻辑ID
+ * @param ub_id_info  [out] UB四元组信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_ub_id_info(int dev_id, struct dcmi_ub_id_info *ub_id_info);
 
 /**
-* @brief 获取指定设备的board信息
-* @param device_id  [in] 芯片逻辑ID
-* @param board_info   [out] board信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备的board信息
+ * @param device_id  [in] 芯片逻辑ID
+ * @param board_info   [out] board信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_board_info(int dev_id, struct dcmi_board_info *board_info);
 
 /**
-* @brief 获取设备的电子标签信息
-* @param device_id  [in]  芯片逻辑ID
-* @param elabel_info   [out] 电子标签信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取设备的电子标签信息
+ * @param device_id  [in]  芯片逻辑ID
+ * @param elabel_info   [out] 电子标签信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_elabel_info(int dev_id, struct dcmi_elabel_info *elabel_info);
 
 /**
-* @brief 获取所有已建链卡的数量
-* @param all_device_count    [out] device数量
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取所有已建链卡的数量
+ * @param all_device_count    [out] device数量
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_all_device_count(int *all_device_count);
 
 /**
-* @brief 获取指定NPU间的拓扑关系
-* @param device_id1  [in]  指定设备编号
-* @param device_id2  [in]  指定设备编号
-* @param topo_type   [out] NPU间的拓扑关系
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定NPU间的拓扑关系
+ * @param device_id1  [in]  指定设备编号
+ * @param device_id2  [in]  指定设备编号
+ * @param topo_type   [out] NPU间的拓扑关系
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_topo_info_by_device_id(int dev_id1, int dev_id2, int *topo_type);
 
 /**
-* @brief 查询指定NPU的CPU亲和性
-* @param dev_id    [in]  指定设备编号
-* @param affinity_cpu [out] 指定NPU设备的CPU亲和性
-* @param len       [out] 亲和性字符串长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定NPU的CPU亲和性
+ * @param dev_id    [in]  指定设备编号
+ * @param affinity_cpu [out] 指定NPU设备的CPU亲和性
+ * @param len       [out] 亲和性字符串长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_affinity_cpu_info_by_dev_id(int dev_id, char *affinity_cpu, int *len);
 
 /**
-* @brief 查询指定NPU的mainboard_id
-* @param dev_id     [in]  指定设备编号
-* @param mainboard_id  [out] NPU的mainboard_id
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定NPU的mainboard_id
+ * @param dev_id     [in]  指定设备编号
+ * @param mainboard_id  [out] NPU的mainboard_id
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_mainboard_id(int dev_id, unsigned int *mainboard_id);
 
 /**
-* @brief 查询指定NPU的某个macro端口的眼图质量
-* @param dev_id     [in]  指定设备编号
-* @param macro_id      [in]  macro端口编号
-* @param serdes_quality_info  [out] NPU的某个macro端口的眼图质量信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定NPU的某个macro端口的眼图质量
+ * @param dev_id     [in]  指定设备编号
+ * @param macro_id      [in]  macro端口编号
+ * @param serdes_quality_info  [out] NPU的某个macro端口的眼图质量信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_serdes_quality_info(int dev_id, unsigned int macro_id,
-    struct dcmi_serdes_quality_info *serdes_quality_info);
+                                                 struct dcmi_serdes_quality_info *serdes_quality_info);
 
 /**
-* @brief 查询指定NPU的片上内存厂商信息
-* @param dev_id     [in]  指定设备编号
-* @param hbm_product_info  [out] NPU的片上内存厂商信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定NPU的片上内存厂商信息
+ * @param dev_id     [in]  指定设备编号
+ * @param hbm_product_info  [out] NPU的片上内存厂商信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_hbm_product_info(int dev_id, struct dcmi_hbm_product_info *hbm_product_info);
 
 /**
-* @brief 查询指定NPU的容器共享信息
-* @param dev_id       [in]  指定设备编号
-* @param enable_flag  [out] NPU的容器共享使能标记
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定NPU的容器共享信息
+ * @param dev_id       [in]  指定设备编号
+ * @param enable_flag  [out] NPU的容器共享使能标记
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_share_enable(int dev_id, unsigned int *enable_flag);
 
 /**
-* @brief 设置指定NPU的容器共享信息
-* @param dev_id       [in]  指定设备编号
-* @param enable_flag  [in]  NPU的容器共享使能标记
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 设置指定NPU的容器共享信息
+ * @param dev_id       [in]  指定设备编号
+ * @param enable_flag  [in]  NPU的容器共享使能标记
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_set_device_share_enable(int dev_id, unsigned int enable_flag);
 
 /**
-* @brief 查询容器共享持久化信息
-* @param enable_flag  [out] 容器共享持久化使能标记
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询容器共享持久化信息
+ * @param enable_flag  [out] 容器共享持久化使能标记
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_share_config_recover_mode(unsigned int *enable_flag);
 
 /**
-* @brief 设置容器共享持久化
-* @param enable_flag  [in] 容器共享持久化使能标记
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 设置容器共享持久化
+ * @param enable_flag  [in] 容器共享持久化使能标记
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_set_device_share_config_recover_mode(unsigned int enable_flag);
 
 /**
-* @brief 查询NPU设备网口当前收发包数统计
-* @param dev_id         [in]    指定设备编号
-* @param port_id           [in]    指定设备的网口端口号
-* @param network_pkt_stats_info  [out] 网口当前收发包统计信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询NPU设备网口当前收发包数统计
+ * @param dev_id         [in]    指定设备编号
+ * @param port_id           [in]    指定设备的网口端口号
+ * @param network_pkt_stats_info  [out] 网口当前收发包统计信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_netdev_pkt_stats_info(int dev_id, int port_id,
-    struct dcmi_network_pkt_stats_info *network_pkt_stats_info);
+                                                   struct dcmi_network_pkt_stats_info *network_pkt_stats_info);
 
 /**
-* @brief 查询指定采样时间内，NPU设备网口的rdma带宽信息
-* @param dev_id         [in]    指定设备编号
-* @param port_id           [in]    指定设备的网口端口号
-* @param prof_time         [in]    采样时间
-* @param network_rdma_bandwidth_info  [out] 网口rdma带宽信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_rdma_bandwidth_info(int dev_id, int port_id,
-    unsigned int prof_time, struct dcmi_network_rdma_bandwidth_info *network_rdma_bandwidth_info);
+ * @brief 查询指定采样时间内，NPU设备网口的rdma带宽信息
+ * @param dev_id         [in]    指定设备编号
+ * @param port_id           [in]    指定设备的网口端口号
+ * @param prof_time         [in]    采样时间
+ * @param network_rdma_bandwidth_info  [out] 网口rdma带宽信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_rdma_bandwidth_info(int dev_id, int port_id, unsigned int prof_time,
+                                                 struct dcmi_network_rdma_bandwidth_info *network_rdma_bandwidth_info);
 
 /**
-* @brief 获取驱动健康状态
-* @param health   [out] 驱动健康状态的指针
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取驱动健康状态
+ * @param health   [out] 驱动健康状态的指针
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_driver_health(unsigned int *health);
 
 /**
-* @brief 查询设备故障码
-* @param dev_id  [in]  芯片逻辑ID
-* @param error_count   [out] 错误码数量
-* @param error_code_list   [out] 错误码列表
-* @param list_len  [in]  error_code_list空间大小
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_error_code_list(
-    int dev_id, int *error_count, unsigned int *error_code_list, unsigned int list_len);
+ * @brief 查询设备故障码
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param error_count   [out] 错误码数量
+ * @param error_code_list   [out] 错误码列表
+ * @param list_len  [in]  error_code_list空间大小
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_error_code_list(int dev_id, int *error_count, unsigned int *error_code_list,
+                                                    unsigned int list_len);
 
 /**
-* @brief 查询芯片的总体健康状态
-* @param dev_id  [in] 芯片逻辑ID
-* @param health   [out] 设备总体健康状态
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询芯片的总体健康状态
+ * @param dev_id  [in] 芯片逻辑ID
+ * @param health   [out] 设备总体健康状态
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_health(int dev_id, unsigned int *health);
 
 /**
-* @brief 获取指定设备的DIE ID
-* @param dev_id  [in]  芯片逻辑ID
-* @param input_type [in]  die类型
-* @param die_id   [out] die_id信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_die_id(
-    int dev_id, enum dcmi_die_type input_type, struct dcmi_die_id *die_id);
+ * @brief 获取指定设备的DIE ID
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param input_type [in]  die类型
+ * @param die_id   [out] die_id信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_die_id(int dev_id, enum dcmi_die_type input_type, struct dcmi_die_id *die_id);
 
 /**
-* @brief 查询设备功耗
-* @param dev_id  [in]  芯片逻辑ID
-* @param power_info   [out] 设备功耗：单位为0.1W
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询设备功耗
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param power_info   [out] 设备功耗：单位为0.1W
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_power_info(int dev_id, int *power_info);
 
 /**
-* @brief 查询设备类型
-* @param dev_id  [in]  芯片逻辑ID
-* @param device_type   [out] 设备类型
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询设备类型
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param device_type   [out] 设备类型
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_type(int dev_id, enum dcmi_unit_type *device_type);
 /**
-* @brief 查询设备电压信息
-* @param dev_id  [in]  芯片逻辑ID
-* @param voltage [out] voltage信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询设备电压信息
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param voltage [out] voltage信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_voltage(int dev_id, unsigned int *voltage);
 /**
-* @brief 查询设备温度信息
-* @param dev_id      [in]  芯片逻辑ID
-* @param temperature [out] temperature信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询设备温度信息
+ * @param dev_id      [in]  芯片逻辑ID
+ * @param temperature [out] temperature信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_temperature(int dev_id, int *temperature);
 
 /**
-* @brief 查询驱动故障码
-* @param error_count   [out] 错误码数量
-* @param error_code_list   [out] 错误码列表
-* @param list_len  [in]  error_code_list空间大小。
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_driver_error_code_list(int *error_count,
-    unsigned int *error_code_list, unsigned int list_len);
+ * @brief 查询驱动故障码
+ * @param error_count   [out] 错误码数量
+ * @param error_code_list   [out] 错误码列表
+ * @param list_len  [in]  error_code_list空间大小。
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_driver_error_code_list(int *error_count, unsigned int *error_code_list,
+                                                    unsigned int list_len);
 
 /**
-* @brief 查询设备故障描述
-* @param dev_id  [in]  芯片逻辑ID
-* @param error_code   [out] 要查询的错误码
-* @param error_info   [out] 对应的错误描述
-* @param buf_size  [in] 传入error_info的大小
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_error_info(
-    int dev_id, unsigned int error_code, unsigned char *error_info, int buf_size);
+ * @brief 查询设备故障描述
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param error_code   [out] 要查询的错误码
+ * @param error_info   [out] 对应的错误描述
+ * @param buf_size  [in] 传入error_info的大小
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_error_info(int dev_id, unsigned int error_code, unsigned char *error_info,
+                                               int buf_size);
 
 /**
-* @brief 获取设备中Flash个数
-* @param dev_id      [in]  芯片逻辑ID
-* @param flash_cnt   [out] 返回Flash个数
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取设备中Flash个数
+ * @param dev_id      [in]  芯片逻辑ID
+ * @param flash_cnt   [out] 返回Flash个数
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_flash_cnt(int dev_id, unsigned int *flash_cnt);
 
 /**
-* @brief 获取设备中Flash个数
-* @param dev_id  [in]  芯片逻辑ID
-* @param flash_index  [in] Flash索引号
-* @param flash_info   [out] 返回Flash信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_flash_info(
-    int dev_id, unsigned int flash_index, struct dcmi_flash_info *flash_info);
+ * @brief 获取设备中Flash个数
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param flash_index  [in] Flash索引号
+ * @param flash_info   [out] 返回Flash信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_flash_info(int dev_id, unsigned int flash_index,
+                                               struct dcmi_flash_info *flash_info);
 
 /**
-* @brief 查询AICore信息
-* @param dev_id  [in]  芯片逻辑ID
-* @param aicore_info   [out] 返回aicore信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询AICore信息
+ * @param dev_id  [in]  芯片逻辑ID
+ * @param aicore_info   [out] 返回aicore信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_aicore_info(int dev_id, struct dcmi_aicore_info *aicore_info);
 
 /**
-* @brief 查询NPU芯片驱动与固件兼容性
-* @param dev_id      [in]  指定设备编号
-* @param compatibility  [out] 兼容性信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询NPU芯片驱动与固件兼容性
+ * @param dev_id      [in]  指定设备编号
+ * @param compatibility  [out] 兼容性信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_compatibility(int dev_id, enum dcmi_device_compat *compatibility);
 
 /**
-* @brief 查询指定采样时间内，NPU设备与host OS间PCIe带宽信息
-* @param dev_id                 [in]    指定设备编号
-* @param pcie_link_bandwidth_info  [out] NPU设备与host OS间PCIe带宽信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定采样时间内，NPU设备与host OS间PCIe带宽信息
+ * @param dev_id                 [in]    指定设备编号
+ * @param pcie_link_bandwidth_info  [out] NPU设备与host OS间PCIe带宽信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_pcie_link_bandwidth_info(int dev_id,
-    struct dcmi_pcie_link_bandwidth_info *pcie_link_bandwidth_info);
+                                                      struct dcmi_pcie_link_bandwidth_info *pcie_link_bandwidth_info);
 
 /**
-* @brief 查询片上内存ECC多比特时间戳信息
-* @param dev_id            [in]  指定设备编号
-* @param multi_ecc_time_data  [out] 多比特时间戳信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_multi_ecc_time_info(int dev_id,
-    struct dcmi_multi_ecc_time_data *multi_ecc_time_data);
+ * @brief 查询片上内存ECC多比特时间戳信息
+ * @param dev_id            [in]  指定设备编号
+ * @param multi_ecc_time_data  [out] 多比特时间戳信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_multi_ecc_time_info(int dev_id, struct dcmi_multi_ecc_time_data *multi_ecc_time_data);
 
 /**
-* @brief 查询片上内存ECC详细地址信息
-* @param dev_id    [in]     指定设备编号
-* @param type         [in]     类型
-* @param ecc_count    [out]    片上内存ECC错误个数
-* @param ecc_common_data_s  [out] 内存ECC详细地址信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询片上内存ECC详细地址信息
+ * @param dev_id    [in]     指定设备编号
+ * @param type         [in]     类型
+ * @param ecc_count    [out]    片上内存ECC错误个数
+ * @param ecc_common_data_s  [out] 内存ECC详细地址信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_multi_ecc_record_info(int dev_id, struct dcmi_ecc_record_type type,
-    unsigned int *ecc_count, struct dcmi_ecc_common_data *ecc_common_data_s);
+                                                   unsigned int *ecc_count,
+                                                   struct dcmi_ecc_common_data *ecc_common_data_s);
 
 /**
-* @brief 获取设备的启动状态
-* @param dev_id          [in]  指定设备编号
-* @param boot_status        [out] 设备启动状态信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取设备的启动状态
+ * @param dev_id          [in]  指定设备编号
+ * @param boot_status        [out] 设备启动状态信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_boot_status(int dev_id, enum dcmi_boot_status *boot_status);
 
 /**
-* @brief 获取某个芯片的告警信息
-* @param dev_id                [in]  指定设备编号
-* @param event_buf                [out] 存储故障事件
-* @param input_event_buf_length   [in]  期望获取的故障事件最大个数
-* @param output_event_cnt         [out] 实际获取到的故障事件个数
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取某个芯片的告警信息
+ * @param dev_id                [in]  指定设备编号
+ * @param event_buf                [out] 存储故障事件
+ * @param input_event_buf_length   [in]  期望获取的故障事件最大个数
+ * @param output_event_cnt         [out] 实际获取到的故障事件个数
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_current_fault_event(int dev_id, struct dcmi_event *event_buf,
-    int input_event_buf_length, int *output_event_cnt);
+                                                        int input_event_buf_length, int *output_event_cnt);
 
 /**
-* @brief 获取指定设备上的SVM模块相关业务进程及其占用的内存
-* @param dev_id           [in]   指定设备编号
-* @param proc_info           [out]  结构体包含进程ID和进程占用的内存
-* @param proc_num            [out]  进程个数
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备上的SVM模块相关业务进程及其占用的内存
+ * @param dev_id           [in]   指定设备编号
+ * @param proc_info           [out]  结构体包含进程ID和进程占用的内存
+ * @param proc_num            [out]  进程个数
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_proc_mem_info(int dev_id, struct dcmi_proc_mem_info *proc_info, int *proc_num);
 
 /**
-* @brief 订阅设备故障或恢复事件
-* @param dev_id       [in]  芯片逻辑ID
-* @param timeout      [in]  阻塞等待时间
-* @param filter       [in]  过滤条件
-* @param event        [out] 输出事件
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 订阅设备故障或恢复事件
+ * @param dev_id       [in]  芯片逻辑ID
+ * @param timeout      [in]  阻塞等待时间
+ * @param filter       [in]  过滤条件
+ * @param event        [out] 输出事件
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_fault_event(int dev_id, int timeout, struct dcmi_event_filter filter,
-    struct dcmi_event *event);
+                                         struct dcmi_event *event);
 
 /**
-* @brief 查询算力信息
-* @param dev_id       [in]  芯片逻辑ID
-* @param type         [in]  获取算力信息的类型
-* @param computing_power        [out] 输出的算力信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询算力信息
+ * @param dev_id       [in]  芯片逻辑ID
+ * @param type         [in]  获取算力信息的类型
+ * @param computing_power        [out] 输出的算力信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_computing_power_info(int dev_id, int type,
-    struct dsmi_computing_power_info *computing_power);
+                                                  struct dsmi_computing_power_info *computing_power);
 
 /**
-* @brief 查询带外通道状态
-* @param dev_id       [in]  芯片逻辑ID
-* @param channel_state   [out] 带外通道状态
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询带外通道状态
+ * @param dev_id       [in]  芯片逻辑ID
+ * @param channel_state   [out] 带外通道状态
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_outband_channel_state(int dev_id, int *channel_state);
 
 /**
-* @brief 查询指定设备的PCIe slot ID
-* @param dev_id        [in]  芯片逻辑ID
-* @param pcie_slot     [out] PCIe slot ID
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定设备的PCIe slot ID
+ * @param dev_id        [in]  芯片逻辑ID
+ * @param pcie_slot     [out] PCIe slot ID
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_pcie_slot_id(int dev_id, int *pcie_slot);
 
 /**
-* @brief 查询指定设备的UB slot ID
-* @param dev_id        [in]  芯片逻辑ID
-* @param ub_slot       [out] UB slot ID
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定设备的UB slot ID
+ * @param dev_id        [in]  芯片逻辑ID
+ * @param ub_slot       [out] UB slot ID
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_ub_slot_id(int dev_id, int *ub_slot);
 
 /**
-* @brief 根据芯片逻辑ID获取芯片物理ID
-* @param dev_id         [in]  芯片逻辑ID
-* @param phyid          [out] 芯片物理ID
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 根据芯片逻辑ID获取芯片物理ID
+ * @param dev_id         [in]  芯片逻辑ID
+ * @param phyid          [out] 芯片物理ID
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_chip_phy_id_by_dev_id(int dev_id, unsigned int *phyid);
 
 /**
-* @brief 根据芯片物理ID获取芯片逻辑ID
-* @param phyid          [in] 芯片物理ID
-* @param dev_id         [out]  芯片逻辑ID
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 根据芯片物理ID获取芯片逻辑ID
+ * @param phyid          [in] 芯片物理ID
+ * @param dev_id         [out]  芯片逻辑ID
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_dev_id_by_chip_phy_id(int phyid, unsigned int *dev_id);
 
 /**
-* @brief dcmi接口相关配置初始化
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief dcmi接口相关配置初始化
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_init(void);
 
 /**
-* @brief 获取指定设备上的ecc信息
-* @param dev_id           [in]   指定设备编号
-* @param input_type       [in]   die类型
-* @param device_ecc_info  [out]  返回设备ecc信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_ecc_info(
-    int dev_id, enum dcmi_device_type input_type, struct dcmi_ecc_info *device_ecc_info);
+ * @brief 获取指定设备上的ecc信息
+ * @param dev_id           [in]   指定设备编号
+ * @param input_type       [in]   die类型
+ * @param device_ecc_info  [out]  返回设备ecc信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_ecc_info(int dev_id, enum dcmi_device_type input_type,
+                                             struct dcmi_ecc_info *device_ecc_info);
 
 /**
-* @brief 获取指定设备上的频率
-* @param dev_id           [in]   指定设备编号
-* @param input_type       [in]   die类型
-* @param frequency        [out]  返回设备频率信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备上的频率
+ * @param dev_id           [in]   指定设备编号
+ * @param input_type       [in]   die类型
+ * @param frequency        [out]  返回设备频率信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_frequency(int dev_id, enum dcmi_freq_type input_type, unsigned int *frequency);
 
 /**
-* @brief 获取指定设备芯片的片上内存信息
-* @param dev_id           [in]   指定设备编号
-* @param hbm_info         [out]  返回设备片上内存信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备芯片的片上内存信息
+ * @param dev_id           [in]   指定设备编号
+ * @param hbm_info         [out]  返回设备片上内存信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_hbm_info(int dev_id, struct dcmi_hbm_info *hbm_info);
 
 /**
-* @brief 获取指定设备芯片的占用率
-* @param dev_id           [in]   指定设备编号
-* @param input_type       [in]   die类型
-* @param utilization_rate [out]  返回设备占用率信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备芯片的占用率
+ * @param dev_id           [in]   指定设备编号
+ * @param input_type       [in]   die类型
+ * @param utilization_rate [out]  返回设备占用率信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_utilization_rate(int dev_id, int input_type, unsigned int *utilization_rate);
 
 /**
-* @brief 获取指定设备的传感器信息
-* @param dev_id           [in]   指定设备编号
-* @param sensor_id        [in]   指定传感器索引
-* @param sensor_info      [out]  返回传感器结构体信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_sensor_info(
-    int dev_id, enum dcmi_manager_sensor_id sensor_id, union dcmi_sensor_info *sensor_info);
+ * @brief 获取指定设备的传感器信息
+ * @param dev_id           [in]   指定设备编号
+ * @param sensor_id        [in]   指定传感器索引
+ * @param sensor_info      [out]  返回传感器结构体信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_sensor_info(int dev_id, enum dcmi_manager_sensor_id sensor_id,
+                                                union dcmi_sensor_info *sensor_info);
 
 /**
-* @brief 获取指定设备的Board ID
-* @param dev_id           [in]   指定设备编号
-* @param board_id         [out]  返回单板的ID
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备的Board ID
+ * @param dev_id           [in]   指定设备编号
+ * @param board_id         [out]  返回单板的ID
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_board_id(int dev_id, unsigned int *board_id);
 
 /**
-* @brief 获取可升级组件的个数
-* @param dev_id           [in]   指定设备编号
-* @param component_count  [out]  返回组件的个数
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取可升级组件的个数
+ * @param dev_id           [in]   指定设备编号
+ * @param component_count  [out]  返回组件的个数
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_component_cnt(int dev_id, unsigned int *component_count);
 
 /**
-* @brief 获取可升级组件列表
-* @param dev_id           [in]   指定设备编号
-* @param component_table  [out]  返回可升级组件列表
-* @param component_count  [in]   可升级组件列表数组的长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_component_list(
-    int dev_id, enum dcmi_component_type *component_table, unsigned int component_count);
+ * @brief 获取可升级组件列表
+ * @param dev_id           [in]   指定设备编号
+ * @param component_table  [out]  返回可升级组件列表
+ * @param component_count  [in]   可升级组件列表数组的长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_component_list(int dev_id, enum dcmi_component_type *component_table,
+                                                   unsigned int component_count);
 
 /**
-* @brief 获取设备ID列表以及数量
-* @param device_list    [out]  设备ID列表
-* @param device_cnt     [out]  设备数量
-* @param list_len       [in]   数组列表长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取设备ID列表以及数量
+ * @param device_list    [out]  设备ID列表
+ * @param device_cnt     [out]  设备数量
+ * @param list_len       [in]   数组列表长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_list(int *device_list, int *device_cnt, int list_len);
 
 /**
-* @brief 查询芯片的PCIe链路误码信息。
-* @param dev_id                 [in]   指定设备编号
-* @param pcie_err_code_info     [out]  链路状态以及误码数量
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_pcie_error_cnt(
-    int dev_id, struct dcmi_chip_pcie_err_rate *pcie_err_code_info);
+ * @brief 查询芯片的PCIe链路误码信息。
+ * @param dev_id                 [in]   指定设备编号
+ * @param pcie_err_code_info     [out]  链路状态以及误码数量
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_pcie_error_cnt(int dev_id, struct dcmi_chip_pcie_err_rate *pcie_err_code_info);
 
 /**
-* @brief 对指定设备执行预复位操作
-* @param dev_id                   [in]  指定设备编号
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 对指定设备执行预复位操作
+ * @param dev_id                   [in]  指定设备编号
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_pre_reset_device(int dev_id);
 
 /**
-* @brief 对指定设备重新扫描。
-* @param dev_id                   [in]  指定设备编号
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 对指定设备重新扫描。
+ * @param dev_id                   [in]  指定设备编号
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_rescan_device(int dev_id);
 
 /**
-* @brief 对指定设备执行复位操作
-* @param dev_id                   [in]  指定设备编号
-* @param channel_type             [in]  复位通道
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 对指定设备执行复位操作
+ * @param dev_id                   [in]  指定设备编号
+ * @param channel_type             [in]  复位通道
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_reset_device(int dev_id, enum dcmi_reset_channel channel_type);
 
 /**
-* @brief 查询指定设备的静态组件版本
-* @param dev_id                   [in]  指定设备编号
-* @param component_type           [in]  固件类型
-* @param version_str              [out]  用户申请的空间，存放返回的固件版本号
-* @param len                      [in]  version_str的内存大小，大小不能小于64Byte
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_component_static_version(
-    int dev_id, enum dcmi_component_type component_type, unsigned char *version_str, unsigned int len);
+ * @brief 查询指定设备的静态组件版本
+ * @param dev_id                   [in]  指定设备编号
+ * @param component_type           [in]  固件类型
+ * @param version_str              [out]  用户申请的空间，存放返回的固件版本号
+ * @param len                      [in]  version_str的内存大小，大小不能小于64Byte
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_component_static_version(int dev_id, enum dcmi_component_type component_type,
+                                                             unsigned char *version_str, unsigned int len);
 
 /**
-* @brief 查询指定设备的cgroup内存信息，包括cgroup最大内存数、历史使用最大内存数、当前使用内存数
-* @param dev_id                   [in]  指定设备编号
-* @param cg_info                  [out]  cgroup信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定设备的cgroup内存信息，包括cgroup最大内存数、历史使用最大内存数、当前使用内存数
+ * @param dev_id                   [in]  指定设备编号
+ * @param cg_info                  [out]  cgroup信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_cgroup_info(int dev_id, struct dcmi_cgroup_info *cg_info);
 
 /**
-* @brief 查询指定设备的LLC性能参数，包括LLC读命中率、写命中率和吞吐量
-* @param dev_id                   [in]  指定设备编号
-* @param perf_para                [out]  LLC性能参数信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定设备的LLC性能参数，包括LLC读命中率、写命中率和吞吐量
+ * @param dev_id                   [in]  指定设备编号
+ * @param perf_para                [out]  LLC性能参数信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_llc_perf_para(int dev_id, struct dcmi_llc_perf *perf_para);
 
 /**
-* @brief 设置指定设备信息的通用接口，对各模块信息进行配置
-* @param dev_id                   [in]  指定设备编号
-* @param main_cmd                 [in]  模块cmd信息，执行用于获取对应模块的信息
-* @param sub_cmd                  [in]  子cmd命令字
-* @param buf                      [in]  用于配置相应设备的配置信息
-* @param buf_size                 [in]  buf数组的长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_set_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd,
-    const void *buf, unsigned int buf_size);
+ * @brief 设置指定设备信息的通用接口，对各模块信息进行配置
+ * @param dev_id                   [in]  指定设备编号
+ * @param main_cmd                 [in]  模块cmd信息，执行用于获取对应模块的信息
+ * @param sub_cmd                  [in]  子cmd命令字
+ * @param buf                      [in]  用于配置相应设备的配置信息
+ * @param buf_size                 [in]  buf数组的长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_set_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd, const void *buf,
+                                         unsigned int buf_size);
 
 /**
-* @brief 查询指定设备信息的通用接口，对各模块信息进行读取
-* @param dev_id                   [in]  指定设备编号
-* @param main_cmd                 [in]  主命令字，模块cmd信息，执行用于获取对应模块的信息
-* @param sub_cmd                  [in]  子命令字
-* @param buf                      [in/out]  用于配置相应设备的配置信息
-* @param size                     [in/out]  buf数组的输入/输出长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_info(
-    int dev_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd, void *buf, unsigned int *size);
+ * @brief 查询指定设备信息的通用接口，对各模块信息进行读取
+ * @param dev_id                   [in]  指定设备编号
+ * @param main_cmd                 [in]  主命令字，模块cmd信息，执行用于获取对应模块的信息
+ * @param sub_cmd                  [in]  子命令字
+ * @param buf                      [in/out]  用于配置相应设备的配置信息
+ * @param size                     [in/out]  buf数组的输入/输出长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_info(int dev_id, enum dcmi_main_cmd main_cmd, unsigned int sub_cmd, void *buf,
+                                         unsigned int *size);
 
 /**
-* @brief 对指定设备执行密钥吊销
-* @param dev_id                   [in]  指定设备编号
-* @param input_type               [in]  吊销类型
-* @param file_data                [in]  吊销文件的数据地址
-* @param file_size                [in]  吊销文件的数据长度，Soc二级密钥吊销操作的文件长度固定为544字节
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_revoke_device_sec_key(
-    int dev_id, enum dcmi_revo_type input_type, const unsigned char *file_data, unsigned int file_size);
+ * @brief 对指定设备执行密钥吊销
+ * @param dev_id                   [in]  指定设备编号
+ * @param input_type               [in]  吊销类型
+ * @param file_data                [in]  吊销文件的数据地址
+ * @param file_size                [in]  吊销文件的数据长度，Soc二级密钥吊销操作的文件长度固定为544字节
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_revoke_device_sec_key(int dev_id, enum dcmi_revo_type input_type,
+                                               const unsigned char *file_data, unsigned int file_size);
 
 /**
-* @brief 查询指定设备的MAC地址数量
-* @param dev_id                   [in]  指定设备编号
-* @param count                    [out]  查询出MAC数，取值范围：0~1
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定设备的MAC地址数量
+ * @param dev_id                   [in]  指定设备编号
+ * @param count                    [out]  查询出MAC数，取值范围：0~1
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_mac_cnt(int dev_id, int *count);
 
 /**
-* @brief 查询指定设备RoCE网卡的IP地址的连通状态
-* @param dev_id                   [in]  指定设备编号
-* @param result                   [out]  查询RoCE网卡的IP地址的连通状态
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定设备RoCE网卡的IP地址的连通状态
+ * @param dev_id                   [in]  指定设备编号
+ * @param result                   [out]  查询RoCE网卡的IP地址的连通状态
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_network_health(int dev_id, enum dcmi_rdfx_detect_result *result);
 
 /**
-* @brief 查询指定设备UBOE端口的IP地址的连通状态
-* @param dev_id                   [in]  指定设备编号
-* @param netdev_name              [in]  UBOE端口的Bond名
-* @param netdev_name_len          [in]  UBOE端口的Bond名长度
-* @param result                   [out]  查询UBOE Bond口的IP地址的连通状态
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定设备UBOE端口的IP地址的连通状态
+ * @param dev_id                   [in]  指定设备编号
+ * @param netdev_name              [in]  UBOE端口的Bond名
+ * @param netdev_name_len          [in]  UBOE端口的Bond名长度
+ * @param result                   [out]  查询UBOE Bond口的IP地址的连通状态
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_netdev_health(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
-    enum dcmi_rdfx_detect_result *result);
+                                                  enum dcmi_rdfx_detect_result *result);
 
 /**
-* @brief 对指定设备设置用户配置。
-* @param dev_id                   [in]  指定设备编号
-* @param config_name              [in]  配置项名称
-* @param buf_size                 [in]  buf长度
-* @param buf                      [in]  buf指针，指向配置项内容
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_set_device_user_config(
-    int dev_id, const char *config_name, unsigned int buf_size, char *buf);
+ * @brief 对指定设备设置用户配置。
+ * @param dev_id                   [in]  指定设备编号
+ * @param config_name              [in]  配置项名称
+ * @param buf_size                 [in]  buf长度
+ * @param buf                      [in]  buf指针，指向配置项内容
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_set_device_user_config(int dev_id, const char *config_name, unsigned int buf_size, char *buf);
 
 /**
-* @brief 对指定设备查询用户配置
-* @param dev_id                   [in]  指定设备编号
-* @param config_name              [in]  配置项名称
-* @param buf_size                 [in]  buf长度
-* @param buf                      [out]  buf指针，指向配置项内容
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_user_config(
-    int dev_id, const char *config_name, unsigned int buf_size, unsigned char *buf);
+ * @brief 对指定设备查询用户配置
+ * @param dev_id                   [in]  指定设备编号
+ * @param config_name              [in]  配置项名称
+ * @param buf_size                 [in]  buf长度
+ * @param buf                      [out]  buf指针，指向配置项内容
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_user_config(int dev_id, const char *config_name, unsigned int buf_size,
+                                                unsigned char *buf);
 
 /**
-* @brief 对指定设备重置用户配置
-* @param dev_id                   [in]  指定设备编号
-* @param config_name              [in]  配置项名称
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 对指定设备重置用户配置
+ * @param dev_id                   [in]  指定设备编号
+ * @param config_name              [in]  配置项名称
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_clear_device_user_config(int dev_id, const char *config_name);
 
-
 /**
-* @brief 为指定设备升级vrd固件
-* @param dev_id                   [in]  指定设备编号
-* @param file                     [in]  VRD升级包
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 为指定设备升级vrd固件
+ * @param dev_id                   [in]  指定设备编号
+ * @param file                     [in]  VRD升级包
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_upgrade_vrd(int dev_id, const char *file);
 
- /**
-* @brief 获取IP地址和mask地址
-* @param dev_id          [in]  芯片逻辑ID
-* @param filter          [in]  筛选事件等级
-* @param handler         [in]  有故障发生后的回调函数
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+/**
+ * @brief 获取IP地址和mask地址
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param filter          [in]  筛选事件等级
+ * @param handler         [in]  有故障发生后的回调函数
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_subscribe_fault_event(int dev_id, struct dcmi_event_filter filter,
-    dcmi_fault_event_callback handler);
+                                               dcmi_fault_event_callback handler);
 
 /**
-* @brief 获取IP地址和mask地址
-* @param dev_id          [in]  芯片逻辑ID
-* @param netdev_name     [in]  bond口名称
-* @param netdev_name_len [in]  bond口名称长度
-* @param ip              [out] IP地址
-* @param mask            [out] mask地址
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取IP地址和mask地址
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param netdev_name     [in]  bond口名称
+ * @param netdev_name_len [in]  bond口名称长度
+ * @param ip              [out] IP地址
+ * @param mask            [out] mask地址
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_netdev_ip(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
                                        struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask);
 
 /**
-* @brief 设置IP地址和mask地址
-* @param dev_id          [in]  芯片逻辑ID
-* @param netdev_name     [in]  bond口名称
-* @param netdev_name_len [in]  bond口名称长度
-* @param ip              [in]  IP地址
-* @param mask            [in]  mask地址
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 设置IP地址和mask地址
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param netdev_name     [in]  bond口名称
+ * @param netdev_name_len [in]  bond口名称长度
+ * @param ip              [in]  IP地址
+ * @param mask            [in]  mask地址
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_set_netdev_ip(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
                                        struct dcmi_ip_addr *ip, struct dcmi_ip_addr *mask);
 
@@ -3105,208 +3110,207 @@ DCMIDLLEXPORT int dcmiv2_set_netdev_ip(int dev_id, const char *netdev_name, unsi
  * @return 成功返回 0，错误返回参考 dcmi 故障码定义
  */
 DCMIDLLEXPORT int dcmiv2_set_netdev_mac(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
-    const char *mac_addr, unsigned int mac_addr_len);
+                                        const char *mac_addr, unsigned int mac_addr_len);
 
 /**
-* @brief 获取指定设备的 MAC 地址
-* @param dev_id          [in]  芯片逻辑 ID
-* @param netdev_name     [in]  UBOE端口的Bond名
-* @param netdev_name_len [in]  UBOE端口的Bond名长度
-* @param mac_addr        [out] MAC 地址
-* @param mac_addr_len    [in]  MAC 地址长度，固定长度 6，单位 byte
-* @return 成功返回 0，错误返回参考 dcmi 故障码定义
-*/
+ * @brief 获取指定设备的 MAC 地址
+ * @param dev_id          [in]  芯片逻辑 ID
+ * @param netdev_name     [in]  UBOE端口的Bond名
+ * @param netdev_name_len [in]  UBOE端口的Bond名长度
+ * @param mac_addr        [out] MAC 地址
+ * @param mac_addr_len    [in]  MAC 地址长度，固定长度 6，单位 byte
+ * @return 成功返回 0，错误返回参考 dcmi 故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_netdev_mac(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
-    char *mac_addr, unsigned int mac_addr_len);
+                                        char *mac_addr, unsigned int mac_addr_len);
 
 /**
-* @brief 获取UBOE bond端口网关地址
-* @param dev_id          [in]  芯片逻辑ID
-* @param netdev_name     [in]  UBOE端口名
-* @param netdev_name_len [in]  UBOE端口名长度
-* @param gateway         [out] 网关地址
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取UBOE bond端口网关地址
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param netdev_name     [in]  UBOE端口名
+ * @param netdev_name_len [in]  UBOE端口名长度
+ * @param gateway         [out] 网关地址
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_netdev_gateway(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
-     struct dcmi_ip_addr *gateway);
+                                            struct dcmi_ip_addr *gateway);
 
 /**
-* @brief 设置UBOE bond端口网关地址
-* @param dev_id          [in]  芯片逻辑ID
-* @param netdev_name     [in]  UBOE端口名
-* @param netdev_name_len [in]  UBOE端口名长度
-* @param gateway         [in]  网关地址
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 设置UBOE bond端口网关地址
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param netdev_name     [in]  UBOE端口名
+ * @param netdev_name_len [in]  UBOE端口名长度
+ * @param gateway         [in]  网关地址
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_set_netdev_gateway(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
-    struct dcmi_ip_addr *gateway);
+                                            struct dcmi_ip_addr *gateway);
 
 /**
-* @brief 查询AICPU信息
-* @param dev_id          [in]  指定设备编号
-* @param aicpu_info      [out]  AICPU信息，信息结构体
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询AICPU信息
+ * @param dev_id          [in]  指定设备编号
+ * @param aicpu_info      [out]  AICPU信息，信息结构体
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_aicpu_info(int dev_id, struct dcmi_aicpu_info *aicpu_info);
 
 /**
-* @brief 查询芯片的系统时间
-* @param dev_id          [in]  指定设备编号
-* @param system_time     [out] 表示从1970年1月1日00:00:00至今的秒数值
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询芯片的系统时间
+ * @param dev_id          [in]  指定设备编号
+ * @param system_time     [out] 表示从1970年1月1日00:00:00至今的秒数值
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_system_time(int dev_id, unsigned int *system_time);
 
 /**
-* @brief 根据逻辑ID查询slot id、chip id
-* @param dev_id         [in] NPU逻辑ID
-* @param slot_id        [out] 标识芯片带外位置的slot id
-* @param chip_id        [out] 标识芯片带外位置的chip id
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_slot_id_and_chip_id_by_dev_id(int dev_id,
-    unsigned int *slot_id, unsigned int *chip_id);
+ * @brief 根据逻辑ID查询slot id、chip id
+ * @param dev_id         [in] NPU逻辑ID
+ * @param slot_id        [out] 标识芯片带外位置的slot id
+ * @param chip_id        [out] 标识芯片带外位置的chip id
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_slot_id_and_chip_id_by_dev_id(int dev_id, unsigned int *slot_id, unsigned int *chip_id);
 
 /**
-* @brief 根据slot id、chip id查询逻辑ID
-* @param slot_id        [in] 标识芯片带外位置的slot id
-* @param chip_id        [in] 标识芯片带外位置的chip id
-* @param dev_id         [out] NPU逻辑ID
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 根据slot id、chip id查询逻辑ID
+ * @param slot_id        [in] 标识芯片带外位置的slot id
+ * @param chip_id        [in] 标识芯片带外位置的chip id
+ * @param dev_id         [out] NPU逻辑ID
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_dev_id_by_slot_id_and_chip_id(unsigned int slot_id, unsigned int chip_id, int *dev_id);
 
 /**
-* @brief A5标卡多P互联场景下，根据逻辑ID查询当前卡在GROUP组内的序号（4P卡：0-3）、（2P卡：0-1）
-* @param dev_id             [in] NPU逻辑ID
-* @param group_intra_id     [out] 当前卡在GROUP组内的序号
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief A5标卡多P互联场景下，根据逻辑ID查询当前卡在GROUP组内的序号（4P卡：0-3）、（2P卡：0-1）
+ * @param dev_id             [in] NPU逻辑ID
+ * @param group_intra_id     [out] 当前卡在GROUP组内的序号
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_group_intra_id_by_dev_id(int dev_id, unsigned int *group_intra_id);
 
 /**
-* @brief 对NPU芯片打流和获取打流结果
-* @param dev_id          [in]  芯片逻辑ID
-* @param operate_para    [in]  prbs码流操作
-* @param operate_result  [out]  查询打流结果或查询prbs链路状态
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 对NPU芯片打流和获取打流结果
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param operate_para    [in]  prbs码流操作
+ * @param operate_result  [out]  查询打流结果或查询prbs链路状态
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_exec_prbs(int dev_id, DCMIV2_PRBS_OPERATE_PARAM v2_operate_para,
-    DCMI_PRBS_OPERATE_RESULT *operate_result);
+                                   DCMI_PRBS_OPERATE_RESULT *operate_result);
 
 /**
-* @brief 获取指定设备到目的地址的链路连通信息
-* @param dev_id          [in]  芯片逻辑ID
-* @param port_id         [in]  NPU设备的网口端口号，当前仅支持配置0
-* @param dcmi_ping       [out]  ping操作信息
-* @param dcmi_reply      [out]  ping结果信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备到目的地址的链路连通信息
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param port_id         [in]  NPU设备的网口端口号，当前仅支持配置0
+ * @param dcmi_ping       [out]  ping操作信息
+ * @param dcmi_reply      [out]  ping结果信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_exec_ping(int dev_id, int port_id, struct dcmi_ping_operate_info *dcmi_ping,
-    struct dcmi_ping_reply_info *dcmi_reply);
+                                   struct dcmi_ping_reply_info *dcmi_reply);
 
 /**
-* @brief 配置traceroute参数探测报文途径的网络节点信息
-* @param dev_id                 [in]  芯片逻辑ID
-* @param netdev_name            [in]  UBOE端口名
-* @param netdev_name_len        [in]  UBOE端口名长度
-* @param traceroute_info        [in]  traceroute接口的入参
-* @param result        [out]  traceroute接口的返回信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 配置traceroute参数探测报文途径的网络节点信息
+ * @param dev_id                 [in]  芯片逻辑ID
+ * @param netdev_name            [in]  UBOE端口名
+ * @param netdev_name_len        [in]  UBOE端口名长度
+ * @param traceroute_info        [in]  traceroute接口的入参
+ * @param result        [out]  traceroute接口的返回信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_exec_netdev_traceroute(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
-                                  struct dcmi_traceroute_params traceroute_info, struct dcmi_traceroute_result *result);
+                                                struct dcmi_traceroute_params traceroute_info,
+                                                struct dcmi_traceroute_result *result);
 
 /**
-* @brief 获取指定设备的PFC反压帧持续时间统计值
-* @param dev_id               [in]  芯片逻辑ID
-* @param netdev_name          [in]  UBOE端口的Bond名
-* @param netdev_name_len      [in]  UBOE端口的Bond名长度
-* @param pfc_duration_info    [out]  PFC pause duration值
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取指定设备的PFC反压帧持续时间统计值
+ * @param dev_id               [in]  芯片逻辑ID
+ * @param netdev_name          [in]  UBOE端口的Bond名
+ * @param netdev_name_len      [in]  UBOE端口的Bond名长度
+ * @param pfc_duration_info    [out]  PFC pause duration值
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_pfc_duration_info(int dev_id, const char *netdev_name, unsigned int netdev_name_len,
-    struct dcmi_netdev_pfc_duration_info *pfc_duration_info);
+                                               struct dcmi_netdev_pfc_duration_info *pfc_duration_info);
 
 /**
-* @brief 清除指定设备的PFC反压帧持续时间统计值
-* @param dev_id               [in]  芯片逻辑ID
-* @param netdev_name          [in]  UBOE端口的Bond名
-* @param netdev_name_len      [in]  UBOE端口的Bond名长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 清除指定设备的PFC反压帧持续时间统计值
+ * @param dev_id               [in]  芯片逻辑ID
+ * @param netdev_name          [in]  UBOE端口的Bond名
+ * @param netdev_name_len      [in]  UBOE端口的Bond名长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_clear_pfc_duration(int dev_id, const char *netdev_name, unsigned int netdev_name_len);
 
 /**
-* @brief 查询指定芯片的UB建链状态信息
-* @param dev_id          [in]  芯片逻辑ID
-* @param ub_status       [out] UB建链状态信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定芯片的UB建链状态信息
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param ub_status       [out] UB建链状态信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_ub_port_link_status(int dev_id, struct dcmi_ub_port_link_status *ub_status);
 
 /**
-* @brief 单次同时获取NPU 、AICore 、AIC、AIV利用率
-* @param dev_id           [in]   指定设备编号
-* @param util_info        [out]  返回设备NPU 、AICore 、AIC、AIV利用率信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_device_multi_utilization_rate(int dev_id,
-    struct dcmi_multi_utilization_info *util_info);
+ * @brief 单次同时获取NPU 、AICore 、AIC、AIV利用率
+ * @param dev_id           [in]   指定设备编号
+ * @param util_info        [out]  返回设备NPU 、AICore 、AIC、AIV利用率信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_device_multi_utilization_rate(int dev_id, struct dcmi_multi_utilization_info *util_info);
 
 /**
-* @brief 查询VRD固件版本
-* @param dev_id          [in]  芯片逻辑ID
-* @param version         [out] 用户申请的空间，存放返回的VRD固件版本号
-* @param len             [in]  version空间的最大长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_vrd_version(int dev_id, char *version,  int len);
+ * @brief 查询VRD固件版本
+ * @param dev_id          [in]  芯片逻辑ID
+ * @param version         [out] 用户申请的空间，存放返回的VRD固件版本号
+ * @param len             [in]  version空间的最大长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_vrd_version(int dev_id, char *version, int len);
 
 /**
-* @brief 查询指定采样时间内，NPU设备的UB端口带宽信息
-* @param dev_id            [in]  芯片逻辑ID
-* @param profiling_time    [in]  采样时间，取值范围1ms~226ms
-* @param ub_port_info      [in]  UB端口信息
-* @param ub_bandwidth_info [out] UB端口带宽信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询指定采样时间内，NPU设备的UB端口带宽信息
+ * @param dev_id            [in]  芯片逻辑ID
+ * @param profiling_time    [in]  采样时间，取值范围1ms~226ms
+ * @param ub_port_info      [in]  UB端口信息
+ * @param ub_bandwidth_info [out] UB端口带宽信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_ub_realtime_bandwidth_info(int dev_id, unsigned int profiling_time,
-    struct dcmi_ub_port_info *ub_port_info, struct dcmi_ub_bandwidth_info *ub_bandwidth_info);
+                                                        struct dcmi_ub_port_info *ub_port_info,
+                                                        struct dcmi_ub_bandwidth_info *ub_bandwidth_info);
 
 /**
-* @brief 清除ECC统计信息
-* @param dev_id            [in]  芯片逻辑ID
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 清除ECC统计信息
+ * @param dev_id            [in]  芯片逻辑ID
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_clear_device_ecc_stats_info(int dev_id);
 
-
 /**
-* @brief 获取ubping信息
-* @param dev_id            [in]  芯片逻辑ID
-* @param ping_args         [in]  ubping入参信息
-* @param ping_result       [out] ubping结果信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取ubping信息
+ * @param dev_id            [in]  芯片逻辑ID
+ * @param ping_args         [in]  ubping入参信息
+ * @param ping_result       [out] ubping结果信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_exec_ub_ping(int dev_id, struct dcmi_ub_ping_operate *ping_args,
-    struct ub_ping_result *ping_result);
+                                      struct ub_ping_result *ping_result);
 
 /* 单个EID对综合统计结果 */
 struct dcmi_ubping_result {
     struct ubping_pair_info ub_pair_info;
-    long max_time;     // ping最大时延
-    long min_time;     // ping最小时延
-    long avg_time;     // ping平均时延
-    long tp95_time;     // ping时延TP95分位数
+    long max_time;             // ping最大时延
+    long min_time;             // ping最小时延
+    long avg_time;             // ping平均时延
+    long tp95_time;            // ping时延TP95分位数
     unsigned int suc_pkt_num;  // ping成功次数
-    unsigned int fail_pkt_num;  // ping失败次数
-    int reply_stat_num;    // 统计结果所用样本轮数
+    unsigned int fail_pkt_num; // ping失败次数
+    int reply_stat_num;        // 统计结果所用样本轮数
 };
 
 /* ubping mesh 查询返回结果 */
 struct dcmi_ubping_mesh_info {
-    int result_num;                  /* 有效EID对测试个数 */
+    int result_num; /* 有效EID对测试个数 */
     struct dcmi_ubping_result ub_ping_result[UBPING_MESH_MAX_NUM];
 };
 
@@ -3352,72 +3356,73 @@ DCMIDLLEXPORT int dcmiv2_get_ubping_mesh_state(int dev_id, unsigned int *state);
 DCMIDLLEXPORT int dcmiv2_stop_ubping_mesh(int dev_id);
 
 /**
-* @brief 查询device的port数量和基本信息
-* @param dev_id            [in]  芯片逻辑ID
-* @param port_list_info    [out] device可用的port数量和基本信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 查询device的port数量和基本信息
+ * @param dev_id            [in]  芯片逻辑ID
+ * @param port_list_info    [out] device可用的port数量和基本信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_port_list_info(int dev_id, struct dcmi_port_list_info *port_list_info);
 
 /**
-* @brief 获取ub端口信息
-* @param dev_id              [in]  芯片逻辑ID
-* @param ub_port_info        [in]  UB端口信息
-* @param port_pkt_stats_info [out] UB端口统计信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取ub端口信息
+ * @param dev_id              [in]  芯片逻辑ID
+ * @param ub_port_info        [in]  UB端口信息
+ * @param port_pkt_stats_info [out] UB端口统计信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_port_pkt_stats_info(int dev_id, struct dcmi_ub_port_info *ub_port_info,
-    struct dcmi_port_pkt_stats_info *port_pkt_stats_info);
+                                                 struct dcmi_port_pkt_stats_info *port_pkt_stats_info);
 
 /**
-* @brief 获取ub端口信息
-* @param dev_id              [in]  芯片逻辑ID
-* @param ub_port_info        [in]  UB端口信息
-* @param dcmi_credit_info    [out] UB端口可用信息证信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取ub端口信息
+ * @param dev_id              [in]  芯片逻辑ID
+ * @param ub_port_info        [in]  UB端口信息
+ * @param dcmi_credit_info    [out] UB端口可用信息证信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_port_avail_credit_info(int dev_id, struct dcmi_ub_port_info *ub_port_info,
-    struct dcmi_credit_info *port_avail_credit_info);
+                                                    struct dcmi_credit_info *port_avail_credit_info);
 
 /**
-* @brief 获取netdev数量和基本信息
-* @param dev_id              [in]  芯片逻辑ID
-* @param netdev_list         [out] 可用netdev信息
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取netdev数量和基本信息
+ * @param dev_id              [in]  芯片逻辑ID
+ * @param netdev_list         [out] 可用netdev信息
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_device_netdev_list_info(int dev_id, struct dcmi_netdev_list_info *netdev_list);
 
 /**
-* @brief 获取IAK证书
-* @param dev_id            [in]  芯片逻辑ID
-* @param ak_cert           [out] IAK证书获取返回值
-* @param ak_cert_len       [in/out]  返回IAK证书长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
+ * @brief 获取IAK证书
+ * @param dev_id            [in]  芯片逻辑ID
+ * @param ak_cert           [out] IAK证书获取返回值
+ * @param ak_cert_len       [in/out]  返回IAK证书长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
 DCMIDLLEXPORT int dcmiv2_get_attest_akcert(int dev_id, unsigned char *ak_cert, unsigned int *ak_cert_len);
 
 /**
-* @brief 获取指定的度量日志类型
-* @param dev_id            [in]  芯片逻辑ID
-* @param ctx               [in]  存储上下文，包含日志类型和挑战值
-* @param evidence          [out] 返回指定的度量日志
-* @param evidence_len      [in/out] 返回证据长度
-* @return 成功返回0，错误返回参考dcmi故障码定义
-*/
-DCMIDLLEXPORT int dcmiv2_get_attest_evidence(int dev_id, struct attest_ctx *ctx,
-    unsigned char *evidence, unsigned int *evidence_len);
+ * @brief 获取指定的度量日志类型
+ * @param dev_id            [in]  芯片逻辑ID
+ * @param ctx               [in]  存储上下文，包含日志类型和挑战值
+ * @param evidence          [out] 返回指定的度量日志
+ * @param evidence_len      [in/out] 返回证据长度
+ * @return 成功返回0，错误返回参考dcmi故障码定义
+ */
+DCMIDLLEXPORT int dcmiv2_get_attest_evidence(int dev_id, struct attest_ctx *ctx, unsigned char *evidence,
+                                             unsigned int *evidence_len);
 #endif
 
 DCMIDLLEXPORT int dcmi_get_hccs_link_bandwidth_info(int card_id, int device_id,
-    struct dcmi_hccs_bandwidth_info *hccs_bandwidth_info);
+                                                    struct dcmi_hccs_bandwidth_info *hccs_bandwidth_info);
 
 DCMIDLLEXPORT int dcmi_get_ub_realtime_bandwidth_info(int card_id, int device_id, unsigned int profiling_time,
-    struct dcmi_ub_port_info *ub_port_info, struct dcmi_ub_bandwidth_info *ub_bandwidth_info);
+                                                      struct dcmi_ub_port_info *ub_port_info,
+                                                      struct dcmi_ub_bandwidth_info *ub_bandwidth_info);
 
 DCMIDLLEXPORT int dcmi_get_netdev_brother_device(int card_id, int device_id, int *brother_card_id);
 
 DCMIDLLEXPORT int dcmi_get_ub_port_link_status_info(int card_id, int device_id,
-    struct dcmi_ub_port_link_status *ub_status);
+                                                    struct dcmi_ub_port_link_status *ub_status);
 
 #if defined DCMI_VERSION_1
 /* The following interfaces are V1 version interfaces. In order to ensure the compatibility is temporarily reserved,
@@ -3445,7 +3450,7 @@ typedef struct dcmi_elabel_info_stru {
     char model[MAX_LENTH];
     char manufacturer[MAX_LENTH];
     char serial_number[MAX_LENTH];
-}DCMI_ELABEL_INFO_STRU, *PDCMI_ELABEL_INFO_STRU;
+} DCMI_ELABEL_INFO_STRU, *PDCMI_ELABEL_INFO_STRU;
 
 struct dcmi_chip_pcie_err_rate_stru {
     unsigned int reg_deskew_fifo_overflow_intr_status;
@@ -3467,13 +3472,13 @@ struct dcmi_soc_die_stru {
 };
 
 struct dcmi_flash_info_stru {
-    unsigned long long flash_id;     /* combined device & manufacturer code */
-    unsigned short device_id;        /* device id */
-    unsigned short vendor;           /* the primary vendor id */
-    unsigned int state;              /* flash health */
-    unsigned long long size;         /* total size in bytes */
-    unsigned int sector_count;       /* number of erase units */
-    unsigned short manufacturer_id;  /* manufacturer id */
+    unsigned long long flash_id;    /* combined device & manufacturer code */
+    unsigned short device_id;       /* device id */
+    unsigned short vendor;          /* the primary vendor id */
+    unsigned int state;             /* flash health */
+    unsigned long long size;        /* total size in bytes */
+    unsigned int sector_count;      /* number of erase units */
+    unsigned short manufacturer_id; /* manufacturer id */
 };
 
 struct dcmi_ecc_info_stru {
@@ -3483,7 +3488,7 @@ struct dcmi_ecc_info_stru {
 };
 
 struct dcmi_memory_info_stru {
-    unsigned long long memory_size;       // 单位 MB
+    unsigned long long memory_size; // 单位 MB
     unsigned int freq;
     unsigned int utiliza;
 };
@@ -3527,8 +3532,8 @@ struct dm_flash_info_stru {
 };
 
 struct dsmi_aicore_info_stru {
-    unsigned int freq;              /* normal freq */
-    unsigned int curfreq;           /* current freq */
+    unsigned int freq;    /* normal freq */
+    unsigned int curfreq; /* current freq */
 };
 
 typedef struct dsmi_aicpu_info_stru {
@@ -3552,10 +3557,10 @@ struct dsmi_ecc_pages_stru {
 };
 
 struct dsmi_hbm_info_stru {
-    unsigned long long memory_size;      /**< HBM total size, KB */
-    unsigned int freq;                   /**< HBM freq, MHZ */
-    unsigned long long memory_usage;     /**< HBM memory_usage, KB */
-    int temp;                            /**< HBM temperature */
+    unsigned long long memory_size;  /**< HBM total size, KB */
+    unsigned int freq;               /**< HBM freq, MHZ */
+    unsigned long long memory_usage; /**< HBM memory_usage, KB */
+    int temp;                        /**< HBM temperature */
     unsigned int bandwith_util_rate;
 };
 
@@ -3628,21 +3633,21 @@ DCMIDLLEXPORT int dcmi_set_customized_info_api(int card_id, const char *data_inf
 
 DCMIDLLEXPORT int dcmi_clear_pcie_error_cnt(int card_id, int device_id);
 
-DCMIDLLEXPORT int dcmi_get_pcie_error_cnt(
-    int card_id, int device_id, struct dcmi_chip_pcie_err_rate_stru *pcie_err_code_info);
+DCMIDLLEXPORT int dcmi_get_pcie_error_cnt(int card_id, int device_id,
+                                          struct dcmi_chip_pcie_err_rate_stru *pcie_err_code_info);
 
 DCMIDLLEXPORT int dcmi_get_device_die(int card_id, int device_id, struct dcmi_soc_die_stru *device_die);
 
 DCMIDLLEXPORT int dcmi_get_device_ndie(int card_id, int device_id, struct dsmi_soc_die_stru *device_ndie);
 
-DCMIDLLEXPORT int dcmi_get_device_errorcode(
-    int card_id, int device_id, int *error_count, unsigned int *error_code, int *error_width);
+DCMIDLLEXPORT int dcmi_get_device_errorcode(int card_id, int device_id, int *error_count, unsigned int *error_code,
+                                            int *error_width);
 
-DCMIDLLEXPORT int dcmi_get_device_errorinfo(
-    int card_id, int device_id, int errorcode, unsigned char *errorinfo, int buf_size);
+DCMIDLLEXPORT int dcmi_get_device_errorinfo(int card_id, int device_id, int errorcode, unsigned char *errorinfo,
+                                            int buf_size);
 
-DCMIDLLEXPORT int dcmi_get_device_flash_info(
-    int card_id, int device_id, unsigned int flash_index, struct dcmi_flash_info_stru *flash_info);
+DCMIDLLEXPORT int dcmi_get_device_flash_info(int card_id, int device_id, unsigned int flash_index,
+                                             struct dcmi_flash_info_stru *flash_info);
 
 DCMIDLLEXPORT int dcmi_get_aicore_info(int card_id, int device_id, struct dsmi_aicore_info_stru *aicore_info);
 
@@ -3666,18 +3671,18 @@ DCMIDLLEXPORT int dcmi_mcu_upgrade_transfile(int card_id, const char *file);
 
 DCMIDLLEXPORT int dcmi_get_p2p_enable(int card_id, int device_id, int *enable_flag);
 
-DCMIDLLEXPORT int dcmi_get_ecc_info(
-    int card_id, int device_id, int device_type, struct dsmi_ecc_info_stru *device_ecc_info);
+DCMIDLLEXPORT int dcmi_get_ecc_info(int card_id, int device_id, int device_type,
+                                    struct dsmi_ecc_info_stru *device_ecc_info);
 
 DCMIDLLEXPORT int dcmi_get_hbm_info(int card_id, int device_id, struct dsmi_hbm_info_stru *device_hbm_info);
 
 DCMIDLLEXPORT int dcmi_get_memory_info(int card_id, int device_id, struct dcmi_memory_info_stru *device_memory_info);
 
-DCMIDLLEXPORT int dcmi_get_device_hbm_product_info(
-    int card_id, int device_id, struct dcmi_hbm_product_info *hbm_product_info);
+DCMIDLLEXPORT int dcmi_get_device_hbm_product_info(int card_id, int device_id,
+                                                   struct dcmi_hbm_product_info *hbm_product_info);
 
-DCMIDLLEXPORT int dcmi_get_soc_sensor_info(
-    int card_id, int device_id, int sensor_id, union tag_sensor_info *sensor_info);
+DCMIDLLEXPORT int dcmi_get_soc_sensor_info(int card_id, int device_id, int sensor_id,
+                                           union tag_sensor_info *sensor_info);
 
 DCMIDLLEXPORT int dcmi_config_ecc_enable(int card_id, int device_id, int enable_flag);
 
@@ -3687,17 +3692,17 @@ DCMIDLLEXPORT int dcmi_mcu_get_board_info(int card_id, struct dcmi_board_info *b
 
 DCMIDLLEXPORT int dcmi_mcu_get_power_info(int card_id, int *power);
 
-DCMIDLLEXPORT int dcmi_get_computing_power_info(
-    int card_id, int device_id, int type, struct dsmi_computing_power_info *computing_power);
+DCMIDLLEXPORT int dcmi_get_computing_power_info(int card_id, int device_id, int type,
+                                                struct dsmi_computing_power_info *computing_power);
 
-DCMIDLLEXPORT int dcmi_set_device_ecc_enable(
-    int card_id, int device_id, enum dcmi_device_type device_type, int enable_flag);
+DCMIDLLEXPORT int dcmi_set_device_ecc_enable(int card_id, int device_id, enum dcmi_device_type device_type,
+                                             int enable_flag);
 
-DCMIDLLEXPORT int dcmi_set_user_config(
-    int card_id, int device_id, const char *config_name, unsigned int buf_size, unsigned char *buf);
+DCMIDLLEXPORT int dcmi_set_user_config(int card_id, int device_id, const char *config_name, unsigned int buf_size,
+                                       unsigned char *buf);
 
-DCMIDLLEXPORT int dcmi_get_user_config(
-    int card_id, int device_id, const char *config_name, unsigned int buf_size, unsigned char *buf);
+DCMIDLLEXPORT int dcmi_get_user_config(int card_id, int device_id, const char *config_name, unsigned int buf_size,
+                                       unsigned char *buf);
 
 DCMIDLLEXPORT int dcmi_clear_device_user_config(int card_id, int device_id, const char *config_name);
 
@@ -3712,9 +3717,9 @@ DCMIDLLEXPORT int dcmi_get_system_time(int card_id, int device_id, unsigned int 
 DCMIDLLEXPORT int dcmi_get_all_device_count(int *all_device_count);
 
 DCMIDLLEXPORT int dcmi_get_extra_statistics_info(int card_id, int device_id, int port_id,
-     struct dcmi_extra_statistics_info *info);
+                                                 struct dcmi_extra_statistics_info *info);
 
-DCMIDLLEXPORT int dcmi_get_vrd_version(int card_id, char *version,  int len);
+DCMIDLLEXPORT int dcmi_get_vrd_version(int card_id, char *version, int len);
 
 #endif
 

@@ -109,7 +109,7 @@ static u32 trs_get_cloud_v2_sq_mem_side_by_topology(u32 devid)
     } else {
         u32 host_flag;
         if (devdrv_get_host_phy_mach_flag(devid, &host_flag) != 0) {
-            trs_warn("Get host flag is not supported. (devid=%u)\n", devid);
+            trs_warn("Get host flag not support. (devid=%u)\n", devid);
             return TRS_CHAN_DEV_RSV_MEM;
         }
         trs_debug("Get host phy flag. (devid=%d; host_flag=%d)\n", devid, host_flag);

@@ -20,7 +20,7 @@ typedef struct hccs_credit_num {
     unsigned long long query_cnt;
 } hccs_credit_num;
 
-#define DMS_HCCS_MAX_PCS_NUM        (16)
+#define DMS_HCCS_MAX_PCS_NUM (16)
 typedef struct hccs_credit_info {
     unsigned int credit_num[DMS_HCCS_MAX_PCS_NUM];
     unsigned int reserve[DMS_HCCS_MAX_PCS_NUM * 4];

@@ -14,8 +14,7 @@
 #include <netinet/ip_icmp.h>
 #include "ds_net_struct_ext.h"
 
-#define PERFTEST_FLAG_LEN    200
-
+#define PERFTEST_FLAG_LEN 200
 
 #define MAX_CDR_LOG_SIZE (128 * 1024)
 #define RDFX_EXT_CMD_MAX_LEN 1024
@@ -27,25 +26,25 @@
 #define MIN_IP_VAL 0
 #define MAX_IP_VAL 255
 #define MAX_PARAM_LEN 50
-#define MIN_DEV_ID  0
-#define MAX_DEV_ID  7
-#define MAX_IP_CNT  4
-#define IP_INDEX_0  0
-#define IP_INDEX_1  1
-#define IP_INDEX_2  2
-#define IP_INDEX_3  3
-#define ARGC_NUM_1  1
-#define ARGC_NUM_2  2
-#define ARGC_NUM_3  3
-#define ARGC_NUM_4  4
-#define ARGC_NUM_5  5
-#define ARGC_NUM_6  6
-#define ARGC_NUM_7  7
-#define ARGC_NUM_8  8
-#define ARGC_NUM_10  10
+#define MIN_DEV_ID 0
+#define MAX_DEV_ID 7
+#define MAX_IP_CNT 4
+#define IP_INDEX_0 0
+#define IP_INDEX_1 1
+#define IP_INDEX_2 2
+#define IP_INDEX_3 3
+#define ARGC_NUM_1 1
+#define ARGC_NUM_2 2
+#define ARGC_NUM_3 3
+#define ARGC_NUM_4 4
+#define ARGC_NUM_5 5
+#define ARGC_NUM_6 6
+#define ARGC_NUM_7 7
+#define ARGC_NUM_8 8
+#define ARGC_NUM_10 10
 
 #define MAX_TYPE_LEN 20
-#define MAX_CDR_LEN  4
+#define MAX_CDR_LEN 4
 #define MAX_CFG_LEN 20
 
 #define ROCE_CMD_MAX_LEN 128
@@ -55,13 +54,12 @@
 #define PERFTEST_START_SUCCESS 1
 #define PERFTEST_START_FAIL 2
 
-
 /**
  * perftest性能测试状态枚举
  */
 enum ds_perftest_status {
     PERFTEST_STATUS_DOING = 2,
-    PERFTEST_STATUS_DONE =  1,
+    PERFTEST_STATUS_DONE = 1,
     PERFTEST_ERROR = 3,
 };
 
@@ -70,50 +68,50 @@ enum ds_perftest_status {
 #define MEM_STATUS_INIT 0
 #define MEM_STATUS_LIMIT 1
 
-#define ETH_SPEED_UNKNOWN   0xFFFF
-#define PRIORITY_NUM        8
+#define ETH_SPEED_UNKNOWN 0xFFFF
+#define PRIORITY_NUM 8
 #ifdef CFG_SOC_PLATFORM_CLOUD_V2
-#define PRIORITY_NUM_TOTAL  4           // The number of 910B/C pfc priority queues is 4
+#define PRIORITY_NUM_TOTAL 4 // The number of 910B/C pfc priority queues is 4
 #else
-#define PRIORITY_NUM_TOTAL  8           // The number of 910A pfc priority queues is 8
+#define PRIORITY_NUM_TOTAL 8 // The number of 910A pfc priority queues is 8
 #endif
 
-#define TC_NUM              8
-#define PFC_CFG_STR_LEN     15
+#define TC_NUM 8
+#define PFC_CFG_STR_LEN 15
 
-#define PRIO_TC_CFG_STR_LEN      15
-#define RDFX_PRIO_TC_STR_LEN     31
+#define PRIO_TC_CFG_STR_LEN 15
+#define RDFX_PRIO_TC_STR_LEN 31
 
-#define FEC_MODE_STR_MAX    4
+#define FEC_MODE_STR_MAX 4
 #ifdef CFG_SOC_PLATFORM_CLOUD_V2
-#define FEC_MODE_TYPE_MAX   2
+#define FEC_MODE_TYPE_MAX 2
 #else
-#define FEC_MODE_TYPE_MAX   3
+#define FEC_MODE_TYPE_MAX 3
 #endif
 
-#define IP_ADDR_LEN         24
-#define IP6_ADDR_LEN        48
-#define STR_NUM_BASE        10
-#define MAX_DATA_LEN        (65535 - 20 - 8)
-#define INBUF_LEN           24
-#define INET6_PREFIX_MAX    128
-#define PING_INNER_ERROR    100
+#define IP_ADDR_LEN 24
+#define IP6_ADDR_LEN 48
+#define STR_NUM_BASE 10
+#define MAX_DATA_LEN (65535 - 20 - 8)
+#define INBUF_LEN 24
+#define INET6_PREFIX_MAX 128
+#define PING_INNER_ERROR 100
 #define DECIMAL_NUM 1000
-#define PERCENT             100
-#define THOUSAND            1000
-#define MOD_NUM_TWO         2
- 
+#define PERCENT 100
+#define THOUSAND 1000
+#define MOD_NUM_TWO 2
+
 #define DEVDRV_IPV6_ARRAY_LEN 16
 
-#define TRACEROUTE_STATUS_ERROR                     2
-#define TRACEROUTE_STATUS_RUNNING                   1
-#define TRACEROUTE_STATUS_NOT_RUNNING               0
-#define MAX_TRACEROUTE_WAITING_TIMES                600
-#define TRACEROUTE_HCCN_CMD                         0
-#define TRACEROUTE_DCMI_CMD                         1
-#define STR_TO_INT_TEN                              10
-#define VNIC_IP_SERVER_ID                           16
-#define SDID_SERVER_ID                              22
+#define TRACEROUTE_STATUS_ERROR 2
+#define TRACEROUTE_STATUS_RUNNING 1
+#define TRACEROUTE_STATUS_NOT_RUNNING 0
+#define MAX_TRACEROUTE_WAITING_TIMES 600
+#define TRACEROUTE_HCCN_CMD 0
+#define TRACEROUTE_DCMI_CMD 1
+#define STR_TO_INT_TEN 10
+#define VNIC_IP_SERVER_ID 16
+#define SDID_SERVER_ID 22
 struct perftest_cmd_info {
     char type[MAX_TYPE_LEN];
     unsigned long cfg_data;
@@ -142,13 +140,14 @@ struct send_data_info {
     unsigned int size_in;
 };
 
-#define TOOL_SET_SEND_DATA(_send_data, _cmd, _in_buf, _size_in, _out_buf, _size_out) do { \
-    (_send_data).cmd = (_cmd); \
-    (_send_data).in_buf = (_in_buf); \
-    (_send_data).size_in = (_size_in); \
-    (_send_data).out_buf = (_out_buf); \
-    (_send_data).size_out = (_size_out); \
-} while (0)
+#define TOOL_SET_SEND_DATA(_send_data, _cmd, _in_buf, _size_in, _out_buf, _size_out) \
+    do {                                                                             \
+        (_send_data).cmd = (_cmd);                                                   \
+        (_send_data).in_buf = (_in_buf);                                             \
+        (_send_data).size_in = (_size_in);                                           \
+        (_send_data).out_buf = (_out_buf);                                           \
+        (_send_data).size_out = (_size_out);                                         \
+    } while (0)
 
 struct param_check_info {
     char *param_name;
@@ -176,9 +175,9 @@ struct ping_operate_info {
 
 #define VNIC_IP_HEADER 192
 #define FEC_ERROR_COUNT_MAX 15
-#define TC_MAX_NUM          8
-#define NS_CHANGE_TO_US     1000
-#define US_CHANGE_TO_MS     1000
+#define TC_MAX_NUM 8
+#define NS_CHANGE_TO_US 1000
+#define US_CHANGE_TO_MS 1000
 
 struct ping_parse_param {
     char *param;
@@ -197,7 +196,7 @@ struct ds_ipv6_route_table_value {
     unsigned int prefix_length;
     struct in6_addr next_address;
 };
- 
+
 struct ds_ipv6_route_table_character {
     char address[INET6_ADDRSTRLEN];
     unsigned int prefix_length;
@@ -212,16 +211,16 @@ struct rx_pcs_info {
     unsigned int test_err_cnt;
     unsigned int lane_bip_err_cnt;
 };
- 
+
 struct ds_link_down_info {
     struct rx_pcs_info pcs_info;
     unsigned int pcs_link;
     unsigned int mac_link;
     unsigned int rf_lf;
-    unsigned int reserve[3];        // reserve filed 3
+    unsigned int reserve[3]; // reserve filed 3
 };
- 
-#define MAX_LINK_DOWN_NUMS  5
+
+#define MAX_LINK_DOWN_NUMS 5
 struct ds_link_down_data {
     struct ds_link_down_info down_info[MAX_LINK_DOWN_NUMS];
     unsigned int down_info_idx;
@@ -270,7 +269,7 @@ struct ds_roce_port_ippair {
     } dip;
     int sip_family; // use address families macros, like AF_INET/AF_INET6
     int dip_family; // use address families macros, like AF_INET/AF_INET6
-    int roce_port; // value 4097- 65535
+    int roce_port;  // value 4097- 65535
 };
 
 struct ds_update_ippair {
@@ -285,26 +284,26 @@ struct ds_ippair_list {
 
 /* 降lane的工作模式 */
 
-#define DOWNGRADE_LANE_NOT_WOKR           0x0
-#define DOWNGRADE_LANE_WORK               0x1
+#define DOWNGRADE_LANE_NOT_WOKR 0x0
+#define DOWNGRADE_LANE_WORK 0x1
 /* 实际降Lane的几种状态 */
 
-#define DOWNGRADE_LANE_IDLE               0x0
-#define DOWNGRADE_LANE_SUCC               0x1
-#define DOWNGRADE_LANE_FAIL               0x2
+#define DOWNGRADE_LANE_IDLE 0x0
+#define DOWNGRADE_LANE_SUCC 0x1
+#define DOWNGRADE_LANE_FAIL 0x2
 
 struct downgrade_lane_info {
-    unsigned char master_flag;             /* 主从die标记 */
-    unsigned char switch_flag;             /* 用户设置的降lane开关 0:disable; 1:enable */
-    unsigned char work_mode;               /* 工作模式 0:not support; 1:support */
-    unsigned char filter_time;             /* 滤抖时间 */
-    unsigned char actual_status;           /* 实际降lane情况:  */
+    unsigned char master_flag;   /* 主从die标记 */
+    unsigned char switch_flag;   /* 用户设置的降lane开关 0:disable; 1:enable */
+    unsigned char work_mode;     /* 工作模式 0:not support; 1:support */
+    unsigned char filter_time;   /* 滤抖时间 */
+    unsigned char actual_status; /* 实际降lane情况:  */
 };
 
 int dsmi_start_roce_perftest(int device_id, struct perftest_cmd_info cmd_info[], unsigned int in_len,
                              unsigned int *out);
 int dsmi_get_roce_perftest_status(int device_id, unsigned int is_client, struct perftest_curr_stat *perftest_curr);
-int dsmi_get_roce_perftest_report(int device_id, unsigned int is_client, char* report, unsigned int len);
+int dsmi_get_roce_perftest_report(int device_id, unsigned int is_client, char *report, unsigned int len);
 int dsmi_stop_roce_perftest(int device_id, unsigned int is_client);
 int dsmi_reset_roce_perftest(int device_id, char *report);
 int dsmi_get_eth_speed(int logic_id, int *speed);
@@ -334,9 +333,9 @@ int dsmi_set_gratuitous_arp_info(int logic_id, struct gratuitous_arp_info *info)
 int dsmi_set_optical_auto_adapt(int logic_id, char *inbuf, unsigned int inbuf_len);
 int dsmi_get_route_table_ipv6(int logic_id, int port_id, char *route, unsigned int len);
 int dsmi_add_route_table_ipv6(int logic_id, int port_id, struct ds_ipv6_route_table_value *route_param, char *outbuf,
-    unsigned int len);
-int dsmi_del_route_table_ipv6(int logic_id, int port_id, struct ds_ipv6_route_table_value *route_param,
-    char *outbuf, unsigned int len);
+                              unsigned int len);
+int dsmi_del_route_table_ipv6(int logic_id, int port_id, struct ds_ipv6_route_table_value *route_param, char *outbuf,
+                              unsigned int len);
 int dsmi_get_eth_down_data(int logic_id, struct ds_link_down_data *down_data);
 int dsmi_clear_extra_statistics_info(int logic_id, int port);
 int dsmi_get_fec_error_info(int logic_id, struct ds_fec_error_info *info, int mac_id);
@@ -366,20 +365,20 @@ enum ds_retimer_type {
 #define CDR_RESET_DELAY_TIME_MAX 60
 
 struct ds_scdr_reset_info {
-    int dev_id;            /**< die ID */
-    unsigned char retimer_type;      /**< cdr类型, enum ds_retimer_type 类型；当前仅HY支持scdr_reset参数设置查询*/
-    unsigned char delay_time;        /**< 延时时间， 范围为[0-60](s)，如果未设置，默认为30*/
-    unsigned char reserved[4];       /**< 保留字段 */
+    int dev_id;                 /**< die ID */
+    unsigned char retimer_type; /**< cdr类型, enum ds_retimer_type 类型；当前仅HY支持scdr_reset参数设置查询*/
+    unsigned char delay_time;  /**< 延时时间， 范围为[0-60](s)，如果未设置，默认为30*/
+    unsigned char reserved[4]; /**< 保留字段 */
 };
 
 int dsmi_set_scdr_reset_info(int logic_id, struct ds_scdr_reset_info *info);
 
 struct sds_esd_info {
-    unsigned char sds_init_flag;        /* 1:sds已经初始化， 0:sds未初始化 */
-    unsigned char sds_esd_flag;	        /* 1:sds esd pass,  0:sds esd fail. 需结合 sds_init_flag 一起看 */
-    unsigned int offset;                /* adc 和 mid code的差值 */
+    unsigned char sds_init_flag; /* 1:sds已经初始化， 0:sds未初始化 */
+    unsigned char sds_esd_flag;  /* 1:sds esd pass,  0:sds esd fail. 需结合 sds_init_flag 一起看 */
+    unsigned int offset;         /* adc 和 mid code的差值 */
 };
-#define CDR_ESD_MAX_LANE_NUM    16
+#define CDR_ESD_MAX_LANE_NUM 16
 
 struct sds_esd_info_array {
     int dev_id;
@@ -396,7 +395,7 @@ struct ds_optical_snr_query_info {
 int dsmi_get_scdr_esd_status_cmd(int logic_id, struct sds_esd_info_array *info, int buf_size);
 int dsmi_get_scdr_reset_info(int logic_id, struct ds_scdr_reset_info *info);
 int dsmi_operate_diagnostic_mode(int logic_id, struct ds_diag_mode_params *ds_diag_mode_params,
-    enum ds_net_opcode_type_ext cmd);
+                                 enum ds_net_opcode_type_ext cmd);
 int dsmi_operate_tc_qos_info(int logic_id, char *params, size_t len, enum ds_net_opcode_type_ext cmd);
 int dsmi_get_optical_snr_query_info(int logic_id, struct ds_optical_snr_query_info *info);
 int dsmi_set_optical_snr_query_info(int logic_id, struct ds_optical_snr_query_info *info);

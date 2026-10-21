@@ -21,6 +21,7 @@
 
 #include "ascend_kernel_hal.h"
 #include "pbl_ka_memory.h"
+#include "pbl_ka_mem_query.h"
 #include "ascend_hal_define.h"
 
 #ifndef EMU_ST
@@ -108,6 +109,12 @@ struct trsModeInfo {
                              ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);              \
     } while (0)
 
+#define trs_warn_ratelimited(fmt, ...)                                                                                 \
+    do {                                                                                                               \
+        drv_warn_ratelimited(module_trs, "<%s:%d:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                             ka_task_get_current_pid(), ka_system_raw_smp_processor_id(), ##__VA_ARGS__);              \
+    } while (0)
+
 #define PCI_VENDOR_ID_HUAWEI 0x19e5
 
 #define TRS_KA_MODULE_ID_TYPE_0 ka_get_module_id(HAL_MODULE_TYPE_TS_DRIVER, KA_SUB_MODULE_TYPE_0)
@@ -175,17 +182,36 @@ enum {
     TRS_CB_CQ_ID,
     TRS_CDQM_ID,
     TRS_CNT_NOTIFY_ID,
+    TRS_STARS_H2D_JETTY_ID,
+    TRS_STARS_D2D_IN_BOARD_JETTY_ID,
+    TRS_STARS_D2D_CROSS_BOARD_JETTY_ID,
     TRS_ID_TYPE_MAX
 };
 
 static const char *trs_id_type_name[TRS_ID_TYPE_MAX] = {
-    [TRS_STREAM_ID] = "StreamId",     [TRS_EVENT_ID] = "EventId",       [TRS_NOTIFY_ID] = "NotifyId",
-    [TRS_MODEL_ID] = "ModelId",       [TRS_CMO_ID] = "CmoId",           [TRS_HW_SQ_ID] = "HwSqId",
-    [TRS_HW_CQ_ID] = "HwCqId",        [TRS_SW_SQ_ID] = "SwSqId",        [TRS_SW_CQ_ID] = "SwCqId",
-    [TRS_RSV_HW_SQ_ID] = "RsvHwSqId", [TRS_RSV_HW_CQ_ID] = "RsvHwCqId", [TRS_TASK_SCHED_CQ_ID] = "TaskSchedCqId",
-    [TRS_MAINT_SQ_ID] = "MaintSqId",  [TRS_MAINT_CQ_ID] = "MaintCqId",  [TRS_LOGIC_CQ_ID] = "LogicCqId",
-    [TRS_CB_SQ_ID] = "CbSqId",        [TRS_CB_CQ_ID] = "CbCqId",        [TRS_CDQM_ID] = "CdqmId",
-    [TRS_CNT_NOTIFY_ID] = "CntNotify"};
+    [TRS_STREAM_ID] = "StreamId",
+    [TRS_EVENT_ID] = "EventId",
+    [TRS_NOTIFY_ID] = "NotifyId",
+    [TRS_MODEL_ID] = "ModelId",
+    [TRS_CMO_ID] = "CmoId",
+    [TRS_HW_SQ_ID] = "HwSqId",
+    [TRS_HW_CQ_ID] = "HwCqId",
+    [TRS_SW_SQ_ID] = "SwSqId",
+    [TRS_SW_CQ_ID] = "SwCqId",
+    [TRS_RSV_HW_SQ_ID] = "RsvHwSqId",
+    [TRS_RSV_HW_CQ_ID] = "RsvHwCqId",
+    [TRS_TASK_SCHED_CQ_ID] = "TaskSchedCqId",
+    [TRS_MAINT_SQ_ID] = "MaintSqId",
+    [TRS_MAINT_CQ_ID] = "MaintCqId",
+    [TRS_LOGIC_CQ_ID] = "LogicCqId",
+    [TRS_CB_SQ_ID] = "CbSqId",
+    [TRS_CB_CQ_ID] = "CbCqId",
+    [TRS_CDQM_ID] = "CdqmId",
+    [TRS_CNT_NOTIFY_ID] = "CntNotify",
+    [TRS_STARS_H2D_JETTY_ID] = "StarsH2DJetty",
+    [TRS_STARS_D2D_IN_BOARD_JETTY_ID] = "StarsD2DInBoardJetty",
+    [TRS_STARS_D2D_CROSS_BOARD_JETTY_ID] = "StarsD2DCrossBoardJetty",
+};
 
 enum {
     TRS_ID_NODE_DEFAULT_LEVEL = 0,
@@ -203,11 +229,17 @@ static inline bool trs_id_need_divide_type(int type)
     return !((type == TRS_MAINT_SQ_ID) || (type == TRS_MAINT_CQ_ID));
 }
 
+static inline bool trs_id_is_jetty_type(int type)
+{
+    return ((type == TRS_STARS_H2D_JETTY_ID) || (type == TRS_STARS_D2D_IN_BOARD_JETTY_ID) ||
+            (type == TRS_STARS_D2D_CROSS_BOARD_JETTY_ID));
+}
+
 static inline bool trs_id_is_hw_divide_type(int type)
 {
     return ((type == TRS_EVENT_ID) || (type == TRS_NOTIFY_ID) || (type == TRS_CNT_NOTIFY_ID) || (type == TRS_CMO_ID) ||
             (type == TRS_HW_SQ_ID) || (type == TRS_HW_CQ_ID) || (type == TRS_RSV_HW_SQ_ID) ||
-            (type == TRS_RSV_HW_CQ_ID) || (type == TRS_CDQM_ID));
+            (type == TRS_RSV_HW_CQ_ID) || (type == TRS_CDQM_ID) || trs_id_is_jetty_type(type));
 }
 
 static inline int trs_id_type_replace(int type)
@@ -316,5 +348,12 @@ bool trs_is_reboot_active(void);
 #define TRS_UNREGISTER_REBOOT_NOTIFY
 #define TRS_IS_REBOOT_ACTIVE false
 #endif
+
+struct trs_sq_mem_handle {
+    struct ka_vmap_pfn_handle *vmap_pfn_handle; /* opaque handle for all SVM mapping */
+    u32 pa_num;                                 /* number of segments */
+    struct ka_pa_wraper *pa_wraper_list;
+    struct ka_mem_attr mem_attr; /* mem_attr.addr = aligned base va */
+};
 
 #endif /* TRS_PUB_DEF_H */

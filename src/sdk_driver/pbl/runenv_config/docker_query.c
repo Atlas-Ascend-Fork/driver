@@ -29,15 +29,19 @@ static bool is_admin_task(struct task_struct *tsk)
     const ka_cred_t *cred = NULL;
     ka_kernel_cap_t effective;
     unsigned int user_id;
+    struct user_namespace *user_ns;
 
     ka_task_rcu_read_lock();
-    cred = __ka_task_task_cred(tsk); //lint !e1058 !e64 !e666
+    cred = __ka_task_task_cred(tsk); // lint !e1058 !e64 !e666
     user_id = cred->uid.val;
     effective = cred->cap_effective;
+#ifndef EMU_ST
+    user_ns = cred->user_ns;
+#endif
     ka_task_rcu_read_unlock();
 
 #ifndef EMU_ST
-    if (cred->user_ns != &init_user_ns) {
+    if (user_ns != &init_user_ns) {
         return false;
     }
 #endif
@@ -75,6 +79,14 @@ STATIC bool cgroup_mount_is_ro(void)
 
 bool dbl_current_is_admin(void)
 {
+    /* In the process exit path (after exit_fs/exit_task_namespaces), current->fs and current->nsproxy may be NULL.
+     * At this point, cgroup_mount_is_ro() → ka_fs_kern_path() will access the NULL pointer of current->fs,
+     * so capability checks are used instead (RCU protects credentials, ensuring safety) */
+    if (ka_task_get_current()->flags & PF_EXITING) {
+        recfg_warn("Current task is exiting.\n");
+        return is_admin_task(ka_task_get_current());
+    }
+
     if (!is_admin_task(ka_task_get_current())) {
         return false;
     }
@@ -189,7 +201,8 @@ int dbl_host_pid_to_container_pid(pid_t host_pid, pid_t *container_pid)
         return 0;
     }
 
-    ka_for_each_process_thread(g, tsk) {
+    ka_for_each_process_thread(g, tsk)
+    {
         if (tsk != NULL) {
             ka_task_task_lock(tsk);
             if (tsk->pid == host_pid) {
@@ -210,6 +223,5 @@ int dbl_host_pid_to_container_pid(pid_t host_pid, pid_t *container_pid)
 #else
     return 0;
 #endif
-    
 }
 KA_EXPORT_SYMBOL(dbl_host_pid_to_container_pid);

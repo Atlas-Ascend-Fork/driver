@@ -43,7 +43,7 @@ hdcError_t hdc_ub_notify_register(int service_type, struct HdcSessionNotify *not
     (void)pthread_rwlock_wrlock(&g_hdc_notify_rwlock[service_type]);
     if (g_hdcConfig.notify_list[service_type].valid == HDC_UB_VALID) {
         (void)pthread_rwlock_unlock(&g_hdc_notify_rwlock[service_type]);
-        HDC_LOG_ERR("Service notify has been registered. (type=%d)\n", service_type);
+        HDC_LOG_ERR("Service notify has been registered.(type=%d)\n", service_type);
         return DRV_ERROR_INVALID_VALUE;
     }
 

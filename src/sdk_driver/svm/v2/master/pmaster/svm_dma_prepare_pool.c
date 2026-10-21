@@ -187,7 +187,7 @@ static int devmm_dma_prepare_pool_loop_task(void *arg)
         devmm_try_cond_resched(&stamp);
     }
     g_thread_inited[devid] = false;
-    devmm_drv_info("Devmm dma prepare pool loop end. (devid=%u)\n", devid);
+    devmm_drv_info("Devmm dma prepare pool loop loop end. (devid=%u)\n", devid);
     return 0;
 }
 

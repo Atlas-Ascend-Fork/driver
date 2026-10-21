@@ -16,6 +16,7 @@
 
 unsigned int dms_sensor_class_init_discrete(struct dms_sensor_object_cb *psensor_obj);
 unsigned int dms_process_discrete_result_report(struct dms_node_sensor_cb *node_sensor_cb,
-    struct dms_sensor_object_cb *psensor_obj_cb, struct dms_sensor_event_data *pevent_data);
+                                                struct dms_sensor_object_cb *psensor_obj_cb,
+                                                struct dms_sensor_event_data *pevent_data);
 unsigned int dms_sensor_class_check_discrete(struct dms_sensor_object_cfg *psensor_obj_cfg);
 #endif

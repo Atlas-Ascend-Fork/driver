@@ -29,6 +29,7 @@ void *MsnMalloc(size_t size)
 
     void *buffer = malloc(size);
     if (buffer == NULL) {
+        MSNPU_ERR(MEMORY_WARNING_MSG);
         return NULL;
     }
 
@@ -77,7 +78,7 @@ int32_t MsnGetDevIDs(uint32_t *devNum, uint32_t *idArray, uint32_t length)
 
     err = drvGetDevIDs(idArray, length);
     ONE_ACT_ERR_LOG(err != DRV_ERROR_NONE, return EN_ERROR, "Get device id failed, ret=%d.", (int32_t)err);
-    
+
     for (uint32_t i = 0; i < *devNum; i++) {
         if (*(idArray + i) >= MAX_DEV_NUM) {
             SELF_LOG_ERROR("Get device id %u invalid", *(idArray + i));
@@ -91,7 +92,7 @@ int32_t MsnGetDevIDs(uint32_t *devNum, uint32_t *idArray, uint32_t length)
 int32_t MsnCheckDeviceId(uint32_t deviceId)
 {
     uint32_t devNum = 0;
-    uint32_t devIds[MAX_DEV_NUM] = { 0 };
+    uint32_t devIds[MAX_DEV_NUM] = {0};
     if (MsnGetDevIDs(&devNum, devIds, MAX_DEV_NUM) != EN_OK) {
         return EN_ERROR;
     }
@@ -113,7 +114,7 @@ int32_t MsnGetDevMasterId(uint32_t devLogicId, uint32_t *phyId, int64_t *devMast
 {
     drvError_t err = drvDeviceGetPhyIdByIndex(devLogicId, phyId);
     if ((err != DRV_ERROR_NONE) || (*phyId >= MAX_DEV_NUM)) {
-        SELF_LOG_ERROR("Get pyhsical id failed, dev_id=%u, ret=%d.", devLogicId, (int32_t)err);
+        SELF_LOG_ERROR("Get physical id failed, dev_id=%u, ret=%d.", devLogicId, (int32_t)err);
         return EN_ERROR;
     }
     err = halGetDeviceInfo(*phyId, (int32_t)MODULE_TYPE_SYSTEM, (int32_t)INFO_TYPE_MASTERID, devMasterId);
@@ -126,8 +127,8 @@ int32_t MsnGetDevMasterId(uint32_t devLogicId, uint32_t *phyId, int64_t *devMast
 
 int32_t MsnGetTimeStr(char *timeBuffer, uint32_t bufLen)
 {
-    mmTimeval currentTimeval = { 0 };
-    struct tm timeInfo = { 0 };
+    mmTimeval currentTimeval = {0};
+    struct tm timeInfo = {0};
 
     int32_t ret = mmGetTimeOfDay(&currentTimeval, NULL);
     ONE_ACT_ERR_LOG(ret != EN_OK, return EN_ERROR, "get times failed.");
@@ -136,9 +137,8 @@ int32_t MsnGetTimeStr(char *timeBuffer, uint32_t bufLen)
     ret = mmLocalTimeR(&sec, &timeInfo);
     ONE_ACT_ERR_LOG(ret != EN_OK, return EN_ERROR, "get timestamp failed.");
 
-    ret = snprintf_s(timeBuffer, bufLen, bufLen - 1, "%04d%02d%02d%02d%02d%02d",
-                     timeInfo.tm_year, timeInfo.tm_mon, timeInfo.tm_mday,
-                     timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec);
+    ret = snprintf_s(timeBuffer, bufLen, bufLen - 1, "%04d%02d%02d%02d%02d%02d", timeInfo.tm_year, timeInfo.tm_mon,
+                     timeInfo.tm_mday, timeInfo.tm_hour, timeInfo.tm_min, timeInfo.tm_sec);
     ONE_ACT_ERR_LOG(ret == -1, return EN_ERROR, "copy time buffer failed.");
 
     return EN_OK;
@@ -171,7 +171,7 @@ int32_t MsnMkdirMulti(const char *path)
         return EN_OK;
     }
 
-    char tmpPath[MMPA_MAX_PATH] = { 0 };
+    char tmpPath[MMPA_MAX_PATH] = {0};
     errno_t ret = strcpy_s(tmpPath, MMPA_MAX_PATH, path);
     ONE_ACT_ERR_LOG(ret != EOK, return EN_ERROR, "strcpy_s path failed, ret:%d.", ret);
     size_t len = strlen(tmpPath);

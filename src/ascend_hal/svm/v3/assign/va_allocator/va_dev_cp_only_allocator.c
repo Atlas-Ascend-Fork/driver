@@ -40,7 +40,7 @@ static int va_dev_cp_only_allocator_init_ga_inst(struct va_dev_cp_only_allocator
     svm_ga_attr_pack(DEV_CP_ONLY_GRAN_SIZE, &attr);
     ga_inst = svm_ga_inst_create(&attr);
     if (ga_inst == NULL) {
-        svm_debug("Create ga_inst not success.\n");
+        svm_debug("Create ga_inst completed. (ga_inst_is_null=%d)\n", (ga_inst == NULL));
         return DRV_ERROR_OUT_OF_MEMORY;
     }
 
@@ -70,8 +70,6 @@ static int va_dev_cp_only_allocator_init_va(struct va_dev_cp_only_allocator *all
         return ret;
     }
 
-    /* avoid alloc a gap va. */
-    size -= svm_align_up(svm_va_get_gap(), DEV_CP_ONLY_GRAN_SIZE);
     ret = svm_ga_add_range(allocator->ga_inst, va, size);
     if (ret != DRV_ERROR_NONE) {
         svm_err("Ga inst add range failed. (ret=%d; start=0x%llx; size=0x%llx)\n", ret, va, size);

@@ -40,7 +40,7 @@ int dp_proc_mng_common_msg_send(void *msg, unsigned int len, unsigned int out_le
     out_len_tmp = (out_len >= head_len) ? out_len : head_len;
     ret = devdrv_common_msg_send(device_id, msg, len, out_len_tmp, &out_len_tmp, DEVDRV_COMMON_MSG_DP_PROC_MNG);
     if (ret != 0) {
-        dp_proc_mng_drv_warn("Device is not up yet, wait for a while and try again check. (ret=%d)\n", ret);
+        dp_proc_mng_drv_warn("Device is not up yet, wait for a while and try again. (ret=%d)\n", ret);
         return -ECOMM;
     }
 
@@ -68,7 +68,7 @@ STATIC int dp_proc_mng_host_msg_recv(u32 devid, void *data, u32 in_data_len, u32
     if (devid >= DP_PROC_MNG_MAX_DEVICE_NUM) {
 #ifndef EMU_ST
         dp_proc_mng_drv_err("Device_id must be less than DP_PROC_MNG_MAX_DEVICE_NUM. "
-                            "(devid=%u; DP_PROC_MNG_MAX_DEVICE_NUM=%d)\n",
+                            "(devid=%u; DP_PROC_MNG_MAX_AGENT_DEVICE_NUM=%d)\n",
                             devid, DP_PROC_MNG_MAX_DEVICE_NUM);
         return -ENODEV;
 #endif

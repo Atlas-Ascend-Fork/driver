@@ -35,7 +35,7 @@ static int pma_p2p_pages_get(int master_tgid, u64 va, u64 size, void (*free_call
 
     ret = svm_query_va_udevid(master_tgid, va, size, &udevid);
     if (ret != 0) {
-        svm_err("Get va udevid failed. (ret=%d; va=0x%llx; size=%llu bytes)\n", ret, va, size);
+        svm_err("Get va udevid failed. (ret=%d; va=0x%llx; size=%llu)\n", ret, va, size);
         return ret;
     }
     if (udevid == uda_get_host_id()) {

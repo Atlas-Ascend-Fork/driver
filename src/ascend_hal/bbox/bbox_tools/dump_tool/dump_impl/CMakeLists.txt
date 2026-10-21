@@ -36,7 +36,6 @@ target_include_directories(${OBJ_DUMP_COMMON}
         ${DRIVER_USER_DIR}/inc/mmpa
         ${DRIVER_USER_DIR}/inc/adump
         ${C_SEC_INCLUDE}
-        ${DRIVER_USER_DIR}/msnpureport/inc/slog
     PRIVATE
         ${PROJ_DIR}/config/${PROD_NAME}/
 )

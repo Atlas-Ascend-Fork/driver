@@ -8,6 +8,8 @@
  * See LICENSE in the root of the software repository for the full text of the License.
  */
 
+#include <limits>
+
 #include "adx_api.h"
 #include "mmpa_api.h"
 #include "ascend_hal.h"
@@ -25,6 +27,17 @@ using namespace Adx;
 static constexpr int32_t BLOCK_RETURN_CODE = 4;
 static constexpr int32_t RESULT_LEN_MAX = 100;
 static constexpr uint32_t DEFAULT_TIMEOUT = 10000; // 10000ms
+static constexpr uint32_t UINT32_SIZE_MAX = std::numeric_limits<uint32_t>::max();
+
+static bool GetUint32Length(size_t length, uint32_t &outLen)
+{
+    if (length > UINT32_SIZE_MAX) {
+        IDE_LOGE("Message length invalid. (length=%zu)", length);
+        return false;
+    }
+    outLen = static_cast<uint32_t>(length);
+    return true;
+}
 
 /**
  * @brief        hdc connect core dump server
@@ -32,21 +45,19 @@ static constexpr uint32_t DEFAULT_TIMEOUT = 10000; // 10000ms
  * @param  [in]  devId      : send file device id
  * @return       CommHandle : client handle
  */
-static CommHandle AdxHdcConnect(CommHandle &client, uint16_t devId,
-    AdxHdcServiceType hdcType = HDC_SERVICE_TYPE_IDE_FILE_TRANS)
+static CommHandle AdxHdcConnect(CommHandle &client, uint32_t devId,
+                                AdxHdcServiceType hdcType = HDC_SERVICE_TYPE_IDE_FILE_TRANS)
 {
     std::map<std::string, std::string> info;
     info[OPT_DEVICE_KEY] = std::to_string(devId);
     info[OPT_SERVICE_KEY] = std::to_string(hdcType);
     CommHandle session = {OptType::COMM_HDC, ADX_OPT_INVALID_HANDLE, NR_COMPONENTS, -1, nullptr};
-    std::unique_ptr<AdxCommOpt> opt (CreateAdxCommOpt(OptType::COMM_HDC));
-    IDE_CTRL_VALUE_FAILED(opt != nullptr, return session,
-        "create hdc commopt exception");
+    std::unique_ptr<AdxCommOpt> opt(CreateAdxCommOpt(OptType::COMM_HDC));
+    IDE_CTRL_VALUE_FAILED(opt != nullptr, return session, "create hdc commopt exception");
     bool ret = AdxCommOptManager::Instance().CommOptsRegister(opt);
     IDE_CTRL_VALUE_FAILED(ret, return client, "register hdc failed");
     client = AdxCommOptManager::Instance().OpenClient(OptType::COMM_HDC, info);
-    IDE_CTRL_VALUE_FAILED(client.session != ADX_OPT_INVALID_HANDLE, return client,
-        "open client failed");
+    IDE_CTRL_VALUE_FAILED(client.session != ADX_OPT_INVALID_HANDLE, return client, "open client failed");
     session = AdxCommOptManager::Instance().Connect(client, info);
     if (session.session == ADX_OPT_INVALID_HANDLE) {
         (void)AdxCommOptManager::Instance().CloseClient(client);
@@ -78,23 +89,63 @@ static int32_t AdxCommonGetFile(const CommHandle &handle, const std::string &src
                           mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN));
 
     int32_t err = AdxMsgProto::RecvFile(handle, fd);
-    if (err != IDE_DAEMON_NONE_ERROR && err != IDE_DAEMON_CHANNEL_ERROR) {
+    if (err != IDE_DAEMON_NONE_ERROR) {
         mmClose(fd);
         fd = -1;
-        IDE_LOGE("receive file failed, info : %s", srcFile.c_str());
+        if (err == IDE_DAEMON_CHANNEL_ERROR) {
+            IDE_LOGE("receive file failed due to HDC channel error. "
+                     "Possible causes include peer/channel communication failure or concurrent msnpureports execution. "
+                     "(file=%s)\n",
+                     srcFile.c_str());
+        } else {
+            IDE_LOGE("receive file failed, info : %s", srcFile.c_str());
+        }
         (void)remove(srcFile.c_str());
-        return IDE_DAEMON_ERROR;
+        return err;
     }
 
     mmClose(fd);
     fd = -1;
-
-    if (err == IDE_DAEMON_CHANNEL_ERROR) {
-        IDE_LOGE("send file receive response failed,\n" \
-            "maybe multiple msnpureports executed at the same time, which is not supported,\n" \
-            "please execute msnpureport only once per time later if needed");
-    }
     return IDE_DAEMON_OK;
+}
+
+static int32_t AdxReceiveDeviceFiles(const CommHandle &handle, const std::string &basePath)
+{
+    std::string value;
+    int32_t result = IDE_DAEMON_OK;
+    do {
+        // recv file name
+        MsgCode code = AdxMsgProto::GetStringMsgData(handle, value);
+        IDE_CTRL_VALUE_FAILED(code == IDE_DAEMON_NONE_ERROR, return static_cast<int32_t>(code),
+                              "get file shake response failed, ret=%d", static_cast<int32_t>(code));
+        size_t msgSize = IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE.length();
+        if (value.compare(0, msgSize, IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE) == 0) {
+            return BLOCK_RETURN_CODE;
+        }
+        msgSize = IdeDaemon::Common::Config::SEND_END_MSG.length();
+        if (value.compare(0, msgSize, IdeDaemon::Common::Config::SEND_END_MSG) == 0) {
+            return result;
+        }
+        IDE_LOGI("receive file relative path and name is %s", value.c_str());
+        value = basePath + OS_SPLIT_STR + value;
+#if (OS_TYPE != LINUX)
+        value = FileUtils::ReplaceAll(value, "/", "\\");
+#endif
+        // recv file data
+        int32_t err = AdxCommonGetFile(handle, value);
+        if (err != IDE_DAEMON_OK) {
+            IDE_LOGE("get file process failed");
+            // Preserve a file transfer failure until the device sends the end marker.
+            if ((result == IDE_DAEMON_OK) || (err == IDE_DAEMON_HDC_TIMEOUT)) {
+                result = err;
+            }
+            break;
+        }
+        IDE_LOGI("receive file data successfully");
+        (void)mmChmod(value.c_str(), M_IRUSR); // readonly, 400
+    } while (true);
+
+    return result;
 }
 
 /**
@@ -108,8 +159,11 @@ static int32_t AdxCommonGetFile(const CommHandle &handle, const std::string &src
 int32_t AdxGetDeviceFileTimeout(uint16_t devId, IdeString desPath, IdeString logType, uint32_t timeout)
 {
     int32_t err = IDE_DAEMON_ERROR;
-    IDE_CTRL_VALUE_FAILED(desPath != nullptr && logType != nullptr, return err,
-        "send file input parameter invalid");
+    IDE_CTRL_VALUE_FAILED(desPath != nullptr && logType != nullptr, return err, "send file input parameter invalid");
+    uint32_t logTypeLen = 0;
+    if (!GetUint32Length(strlen(logType) + 1U, logTypeLen)) {
+        return err;
+    }
     IDE_RUN_LOGI("get device file to %s", desPath);
     CommHandle client = {OptType::COMM_HDC, ADX_OPT_INVALID_HANDLE, NR_COMPONENTS, -1, nullptr};
     uint32_t logId = 0;
@@ -117,39 +171,14 @@ int32_t AdxGetDeviceFileTimeout(uint16_t devId, IdeString desPath, IdeString log
     IDE_CTRL_VALUE_FAILED(err == IDE_DAEMON_OK, return err, "get device logic id failed");
     CommHandle handle = AdxHdcConnect(client, logId);
     IDE_CTRL_VALUE_FAILED(handle.session != ADX_OPT_INVALID_HANDLE, return IDE_DAEMON_ERROR,
-        "send file hdc client connect failed");
+                          "send file hdc client connect failed");
     handle.timeout = timeout;
-    std::string basePath = desPath;
-    std::string value;
     int32_t result = IDE_DAEMON_OK;
-    MsgCode code = AdxMsgProto::SendMsgData(handle, IDE_FILE_GETD_REQ, MsgStatus::MSG_STATUS_NONE_ERROR,
-                                            logType, strlen(logType) + 1);
+    MsgCode code = AdxMsgProto::SendMsgData(handle, IDE_FILE_GETD_REQ, MsgStatus::MSG_STATUS_NONE_ERROR, logType,
+                                            logTypeLen);
+    result = static_cast<int32_t>(code);
     IDE_CTRL_VALUE_FAILED(code == IDE_DAEMON_NONE_ERROR, goto GET_ERROR, "send file hand shake failed");
-    do {
-        code = AdxMsgProto::GetStringMsgData(handle, value);
-        IDE_CTRL_VALUE_FAILED(code == IDE_DAEMON_NONE_ERROR, goto GET_ERROR, "get file shake response failed, ret=%d",
-            static_cast<int32_t>(code));
-        size_t msgSize = IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE.length();
-        if (value.compare(0, msgSize, IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE) == 0) {
-            result = BLOCK_RETURN_CODE;
-            break;
-        }
-        msgSize = IdeDaemon::Common::Config::SEND_END_MSG.length();
-        if (value.compare(0, msgSize, IdeDaemon::Common::Config::SEND_END_MSG) == 0) {
-            break;
-        }
-        IDE_LOGD("receive file relative path and name is %s", value.c_str());
-        value = basePath + OS_SPLIT_STR + value;
-#if (OS_TYPE != LINUX)
-        value = FileUtils::ReplaceAll(value, "/", "\\");
-#endif
-        err = AdxCommonGetFile(handle, value);
-        if (err != IDE_DAEMON_OK) {
-            IDE_LOGE("get file process failed");
-            continue;
-        }
-        (void)mmChmod(value.c_str(), M_IRUSR); // readonly, 400
-    } while (true);
+    result = AdxReceiveDeviceFiles(handle, desPath);
 
 GET_ERROR:
     (void)AdxCommOptManager::Instance().Close(handle);
@@ -169,10 +198,16 @@ static int32_t AdxRecvFile(const CommHandle &handle, int32_t fd)
     MsgProto *msg = nullptr;
     int32_t length = 0;
     while (true) {
-        int32_t ret = AdxCommOptManager::Instance().Read(handle, reinterpret_cast<IdeRecvBuffT>(&msg),
-            length, DEFAULT_TIMEOUT);
-        IDE_CTRL_VALUE_FAILED((ret == IDE_DAEMON_OK) && (msg != nullptr), return IDE_DAEMON_ERROR,
-            "receive file failed, ret: %d", ret);
+        int32_t ret = AdxCommOptManager::Instance().Read(handle, reinterpret_cast<IdeRecvBuffT>(&msg), length,
+                                                         DEFAULT_TIMEOUT);
+        if ((ret != IDE_DAEMON_OK) || (msg == nullptr)) {
+            IDE_LOGE("receive file failed, ret: %d", ret);
+            IDE_XFREE_AND_SET_NULL(msg);
+            if (ret == DRV_ERROR_WAIT_TIMEOUT) {
+                return IDE_DAEMON_HDC_TIMEOUT;
+            }
+            return IDE_DAEMON_ERROR;
+        }
         if (msg->msgType == MsgType::MSG_CTRL) { // check the message is ctrl or not
             IDE_LOGW("receive control message from device, stop receiving");
             IDE_XFREE_AND_SET_NULL(msg);
@@ -195,7 +230,8 @@ static int32_t AdxRecvFile(const CommHandle &handle, int32_t fd)
 
         IDE_XFREE_AND_SET_NULL(msg);
     }
-    if (AdxSendMsg(&handle, HDC_END_MSG, strlen(HDC_END_MSG)) != IDE_DAEMON_OK) {
+    if (AdxSendMsgTimeout(&handle, HDC_END_MSG, static_cast<uint32_t>(strlen(HDC_END_MSG)), DEFAULT_TIMEOUT) !=
+        IDE_DAEMON_OK) {
         IDE_LOGW("send file response message exception");
     }
 
@@ -235,20 +271,55 @@ static int32_t AdxCreateFileAndRecvValue(const CommHandle &handle, std::string &
     int32_t fd = mmOpen2(file.c_str(), M_RDWR | M_CREAT | M_BINARY | M_TRUNC, M_IRUSR | M_IWRITE);
     char errBuf[MAX_ERRSTR_LEN + 1] = {0};
     IDE_CTRL_VALUE_FAILED(fd >= 0, return IDE_DAEMON_ERROR, "open file exception, info : %s",
-                        mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN));
+                          mmGetErrorFormatMessage(mmGetErrorCode(), errBuf, MAX_ERRSTR_LEN));
 
     int32_t err = AdxRecvFile(handle, fd);
-    if (err == IDE_DAEMON_ERROR) {
+    if (err != IDE_DAEMON_OK) {
         mmClose(fd);
         fd = -1;
         IDE_LOGE("receive file failed, info : %s", file.c_str());
         (void)remove(file.c_str());
-        return IDE_DAEMON_ERROR;
+        return err;
     }
     mmClose(fd);
     fd = -1;
     (void)mmChmod(file.c_str(), M_IRUSR); // readonly, 400
     return IDE_DAEMON_OK;
+}
+
+static int32_t AdxReceiveSpecifiedFiles(CommHandle &handle, const std::string &basePath)
+{
+    int32_t err = IDE_DAEMON_OK;
+    do {
+        uint32_t len = RESULT_LEN_MAX;
+        IdeStringBuffer ptr = static_cast<IdeStringBuffer>(IdeXmalloc(len));
+        err = AdxRecvMsg(&handle, &ptr, &len, DEFAULT_TIMEOUT);
+        if (err != IDE_DAEMON_OK) {
+            IDE_XFREE_AND_SET_NULL(ptr);
+            IDE_LOGE("receive message failed, ret: %d", err);
+            return err;
+        }
+        std::string value(ptr);
+        IDE_XFREE_AND_SET_NULL(ptr);
+        size_t msgSize = IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE.length();
+        if (value.compare(0, msgSize, IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE) == 0) {
+            return BLOCK_RETURN_CODE;
+        }
+        msgSize = sizeof(HDC_END_MSG);
+        if (value.compare(0, msgSize, HDC_END_MSG) == 0) {
+            return err;
+        }
+        err = AdxSendMsgTimeout(&handle, HDC_END_MSG, static_cast<uint32_t>(strlen(HDC_END_MSG)), DEFAULT_TIMEOUT);
+        if (err != IDE_DAEMON_OK) {
+            IDE_LOGW("send name response message exception");
+        }
+        IDE_LOGD("receive file relative path and name is %s", value.c_str());
+        value = basePath + OS_SPLIT_STR + value;
+        err = AdxCreateFileAndRecvValue(handle, value);
+        if (err != IDE_DAEMON_OK) {
+            return err;
+        }
+    } while (true);
 }
 
 /**
@@ -264,7 +335,11 @@ int32_t AdxGetSpecifiedFile(uint16_t devId, IdeString desPath, IdeString logType
 {
     int32_t err = IDE_DAEMON_ERROR;
     IDE_CTRL_VALUE_FAILED((desPath != nullptr) && (logType != nullptr), return err,
-        "send file input parameter invalid");
+                          "send file input parameter invalid");
+    uint32_t logTypeLen = 0;
+    if (!GetUint32Length(strlen(logType), logTypeLen)) {
+        return err;
+    }
     IDE_RUN_LOGI("get device file to %s", desPath);
     CommHandle client = {OptType::COMM_HDC, ADX_OPT_INVALID_HANDLE, NR_COMPONENTS, -1, nullptr};
     uint32_t logId = 0;
@@ -272,43 +347,11 @@ int32_t AdxGetSpecifiedFile(uint16_t devId, IdeString desPath, IdeString logType
     IDE_CTRL_VALUE_FAILED(err == IDE_DAEMON_OK, return err, "get device logic id failed");
     CommHandle handle = AdxHdcConnect(client, logId, static_cast<AdxHdcServiceType>(hdcType));
     IDE_CTRL_VALUE_FAILED(handle.session != ADX_OPT_INVALID_HANDLE, return IDE_DAEMON_ERROR,
-        "send file hdc client connect failed");
+                          "send file hdc client connect failed");
     handle.comp = static_cast<ComponentType>(compType);
-    err = AdxSendMsg(static_cast<AdxCommConHandle>(&handle), logType, strlen(logType));
+    err = AdxSendMsg(static_cast<AdxCommConHandle>(&handle), logType, logTypeLen);
     IDE_CTRL_VALUE_FAILED(err == IDE_DAEMON_OK, return err, "send data message failed");
-    std::string basePath = desPath;
-    do {
-        uint32_t len = RESULT_LEN_MAX;
-        IdeStringBuffer ptr = static_cast<IdeStringBuffer>(IdeXmalloc(len));
-        err = AdxRecvMsg(&handle, &ptr, &len, DEFAULT_TIMEOUT);
-        if (err != IDE_DAEMON_OK) {
-            IDE_XFREE_AND_SET_NULL(ptr);
-            IDE_LOGE("receive message failed, ret: %d", err);
-            break;
-        }
-        std::string value(ptr);
-        IDE_XFREE_AND_SET_NULL(ptr);
-        size_t msgSize = IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE.length();
-        if (value.compare(0, msgSize, IdeDaemon::Common::Config::CONTAINER_NO_SUPPORT_MESSAGE) == 0) {
-            err = BLOCK_RETURN_CODE;
-            break;
-        }
-        msgSize = sizeof(HDC_END_MSG);
-        if (value.compare(0, msgSize, HDC_END_MSG) == 0) {
-            break;
-        }
-        err = AdxSendMsg(&handle, HDC_END_MSG, strlen(HDC_END_MSG));
-        if (err != IDE_DAEMON_OK) {
-            IDE_LOGW("send name response message exception");
-        }
-        IDE_LOGD("receive file relative path and name is %s", value.c_str());
-        value = basePath + OS_SPLIT_STR + value;
-
-        if (AdxCreateFileAndRecvValue(handle, value) != IDE_DAEMON_OK) {
-            err = IDE_DAEMON_ERROR;
-            break;
-        }
-    } while (true);
+    err = AdxReceiveSpecifiedFiles(handle, desPath);
 
     (void)AdxCommOptManager::Instance().Close(handle);
     (void)AdxCommOptManager::Instance().CloseClient(client);
@@ -316,7 +359,7 @@ int32_t AdxGetSpecifiedFile(uint16_t devId, IdeString desPath, IdeString logType
 }
 
 int32_t AdxRecvDevFileTimeout(AdxCommHandle handle, AdxString desPath, uint32_t timeout, AdxStringBuffer fileName,
-    uint32_t fileNameLen)
+                              uint32_t fileNameLen)
 {
     IDE_CTRL_VALUE_FAILED(handle != nullptr, return IDE_DAEMON_ERROR, "handle is NULL.");
     IDE_CTRL_VALUE_FAILED(desPath != nullptr, return IDE_DAEMON_ERROR, "desPath is NULL.");
@@ -332,8 +375,9 @@ int32_t AdxRecvDevFileTimeout(AdxCommHandle handle, AdxString desPath, uint32_t 
         return IDE_DAEMON_ERROR;
     }
     value = std::string(desPath) + OS_SPLIT_STR + value;
-    if (AdxCreateFileAndRecvValue(*handle, value) != IDE_DAEMON_OK) {
-        return IDE_DAEMON_ERROR;
+    ret = AdxCreateFileAndRecvValue(*handle, value);
+    if (ret != IDE_DAEMON_OK) {
+        return ret;
     }
     return IDE_DAEMON_OK;
 }

@@ -164,7 +164,6 @@ struct que_jfs_pool_info {
 struct que_rx_mbuf {
     Mbuf *mbuf;
 
-    void *ctx_aligned_va; /* For register and copy context */
     urma_target_seg_t *ctx_aligned_tseg;
 
     void *mbuf_ctx_va;
@@ -230,6 +229,7 @@ struct que_ini_proc {
     ASYNC_QUE_INI_STATUS ini_status;
     unsigned int f2nf_back;
     unsigned int f2nf_update;
+    uint64_t wait_f2nf_start_time;
     struct que_mbuf_list mbuf_list;
     struct buff_iovec *vector;
     pthread_rwlock_t ini_status_lock;
@@ -418,6 +418,7 @@ struct que_attach_in_msg {
 
 struct que_inter_dev_attach_in_msg {
     unsigned int qid;
+    unsigned int depth;
     urma_jfr_id_t tjfr_id;
     urma_token_t token;
 };

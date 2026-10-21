@@ -30,6 +30,7 @@ static const enum queue_feature_id hisi_cloud_v1_queue_features[] = {
     QUEUE_FEATURE_SHARE_LOG,
     QUEUE_FEATURE_KA_ALLOC_INTERFACE,
     QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_HOST_SUPPORT_LOCAL_QUEUE,
 };
 
 /* chip key: hisi_mini_v2 - HISI_MINI_V2 (2) */
@@ -37,13 +38,13 @@ static const enum queue_feature_id hisi_mini_v2_queue_features[] = {
     QUEUE_FEATURE_SHARE_LOG,
     QUEUE_FEATURE_KA_ALLOC_INTERFACE,
     QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_HOST_SUPPORT_LOCAL_QUEUE,
 };
 
 /* chip key: hisi_cloud_v2 - HISI_CLOUD_V2 (3) */
 static const enum queue_feature_id hisi_cloud_v2_queue_features[] = {
-    QUEUE_FEATURE_SHARE_LOG,
-    QUEUE_FEATURE_KA_ALLOC_INTERFACE,
-    QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_SHARE_LOG,     QUEUE_FEATURE_KA_ALLOC_INTERFACE,       QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_SUPPORT_SRIOV, QUEUE_FEATURE_HOST_SUPPORT_LOCAL_QUEUE,
 };
 
 /* chip key: hisi_mini_v3 - HISI_MINI_V3 (4) */
@@ -51,13 +52,13 @@ static const enum queue_feature_id hisi_mini_v3_queue_features[] = {
     QUEUE_FEATURE_SHARE_LOG,
     QUEUE_FEATURE_KA_ALLOC_INTERFACE,
     QUEUE_FEATURE_HOST_LOG,
+    QUEUE_SOC_PLATFORM_960,
 };
 
 /* chip key: hisi_cloud_v4 - HISI_CLOUD_V4 (6) */
 static const enum queue_feature_id hisi_cloud_v4_queue_features[] = {
-    QUEUE_FEATURE_SHARE_LOG,
-    QUEUE_FEATURE_KA_ALLOC_INTERFACE,
-    QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_SHARE_LOG,     QUEUE_FEATURE_KA_ALLOC_INTERFACE,       QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_SUPPORT_SRIOV, QUEUE_FEATURE_HOST_SUPPORT_LOCAL_QUEUE,
 };
 
 /* chip key: hisi_cloud_v5 - HISI_CLOUD_V5 (7), CHIP_CLOUD_V5 */
@@ -65,13 +66,14 @@ static const enum queue_feature_id hisi_cloud_v5_queue_features[] = {
     QUEUE_FEATURE_SHARE_LOG,
     QUEUE_FEATURE_KA_ALLOC_INTERFACE,
     QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_SUPPORT_SRIOV,
+    QUEUE_FEATURE_HOST_SUPPORT_LOCAL_QUEUE, // only for host
 };
 
 /* chip key: hisi_mini_v4 - HISI_MINI_V4 (10) */
 static const enum queue_feature_id hisi_mini_v4_queue_features[] = {
-    QUEUE_FEATURE_SHARE_LOG,
-    QUEUE_FEATURE_KA_ALLOC_INTERFACE,
-    QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_SHARE_LOG,     QUEUE_FEATURE_KA_ALLOC_INTERFACE,       QUEUE_FEATURE_HOST_LOG,
+    QUEUE_FEATURE_SUPPORT_SRIOV, QUEUE_FEATURE_HOST_SUPPORT_LOCAL_QUEUE,
 };
 
 #ifdef __cplusplus

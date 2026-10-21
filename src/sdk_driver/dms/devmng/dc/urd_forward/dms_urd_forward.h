@@ -28,7 +28,7 @@ int dms_send_msg_to_device_by_h2d(void *feature, char *in, u32 in_len, char *out
 int dms_send_msg_to_device_by_h2d_kernel(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_send_msg_to_device_by_h2d_get_va(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_send_msg_to_device_lp_stress_set(void *feature, char *in, u32 in_len, char *out, u32 out_len);
-int dms_send_msg_to_device_l2buff_m_ecc_resume(void *feature, char *in, u32 in_len, char *out, u32 out_len);
+int dms_send_msg_to_device_l2buff_comm(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_get_l2buff_m_ecc_resume_cnt(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int urd_forward_get_memory_fault_syscnt(void *feature, char *in, u32 in_len, char *out, u32 out_len);
 int dms_urd_forward_send_to_device(u32 phy_id, u32 vfid, struct urd_forward_msg *urd_msg, char *out, u32 out_len);

@@ -29,13 +29,13 @@
 #include "fms_kernel_interface.h"
 
 #ifndef ASCEND_DEV_MAX_NUM
-#define ASCEND_DEV_MAX_NUM           64
+#define ASCEND_DEV_MAX_NUM 64
 #endif
 
 #ifdef STATIC_SKIP
 #define STATIC
 #else
-#define STATIC                     static
+#define STATIC static
 #endif
 
 #ifndef __KA_GFP_ACCOUNT
@@ -51,10 +51,10 @@
 #if defined(CFG_HOST_ENV) && defined(CFG_FEATURE_SRIOV)
 #define DEVICE_NUM_MAX 1124
 #else
-#define DEVICE_NUM_MAX  64
+#define DEVICE_NUM_MAX 64
 #endif
 /* The maximum number of information that the sub-device can query is: infoType 0 ~ dms_MAX_INFO_TYPE_NUM */
-#define DMS_MAX_INFO_TYPE_NUM   20
+#define DMS_MAX_INFO_TYPE_NUM 20
 
 /* Interconnected device node item */
 struct dms_dev_link_item {
@@ -83,11 +83,9 @@ struct dms_link_node_operations {
     /* Alarm notification sub-devices such as RAS */
     int (*event_notify)(struct dms_node *device, int event);
     /* Query the status of two device nodes */
-    int (*get_link_state)(struct dms_node *device1,
-    struct dms_node *device2, unsigned int *state);
+    int (*get_link_state)(struct dms_node *device1, struct dms_node *device2, unsigned int *state);
     /* Query the status of two device nodes */
-    int (*set_link_state)(struct dms_node *device1,
-        struct dms_node *device2, unsigned int state);
+    int (*set_link_state)(struct dms_node *device1, struct dms_node *device2, unsigned int state);
 };
 
 /* The data view of the device, data snapshot, used to store the data of the sub-device of the device on host side */
@@ -112,47 +110,57 @@ struct dms_dev_data_view {
 #define dms_debug(fmt, ...) drv_pr_debug(MODULE_DMS, fmt, ##__VA_ARGS__)
 #define dms_err_ratelimited(fmt, ...) drv_err_ratelimited(MODULE_DMS, fmt, ##__VA_ARGS__)
 #else
-#define dms_err(fmt, ...) do { \
-    drv_err(MODULE_DMS, "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__); \
-    share_log_err(DEVMNG_SHARE_LOG_START, fmt, ##__VA_ARGS__); \
-} while (0)
-#define dms_warn(fmt, ...) drv_warn(MODULE_DMS, \
-    "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define dms_info(fmt, ...) drv_info(MODULE_DMS, \
-    "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define dms_event(fmt, ...) drv_event(MODULE_DMS, \
-    "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define dms_debug(fmt, ...) drv_pr_debug(MODULE_DMS, \
-    "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__)
-#define dms_err_ratelimited(fmt, ...) do { \
-    drv_err_ratelimited(MODULE_DMS, "<%s:%d:%d> " fmt, \
-        ka_task_get_current_comm(), ka_task_get_current_tgid(), ka_task_get_current_pid(), ##__VA_ARGS__); \
-} while (0)
+#define dms_err(fmt, ...)                                                                              \
+    do {                                                                                               \
+        drv_err(MODULE_DMS, "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                ka_task_get_current_pid(), ##__VA_ARGS__);                                             \
+        share_log_err(DEVMNG_SHARE_LOG_START, fmt, ##__VA_ARGS__);                                     \
+    } while (0)
+#define dms_warn(fmt, ...)                                                                          \
+    drv_warn(MODULE_DMS, "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+             ka_task_get_current_pid(), ##__VA_ARGS__)
+#define dms_info(fmt, ...)                                                                          \
+    drv_info(MODULE_DMS, "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+             ka_task_get_current_pid(), ##__VA_ARGS__)
+#define dms_event(fmt, ...)                                                                          \
+    drv_event(MODULE_DMS, "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+              ka_task_get_current_pid(), ##__VA_ARGS__)
+#define dms_debug(fmt, ...)                                                                             \
+    drv_pr_debug(MODULE_DMS, "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                 ka_task_get_current_pid(), ##__VA_ARGS__)
+#define dms_err_ratelimited(fmt, ...)                                                                              \
+    do {                                                                                                           \
+        drv_err_ratelimited(MODULE_DMS, "<%s:%d:%d> " fmt, ka_task_get_current_comm(), ka_task_get_current_tgid(), \
+                            ka_task_get_current_pid(), ##__VA_ARGS__);                                             \
+    } while (0)
 #endif
 #ifdef CFG_FEATURE_HOST_LOG
 #define ONE_TIME_EVENT 2
-#define dms_fault_mng_event(assertion, fmt, ...) do {                       \
-    if (((assertion) == ONE_TIME_EVENT)) {                                  \
-        drv_event("fault_manager", fmt, ##__VA_ARGS__);                     \
-    } else {                                                                \
-        drv_err("fault_manager", fmt, ##__VA_ARGS__);                       \
-    }                                                                       \
-} while (0)
+#define dms_fault_mng_event(assertion, fmt, ...)            \
+    do {                                                    \
+        if (((assertion) == ONE_TIME_EVENT)) {              \
+            drv_event("fault_manager", fmt, ##__VA_ARGS__); \
+        } else {                                            \
+            drv_err("fault_manager", fmt, ##__VA_ARGS__);   \
+        }                                                   \
+    } while (0)
 #else
-#define dms_fault_mng_event(assertion, fmt, ...) do {                       \
-    u64 ts = ka_system_local_clock();                                                 \
-    u64 rem_nsec = do_div(ts, 1000000000);                                  \
-    drv_slog_event("fault_manager", "[%5lu.%06lu] " fmt, ts, rem_nsec / 1000, ##__VA_ARGS__);   \
-} while (0)
+#define dms_fault_mng_event(assertion, fmt, ...)                                                  \
+    do {                                                                                          \
+        u64 ts = ka_system_local_clock();                                                         \
+        u64 rem_nsec = do_div(ts, 1000000000);                                                    \
+        drv_slog_event("fault_manager", "[%5lu.%06lu] " fmt, ts, rem_nsec / 1000, ##__VA_ARGS__); \
+    } while (0)
 #endif
 #define dms_fmng_event(args...) (void)ka_dfx_printk(KA_KERN_NOTICE "[fault_manager] " args)
 #define dms_fmng_err(args...) (void)ka_dfx_printk(KA_KERN_ERR "[fault_manager] " args)
 
-#define dms_ex_notsupport_err(ret, fmt, ...) do {                      \
-    if (((ret) != (int)DRV_ERROR_NOT_SUPPORT) && ((ret) != -EOPNOTSUPP)) {  \
-        dms_err(fmt, ##__VA_ARGS__);                                   \
-    }                                                                  \
-} while (0)
+#define dms_ex_notsupport_err(ret, fmt, ...)                                   \
+    do {                                                                       \
+        if (((ret) != (int)DRV_ERROR_NOT_SUPPORT) && ((ret) != -EOPNOTSUPP)) { \
+            dms_err(fmt, ##__VA_ARGS__);                                       \
+        }                                                                      \
+    } while (0)
 
 typedef enum dsmi_dev_init_state {
     DMS_DEV_INIT_NO_ERROR = 0x0,
@@ -160,7 +168,7 @@ typedef enum dsmi_dev_init_state {
     DMS_DEV_INIT_NOT_REGISTER = 0xf,
 } DMS_INIT_STATE_T;
 
-unsigned int dms_fill_event_data(const struct dms_sensor_object_cb *psensor_obj_cb,
-    DMS_EVENT_LIST_ITEM *event_item, unsigned char assertion, struct dms_event_obj *p_event_obj);
+unsigned int dms_fill_event_data(const struct dms_sensor_object_cb *psensor_obj_cb, DMS_EVENT_LIST_ITEM *event_item,
+                                 unsigned char assertion, struct dms_event_obj *p_event_obj);
 
 #endif

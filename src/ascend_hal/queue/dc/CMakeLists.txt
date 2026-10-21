@@ -33,6 +33,7 @@ target_include_directories(queue_obj PRIVATE
     ${DRIVER_USER_DIR}/queue/command
     ${DRIVER_USER_DIR}/queue/dc/core
     ${DRIVER_USER_DIR}/queue/dc/interface
+    ${DRIVER_USER_DIR}/queue/dc/agent/common
     ${DRIVER_USER_DIR}/queue/dc/
     ${C_SEC_INCLUDE}
     ${DRIVER_HAL_INC_DIR}
@@ -57,7 +58,6 @@ target_link_libraries(queue_obj PRIVATE
 
 target_compile_definitions(queue_obj PRIVATE
     DRV_HOST
-    $<$<STREQUAL:${PRODUCT},ascend910B>:CFG_FEATURE_REQ_DMA_SRC_DST_ADDR_ALIGN>
     CFG_FEATURE_HOST_SUPPORT_LOCAL_QUEUE
     $<$<IN_LIST:${PRODUCT},${support_ub}>:CFG_FEATURE_QUE_SUPPORT_UB>
     $<$<AND:$<STREQUAL:${PRODUCT},ascend950>,$<STREQUAL:${CMAKE_HOST_SYSTEM_PROCESSOR},aarch64>>:SSAPI_USE_MAMI>

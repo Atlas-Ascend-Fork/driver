@@ -22,8 +22,8 @@ static int _svm_get_nids(u32 udevid, u32 memtype, u32 sub_memtype, int nids[], i
     int num;
 
     num = dbl_nid_get_nid_num(udevid, memtype, sub_memtype);
-    if (num == 0) {
-        return -ENOMEM;
+    if (num <= 0) {
+        return (num == 0) ? -ENOMEM : num;
     }
 
     num = dbl_nid_get_nid(udevid, memtype, sub_memtype, nids, num);

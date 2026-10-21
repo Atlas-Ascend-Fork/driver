@@ -30,6 +30,7 @@
 #include "ka_ioctl_pub.h"
 #include "ka_compiler_pub.h"
 #include "ka_system_pub.h"
+#include "ka_task_pub.h"
 #include "ka_dfx_pub.h"
 #include "devdrv_manager_container.h"
 #include "devdrv_pcie.h"
@@ -41,6 +42,8 @@
 
 STATIC struct devdrv_dev_log *g_devdrv_dev_log_array[DEVDRV_LOG_DUMP_TYPE_MAX][ASCEND_PDEV_MAX_NUM] = {{NULL}};
 STATIC struct devdrv_ts_log *g_devdrv_ts_log_array[ASCEND_DEV_MAX_NUM] = {NULL};
+STATIC ka_mutex_t g_devdrv_devlog_mutex;
+STATIC ka_mutex_t g_devdrv_tslog_mutex;
 
 STATIC struct devdrv_dev_log *devdrv_get_devlog_info(u32 dev_id, u32 log_type)
 {
@@ -69,12 +72,14 @@ void devdrv_devlog_init(struct devdrv_info *dev_info, struct devdrv_device_info 
     if (!devdrv_manager_is_pf_device(dev_info->dev_id) || dev_info->dev_id >= ASCEND_PDEV_MAX_NUM) {
         return;
     }
+    ka_task_mutex_lock(&g_devdrv_devlog_mutex);
     g_devdrv_dev_log_array[LOG_SLOG_BBOX_DDR][dev_info->dev_id]->dma_addr = drv_info->dump_ddr_dma_addr;
     g_devdrv_dev_log_array[LOG_SLOG_BBOX_DDR][dev_info->dev_id]->mem_size = drv_info->dump_ddr_size;
     g_devdrv_dev_log_array[LOG_SLOG_REG_DDR][dev_info->dev_id]->dma_addr = drv_info->reg_ddr_dma_addr;
     g_devdrv_dev_log_array[LOG_SLOG_REG_DDR][dev_info->dev_id]->mem_size = drv_info->reg_ddr_size;
     g_devdrv_dev_log_array[LOG_VMCORE_FILE_DDR][dev_info->dev_id]->dma_addr = drv_info->vmcore_ddr_dma_addr;
     g_devdrv_dev_log_array[LOG_VMCORE_FILE_DDR][dev_info->dev_id]->mem_size = drv_info->vmcore_ddr_size;
+    ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
 }
 #endif
 
@@ -110,10 +115,12 @@ int devdrv_manager_receive_devlog_addr(void *msg, u32 *ack_len)
         return -ENODEV;
     }
 
+    ka_task_mutex_lock(&g_devdrv_devlog_mutex);
     g_devdrv_dev_log_array[log_type][dev_id]->devid = dev_log->devid;
     g_devdrv_dev_log_array[log_type][dev_id]->dma_addr = dev_log->dma_addr;
     g_devdrv_dev_log_array[log_type][dev_id]->mem_size = dev_log->mem_size;
     g_devdrv_dev_log_array[log_type][dev_id]->log_type = dev_log->log_type;
+    ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
 
     *ack_len = sizeof(*dev_manager_msg_info);
     dev_manager_msg_info->header.result = 0;
@@ -136,14 +143,16 @@ int devdrv_manager_receive_tslog_addr(void *msg, u32 *ack_len)
     }
 
     if (dev_id >= ASCEND_DEV_MAX_NUM) {
-        devdrv_drv_err("Invalid device id. (device id=%u)\n", dev_id);
+        devdrv_drv_err("Invalid device id. (device id=%u; dev_maxnum=%d)\n", dev_id, ASCEND_DEV_MAX_NUM);
         return -ENODEV;
     }
 
     ts_log = (struct devdrv_ts_log *)dev_manager_msg_info->payload;
+    ka_task_mutex_lock(&g_devdrv_tslog_mutex);
     g_devdrv_ts_log_array[dev_id]->devid = ts_log->devid;
     g_devdrv_ts_log_array[dev_id]->dma_addr = ts_log->dma_addr;
     g_devdrv_ts_log_array[dev_id]->mem_size = ts_log->mem_size;
+    ka_task_mutex_unlock(&g_devdrv_tslog_mutex);
 
     *ack_len = sizeof(*dev_manager_msg_info);
     dev_manager_msg_info->header.result = 0;
@@ -250,8 +259,10 @@ int devdrv_manager_devlog_dump(struct devdrv_bbox_logdump *in)
         goto FREE_BBOX_EXIT;
     }
 
+    ka_task_mutex_lock(&g_devdrv_devlog_mutex);
     dev_log = devdrv_get_devlog_info(black_box_user->devid, in->log_type);
     if (dev_log == NULL || dev_log->mem_size == 0) {
+        ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
         devdrv_drv_err("devlog dma addr info is not refreshed by device yet. (devid=%u; log_type=%u).\n",
                        black_box_user->devid, in->log_type);
         ret = -ENODEV;
@@ -260,6 +271,7 @@ int devdrv_manager_devlog_dump(struct devdrv_bbox_logdump *in)
 
     if ((KA_U64_MAX - black_box_user->addr_offset <= black_box_user->size) ||
         (black_box_user->addr_offset + black_box_user->size > dev_log->mem_size)) {
+        ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
         devdrv_drv_err("Invalid user input parameter. (devid=%u; addr_offset=%llu; size=%u; mem_size=%u)\n",
                        black_box_user->devid, black_box_user->addr_offset, black_box_user->size, dev_log->mem_size);
         ret = -EFAULT;
@@ -267,6 +279,7 @@ int devdrv_manager_devlog_dump(struct devdrv_bbox_logdump *in)
     }
 
     black_box_user->addr_offset += dev_log->dma_addr;
+    ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
     ret = devdrv_manager_devlog_dump_process(black_box_user);
     if (ret != 0) {
         devdrv_drv_ex_notsupport_err(ret, "Dev log dump failed. (ret=%d; devid=%u)\n", ret, black_box_user->devid);
@@ -281,7 +294,7 @@ FREE_BBOX_EXIT:
 
 #if !defined(DEVDRV_MANAGER_HOST_UT_TEST) && defined(CFG_FEATURE_PCIE_BBOX_DUMP)
 #define DEVDRV_DUMP_SINGLE_LEN 0x200000U
-STATIC int devdrv_dma_bbox_dump_para_check(unsigned int dev_id, void *value)
+STATIC int devdrv_dma_bbox_dump_para_check(unsigned int dev_id, void *value, u32 log_type)
 {
     if (dev_id >= ASCEND_DEV_MAX_NUM) {
         devdrv_drv_err("Invalid device id. (dev_id=%u)\n", dev_id);
@@ -295,6 +308,11 @@ STATIC int devdrv_dma_bbox_dump_para_check(unsigned int dev_id, void *value)
     if (value == NULL) {
         devdrv_drv_err("Invalid buffer. (dev_id=%u)\n", dev_id);
         return -EFAULT;
+    }
+
+    if ((log_type >= DEVDRV_LOG_DUMP_TYPE_MAX) || (g_devdrv_dev_log_array[log_type][dev_id] == NULL)) {
+        devdrv_drv_err("Invalid log_type or dev log not initialized. (dev_id=%u; log_type=%u)\n", dev_id, log_type);
+        return -EINVAL;
     }
 
     return 0;
@@ -311,16 +329,23 @@ int devdrv_dma_bbox_dump(struct bbox_dma_dump *dma_dump)
     u32 dev_id = dma_dump->dev_id;
     void *dst_buf;
 
-    ret = devdrv_dma_bbox_dump_para_check(dev_id, dma_dump->dst_buf);
+    ka_task_mutex_lock(&g_devdrv_devlog_mutex);
+    ret = devdrv_dma_bbox_dump_para_check(dev_id, dma_dump->dst_buf, dma_dump->log_type);
     if (ret != 0) {
+        ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
         devdrv_drv_ex_notsupport_err(ret, "Check black box parameter fail. (dev_id=%u)\n", dev_id);
         return ret;
     }
 
     dump_size = g_devdrv_dev_log_array[dma_dump->log_type][dev_id]->mem_size;
     dump_dma_addr = g_devdrv_dev_log_array[dma_dump->log_type][dev_id]->dma_addr;
+    ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
 
-    if ((dma_dump->len <= 0) || (dma_dump->offset >= dump_size) || (dma_dump->offset + dma_dump->len > dump_size)) {
+    if ((dump_size == 0) || (dump_dma_addr == 0)) {
+        return -EOPNOTSUPP;
+    }
+
+    if ((dma_dump->len <= 0) || (dma_dump->offset >= dump_size) || (dma_dump->len > dump_size - dma_dump->offset)) {
         devdrv_drv_err("Invalid size. (dev_id=%u, len=%u, offset=%u, mem_size=%u)\n", dev_id, dma_dump->len,
                        dma_dump->offset, dump_size);
         return -EINVAL;
@@ -505,7 +530,7 @@ int devdrv_manager_device_memory_dump(ka_file_t *filep, unsigned int cmd, unsign
     int ret;
 
     if (devdrv_manager_container_is_in_container()) {
-        devdrv_drv_err("not support using in container.\n");
+        devdrv_drv_err("is not supported in container.\n");
         return -EINVAL;
     }
 
@@ -781,6 +806,7 @@ int devdrv_manager_tslog_dump_process(struct devdrv_black_box_user *black_box_us
 
 DMA_FREE:
     hal_kernel_devdrv_dma_free_coherent(dev_info->dev, align_size, *buffer, host_addr_dma);
+    *buffer = NULL;
 FLAG_DEC:
     ka_base_atomic_dec(&dev_info->occupy_ref);
     return ret;
@@ -815,8 +841,10 @@ int devdrv_manager_tslog_dump(ka_file_t *filep, unsigned int cmd, unsigned long 
         goto FREE_BBOX_EXIT;
     }
 
+    ka_task_mutex_lock(&g_devdrv_tslog_mutex);
     ts_log = devdrv_get_tslog_info(black_box_user->devid);
     if (ts_log == NULL || ts_log->mem_size == 0) {
+        ka_task_mutex_unlock(&g_devdrv_tslog_mutex);
         devdrv_drv_err("Ts log dma addr info is not refreshed by device yet. (device id=%u).\n", black_box_user->devid);
         ret = -ENODEV;
         goto FREE_BBOX_EXIT;
@@ -824,6 +852,7 @@ int devdrv_manager_tslog_dump(ka_file_t *filep, unsigned int cmd, unsigned long 
 
     if ((ts_log->mem_size > DEVMNG_TSLOG_MAX_SIZE) || (black_box_user->addr_offset >= ts_log->mem_size) ||
         (black_box_user->size == 0) || (black_box_user->addr_offset + black_box_user->size > ts_log->mem_size)) {
+        ka_task_mutex_unlock(&g_devdrv_tslog_mutex);
         devdrv_drv_err("Invalid user input parameter. (dev_id=%u; addr offset=%llu; size=%u; info size=%u)\n",
                        black_box_user->devid, black_box_user->addr_offset, black_box_user->size, ts_log->mem_size);
         ret = -EFAULT;
@@ -831,6 +860,7 @@ int devdrv_manager_tslog_dump(ka_file_t *filep, unsigned int cmd, unsigned long 
     }
 
     black_box_user->addr_offset += ts_log->dma_addr;
+    ka_task_mutex_unlock(&g_devdrv_tslog_mutex);
 
     ret = devdrv_manager_tslog_dump_process(black_box_user, &buffer);
     if (ret) {
@@ -840,7 +870,6 @@ int devdrv_manager_tslog_dump(ka_file_t *filep, unsigned int cmd, unsigned long 
 FREE_BBOX_EXIT:
     dbl_kfree(black_box_user);
     black_box_user = NULL;
-    buffer = NULL;
     return ret;
 }
 
@@ -917,7 +946,7 @@ int devdrv_manager_reg_ddr_read(ka_file_t *filep, unsigned int cmd, unsigned lon
 
     ret = uda_dev_get_remote_udevid(black_box_user->devid, &dev_id);
     if (ret != 0 || dev_id < 0 || dev_id >= ASCEND_DEV_MAX_NUM) {
-        devdrv_drv_err("Get device index fail. (dev_id=%u; index=%d)\n", black_box_user->devid, dev_id);
+        devdrv_drv_err("Get device index failed. (dev_id=%u; index=%d)\n", black_box_user->devid, dev_id);
         ret = -EINVAL;
         goto free_black_box_exit;
     }
@@ -1027,13 +1056,16 @@ void devmng_devlog_addr_uninit(void)
     int devid;
     int log_type;
 
+    ka_task_mutex_lock(&g_devdrv_tslog_mutex);
     for (devid = 0; devid < ASCEND_DEV_MAX_NUM; devid++) {
         if (g_devdrv_ts_log_array[devid] != NULL) {
             dbl_kfree(g_devdrv_ts_log_array[devid]);
             g_devdrv_ts_log_array[devid] = NULL;
         }
     }
+    ka_task_mutex_unlock(&g_devdrv_tslog_mutex);
 
+    ka_task_mutex_lock(&g_devdrv_devlog_mutex);
     for (devid = 0; devid < ASCEND_PDEV_MAX_NUM; devid++) {
         for (log_type = 0; log_type < DEVDRV_LOG_DUMP_TYPE_MAX; log_type++) {
             if (g_devdrv_dev_log_array[log_type][devid] != NULL) {
@@ -1042,12 +1074,16 @@ void devmng_devlog_addr_uninit(void)
             }
         }
     }
+    ka_task_mutex_unlock(&g_devdrv_devlog_mutex);
 }
 
 int devmng_devlog_addr_init(void)
 {
     int devid;
     int log_type;
+
+    ka_task_mutex_init(&g_devdrv_devlog_mutex);
+    ka_task_mutex_init(&g_devdrv_tslog_mutex);
 
     for (devid = 0; devid < ASCEND_DEV_MAX_NUM; devid++) {
         g_devdrv_ts_log_array[devid] = dbl_kzalloc(sizeof(struct devdrv_ts_log), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);

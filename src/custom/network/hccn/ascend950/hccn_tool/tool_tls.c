@@ -31,9 +31,18 @@
 #include "tool_cfg_ops.h"
 #include "tool_tls.h"
 
-#define ALARM_RANGE {.int_range = {TLS_ALARM_MIN_DAYS, TLS_ALARM_MAX_DAYS}}
-#define BOOL_RANGE  {.int_range = {0, 1}}
-#define NAME_RANGE  {.str_range = {NAME_MAX}}
+#define ALARM_RANGE                                             \
+    {                                                           \
+        .int_range = { TLS_ALARM_MIN_DAYS, TLS_ALARM_MAX_DAYS } \
+    }
+#define BOOL_RANGE            \
+    {                         \
+        .int_range = { 0, 1 } \
+    }
+#define NAME_RANGE                \
+    {                             \
+        .str_range = { NAME_MAX } \
+    }
 
 STATIC struct tls_cmd_args tls_args_buf = {
     .enable = {"-enable", ARG_TYPE_INT, parse_int, MODE_SET, 0, true, .range = BOOL_RANGE, .ext_data = TLS_SET_ENABLE},
@@ -42,23 +51,22 @@ STATIC struct tls_cmd_args tls_args_buf = {
     .path = {"-path", ARG_TYPE_STR, parse_str, MODE_SET, 0, .ext_data = TLS_SET_CFG},
     .pri = {"-pri", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
     .pub = {"-pub", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-    .ca = {
-        {"-ca1", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca2", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca3", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca4", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca5", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca6", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca7", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca8", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca9", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca10", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca11", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca12", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca13", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
-        {"-ca14", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG}
-    },
-    .crl = {"-crl", ARG_TYPE_OPTSTR, parse_optstr, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG | TLS_SET_CLEAR},
+    .ca = {{"-ca1", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca2", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca3", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca4", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca5", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca6", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca7", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca8", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca9", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca10", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca11", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca12", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca13", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG},
+           {"-ca14", ARG_TYPE_STR, parse_str, MODE_SET, 0, true, .range = NAME_RANGE, .ext_data = TLS_SET_CFG}},
+    .crl = {"-crl", ARG_TYPE_OPTSTR, parse_optstr, MODE_SET, 0, true, .range = NAME_RANGE,
+            .ext_data = TLS_SET_CFG | TLS_SET_CLEAR},
     .alarm = {"-alarm", ARG_TYPE_INT, parse_int, MODE_SET, 0, true, .range = ALARM_RANGE, .ext_data = TLS_SET_ALARM},
 };
 
@@ -113,7 +121,7 @@ int tls_assign(void *args, struct sub_option_entry *opt, value_union *arg_val)
     // 选择了一个模式后，其余模式位将被置零，从而判断选项是否冲突
     tls_args->set_mode_mask &= (unsigned int)opt->ext_data;
     if (tls_args->set_mode_mask == 0) {
-        TOOL_PRINT_ERR("Option %s conflict with previous options.", opt->name);
+        TOOL_PRINT_ERR("Option %s conflicts with previous options.", opt->name);
         return TOOL_PRIVATE_ARGS_CONFLICT_ERR;
     }
 
@@ -156,8 +164,8 @@ STATIC unsigned int tool_tls_cert_is_preconfig(struct tls_cert_show_info show_in
             strncmp(show_info[i].issuer, "/C=CN/O=Huawei/CN=Huawei Computing RSA-PSS Equipment CA 2", size) == 0 ||
             strncmp(show_info[i].issuer, "/C=CN/O=Huawei/CN=Huawei RSA-PSS Equipment Root CA 1", size) == 0 ||
             strncmp(show_info[i].issuer, "/C=CN/O=Huawei/CN=Huawei RSA Equipment Root CA 2", size) == 0) {
-                preconfig = 1;
-                break;
+            preconfig = 1;
+            break;
         }
     }
     return preconfig;
@@ -176,14 +184,16 @@ STATIC int tool_save_tls_enable_cfg(const struct command_context *ctx, unsigned 
 
     ret = sprintf_s(enable_cfg, MAX_TLS_LEN, "%u", tls_enable);
     if (ret <= 0) {
-        hccn_warn("sprintf_s tls_enable info unsuccessful. ret:%d slot_id:%d logic_id:%d",
-            ret, ctx->slot_id, ctx->npu_info.logic_id);
+        hccn_warn("sprintf_s tls_enable info unsuccessful. ret:%d slot_id:%d logic_id:%d", ret, ctx->slot_id,
+                  ctx->npu_info.logic_id);
         return -EIO;
     }
 
     ret = tool_write_conf(ctx->slot_id, "tls_enable", enable_cfg);
-    CHK_PRT_RETURN(ret != 0, hccn_warn("tool_write_conf tls_enable unsuccessful, ret:%d slot_id:%d logic_id:%d)",
-            ret, ctx->slot_id, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_warn("tool_write_conf tls_enable unsuccessful, ret:%d slot_id:%d logic_id:%d", ret,
+                             ctx->slot_id, ctx->npu_info.logic_id),
+                   ret);
 
     return 0;
 }
@@ -228,7 +238,8 @@ STATIC int tool_check_cert_expired(int logic_id, struct tls_cert_show_info *show
     ret = tool_get_cert_type(index, type, TLS_TYPE_LEN);
     CHK_PRT_RETURN(ret != 0, hccn_err("tool_get_cert_type failed, ret:%d, index:%d", ret, index), ret);
     TOOL_PRINT_INFO("device %d, [%s] info:\n\t subject[%s]\n\t issuer[%s]\n\t start_time[%s GMT]\n\t end_time[%s GMT]",
-        logic_id, type, show_info[index].subject, show_info[index].issuer, show_info[index].start_time, show_info[index].end_time);
+                    logic_id, type, show_info[index].subject, show_info[index].issuer, show_info[index].start_time,
+                    show_info[index].end_time);
 
     p = strptime(show_info[index].end_time, "%a %b%d%H:%M:%S%Y", &tm);
     if (p == NULL) {
@@ -272,13 +283,15 @@ STATIC int tool_show_tls_cert_info(int logic_id, struct tls_cert_show_info show_
     preconfig = tool_tls_cert_is_preconfig(show_info, num);
 
     TOOL_PRINT_INFO("device %d, tls switch[%u](0:disable, 1:enable), tls preconfigured[%u](0:non-preset, 1:preset),"
-        " tls alarm time threshold[%u]days", logic_id, show_info[0].tls_enable, preconfig, show_info[0].tls_alarm);
+                    " tls alarm time threshold[%u]days",
+                    logic_id, show_info[0].tls_enable, preconfig, show_info[0].tls_alarm);
 
     for (i = 0; i < num; i++) {
         if (strlen(show_info[i].issuer) > 0) {
             ret = tool_check_cert_expired(logic_id, show_info, i);
             CHK_PRT_RETURN(ret != 0 && ret != TLS_CERT_EXPIRED_ERR,
-                hccn_err("tool_check_cert_expired failed, ret:%d, i:%d, logic_id:%d", ret, i, logic_id), ret);
+                           hccn_err("tool_check_cert_expired failed, ret:%d, i:%d, logic_id:%d", ret, i, logic_id),
+                           ret);
         }
     }
     return 0;
@@ -294,16 +307,17 @@ STATIC void tool_tls_cfg_print(struct command_context *ctx, struct tls_cmd_args 
     }
     ca_bit_map[i - 1] = '\0';
 
-    LOG_PROMPT(ctx, "set tls cfg[pub:%u, ca1-ca14:%s, pri:%u, crl:%u, host:%u] for device[%d]",
-        tls_args->pub.is_set, ca_bit_map, tls_args->pri.is_set, tls_args->crl.is_set, tls_args->host.is_set,
-        logic_id);
+    LOG_PROMPT(ctx, "set tls cfg[pub:%u, ca1-ca14:%s, pri:%u, crl:%u, host:%u] for device[%d]", tls_args->pub.is_set,
+               ca_bit_map, tls_args->pri.is_set, tls_args->crl.is_set, tls_args->host.is_set, logic_id);
     return;
 }
 
 STATIC int tool_check_tls_cfg_intergrity(struct tls_cmd_args *tls_args)
 {
     const struct sub_option_entry *opt_group[] = {
-        &tls_args->pri, &tls_args->pub, &tls_args->ca[0],
+        &tls_args->pri,
+        &tls_args->pub,
+        &tls_args->ca[0],
     };
     bool set_any = false, set_all = true;
     int i;
@@ -328,8 +342,8 @@ STATIC int tool_check_tls_cfg_intergrity(struct tls_cmd_args *tls_args)
     if (!tls_args->pub.is_set) {
         for (i = TLS_CA1_CERT; i <= TLS_CA14_CERT; i++) {
             CHK_PRT_RETURN(tls_args->certs[i].is_set,
-                hccn_err("Update CA certificate must after updating pub certificate!"),
-                TLS_CA_WITHOUT_PRI_ERR);
+                           hccn_err("CA certificate must be updated after updating pub certificate!"),
+                           TLS_CA_WITHOUT_PRI_ERR);
         }
         CHK_PRT_RETURN(!tls_args->crl.is_set, hccn_err("No certificate given!"), TLS_INPUT_CERT_COUNT_ERR);
         hccn_info("Update crl only.");
@@ -337,10 +351,11 @@ STATIC int tool_check_tls_cfg_intergrity(struct tls_cmd_args *tls_args)
     }
 
     // CAs must start from -ca1 and continuous
-    for (i = TLS_CA1_CERT; i <= TLS_CA14_CERT && tls_args->certs[i].is_set; i++) {}
+    for (i = TLS_CA1_CERT; i <= TLS_CA14_CERT && tls_args->certs[i].is_set; i++) {
+    }
     for (; i <= TLS_CA14_CERT; i++) {
-        CHK_PRT_RETURN(tls_args->certs[i].is_set,
-            hccn_err("certificate chain is not continuous."), TLS_CERT_DISCONTINOUS_ERR);
+        CHK_PRT_RETURN(tls_args->certs[i].is_set, hccn_err("certificate chain is not continuous."),
+                       TLS_CERT_DISCONTINOUS_ERR);
     }
 #pragma GCC diagnostic pop
 
@@ -357,7 +372,7 @@ STATIC int tool_read_file_check_size(int type, const int len, bool is_host)
     }
 
     if ((type == TLS_PRI_KY) && (len >= KY_MAX_SIZE)) {
-        hccn_err("ky size[%d] is bigger than [%d], invalid", len, KY_MAX_SIZE);
+        hccn_err("key size[%d] is bigger than [%d], invalid", len, KY_MAX_SIZE);
         return -EFBIG;
     }
 
@@ -392,7 +407,7 @@ STATIC int tool_read_file(const char *path, const char *name, char *content, int
     CHK_PRT_RETURN(ret <= 0, hccn_err("snprintf_s failed, ret:%d", ret), -EIO);
 
     CHK_PRT_RETURN(realpath(full_path, real_conf_path) == NULL,
-        hccn_err("conf_path %s is invalid, err[%d]", full_path, errno), -ENOENT);
+                   hccn_err("conf_path %s is invalid, err[%d]", full_path, errno), -ENOENT);
 
     file = fopen(real_conf_path, "r");
     CHK_PRT_RETURN(file == NULL, hccn_err("file is NULL, invalid"), -ENOENT);
@@ -491,7 +506,8 @@ STATIC void tool_filter_str(char *str, unsigned int *len, char filter)
 
 STATIC bool is_special_char(char c)
 {
-    char special_chars[] = "`~!@#$%^&*()-_=+\\|[{}];:'"",<.>/? ";
+    char special_chars[] = "`~!@#$%^&*()-_=+\\|[{}];:'"
+                           ",<.>/? ";
     unsigned int chars_len = strlen(special_chars);
     unsigned int i;
 
@@ -520,7 +536,7 @@ STATIC int tool_check_pwd_complexity(const char *pwd, unsigned int len)
         } else if (is_special_char(pwd[i])) {
             type[PWD_SYMBOL_INDEX] = 1;
         } else {
-            hccn_err("invalid char[%c]", pwd[i]);
+            hccn_err("pwd contains invalid char at position %u", i + 1);
             return -EINVAL;
         }
     }
@@ -563,7 +579,7 @@ STATIC int tool_check_pwd(char *pwd, unsigned int *len)
 
     tool_filter_str(pwd, len, '\n');
     if (*len < PWD_MIN_LEN || *len > PWD_MAX_LEN) {
-        hccn_err("len[%u] is invalid, must between [%d] and [%d]", *len, PWD_MIN_LEN, PWD_MAX_LEN);
+        hccn_err("len[%u] is invalid, must be between [%d] and [%d]", *len, PWD_MIN_LEN, PWD_MAX_LEN);
         return TLS_PWD_LEN_INVALID_ERR;
     }
 
@@ -581,7 +597,8 @@ STATIC int tool_check_pwd(char *pwd, unsigned int *len)
 }
 
 STATIC int tool_digital_envelope_enc_data_with_symm_ky(unsigned char *in_buf, unsigned int in_len,
-    const unsigned char *symm_ky, struct symmetric_enc_info *enc_info)
+                                                       const unsigned char *symm_ky,
+                                                       struct symmetric_enc_info *enc_info)
 {
     crypt_info info = {0};
     int ret;
@@ -603,8 +620,9 @@ STATIC int tool_digital_envelope_enc_data_with_symm_ky(unsigned char *in_buf, un
     return 0;
 }
 
-STATIC int tool_digital_envelope_enc_symm_ky(struct envelope_pub_info *pub_info,
-    unsigned char *symm_ky, unsigned int symm_ky_len, unsigned char *symm_enc_ky, unsigned int *symm_enc_ky_len)
+STATIC int tool_digital_envelope_enc_symm_ky(struct envelope_pub_info *pub_info, unsigned char *symm_ky,
+                                             unsigned int symm_ky_len, unsigned char *symm_enc_ky,
+                                             unsigned int *symm_enc_ky_len)
 {
     EVP_PKEY *pub_ky = NULL;
     RSA *pub_rsa = NULL;
@@ -635,7 +653,7 @@ free_rsa:
 }
 
 STATIC int tool_enc_tls_pwd(unsigned char *pwd, unsigned int pwd_len, struct envelope_pub_info *pub_info,
-    struct tls_cert_ky_crl_info *tls_cfg)
+                            struct tls_cert_ky_crl_info *tls_cfg)
 {
     unsigned char symm_ky[ENVELOPE_SYMM_KY_LEN] = {0};
     unsigned char enc_pwd[PWD_MAX_ENC_LEN + 1] = {0};
@@ -668,7 +686,8 @@ STATIC int tool_enc_tls_pwd(unsigned char *pwd, unsigned int pwd_len, struct env
 
     tls_cfg->symm_enc_ky_info.symm_enc_ky_len = sizeof(tls_cfg->symm_enc_ky_info.symm_enc_ky);
     ret = tool_digital_envelope_enc_symm_ky(pub_info, symm_ky, ENVELOPE_SYMM_KY_LEN,
-        tls_cfg->symm_enc_ky_info.symm_enc_ky, &(tls_cfg->symm_enc_ky_info.symm_enc_ky_len));
+                                            tls_cfg->symm_enc_ky_info.symm_enc_ky,
+                                            &(tls_cfg->symm_enc_ky_info.symm_enc_ky_len));
     if (ret != 0) {
         hccn_err("tool_digital_envelope_enc_symm_ky failed, ret[%d]", ret);
     }
@@ -679,7 +698,7 @@ clear_symm_ky:
 }
 
 STATIC int tool_handle_tls_pwd(int logic_id, unsigned char *pwd, unsigned int pwd_len,
-    struct tls_cert_ky_crl_info *tls_cfg)
+                               struct tls_cert_ky_crl_info *tls_cfg)
 {
     unsigned int size_out = (unsigned int)sizeof(struct envelope_pub_info);
     struct envelope_pub_info *pub_info = NULL;
@@ -751,12 +770,11 @@ clear_pwd:
 
 STATIC void tool_print_read_error(const char *path, const char *filename, int ret)
 {
-    TOOL_PRINT_ERR("File %s/%s is not exist or read failed!", path, filename);
+    TOOL_PRINT_ERR("File %s/%s does not exist or read failed!", path, filename);
     hccn_err("tool_read_file for %s/%s failed, ret:%d", path, filename, ret);
 }
 
-STATIC int tool_get_tls_cfg_from_file(int logic_id, struct tls_cmd_args *tls_args,
-    struct tls_cert_ky_crl_info *tls_cfg)
+STATIC int tool_get_tls_cfg_from_file(int logic_id, struct tls_cmd_args *tls_args, struct tls_cert_ky_crl_info *tls_cfg)
 {
     const bool is_host = tls_args->host.is_set;
     const char *path = tls_args->path.val.as_str;
@@ -766,8 +784,7 @@ STATIC int tool_get_tls_cfg_from_file(int logic_id, struct tls_cmd_args *tls_arg
     unsigned int i;
 
     if (tls_args->pri.is_set) {
-        ret = tool_read_file(path, tls_args->pri.val.as_str,
-            (char *)&(tls_cfg->ky.ky_info), &len, TLS_PRI_KY, is_host);
+        ret = tool_read_file(path, tls_args->pri.val.as_str, (char *)&(tls_cfg->ky.ky_info), &len, TLS_PRI_KY, is_host);
         CHK_PRT_RETURN(ret != 0, tool_print_read_error(path, tls_args->pri.val.as_str, ret), ret);
         tls_cfg->mng.ky_len = len;
         ret = tool_get_and_check_tls_pwd(logic_id, is_host, tls_cfg);
@@ -780,15 +797,13 @@ STATIC int tool_get_tls_cfg_from_file(int logic_id, struct tls_cmd_args *tls_arg
     for (i = TLS_PUB_CERT; i <= TLS_CA14_CERT; i++) {
         if (tls_args->certs[i].is_set) {
             cert_name = tls_args->certs[i].val.as_str;
-            temp_cert = is_host ?
-                        tls_cfg->certs[i].certInfo :
-                        tls_cfg->ncerts[i / TLS_CA8_CERT].certs[i % TLS_CA8_CERT].ncert_info;
+            temp_cert = is_host ? tls_cfg->certs[i].certInfo :
+                                  tls_cfg->ncerts[i / TLS_CA8_CERT].certs[i % TLS_CA8_CERT].ncert_info;
 
             ret = tool_read_file(path, cert_name, temp_cert, &len, i, is_host);
             if (ret != 0) {
-                TOOL_PRINT_ERR("File %s/%s is not exist or read failed!", path, cert_name);
-                hccn_err("tool_read_file for %d:%s/%s failed, ret:%d, host:%d.",
-                    i, path, cert_name, ret, is_host);
+                TOOL_PRINT_ERR("File %s/%s does not exist or read failed!", path, cert_name);
+                hccn_err("tool_read_file for %d:%s/%s failed, ret:%d, host:%d.", i, path, cert_name, ret, is_host);
                 return ret;
             }
             tls_cfg->mng.cert_len[i] = len;
@@ -802,8 +817,7 @@ STATIC int tool_get_tls_cfg_from_file(int logic_id, struct tls_cmd_args *tls_arg
 
     if (tls_args->crl.is_set) {
         crl_name = tls_args->crl.val.as_str;
-        ret = tool_read_file(path, crl_name, (char *)tls_cfg->crl.crl_info,
-            &len, TLS_CRL, is_host);
+        ret = tool_read_file(path, crl_name, (char *)tls_cfg->crl.crl_info, &len, TLS_CRL, is_host);
         CHK_PRT_RETURN(ret != 0, tool_print_read_error(path, crl_name, ret), ret);
         tls_cfg->mng.crl_len = len;
     }
@@ -818,7 +832,8 @@ STATIC int tool_tls_handle_cfg(struct tls_cmd_args *tls_args, struct tls_cert_ky
     int ret;
 
     CHK_PRT_RETURN(!tls_args->path.is_set,
-        hccn_err("Please specify the path of the certificate on the system by -path <%%s>"), TLS_INPUT_CERT_COUNT_ERR);
+                   hccn_err("Please specify the path of the certificate on the system by -path <%%s>"),
+                   TLS_INPUT_CERT_COUNT_ERR);
 
     ret = tool_check_tls_cfg_intergrity(tls_args);
     CHK_PRT_RETURN(ret != 0, hccn_err("tls_cfg is incomplete, ret:%d", ret), ret);
@@ -847,7 +862,7 @@ STATIC int tool_tls_handle_cfg(struct tls_cmd_args *tls_args, struct tls_cert_ky
     }
 
     if (ret == TLS_NO_CERT_ERR || ret == TLS_CERT_EXPIRED_ERR || ret == TLS_CERT_ILLEGAL_ERR) {
-        return  ret;
+        return ret;
     }
     if (ret != 0) {
         return TLS_CERT_VERIFY_FAIL;
@@ -875,7 +890,7 @@ STATIC int tool_set_tls_cfg(struct command_context *ctx, struct tls_cmd_args *tl
 
     if (tls_args->crl.is_set && !tls_args->crl.val.is_set) {
         TOOL_PRINT_ERR("param option %s missing value", tls_args->crl.name);
-        hccn_err("CRL set require a value.");
+        hccn_err("Setting CRL requires a value.");
         return TOOL_USER_INPUT_PARAM_ERR;
     }
 
@@ -909,8 +924,8 @@ STATIC int tool_get_tls_cfg(struct command_context *ctx, struct tls_cmd_args *tl
     int ret = 0;
 
     if (save_mode == TLS_SAVE_TO_FILE) {
-        ret = rdfx_get_tls_cfg(ctx->npu_info.logic_id, (const char *)&save_mode, sizeof(save_mode),
-            (char *)show_info, &size_out);
+        ret = rdfx_get_tls_cfg(ctx->npu_info.logic_id, (const char *)&save_mode, sizeof(save_mode), (char *)show_info,
+                               &size_out);
     } else {
         DSMI_FILL_INFO(info, NULL, 0, NULL, 0, (char *)show_info, &size_out);
         ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_GET_TLS_CFG, &info);
@@ -931,8 +946,8 @@ STATIC int tool_get_tls_cfg(struct command_context *ctx, struct tls_cmd_args *tl
     }
 
     ret = tool_show_tls_cert_info(ctx->npu_info.logic_id, show_info, MAX_SHOW_INFO_COUNT);
-    CHK_PRT_RETURN(ret != 0, hccn_err("tool_show_tls_cert_info failed! ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("tool_show_tls_cert_info failed! ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id), ret);
 
     return 0;
 }
@@ -945,29 +960,30 @@ int set_tls_flash_enable(struct command_context *ctx, struct tls_enable_info *en
     int ret;
 
     ret = halGetDeviceInfo(ctx->npu_info.logic_id, MODULE_TYPE_SYSTEM, INFO_TYPE_RUN_MACH, &val);
-    CHK_PRT_RETURN(ret != 0, hccn_err("halGetDeviceInfo failed, ret:%d, logic_id:%d",
-        ret, ctx->npu_info.logic_id), ret);
+    CHK_PRT_RETURN(ret != 0, hccn_err("halGetDeviceInfo failed, ret:%d, logic_id:%d", ret, ctx->npu_info.logic_id),
+                   ret);
 
     enable_info->machine_type = (int)val;
     enable_info->save_mode = TLS_SAVE_TO_FlASH;
 
     DSMI_FILL_INFO(info, (char *)enable_info, sizeof(struct tls_enable_info), NULL, 0, NULL, &size_out);
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_TLS_ENABLE, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi_set_tls_enable failed logic_id:%d ret:%d enable:%u",
-            ctx->npu_info.logic_id, ret, enable_info->enable), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("dsmi_set_tls_enable failed logic_id:%d ret:%d enable:%u", ctx->npu_info.logic_id, ret,
+                            enable_info->enable),
+                   ret);
 
     return 0;
 }
 
 STATIC int tool_set_tls_enable(struct command_context *ctx, struct tls_cmd_args *tls_args)
 {
-    struct tls_enable_info enable_info = { 0 };
+    struct tls_enable_info enable_info = {0};
     char enable_cfg[MAX_TLS_LEN] = {'\0'};
     unsigned int size_out = 0;
     int ret = 0;
 
-    CHK_PRT_RETURN(!tls_args->enable.is_set,
-        TOOL_PRINT_ERR("please input [-enable 0/1] to set tls enable"), -EINVAL);
+    CHK_PRT_RETURN(!tls_args->enable.is_set, TOOL_PRINT_ERR("please input [-enable 0/1] to set tls enable"), -EINVAL);
 
     LOG_PROMPT(ctx, "start to set tls enable[%d] of device[%d]", tls_args->enable.val.as_int, ctx->npu_info.logic_id);
 
@@ -975,9 +991,11 @@ STATIC int tool_set_tls_enable(struct command_context *ctx, struct tls_cmd_args 
     if (tls_args->host.is_set) {
         enable_info.save_mode = TLS_SAVE_TO_FILE;
         ret = rdfx_set_tls_enable(ctx->npu_info.logic_id, (const char *)&enable_info, sizeof(struct tls_enable_info),
-            NULL, &size_out);
-        CHK_PRT_RETURN(ret != 0, hccn_err("rdfx_set_tls_enable failed for logic_id:%d ret:%d enable:%d",
-            ctx->npu_info.logic_id, ret, tls_args->enable.val.as_int), ret);
+                                  NULL, &size_out);
+        CHK_PRT_RETURN(ret != 0,
+                       hccn_err("rdfx_set_tls_enable failed for logic_id:%d ret:%d enable:%d", ctx->npu_info.logic_id,
+                                ret, tls_args->enable.val.as_int),
+                       ret);
         return 0;
     }
 
@@ -988,8 +1006,9 @@ STATIC int tool_set_tls_enable(struct command_context *ctx, struct tls_cmd_args 
     CHK_PRT_RETURN(ret <= 0, hccn_err("sprintf tls enable info failed!"), -EIO);
 
     ret = tool_write_conf(ctx->slot_id, "tls_enable", enable_cfg);
-    CHK_PRT_RETURN(ret != 0, hccn_err("write cfg error. ret:%d slot_id:%d logic_id:%d",
-        ret, ctx->slot_id, ctx->npu_info.logic_id), TOOL_WRITE_CONF_ERR);
+    CHK_PRT_RETURN(
+        ret != 0, hccn_err("write cfg error. ret:%d slot_id:%d logic_id:%d", ret, ctx->slot_id, ctx->npu_info.logic_id),
+        TOOL_WRITE_CONF_ERR);
 
     return 0;
 }
@@ -1001,26 +1020,30 @@ STATIC int tool_set_tls_alarm(struct command_context *ctx, struct tls_cmd_args *
     unsigned int size_out = 0;
     int ret;
 
-    CHK_PRT_RETURN(!tls_args->alarm.is_set,
-        TOOL_PRINT_ERR("please input [-alarm <day>] to set tls alarm time"), -EINVAL);
+    CHK_PRT_RETURN(!tls_args->alarm.is_set, TOOL_PRINT_ERR("please input [-alarm <day>] to set tls alarm time"),
+                   -EINVAL);
 
     LOG_PROMPT(ctx, "start to set tls alarm[%d] of device[%d]", tls_args->alarm.val.as_int, ctx->npu_info.logic_id);
 
     alarm_info.alarm = (unsigned int)tls_args->alarm.val.as_int;
     if (tls_args->host.is_set) {
         alarm_info.save_mode = TLS_SAVE_TO_FILE;
-        ret = rdfx_set_tls_alarm(ctx->npu_info.logic_id, (const char *)&alarm_info, sizeof(struct tls_alarm_info),
-            NULL, &size_out);
-        CHK_PRT_RETURN(ret != 0, hccn_err("rdfx_set_tls_alarm failed for logic_id:%d ret:%d alarm:%d",
-            ctx->npu_info.logic_id, ret, tls_args->alarm.val.as_int), ret);
+        ret = rdfx_set_tls_alarm(ctx->npu_info.logic_id, (const char *)&alarm_info, sizeof(struct tls_alarm_info), NULL,
+                                 &size_out);
+        CHK_PRT_RETURN(ret != 0,
+                       hccn_err("rdfx_set_tls_alarm failed for logic_id:%d ret:%d alarm:%d", ctx->npu_info.logic_id,
+                                ret, tls_args->alarm.val.as_int),
+                       ret);
         return 0;
     }
 
     alarm_info.save_mode = TLS_SAVE_TO_FlASH;
     DSMI_FILL_INFO(info, (char *)&alarm_info, sizeof(struct tls_alarm_info), NULL, 0, NULL, &size_out);
     ret = dsmi_exe_get_info(ctx->npu_info.logic_id, DS_SET_TLS_ALARM, &info);
-    CHK_PRT_RETURN(ret != 0, hccn_err("dsmi_set_tls_alarm failed logic_id:%d ret:%d alarm:%u",
-        ctx->npu_info.logic_id, ret, alarm_info.alarm), ret);
+    CHK_PRT_RETURN(ret != 0,
+                   hccn_err("dsmi_set_tls_alarm failed logic_id:%d ret:%d alarm:%u", ctx->npu_info.logic_id, ret,
+                            alarm_info.alarm),
+                   ret);
 
     return 0;
 }
@@ -1045,9 +1068,11 @@ STATIC int tool_clear_tls_cfg_on_device(struct command_context *ctx, const struc
     // cleared successfully or no cert found
     if (clear_info->clear_mode == TLS_CLEAR_ALL) {
         ret = tool_del_conf(ctx->slot_id, "tls_enable");
-        CHK_PRT_RETURN(ret != 0,
+        CHK_PRT_RETURN(
+            ret != 0,
             hccn_err("clear tls certs success, clear tls_enable in %s failed, ret:%d, logic_id:%d, slot_id:%d",
-            CFGFILE_NAME, ret, logic_id, ctx->slot_id), ret);
+                     CFGFILE_NAME, ret, logic_id, ctx->slot_id),
+            ret);
     }
 
     return ret;
@@ -1055,10 +1080,7 @@ STATIC int tool_clear_tls_cfg_on_device(struct command_context *ctx, const struc
 
 STATIC int tool_clear_tls_cfg(struct command_context *ctx, struct tls_cmd_args *tls_args)
 {
-    struct tls_clear_info clear_info = {
-        .clear_mode = TLS_CLEAR_ALL,
-        .save_mode = TLS_SAVE_TO_FlASH
-    };
+    struct tls_clear_info clear_info = {.clear_mode = TLS_CLEAR_ALL, .save_mode = TLS_SAVE_TO_FlASH};
     unsigned int size_out = 0;
     int ret;
 
@@ -1071,13 +1093,13 @@ STATIC int tool_clear_tls_cfg(struct command_context *ctx, struct tls_cmd_args *
         return TOOL_USER_INPUT_PARAM_ERR;
     }
 
-    LOG_PROMPT(ctx, "start to clear tls cfg[crl:%u, host:%u] of device[%d]",
-        tls_args->crl.is_set, tls_args->host.is_set, ctx->npu_info.logic_id);
+    LOG_PROMPT(ctx, "start to clear tls cfg[crl:%u, host:%u] of device[%d]", tls_args->crl.is_set,
+               tls_args->host.is_set, ctx->npu_info.logic_id);
 
     if (tls_args->host.is_set) {
         clear_info.save_mode = TLS_SAVE_TO_FILE;
-        ret = rdfx_clear_tls_cfg(ctx->npu_info.logic_id, (const char *)&clear_info, sizeof(clear_info),
-            NULL, &size_out);
+        ret = rdfx_clear_tls_cfg(ctx->npu_info.logic_id, (const char *)&clear_info, sizeof(clear_info), NULL,
+                                 &size_out);
         if (ret == -EBUSY) {
             return DEV_SYS_BUSY_ERR;
         }
@@ -1110,8 +1132,10 @@ STATIC int tool_tls_exec(struct command_context *ctx)
     int ret = 0;
 
     ret = hccn_check_usr_identify();
-    CHK_PRT_RETURN(ret != 0, hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d",
-        ret, ctx->npu_info.logic_id), TOOL_PUBLIC_ROOT_UNSUPPORT);
+    CHK_PRT_RETURN(
+        ret != 0,
+        hccn_err("permission denied: only root user is allowed, ret:%d logic_id:%d", ret, ctx->npu_info.logic_id),
+        TOOL_PUBLIC_ROOT_UNSUPPORT);
 
     if (ctx->mode == MODE_GET) {
         ret = tool_get_tls_cfg(ctx, tls_args);
@@ -1125,7 +1149,7 @@ STATIC int tool_tls_exec(struct command_context *ctx)
         case TLS_SET_CFG:
             ret = tool_set_tls_cfg(ctx, tls_args);
             ret = analysis_tls_ret(ret);
-            TOOL_PRINT_INFO("[WARNING] Please delete the private key file after updating for security considerations.");
+            TOOL_PRINT_WARN("Please delete the private key file after updating for security considerations.");
             CHK_PRT_RETURN(ret != 0, hccn_err("tool_set_tls_cfg failed"), ret);
             break;
         case TLS_SET_ENABLE:
@@ -1169,7 +1193,7 @@ STATIC void tool_tls_print_help(struct command_context *ctx, unsigned int mode)
             TOOL_PRINT_OPT("-pri <filename>", "set pri key filename, only support pem file format");
             TOOL_PRINT_OPT("-pub <filename>", "set pub certificate filename, only support pem file format");
             TOOL_PRINT_OPT("-caN <filename>",
-                "set ca certificate filename, range of N [1, 14], only support pem file format");
+                           "set ca certificate filename, range of N [1, 14], only support pem file format");
             TOOL_PRINT_OPT("[-crl <filename>]", "set the filename for revocation list, only support crl file format");
             TOOL_PRINT_OPT("[-host]", "set tls certificate for Host");
 
@@ -1195,13 +1219,17 @@ STATIC void tool_tls_print_help(struct command_context *ctx, unsigned int mode)
 }
 
 STATIC struct cmd_entry g_tls_cmds[] = {
-    {
-        "-tls", get_tls_sub_opts, MODE_BOTH,
-        tls_alloc_args, tls_assign, tool_tls_exec,
-        {DEV_NPU_ATTR}, tool_tls_print_help,
-        NULL, 0,
-        .free_args = tls_free_args
-    },
+    {"-tls",
+     get_tls_sub_opts,
+     MODE_BOTH,
+     tls_alloc_args,
+     tls_assign,
+     tool_tls_exec,
+     {DEV_NPU_ATTR},
+     tool_tls_print_help,
+     NULL,
+     0,
+     .free_args = tls_free_args},
 };
 
 void tool_get_tls_cmds(struct cmd_entry **cmds, unsigned int *count)

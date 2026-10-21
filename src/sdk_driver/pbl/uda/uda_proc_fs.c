@@ -35,10 +35,10 @@ static void uda_udev_single_show(ka_seq_file_t *seq, struct uda_dev_inst *dev_in
 
     uda_type_to_string(&dev_inst->type, buf, TYPE_BUF_LEN);
 
-    ka_fs_seq_printf(seq, "udevid %u type(%s) status '%s, %s' added_udevid %u chip_type %s\n",
-        dev_inst->udevid, buf, uda_is_suspend_status(dev_inst->status) ? "suspend" : "ready",
-        uda_is_mia_status(dev_inst->status) ? "mia" : "sia",
-        dev_inst->para.udevid, uda_get_chip_name(dev_inst->para.chip_type));
+    ka_fs_seq_printf(seq, "udevid %u type(%s) status '%s, %s' added_udevid %u chip_type %s\n", dev_inst->udevid, buf,
+                     uda_is_suspend_status(dev_inst->status) ? "suspend" : "ready",
+                     uda_is_mia_status(dev_inst->status) ? "mia" : "sia", dev_inst->para.udevid,
+                     uda_get_chip_name(dev_inst->para.chip_type));
 
     if (dev_inst->para.remote_udevid != UDA_INVALID_UDEVID) {
         ka_fs_seq_printf(seq, "        remote udevid %u\n", dev_inst->para.remote_udevid);
@@ -56,7 +56,8 @@ static void uda_udev_single_show(ka_seq_file_t *seq, struct uda_dev_inst *dev_in
         struct uda_access_share_node *share_node = NULL;
         ka_fs_seq_printf(seq, "        shared dev used by ns id:");
         ka_task_mutex_lock(&dev_inst->access.mutex);
-        ka_list_for_each_entry(share_node, &dev_inst->access.share_head, node) {
+        ka_list_for_each_entry(share_node, &dev_inst->access.share_head, node)
+        {
             ka_fs_seq_printf(seq, " %u", share_node->ns_id);
         }
         ka_fs_seq_printf(seq, "\n");
@@ -68,8 +69,8 @@ static void uda_udev_single_show(ka_seq_file_t *seq, struct uda_dev_inst *dev_in
     }
 
     if (!uda_is_phy_dev(dev_inst->udevid)) {
-        ka_fs_seq_printf(seq, "        mia para: phy_devid %u sub_devid %u\n",
-            dev_inst->mia_para.phy_devid, dev_inst->mia_para.sub_devid);
+        ka_fs_seq_printf(seq, "        mia para: phy_devid %u sub_devid %u\n", dev_inst->mia_para.phy_devid,
+                         dev_inst->mia_para.sub_devid);
     }
 
     if (dev_inst->agent_dev != NULL) {
@@ -105,10 +106,10 @@ static void uda_ns_node_single_show(struct uda_ns_node *ns_node, void *priv)
     u32 devid;
 
     ka_fs_seq_printf(seq, "ns_id %u identify %llx root_tgid %u dev_num %u namespace %pK%s, udev list:\n",
-        ns_node->ns_id, ns_node->identify, ns_node->root_tgid, ns_node->dev_num, ns_node->ns,
-        (ns_node->ns == uda_get_current_ns()? "(#)" : ""));
+                     ns_node->ns_id, ns_node->identify, ns_node->root_tgid, ns_node->dev_num, ns_node->ns,
+                     (ns_node->ns == uda_get_current_ns() ? "(#)" : ""));
     ka_fs_seq_printf(seq, "logic_devid udevid\n");
-    for (devid = 0; devid < ns_node->dev_num; devid++) {
+    for (devid = 0; (devid < ns_node->dev_num) && (devid < UDA_DEV_MAX_NUM); devid++) {
         ka_fs_seq_printf(seq, "%8u %8u\n", devid, ns_node->devid_to_udevid[devid]);
     }
     ka_fs_seq_printf(seq, "\n\n");
@@ -117,7 +118,7 @@ static void uda_ns_node_single_show(struct uda_ns_node *ns_node, void *priv)
 static int uda_ns_node_show(ka_seq_file_t *seq, void *offset)
 {
     if (ka_feature_is_enable()) {
-            uda_recycle_idle_ns_node_immediately();
+        uda_recycle_idle_ns_node_immediately();
     }
     uda_for_each_ns_node_safe(seq, uda_ns_node_single_show);
     return 0;
@@ -155,7 +156,8 @@ static void _uda_notifier_show(struct uda_dev_type *type, struct uda_notifiers *
         if (!ka_list_empty(nf_head)) {
             ka_fs_seq_printf(seq, "    pri %d\n", i);
 
-            ka_list_for_each_entry(nf, nf_head, node) {
+            ka_list_for_each_entry(nf, nf_head, node)
+            {
                 ka_fs_seq_printf(seq, "        notifier: %s %u %u\n", nf->notifier, nf->call_count, nf->call_finish);
             }
         }
@@ -208,4 +210,3 @@ void uda_proc_fs_uninit(void)
 {
     (void)ka_fs_remove_proc_subtree("uda", NULL);
 }
-

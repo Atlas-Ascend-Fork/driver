@@ -36,6 +36,7 @@ int pma_ub_init(void)
     }
 
     pma_ub_um_handle_init();
+
     return 0;
 }
 DECLAER_FEATURE_AUTO_INIT(pma_ub_init, FEATURE_LOADER_STAGE_6);

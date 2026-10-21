@@ -23,7 +23,8 @@ typedef struct soc_res_board_hw_info {
     u8 chip_id;
     u8 multi_chip; /* multi-chip or single-chip */
     u8 multi_die;  /* multi-die or single-die */
-    u8 mainboard_id;
+    u8 rsv;        /* reserved for u16 alignment */
+    u16 mainboard_id;
     u16 addr_mode; /* host and device addressing mode. 0: independent, 1: unified */
     u16 board_id;
 
@@ -41,6 +42,14 @@ typedef struct soc_res_board_hw_info {
     u8 super_pod_intercon_type;
     u8 reserved2[HW_INFO_RESERVED_LEN];
 } soc_res_board_hw_info_t;
+
+#define BOARD_HW_INFO_EX "board_hw_info_ex"
+#define HW_INFO_EX_RESERVED_LEN 252
+typedef struct soc_res_board_hw_info_ex {
+    u16 scale_up_group_id;
+    u16 scale_out_group_id;
+    u8 reserved[HW_INFO_EX_RESERVED_LEN];
+} soc_res_board_hw_info_ex_t;
 
 /* soc version */
 #define SOC_VERSION "soc_ver"

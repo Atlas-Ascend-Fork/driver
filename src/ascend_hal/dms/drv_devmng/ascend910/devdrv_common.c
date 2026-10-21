@@ -48,4 +48,3 @@ drvError_t halCtl(int cmd, void *param_value, size_t param_value_size, void *out
     (void)(out_size_ret);
     return ret;
 }
-

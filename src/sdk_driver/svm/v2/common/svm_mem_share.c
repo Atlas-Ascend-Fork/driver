@@ -147,7 +147,7 @@ int devmm_target_blk_query_pa_process(u32 devid, struct devmm_chan_target_blk_qu
         share_blk = devmm_share_phy_addr_blk_get(devid, msg->share_id);
     }
     if (share_blk == NULL) {
-        devmm_drv_err("Share id doesn't exist. (devid=%u; share_id=%d; side=%d)\n", devid, msg->share_id, side);
+        devmm_drv_err("Share id doesn't exist. (devid=%u; share_id=%d;side=%d)\n", devid, msg->share_id, side);
         return -EBADR;
     }
 
@@ -192,6 +192,8 @@ int devmm_share_phy_addr_blk_init(struct devmm_phy_addr_blk *to_blk, struct devm
 
     if (from_blk != NULL) {
         devmm_pg_dma_info_init(to_blk, from_blk, to_create_pg_num);
+        to_blk->pa_pg_size = from_blk->pa_pg_size;
+        to_blk->size = to_blk->pg_num * to_blk->pa_pg_size;
         to_blk->is_same_sys_share = true;
         to_blk->src_devid = from_blk->attr.devid;
         is_finish = (to_blk->pg_info.saved_num == to_blk->pg_info.total_num);

@@ -59,7 +59,7 @@ STATIC int dms_lpm_parameter_check(struct dms_lpm_info_in *in, void *result)
 drvError_t DmsGetLpmInfo(struct dms_lpm_info_in *in, void *result, unsigned int result_size)
 {
     struct dms_ioctl_arg ioarg = {0};
-    int ret, user_errno;
+    int ret, user_errno, ioctl_cmd;
 
 #ifdef CFG_FEATURE_RECONSITUTION_TEMPORARY
     struct dms_filter_st filter = {0};
@@ -95,8 +95,9 @@ drvError_t DmsGetLpmInfo(struct dms_lpm_info_in *in, void *result, unsigned int 
         ioarg.filter_len = filter.filter_len;
     }
 #endif
-
-    ret = DmsIoctl(DMS_IOCTL_CMD, &ioarg);
+    /* DMS_LPM_GET_FREQUENCY value is equal to DMS_SUBCMD_GET_FREQUENCY */
+    ioctl_cmd = (in->sub_cmd == DMS_LPM_GET_FREQUENCY) ? DMS_GET_LPM_FREQUENCY : DMS_IOCTL_CMD;
+    ret = DmsIoctl(ioctl_cmd, &ioarg);
     if (ret != 0) {
         user_errno = errno_to_user_errno(ret);
         DMS_EX_NOTSUPPORT_ERR(user_errno,
@@ -124,17 +125,17 @@ drvError_t dms_get_lpm_freq_v2(struct dms_lpm_info_in_v2 *in, unsigned int *freq
     ioarg.sub_cmd = DMS_SUBCMD_GET_FREQUENCY_V2;
     ioarg.filter_len = 0;
     ioarg.input = (void *)in;
-    ioarg.input_len = sizeof(struct dms_lpm_info_in_v2);
+    ioarg.input_len = (unsigned int)sizeof(struct dms_lpm_info_in_v2);
     ioarg.output = (void *)frequency;
-    ioarg.output_len = sizeof(unsigned int);
+    ioarg.output_len = (unsigned int)sizeof(unsigned int);
 
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl((int)DMS_IOCTL_CMD, &ioarg));
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret,
                               "Dms get device lpm freq failed."
                               "(dev_id=%u; part_id=%u; core_id=%u; ret=%d;)\n",
                               in->dev_id, in->part_id, in->core_id, ret);
-        return ret;
+        return (drvError_t)ret;
     }
 
     DMS_DEBUG("Dms get device lpm freq success. (dev_id=%u; part_id=%u; core_id=%u;)\n", in->dev_id, in->part_id,
@@ -389,7 +390,7 @@ STATIC int DmsGetDdrTemperature(unsigned int dev_id, unsigned int sub_cmd, void 
 
     /* length of actually read data from kernel ipc may exceed out_buf size */
     if (arg.commoninfo_len > *buf_size) {
-        DMS_ERR("actual data length(%u) larger than *ret_size(%u), devid(%u).\n", arg.commoninfo_len, *buf_size,
+        DMS_ERR("actual data length(%u) larger than *buf_size(%u), devid(%u).\n", arg.commoninfo_len, *buf_size,
                 dev_id);
         return DRV_ERROR_INVALID_VALUE;
     }
@@ -475,7 +476,7 @@ int DmsGetTemperature(unsigned int dev_id, unsigned int vfid, unsigned int sub_c
 int DmsGetTempFromLp(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size)
 {
     (void)vfid;
-    return DmsGetDeviceInfoEx(dev_id, DMS_MAIN_CMD_TEMP, sub_cmd, buf, size);
+    return halDmsGetDeviceInfoEx(dev_id, DMS_MAIN_CMD_TEMP, sub_cmd, buf, size);
 }
 
 int DmsGetLowPowerInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_cmd, void *buf, unsigned int *size)
@@ -495,12 +496,12 @@ int DmsGetLowPowerInfo(unsigned int dev_id, unsigned int vfid, unsigned int sub_
         }
     }
 
-    return DmsGetDeviceInfoEx(dev_id, DMS_MAIN_CMD_LP, sub_cmd, buf, size);
+    return halDmsGetDeviceInfoEx(dev_id, DMS_MAIN_CMD_LP, sub_cmd, buf, size);
 }
 
 int DmsSetLowPowerInfo(unsigned int dev_id, unsigned int sub_cmd, void *buf, unsigned int size)
 {
-    return DmsSetDeviceInfoEx(dev_id, DMS_MAIN_CMD_LP, sub_cmd, buf, size);
+    return halDmsSetDeviceInfoEx(dev_id, DMS_MAIN_CMD_LP, sub_cmd, buf, size);
 }
 
 #ifdef CFG_FEATURE_PASS_THROUGH_MCU_BY_IMU
@@ -520,8 +521,8 @@ int DmsLpmPassThroughMcu(unsigned char rw_flag, unsigned char *buf, unsigned cha
     }
 
     if (buf == NULL || recv_len == NULL || resp_buff == NULL || dev_id >= ASCEND_DEV_MAX_NUM) {
-        DMS_ERR("Parameter is invalid. (dev_id=%u; buf_not_null=%d; resp_buff_not_null=%d; recv_len_not_null=%d)\n",
-                dev_id, (buf != NULL), (resp_buff != NULL), (recv_len != NULL));
+        DMS_ERR("Parameter is invalid. (dev_id=%u; buf_is_null=%d; resp_buff_is_null=%d; recv_len_is_null=%d)\n",
+                dev_id, (buf == NULL), (resp_buff == NULL), (recv_len == NULL));
         return DRV_ERROR_INVALID_VALUE;
     }
 
@@ -612,7 +613,7 @@ int dms_lpm_get_ai_core_curr_freq(unsigned int devId, void *buf, unsigned int *s
     ioarg.input_len = sizeof(struct dms_lpm_info_in);
     ioarg.output = &curr_freq;
     ioarg.output_len = sizeof(unsigned int);
-    ret = errno_to_user_errno(DmsIoctl(DMS_IOCTL_CMD, &ioarg));
+    ret = errno_to_user_errno(DmsIoctl(DMS_GET_LPM_FREQUENCY, &ioarg));
     if (ret != 0) {
         DMS_EX_NOTSUPPORT_ERR(ret, "drvGetAiCoreCurrFreq failed. (dev_id=%u, ret=%d)", devId, ret);
         return ret;

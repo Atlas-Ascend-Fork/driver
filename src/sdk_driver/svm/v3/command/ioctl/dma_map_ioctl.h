@@ -6,6 +6,7 @@
 #include "ascend_hal_define.h"
 
 #include "svm_pub.h"
+#include "svm_addr_desc.h"
 
 struct svm_dma_map_para {
     struct svm_dst_va dst_va; /* input */

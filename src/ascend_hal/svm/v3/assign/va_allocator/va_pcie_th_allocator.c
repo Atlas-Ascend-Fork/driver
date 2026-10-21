@@ -31,6 +31,12 @@ struct va_pcie_th_allocator {
 #define VA_PCIE_TH_SHRINK_FACTOR 1
 
 static struct va_pcie_th_allocator g_pcie_th_allocator = {0};
+static bool g_is_pcie_th_mapped = false;
+
+bool svm_is_pcie_th_allocator_enable(void)
+{
+    return g_is_pcie_th_mapped;
+}
 
 static struct va_pcie_th_allocator *va_get_pcie_th_allocator(void)
 {
@@ -79,7 +85,7 @@ static int va_pcie_th_va_expand(void *mga_inst, u64 *expand_size, u64 *va)
         int ret = va_pcie_th_va_reserve(size, start, start + total_size, step, va);
         if (ret == DRV_ERROR_NONE) {
             /* avoid alloc a gap va. */
-            *expand_size = size;
+            *expand_size = ((*va + size) == total_size) ? (size - mga_get_max_align_size(mga_inst)) : size;
             return DRV_ERROR_NONE;
         }
 
@@ -100,9 +106,10 @@ static int va_pcie_th_va_shrink(void *mga_inst, u64 va, u64 size)
 
 static int _va_pcie_th_allocator_init_locked(struct va_pcie_th_allocator *allocator)
 {
-    u64 start, size;
+    u64 start, size, tmp_va;
     void *mga_inst = NULL;
     struct mga_attr attr;
+    int ret;
 
     svm_get_pcie_th_va_range(&start, &size);
 
@@ -120,15 +127,18 @@ static int _va_pcie_th_allocator_init_locked(struct va_pcie_th_allocator *alloca
     }
 
     allocator->mga_inst = mga_inst;
+
+    /* Try mmap pcie_th va to set flag for halSupportFeature. */
+    ret = mga_va_alloc(mga_inst, attr.max_align_size, attr.max_align_size, &tmp_va);
+    if (ret == DRV_ERROR_NONE) {
+        g_is_pcie_th_mapped = true;
+        mga_va_free(mga_inst, tmp_va, attr.max_align_size, attr.max_align_size);
+    }
     return DRV_ERROR_NONE;
 }
 
 static int va_pcie_th_allocator_init_locked(struct va_pcie_th_allocator *allocator)
 {
-    if (allocator->valid == 0) {
-        return DRV_ERROR_NOT_SUPPORT;
-    }
-
     if (allocator->mga_inst != NULL) {
         return 0;
     }
@@ -136,8 +146,9 @@ static int va_pcie_th_allocator_init_locked(struct va_pcie_th_allocator *allocat
     return _va_pcie_th_allocator_init_locked(allocator);
 }
 
-static int va_pcie_th_allocator_init(struct va_pcie_th_allocator *allocator)
+int va_pcie_th_allocator_init(void)
 {
+    struct va_pcie_th_allocator *allocator = va_get_pcie_th_allocator();
     static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
     int ret;
 
@@ -152,53 +163,31 @@ void va_pcie_th_allocator_uninit(void)
 {
     struct va_pcie_th_allocator *allocator = va_get_pcie_th_allocator();
 
-    if (allocator->valid != 0) {
-        if (allocator->mga_inst != NULL) {
-            mga_inst_destroy(allocator->mga_inst);
-            allocator->mga_inst = NULL;
-        }
-        allocator->valid = 0;
+    if (allocator->mga_inst != NULL) {
+        mga_inst_destroy(allocator->mga_inst);
+        allocator->mga_inst = NULL;
     }
 }
 
-static u64 va_pcie_th_get_gap_size(void)
-{
-    /* pcie th use 64k gap */
-    return (svm_va_get_gap() == 0ULL) ? 0ULL : (64ULL * SVM_BYTES_PER_KB);
-}
-
-int va_pcie_th_alloc(u32 devid, u64 align, u64 size, u64 *va)
+int va_pcie_th_alloc(u64 align, u64 size, u64 *va)
 {
     struct va_pcie_th_allocator *allocator = va_get_pcie_th_allocator();
-
-    if (devid != svm_get_host_devid()) {
-        svm_err("Invalid devid. (devid=%u)\n", devid);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
     if (allocator->mga_inst == NULL) {
-        int ret = va_pcie_th_allocator_init(allocator);
+        int ret = va_pcie_th_allocator_init();
         if (ret != 0) {
             return ret;
         }
     }
 
-    /* add a gap size */
-    return mga_va_alloc(allocator->mga_inst, align, size + va_pcie_th_get_gap_size(), va);
+    return mga_va_alloc(allocator->mga_inst, align, size, va);
 }
 
-int va_pcie_th_free(u32 devid, u64 va, u64 size, u64 align)
+int va_pcie_th_free(u64 va, u64 size, u64 align)
 {
     struct va_pcie_th_allocator *allocator = va_get_pcie_th_allocator();
-
-    if (devid != svm_get_host_devid()) {
-        svm_err("Invalid devid. (devid=%u)\n", devid);
-        return DRV_ERROR_INVALID_VALUE;
-    }
-
     if (allocator->mga_inst == NULL) {
         return DRV_ERROR_INVALID_VALUE;
     }
 
-    return mga_va_free(allocator->mga_inst, va, size + va_pcie_th_get_gap_size(), align);
+    return mga_va_free(allocator->mga_inst, va, size, align);
 }

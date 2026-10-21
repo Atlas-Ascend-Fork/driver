@@ -99,6 +99,9 @@ static int devmm_vmma_insert(struct devmm_vmma_mng *mng, struct devmm_vmma_struc
 int devmm_vmma_create(struct devmm_vmma_mng *mng, struct devmm_vmma_info *info)
 {
     struct devmm_vmma_struct *vmma = NULL;
+#ifdef DRV_HOST
+    u32 udevid;
+#endif
     int ret;
 
     vmma = devmm_kvzalloc_ex(sizeof(struct devmm_vmma_struct), KA_GFP_KERNEL | __KA_GFP_ACCOUNT);
@@ -110,6 +113,11 @@ int devmm_vmma_create(struct devmm_vmma_mng *mng, struct devmm_vmma_info *info)
     ka_base_kref_init(&vmma->ref);
     ka_task_init_rwsem(&vmma->rw_sem);
     ka_task_mutex_init(&vmma->mutex);
+#ifdef DRV_HOST
+    for (udevid = 0; udevid < DEVMM_MAX_ACCESS_DEVICE_NUM; udevid++) {
+        vmma->device_access_type[udevid] = MEM_ACCESS_TYPE_NONE;
+    }
+#endif
     vmma->info = *info;
 
     ret = devmm_vmma_insert(mng, vmma);
@@ -124,6 +132,17 @@ void devmm_vmma_destroy(struct devmm_vmma_mng *mng, struct devmm_vmma_struct *vm
 {
     devmm_vmma_erase(mng, vmma);
     devmm_vmma_put(vmma);
+}
+
+static void devmm_vmma_owner_unset_access(struct devmm_svm_process *svm_proc, struct devmm_vmma_struct *vmma)
+{
+#ifdef DRV_HOST
+    (void)devmm_owner_unset_access(svm_proc, vmma);
+#else
+    if (vmma->info.side == DEVMM_SIDE_TYPE) {
+        devmm_mem_unmap(svm_proc, &vmma->info);
+    }
+#endif
 }
 
 void devmm_vmmas_destroy(struct devmm_svm_process *svm_proc, struct devmm_vmma_mng *mng)
@@ -141,10 +160,10 @@ void devmm_vmmas_destroy(struct devmm_svm_process *svm_proc, struct devmm_vmma_m
         }
 
         vmma = ka_base_rb_entry(rbnode, struct devmm_vmma_struct, rbnode);
-        if (vmma->info.side == DEVMM_SIDE_TYPE) {
-            devmm_mem_unmap(svm_proc, &vmma->info);
-        } else { /* for dev mem access_map host, host recycle */
-            devmm_access_munmap_all(svm_proc, vmma);
+        (void)devmm_access_munmap_all(svm_proc, vmma);
+        devmm_vmma_owner_unset_access(svm_proc, vmma);
+        if (devmm_vmma_is_owner_no_access(&vmma->info)) {
+            devmm_mem_map_occupy_dec(svm_proc, &vmma->info);
         }
         devmm_vmma_put(vmma);
         devmm_try_cond_resched(&stamp);
@@ -166,13 +185,63 @@ void devmm_vmma_exclusive_clear(struct devmm_vmma_struct *vmma)
     ka_task_up_write(&vmma->rw_sem);
 }
 
-static int devmm_vmma_occupy_inc(struct devmm_vmma_struct *vmma)
+static int devmm_vmma_shared_trylock(struct devmm_vmma_struct *vmma)
 {
     if (ka_task_down_read_trylock(&vmma->rw_sem) == 0) {
         devmm_drv_err("Addr is unmapping, shouldn't be concurrent to occupy. (va=0x%llx; size=%llu)\n", vmma->info.va,
                       vmma->info.size);
         return -EFAULT;
     }
+
+    return 0;
+}
+
+int devmm_vmma_shared_set(struct devmm_vmma_mng *mng, struct devmm_vmma_struct *vmma)
+{
+    struct devmm_vmma_struct *cur_vmma = NULL;
+    int ret;
+
+    ret = devmm_vmma_shared_trylock(vmma);
+    if (ret != 0) {
+        return ret;
+    }
+
+    cur_vmma = devmm_vmma_get(mng, vmma->info.va);
+    if (cur_vmma != vmma) {
+        if (cur_vmma != NULL) {
+            devmm_vmma_put(cur_vmma);
+        }
+        ka_task_up_read(&vmma->rw_sem);
+        devmm_drv_err("Vmma has been destroyed. (va=0x%llx; size=%llu)\n", vmma->info.va, vmma->info.size);
+        return -EINVAL;
+    }
+    devmm_vmma_put(cur_vmma);
+
+    return 0;
+}
+
+void devmm_vmma_shared_clear(struct devmm_vmma_struct *vmma)
+{
+    ka_task_up_read(&vmma->rw_sem);
+}
+
+static int devmm_vmma_occupy_inc(struct devmm_vmma_struct *vmma)
+{
+    int ret;
+
+    ret = devmm_vmma_shared_trylock(vmma);
+    if (ret != 0) {
+        return ret;
+    }
+
+    if (!KA_READ_ONCE(vmma->info.owner_mapped)) {
+        ka_task_up_read(&vmma->rw_sem);
+        devmm_drv_err("Owner is not mapped. (va=0x%llx; size=%llu)\n", vmma->info.va, vmma->info.size);
+#ifndef EMU_ST
+        return -EINVAL;
+#endif
+    }
+
     return 0;
 }
 

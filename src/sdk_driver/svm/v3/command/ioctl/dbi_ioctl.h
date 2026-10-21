@@ -9,4 +9,10 @@ struct svm_dbi_query_para {
     struct svm_device_basic_info dbi; /* output */
 };
 
+struct svm_dbi_cap_query_para {
+    u32 devid;
+    u32 bitmap_size;
+    svm_dev_cap_t cap_bitmap;
+};
+
 #endif
