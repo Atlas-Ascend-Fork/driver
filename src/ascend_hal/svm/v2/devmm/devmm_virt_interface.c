@@ -829,6 +829,21 @@ void devmm_host_pin_pre_register_release(virt_addr_t ptr)
     }
 }
 
+/* For host_base_heap: mark the alloced node as mapped so that free path knows mapped_size was incremented. */
+STATIC void devmm_host_base_heap_mark_mapped(struct devmm_virt_com_heap *heap, virt_addr_t ret_val)
+{
+    struct devmm_rbtree_node *node = NULL;
+
+    if ((heap->is_base_heap == true) && (heap->is_host_pin == true)) {
+        (void)pthread_mutex_lock(&heap->tree_lock);
+        node = devmm_rbtree_get_alloced_node(ret_val, &heap->rbtree_queue);
+        if (node != NULL) {
+            node->data.flag |= DEVMM_NODE_MAPPED_FLG;
+        }
+        (void)pthread_mutex_unlock(&heap->tree_lock);
+    }
+}
+
 STATIC virt_addr_t devmm_virt_heap_alloc_host(struct devmm_virt_com_heap *heap, virt_addr_t ret_val, size_t alloc_size,
                                               DVmem_advise advise)
 {
@@ -836,6 +851,7 @@ STATIC virt_addr_t devmm_virt_heap_alloc_host(struct devmm_virt_com_heap *heap, 
         return DEVMM_INVALID_STOP;
     }
 
+    devmm_host_base_heap_mark_mapped(heap, ret_val);
     devmm_mem_mapped_size_inc(heap, alloc_size);
     devmm_host_pin_pre_register(ret_val, alloc_size);
 

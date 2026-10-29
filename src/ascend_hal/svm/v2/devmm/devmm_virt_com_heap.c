@@ -514,11 +514,20 @@ STATIC DVresult devmm_free_phymem_to_os(struct devmm_virt_com_heap *heap, struct
     if (ret != DRV_ERROR_NONE) {
         return ret;
     }
-    devmm_node_clear_flag(node, DEVMM_NODE_MAPPED_FLG);
+
     heap->sys_mem_freed += node->data.total;
 
-    devmm_mem_mapped_size_dec(heap, node->data.total);
+    if (heap->is_base_heap == true) {
+        /* base_heap (non-host-pin) never does mapped_size_inc, skip dec */
+        /* host_base_heap without MAPPED_FLG: alloc op failed before inc, skip dec */
+        if ((heap->is_host_pin == true) && devmm_node_flag_is_mapped(node)) {
+            devmm_mem_mapped_size_dec(heap, node->data.total);
+        }
+    } else {
+        devmm_mem_mapped_size_dec(heap, node->data.total);
+    }
 
+    devmm_node_clear_flag(node, DEVMM_NODE_MAPPED_FLG);
     return DRV_ERROR_NONE;
 }
 
@@ -959,7 +968,12 @@ STATIC DVresult devmm_alloc_from_unmapped_node(struct devmm_virt_com_heap *heap,
         return ret;
     }
     node_flag = devmm_set_node_flag_from_advise(advise);
-    devmm_unmap_node_set_flag(map_node, node_flag | DEVMM_NODE_MAPPED_FLG);
+    if ((heap->is_base_heap == true) && (heap->is_host_pin == true)) {
+        /* host_base_heap: MAPPED_FLG is set in alloc ops after physical map succeeds */
+        devmm_unmap_node_set_flag(map_node, node_flag);
+    } else {
+        devmm_unmap_node_set_flag(map_node, node_flag | DEVMM_NODE_MAPPED_FLG);
+    }
 
     if (devmm_node_needs_to_seg(heap, map_size, remain_size, memtype, advise_is_nocache(advise)) == true) {
         devmm_segment_node(heap, map_node, alloc_size, remain_size, memtype);
