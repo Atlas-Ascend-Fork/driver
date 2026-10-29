@@ -215,7 +215,7 @@ page_fault_d2h_copy_free_pas:
 
 static int devmm_chan_page_fault_check_va(struct devmm_svm_process *svm_proc, struct devmm_svm_heap *heap, u64 va)
 {
-    u32 *page_bitmap = devmm_get_page_bitmap_with_heap(heap, va);
+    u32 *page_bitmap = NULL;
     int ret;
 
     page_bitmap = devmm_get_page_bitmap_with_heap(heap, va);

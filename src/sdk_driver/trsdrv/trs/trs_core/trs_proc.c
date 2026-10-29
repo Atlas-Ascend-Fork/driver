@@ -401,6 +401,11 @@ struct trs_proc_ctx *trs_get_share_ctx(struct trs_core_ts_inst *ts_inst, u32 sha
     return NULL;
 }
 
+void trs_put_share_ctx(struct trs_proc_ctx *proc_ctx)
+{
+    trs_proc_ctx_put(proc_ctx);
+}
+
 struct trs_proc_ctx *trs_proc_ctx_create(struct trs_core_ts_inst *all_ts_inst[], u32 ts_num)
 {
     struct trs_core_ts_inst *ts_inst = all_ts_inst[0];

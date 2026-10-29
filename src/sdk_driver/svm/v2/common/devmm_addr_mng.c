@@ -428,11 +428,11 @@ static bool devmm_mem_is_alloced(struct devmm_svm_process *svm_proc, struct devm
             if (vma == NULL) {
                 return false;
             }
-            if (devmm_va_to_pfn(vma, vaddr, &pfn, &kpg_size) != 0) {
+            if (devmm_va_to_pfn(vma, tmp_vaddr, &pfn, &kpg_size) != 0) {
                 return false;
             }
         } else {
-            addr_info = devmm_get_addr_info(mem_node, vaddr);
+            addr_info = devmm_get_addr_info(mem_node, tmp_vaddr);
             if (addr_info == NULL || addr_info->page == NULL) {
                 return false;
             }

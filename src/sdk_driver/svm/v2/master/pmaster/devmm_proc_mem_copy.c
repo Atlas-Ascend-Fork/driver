@@ -2992,8 +2992,8 @@ static int devmm_wait_async_cpy_result(struct devmm_svm_process *svm_proc, struc
                 return ret;
             }
 #endif
-            if ((copy_task->async_status == 0) && (loop_time % 20 == 0)) { /* 20 times */
-                ka_system_usleep_range(1, 2);                              /* 1-2 us */
+            if ((copy_task->async_status == 0) && (i % 20 == 0)) { /* 20 times */
+                ka_system_usleep_range(1, 2);                      /* 1-2 us */
             }
         }
     }

@@ -160,6 +160,7 @@ static int devmm_get_host_addr_pa_list(struct devmm_svm_process *svm_proc, u32 d
 {
     u32 i, merg_idx, host_flag;
     int write = 1;
+    int pin_flag;
     int ret;
 
     ret = devmm_get_host_phy_mach_flag(devid, &host_flag);
@@ -167,6 +168,7 @@ static int devmm_get_host_addr_pa_list(struct devmm_svm_process *svm_proc, u32 d
         return ret;
     }
 
+    pin_flag = devmm_va_is_in_svm_range(va) ? DEVMM_PIN_PAGES : DEVMM_USER_PIN_PAGES;
     if (devmm_va_is_in_svm_range(va)) {
         ret = devmm_svm_addr_pa_list_get(svm_proc, va, size, side);
         if (ret != 0) {
@@ -182,6 +184,7 @@ static int devmm_get_host_addr_pa_list(struct devmm_svm_process *svm_proc, u32 d
     if (devmm_is_hccs_vm_scene(devid, host_flag)) {
         ret = devmm_vm_pa_blks_to_pm_pa_blks(devid, side->blks, side->num, side->blks);
         if (ret != 0) {
+            devmm_clear_host_pa_node_list(pin_flag, side);
             return ret;
         }
     }

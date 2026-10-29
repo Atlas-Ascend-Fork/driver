@@ -143,6 +143,7 @@ int trs_proc_recycle_post(struct trs_core_ts_inst *ts_inst, struct trs_proc_ctx 
 void trs_clear_exit_proc_list(struct trs_core_ts_inst *ts_inst);
 void trs_proc_ctx_put(struct trs_proc_ctx *proc_ctx);
 struct trs_proc_ctx *trs_get_share_ctx(struct trs_core_ts_inst *ts_inst, u32 share_pid);
+void trs_put_share_ctx(struct trs_proc_ctx *proc_ctx);
 
 #define TRS_MAP_TYPE_MEM 0        /* normal memory, kernel and user share */
 #define TRS_MAP_TYPE_DEV_MEM 1    /* device prop memory, hardware and user share */
