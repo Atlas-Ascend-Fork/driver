@@ -988,8 +988,8 @@ DLLEXPORT drvError_t halGetDevProbeList(uint32_t *devices, uint32_t len);
  * @brief The device side and the host side both obtain the host IDs of all the current devices.
  * If called in a container, get the host IDs of all devices in the current container.
  * @attention null
- * @param [in]  len  Array length
  * @param [out] devices  device id Array
+ * @param [in]  len  Array length
  * @return   0 for success, others for fail
  */
 DLLEXPORT drvError_t drvGetDevIDs(uint32_t *devices, uint32_t len);
@@ -1728,8 +1728,8 @@ DLLEXPORT drvError_t drvMemRead(uint32_t devId, MEM_CTRL_TYPE memType, uint32_t 
  * @param [in]  devId  : device physical id
  * @param [in]  memType: MEM_CTRL_TYPE
  * @param [in]  offset : bbox offset
+ * @param [in]  value : write value
  * @param [in]  len : length of write content
- * @param [out] value : write value
  * @return   0 for success, others for fail
  */
 DLLEXPORT drvError_t drvMemWrite(uint32_t devId, MEM_CTRL_TYPE memType, uint32_t offset, uint8_t *value, uint32_t len);
@@ -2710,9 +2710,9 @@ DLLEXPORT drvError_t halHostRegisterCapabilities(uint32_t devid, uint32_t acc_mo
  * 9. MEM_DEV_PRIVATE identifies device-private business data. It is supported only in a confidential VM and does
  * not
  * support copy interfaces.
+ * @param [out] pp:  level-2 pointer that stores the address of the allocated memory pointer.
  * @param [in] size: requested byte size.
  * @param [in] flag:  requested memory parameter.
- * @param [out] pp:  level-2 pointer that stores the address of the allocated memory pointer.
  * @return DRV_ERROR_NONE : success
  * @return DV_ERROR_XXX : set fail
  */

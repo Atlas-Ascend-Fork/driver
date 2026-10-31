@@ -3508,8 +3508,8 @@ DLLEXPORT int dsmi_delete_capability_group(int device_id, int ts_id, int group_i
  * @param [in]  device_id device id
  * @param [in]  ts_id ts id 0 : TS_AICORE, 1 : TS_AIVECTOR
  * @param [in]  group_id group id
+ * @param [out] group_info ts group info
  * @param [in]  group_count group count
- * @param [out]  group_info ts group info
  * @return  0 for success, others for fail
  * @note Support:Ascend310P
  */
