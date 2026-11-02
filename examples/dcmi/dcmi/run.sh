@@ -67,6 +67,7 @@ run_all_possible_params() {
     local map alias real_main_dir target_dir sub_dir
     local current_dir
     local has_failure=0
+    local has_case=0
     local build_ret
     local run_ret
 
@@ -83,6 +84,7 @@ run_all_possible_params() {
             [ -d "${target_dir}" ] || continue
             target_dir="${target_dir%/}"
             [ -f "${target_dir}/main.c" ] || continue
+            has_case=1
 
             sub_dir=$(basename "${target_dir}")
             echo ""
@@ -122,6 +124,11 @@ run_all_possible_params() {
             cd "${current_dir}" || true
         done
     done
+
+    if [ ${has_case} -eq 0 ]; then
+        echo "错误: 未找到包含 main.c 的样例目录，请在 DCMI 样例目录中运行。" >&2
+        return 1
+    fi
 
     if [ ${has_failure} -ne 0 ]; then
         return 1
