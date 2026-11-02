@@ -22,7 +22,7 @@ Before compiling and running examples, obtain firmware, driver, and CANN softwar
 
 ```bash
 # Specify dcmi library path in driver and npu-smi tool installation environment
-export LD_LIBRARY_PATH=~/usr/local/dcmi/:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH="/usr/local/dcmi${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 ```
 
 2. Download Driver repository code and upload it to the environment where npu-smi tool software is installed. Switch to the example directory.

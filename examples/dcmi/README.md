@@ -22,7 +22,7 @@ dcmi目录下提供了一系列DCMI接口样例，包括配置、查询、复位
 
 ```bash
 # 安装驱动和npu-smi工具环境指定dcmi库路径
-export LD_LIBRARY_PATH=~/usr/local/dcmi/:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH="/usr/local/dcmi${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 ```
 
 2.下载Driver仓代码并上传至安装npu-smi工具软件的环境，切换到样例目录。
