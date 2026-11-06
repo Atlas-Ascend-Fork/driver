@@ -91,7 +91,7 @@ SVM 接口 ：```halHostRegister```/```halHostUnregister```
 
 ## SVM 在业务中的使用流程
 
-#### 申请拷贝功能的业务使用流程
+### 申请拷贝功能的业务使用流程
 
 - 应用场景
 <br/>
@@ -108,7 +108,7 @@ SVM 接口 ：```halHostRegister```/```halHostUnregister```
     <img src="../../../docs/zh/figures/SVM_application_copy_process.png" alt="SVM模块申请拷贝流程" width=70% />
 </center>
 
-#### 内存共享功能的业务使用流程
+### 内存共享功能的业务使用流程
 
 - 应用场景
 <br/>
@@ -126,7 +126,7 @@ SVM 接口 ：```halHostRegister```/```halHostUnregister```
     <img src="../../../docs/zh/figures/SVM_memory_sharing_process.png" alt="SVM模块内存共享流程" width=70% />
 </center>
 
-#### VMM 功能的业务使用流程
+### VMM 功能的业务使用流程
 
 - 应用场景
 <br/>
@@ -223,7 +223,7 @@ UVM 接口：halMemManagedPrefetch
 
 ## UVM在业务中使用流程
 
-#### 内存预取功能的业务使用流程
+### 内存预取功能的业务使用流程
 
 - 应用场景
 <br/>
@@ -333,7 +333,7 @@ SOMA 异步申请得到的内存虚拟地址在建立映射后，可以直接作
 上述场景中的同步拷贝操作均为阻塞式，调用方会一直等待拷贝完成后才返回。赋值操作 `drvMemsetD8` 则对 SOMA 设备内存的指定区域设置为给定值，用于初始化或清零。
 
 ## SOMA在业务中使用流程
-#### 内存池异步申请与释放的业务使用流程
+### 内存池异步申请与释放的业务使用流程
 - **应用场景**  
 <br/>
 在 AI 模型训练或推理过程中，多个算子在不同流中并行执行，需要频繁申请和释放设备内存。若每次都向系统申请物理页，会产生大量开销和碎片。SOMA 通过内存池和异步机制，使内存申请、释放高效进行，从而提升流水线执行性能。
@@ -347,7 +347,7 @@ SOMA 异步申请得到的内存虚拟地址在建立映射后，可以直接作
     <img src="../../../docs/zh/figures/SOMA_malloc_and_free_process.png" alt="SOMA模块复用策略流程" width=100% />
 </center>
 
-#### SOMA 同步释放功能的业务使用流程
+### SOMA 同步释放功能的业务使用流程
 
 - **应用场景**  
 <br/>
@@ -358,7 +358,7 @@ SOMA 异步申请得到的内存虚拟地址在建立映射后，可以直接作
 2. 调用 `halMemPoolMalloc` 异步申请设备内存，获取虚拟地址。
 3. 算子计算完成后，调用 `halMemFree` 直接释放该 SOMA 内存虚拟地址，驱动识别 SOMA 来源后执行同步释放，回收内存。
 
-#### SOMA 内存复用功能的业务使用流程
+### SOMA 内存复用功能的业务使用流程
 
 - **应用场景**  
 <br/>
@@ -370,7 +370,7 @@ SOMA 异步申请得到的内存虚拟地址在建立映射后，可以直接作
 3. 在算子执行前，调用 `halMemPoolMalloc` 并指定复用策略（`SOMA_MEM_ALLOC_REUSE_POLICY`/`SOMA_MEM_ALLOC_WAITING_POLICY`）异步申请设备内存；根据单流、跨流事件、机会主义、隐式依赖等场景选择相应策略，复用已释放或依赖满足后释放的内存。
 4. 算子完成计算后，根据语义选择显式释放（`SOMA_MEM_FREE_EXP_POLICY`）或隐式释放（`SOMA_MEM_FREE_IMP_POLICY`）将设备内存归还内存池，等待后续复用。
 
-#### SOMA 内存同步拷贝与赋值功能的业务使用流程
+### SOMA 内存同步拷贝与赋值功能的业务使用流程
 
 - **应用场景**  
 <br/>

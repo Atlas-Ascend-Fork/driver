@@ -91,7 +91,7 @@ Register corresponding memory of peer (Host side or Device side) to local side (
 
 ## SVM Usage Process in Business
 
-#### Allocation and Copy Function Business Usage Process
+### Allocation and Copy Function Business Usage Process
 
 - Application Scenario
 <br/>
@@ -108,7 +108,7 @@ Before operator runs, its Host side process needs to first initialize SVM module
     <img src="../../../docs/en/figures/SVM_application_copy_process_en.png" alt="SVM Module Allocation Copy Process" width=70% />
 </center>
 
-#### Memory Sharing Function Business Usage Process
+### Memory Sharing Function Business Usage Process
 
 - Application Scenario
 <br/>
@@ -126,7 +126,7 @@ During operator execution, dev0 writes completed calculation results to its loca
     <img src="../../../docs/en/figures/SVM_memory_sharing_process_en.png" alt="SVM Module Memory Sharing Process" width=70% />
 </center>
 
-#### VMM Function Business Usage Process
+### VMM Function Business Usage Process
 
 - Application Scenario
 <br/>
@@ -223,7 +223,7 @@ Explicitly prefetch data to target device:
 
 ## UVM Usage Process in Business
 
-#### Memory Prefetch Function Business Usage Process
+### Memory Prefetch Function Business Usage Process
 
 - Application Scenario
 <br/>
@@ -349,7 +349,7 @@ The synchronous copy operations in the above scenarios are all blocking; the cal
 
 ## SOMA Usage Process in Business
 
-#### Memory Pool Asynchronous Allocation and Release Business Usage Process
+### Memory Pool Asynchronous Allocation and Release Business Usage Process
 
 - **Application Scenario**
 
@@ -367,7 +367,7 @@ During AI model training or inference, multiple operators execute in parallel ac
     <img src="../../../docs/en/figures/SOMA_malloc_and_free_process.png" alt="SOMA Module Reuse Strategy Process" width=100% />
 </center>
 
-#### SOMA Synchronous Release Function Business Usage Process
+### SOMA Synchronous Release Function Business Usage Process
 
 - **Application Scenario**
 
@@ -381,7 +381,7 @@ When operator execution completes and SOMA device memory needs to be reclaimed, 
 2. Call `halMemPoolMalloc` to asynchronously allocate device memory and obtain the virtual address.
 3. After the operator completes computation, call `halMemFree` to directly release the SOMA memory virtual address. The driver identifies the SOMA source and performs synchronous release to reclaim memory.
 
-#### SOMA Memory Reuse Function Business Usage Process
+### SOMA Memory Reuse Function Business Usage Process
 
 - **Application Scenario**
 
@@ -396,7 +396,7 @@ In an AI inference pipeline, the same device memory can be reused across differe
 3. Before operator execution, call `halMemPoolMalloc` and specify the reuse strategy (`SOMA_MEM_ALLOC_REUSE_POLICY`/`SOMA_MEM_ALLOC_WAITING_POLICY`) to asynchronously allocate device memory; choose the appropriate strategy for single-stream, cross-stream event, opportunistic, or implicit dependency scenarios, reusing memory that has been released or will be released once the dependency is satisfied.
 4. After the operator completes computation, select explicit release (`SOMA_MEM_FREE_EXP_POLICY`) or implicit release (`SOMA_MEM_FREE_IMP_POLICY`) based on semantics to return the device memory to the memory pool for subsequent reuse.
 
-#### SOMA Memory Synchronous Copy and Assignment Function Business Usage Process
+### SOMA Memory Synchronous Copy and Assignment Function Business Usage Process
 
 - **Application Scenario**
 
