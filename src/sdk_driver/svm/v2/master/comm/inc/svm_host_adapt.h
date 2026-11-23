@@ -36,6 +36,12 @@ static inline u32 devmm_get_alloc_mask(bool is_compound_page, bool no_retry)
 
     if (no_retry) {
         alloc_mask |= __KA_GFP_NORETRY;
+    } else {
+        /* Costly order (e.g. order-9 for 2MiB compound pages) without no_retry:
+         * kernel does one reclaim+compact then goto nopage.
+         * __GFP_RETRY_MAYFAIL adds up to 4 retries with reclaim+compaction,
+         * does NOT trigger OOM killer, real OOM still returns -ENOMEM. */
+        alloc_mask |= __KA_GFP_RETRY_MAYFAIL;
     }
 
     if (is_compound_page) {
