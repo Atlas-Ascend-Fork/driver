@@ -1064,7 +1064,8 @@ static int devmm_master_mem_import(struct devmm_svm_process *svm_proc, struct de
     int ret, tmp_id;
 
     if ((info->side != DEVMM_SIDE_MASTER) && !svm_is_sdid_in_local_server(devids->devid, info->sdid)) {
-        devmm_drv_err("Remote server can't import dev side mem. (side=%u)\n", info->side, devids->devid, info->sdid);
+        devmm_drv_err("Remote server can't import dev side mem. (side=%u; devid=%u; sdid=%u)\n", info->side,
+                      devids->devid, info->sdid);
         return -EINVAL;
     }
 
