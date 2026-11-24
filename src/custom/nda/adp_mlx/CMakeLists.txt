@@ -11,177 +11,85 @@
 # File Name     : CMakeLists.txt
 # Description   : Build configuration for adp_mlx driver library
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.18)
 project(adp_mlx VERSION 1.0.0 LANGUAGES C)
-
-# 设置C标准
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-
-# ibv_extend源码路径(同级目录)
+find_package(Threads REQUIRED)
+option(ADP_MLX_SANITIZERS "Enable address/undefined behavior sanitizers" OFF)
 set(IBV_EXTEND_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../ibv_extend")
+set(ADP_MLX_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# 根据系统架构自动选择库目录
-if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    if(EXISTS "/usr/local/lib64")
-        set(SYSTEM_LIB_DIR /usr/local/lib64)
-    elseif(EXISTS "/usr/lib64")
-        set(SYSTEM_LIB_DIR /usr/lib64)
-    elseif(EXISTS "/usr/local/lib")
-        set(SYSTEM_LIB_DIR /usr/local/lib)
-    else()
-        set(SYSTEM_LIB_DIR /usr/lib)
-    endif()
-else()
-    if(EXISTS "/usr/local/lib")
-        set(SYSTEM_LIB_DIR /usr/local/lib)
-    else()
-        set(SYSTEM_LIB_DIR /usr/lib)
-    endif()
+include(cmake/RdmaDependencies.cmake)
+nda_use_installed_rdma()
+
+# mlx5.h includes the environment's Valgrind headers even with requests disabled.
+find_path(NDA_VALGRIND_INCLUDE_DIR NAMES valgrind/memcheck.h
+    DOC "Directory containing installed Valgrind development headers")
+if(NOT EXISTS "${NDA_VALGRIND_INCLUDE_DIR}/valgrind/memcheck.h"
+   OR NOT EXISTS "${NDA_VALGRIND_INCLUDE_DIR}/valgrind/valgrind.h")
+    message(FATAL_ERROR "Valgrind development headers missing. Install valgrind-devel (TencentOS/RHEL), or set NDA_VALGRIND_INCLUDE_DIR to the directory containing valgrind/memcheck.h and valgrind/valgrind.h.")
 endif()
 
-message(STATUS "System architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+# Compile the actual provider headers, including their command-layout assertions.
+# Presence alone is insufficient for older system UAPI packages. Recheck on each
+# configure so an updated header package cannot reuse a stale successful result.
+include(CheckCSourceCompiles)
+include(CMakePushCheckState)
+cmake_push_check_state(RESET)
+set(CMAKE_REQUIRED_INCLUDES ${NDA_PRIVATE_INCLUDES} "${RDMA_INCLUDE}" "${NDA_VALGRIND_INCLUDE_DIR}")
+set(CMAKE_REQUIRED_DEFINITIONS -DNVALGRIND)
+unset(NDA_RDMA_UAPI_COMPATIBLE CACHE)
+check_c_source_compiles([=[
+#include <mlx5.h>
+#include <infiniband/cmd_ioctl.h>
+/* The command wrappers use unions: their padding assertions alone cannot
+ * detect an environment structure that grows beyond the pinned payload. */
+#define CHECK_UAPI(type) _Static_assert(sizeof(struct type) == sizeof(_STRUCT_##type) && _Alignof(struct type) == _Alignof(_STRUCT_##type), "RDMA UAPI layout mismatch: " #type)
+CHECK_UAPI(ib_uverbs_ex_create_cq);
+CHECK_UAPI(ib_uverbs_create_cq_resp);
+CHECK_UAPI(ib_uverbs_ex_create_cq_resp);
+CHECK_UAPI(ib_uverbs_create_srq);
+CHECK_UAPI(ib_uverbs_create_srq_resp);
+CHECK_UAPI(mlx5_ib_create_cq);
+CHECK_UAPI(mlx5_ib_create_cq_resp);
+CHECK_UAPI(mlx5_ib_create_srq);
+CHECK_UAPI(mlx5_ib_create_srq_resp);
+int main(void) { return 0; }
+]=] NDA_RDMA_UAPI_COMPATIBLE)
+cmake_pop_check_state()
+if(NOT NDA_RDMA_UAPI_COMPATIBLE)
+    message(FATAL_ERROR "Installed RDMA UAPI headers are incompatible with the 2410 Provider headers. See CMakeFiles/CMakeConfigureLog.yaml (or CMakeError.log) for missing definitions/layout assertions. Use compatible userspace kernel-headers, optionally selected with NDA_RDMA_UAPI_INCLUDE_DIR; do not use the kernel build's internal headers.")
+endif()
 
-# 查找ibverbs依赖
-if(DEFINED LIBIBVERBS_BUILD_DIR)
-    set(IBVERBS_INCLUDE_DIRS ${LIBIBVERBS_BUILD_DIR}/include)
-    set(IBVERBS_LIBRARY_DIRS ${LIBIBVERBS_BUILD_DIR}/lib)
-    set(IBVERBS_LIBRARIES ibverbs)
-    set(MLX5_LIBRARIES mlx5)
-    message(STATUS "Using manually specified libibverbs paths:")
-    message(STATUS "  Include: ${IBVERBS_INCLUDE_DIRS}")
-    message(STATUS "  Library: ${IBVERBS_LIBRARY_DIRS}")
-else()
-    find_package(PkgConfig)
-    if(PKG_CONFIG_FOUND)
-        pkg_check_modules(IBVERBS libibverbs)
-        pkg_check_modules(MLX5 libmlx5)
-    endif()
-    if(NOT IBVERBS_FOUND)
-        set(IBVERBS_INCLUDE_DIRS "")
-        set(IBVERBS_LIBRARY_DIRS "${SYSTEM_LIB_DIR}")
-        set(IBVERBS_LIBRARIES ibverbs)
-        set(MLX5_LIBRARIES mlx5)
-        message(STATUS "Using system default libibverbs")
-    else()
-        message(STATUS "Found libibverbs via pkg-config")
-        if(NOT MLX5_FOUND)
-            set(MLX5_LIBRARIES mlx5)
-        else()
-            message(STATUS "Found libmlx5 via pkg-config")
+set(ADP_MLX_BACKEND_SOURCES adp_mlx_backend.c adp_mlx_memory.c adp_mlx_cq_42.c adp_mlx_srq_42.c)
+# Register one mlx5 provider for NDA resources and V2 UDP source port control.
+set(ADP_MLX_SOURCES adp_mlx.c adp_mlx_nda.c ${ADP_MLX_BACKEND_SOURCES})
+list(TRANSFORM ADP_MLX_SOURCES PREPEND "${ADP_MLX_SOURCE_DIR}/")
+function(configure_adp_target target)
+    target_include_directories(${target} PRIVATE "${IBV_EXTEND_SRC_DIR}" "${ADP_MLX_SOURCE_DIR}"
+        "${CMAKE_CURRENT_BINARY_DIR}")
+    target_include_directories(${target} SYSTEM PRIVATE ${NDA_PRIVATE_INCLUDES} "${RDMA_INCLUDE}"
+        "${NDA_VALGRIND_INCLUDE_DIR}")
+    target_compile_definitions(${target} PRIVATE NVALGRIND)
+    target_link_libraries(${target} PRIVATE "${IBVERBS_LIB}" "${MLX5_LIB}" Threads::Threads)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE -Wall -Wextra -Werror -fvisibility=hidden)
+        if(ADP_MLX_SANITIZERS)
+            target_compile_options(${target} PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer)
+            target_link_options(${target} PRIVATE -fsanitize=address,undefined)
         endif()
     endif()
+endfunction()
+
+add_library(adp_mlx SHARED ${ADP_MLX_SOURCES})
+configure_adp_target(adp_mlx)
+set_target_properties(adp_mlx PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION 1)
+if(IBV_EXTEND_BUILD_DIR)
+    unset(IBV_EXTEND_LIB CACHE)
+    find_library(IBV_EXTEND_LIB ibv_extend PATHS "${IBV_EXTEND_BUILD_DIR}" NO_DEFAULT_PATH REQUIRED)
+    target_link_libraries(adp_mlx PRIVATE "${IBV_EXTEND_LIB}")
 endif()
 
-# 查找ibv_extend依赖(用于编译时头文件和运行时符号解析)
-if(DEFINED IBV_EXTEND_BUILD_DIR)
-    set(IBV_EXTEND_INCLUDE_DIR "${IBV_EXTEND_SRC_DIR}")
-    set(IBV_EXTEND_LIBRARY_DIR "${IBV_EXTEND_BUILD_DIR}")
-    set(IBV_EXTEND_LIBRARIES ibv_extend)
-    message(STATUS "Using manually specified ibv_extend build dir: ${IBV_EXTEND_BUILD_DIR}")
-else()
-    set(IBV_EXTEND_INCLUDE_DIR "${IBV_EXTEND_SRC_DIR}")
-    set(IBV_EXTEND_LIBRARY_DIR "")
-    set(IBV_EXTEND_LIBRARIES "")
-    message(STATUS "Using ibv_extend headers from source: ${IBV_EXTEND_INCLUDE_DIR}")
-endif()
-
-# 添加库搜索路径
-if(EXISTS "${IBVERBS_LIBRARY_DIRS}")
-    link_directories(${IBVERBS_LIBRARY_DIRS})
-endif()
-
-if(DEFINED MLX5_LIBRARY_DIRS AND EXISTS "${MLX5_LIBRARY_DIRS}")
-    link_directories(${MLX5_LIBRARY_DIRS})
-endif()
-
-if(DEFINED IBV_EXTEND_BUILD_DIR AND EXISTS "${IBV_EXTEND_LIBRARY_DIR}")
-    link_directories(${IBV_EXTEND_LIBRARY_DIR})
-endif()
-
-# 定义源文件
-set(ADP_MLX_SOURCES
-    adp_mlx.c
-)
-
-# 创建共享库
-add_library(adp_mlx SHARED
-    ${ADP_MLX_SOURCES}
-)
-
-# 设置库版本号
-set_target_properties(adp_mlx PROPERTIES
-    VERSION ${PROJECT_VERSION}
-    SOVERSION ${PROJECT_VERSION_MAJOR}
-    OUTPUT_NAME "adp_mlx"
-    PREFIX "lib"
-)
-
-# 设置包含目录
-target_include_directories(adp_mlx PRIVATE
-    ${IBV_EXTEND_INCLUDE_DIR}
-)
-
-if(EXISTS "${IBVERBS_INCLUDE_DIRS}")
-    target_include_directories(adp_mlx SYSTEM PRIVATE ${IBVERBS_INCLUDE_DIRS})
-endif()
-
-if(DEFINED MLX5_INCLUDE_DIRS AND EXISTS "${MLX5_INCLUDE_DIRS}")
-    target_include_directories(adp_mlx SYSTEM PRIVATE ${MLX5_INCLUDE_DIRS})
-endif()
-
-# 链接库
-# ibv_extend: 运行时由ibv_extend通过dlopen加载本驱动, 驱动构造函数调用
-#              verbs_register_driver_extend() (定义在ibv_extend中), 因此需要链接ibv_extend
-#              以便动态链接器解析符号
-# mlx5: 提供mlx5dv_modify_qp_udp_sport等vendor direct verbs接口
-if(DEFINED IBV_EXTEND_BUILD_DIR AND EXISTS "${IBV_EXTEND_LIBRARY_DIR}")
-    target_link_libraries(adp_mlx PRIVATE
-        ${IBV_EXTEND_LIBRARIES}
-        ${IBVERBS_LIBRARIES}
-        ${MLX5_LIBRARIES}
-    )
-else()
-    target_link_libraries(adp_mlx PRIVATE
-        ${IBVERBS_LIBRARIES}
-        ${MLX5_LIBRARIES}
-    )
-endif()
-
-# 链接选项
-if(DEFINED IBVERBS_LDFLAGS AND NOT "${IBVERBS_LDFLAGS}" STREQUAL "")
-    target_link_options(adp_mlx PRIVATE ${IBVERBS_LDFLAGS})
-endif()
-
-# 添加编译选项
-if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    target_compile_options(adp_mlx PRIVATE
-        -Wall
-        -Wextra
-        -fPIC
-        -fvisibility=hidden
-    )
-
-    # 根据构建类型设置不同选项
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        target_compile_options(adp_mlx PRIVATE
-            -g
-            -O0
-            -DDEBUG
-        )
-        target_compile_definitions(adp_mlx PRIVATE DEBUG)
-    else()
-        target_compile_options(adp_mlx PRIVATE
-            -O2
-            -Werror
-            -DNDEBUG
-        )
-    endif()
-endif()
-
-# 安装规则
-install(TARGETS adp_mlx
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-    PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-)
+install(TARGETS adp_mlx LIBRARY DESTINATION lib COMPONENT Runtime)
+install(FILES adp_mlx.conf DESTINATION etc/libibverbs_extend.d COMPONENT Configuration)
