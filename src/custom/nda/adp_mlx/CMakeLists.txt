@@ -59,7 +59,7 @@ int main(void) { return 0; }
 ]=] NDA_RDMA_UAPI_COMPATIBLE)
 cmake_pop_check_state()
 if(NOT NDA_RDMA_UAPI_COMPATIBLE)
-    message(FATAL_ERROR "Installed RDMA UAPI headers are incompatible with the 2410 Provider headers. See CMakeFiles/CMakeConfigureLog.yaml (or CMakeError.log) for missing definitions/layout assertions. Use compatible userspace kernel-headers, optionally selected with NDA_RDMA_UAPI_INCLUDE_DIR; do not use the kernel build's internal headers.")
+    message(FATAL_ERROR "Selected RDMA UAPI headers are incompatible with the 2410 Provider headers. See CMakeFiles/CMakeConfigureLog.yaml (or CMakeError.log) for missing definitions/layout assertions. Use compatible userspace kernel-headers, optionally selected with NDA_RDMA_UAPI_INCLUDE_DIR; do not use the kernel build's internal headers.")
 endif()
 
 set(ADP_MLX_BACKEND_SOURCES adp_mlx_backend.c adp_mlx_memory.c adp_mlx_cq_42.c adp_mlx_srq_42.c)

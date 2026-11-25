@@ -126,14 +126,9 @@ macro(nda_use_installed_rdma)
         find_library(NDA_MLX5_LIBRARY mlx5 PATHS "${NDA_RDMA_PREFIX}/lib64" "${NDA_RDMA_PREFIX}/lib"
             "${NDA_RDMA_PREFIX}/lib/${CMAKE_LIBRARY_ARCHITECTURE}" NO_DEFAULT_PATH REQUIRED)
     else()
-        find_package(PkgConfig QUIET)
-        if(PkgConfig_FOUND)
-            pkg_check_modules(NDA_PC_VERBS QUIET libibverbs)
-            pkg_check_modules(NDA_PC_MLX5 QUIET libmlx5)
-        endif()
-        find_path(NDA_RDMA_INCLUDE_DIR infiniband/verbs.h HINTS ${NDA_PC_VERBS_INCLUDE_DIRS} REQUIRED)
-        find_library(NDA_IBVERBS_LIBRARY ibverbs HINTS ${NDA_PC_VERBS_LIBRARY_DIRS} REQUIRED)
-        find_library(NDA_MLX5_LIBRARY mlx5 HINTS ${NDA_PC_MLX5_LIBRARY_DIRS} REQUIRED)
+        find_path(NDA_RDMA_INCLUDE_DIR infiniband/verbs.h REQUIRED)
+        find_library(NDA_IBVERBS_LIBRARY ibverbs REQUIRED)
+        find_library(NDA_MLX5_LIBRARY mlx5 REQUIRED)
     endif()
     # Source headers supplement installed libraries; no rdma-core build is run.
     set(NDA_RDMA_SOURCE_DIR "$ENV{NDA_RDMA_SOURCE_DIR}" CACHE PATH
@@ -152,10 +147,10 @@ macro(nda_use_installed_rdma)
         message(FATAL_ERROR "CCAN headers missing. Extract rdma-core-2410mlnx54-1.2410068.src.rpm and its source tarball, then set NDA_CCAN_INCLUDE_DIR to the directory containing ccan/list.h (not the ccan subdirectory).")
     endif()
     message(STATUS "CCAN headers: ${NDA_CCAN_INCLUDE_DIR}")
-    # Linux RDMA UAPI comes from installed userspace headers, not the private SDK.
+    # Use exported RDMA UAPI headers; build.sh defaults to the selected source tree.
     find_path(NDA_RDMA_UAPI_INCLUDE_DIR NAMES rdma/ib_user_verbs.h
         HINTS "${NDA_RDMA_INCLUDE_DIR}"
-        DOC "Directory containing installed userspace rdma/ UAPI headers")
+        DOC "Directory containing exported userspace rdma/ UAPI headers")
     foreach(nda_uapi_header ib_user_verbs.h ib_user_ioctl_verbs.h mlx5-abi.h
                             mlx5_user_ioctl_verbs.h rdma_user_ioctl_cmds.h)
         if(NOT EXISTS "${NDA_RDMA_UAPI_INCLUDE_DIR}/rdma/${nda_uapi_header}")

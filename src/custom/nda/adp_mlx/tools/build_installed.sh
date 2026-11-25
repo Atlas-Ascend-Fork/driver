@@ -7,7 +7,7 @@
 # INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
 # See LICENSE in the root of the software repository for the full text of the License.
 
-# Build only NDA against installed dependencies. No downloads or package changes.
+# Build NDA against installed libraries; prepare external source headers when needed.
 set -euo pipefail
 ADP_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="${PWD}/build/nda-installed"
@@ -15,6 +15,7 @@ PREFIX=""
 RDMA_PREFIX=""
 FRAMEWORK_BUILD=""
 RUNTIME_ONLY=false
+INSTALL_CONFIG=true
 SANITIZE=OFF
 BUILD_TYPE=Release
 JOBS="${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
@@ -30,11 +31,12 @@ while (($#)); do
             esac
             shift 2 ;;
         --runtime-only) RUNTIME_ONLY=true; shift ;;
+        --no-config) INSTALL_CONFIG=false; shift ;;
         --sanitize) SANITIZE=ON; BUILD_TYPE=Debug; shift ;;
         --help)
             echo "Usage: bash $0 [--build-dir DIR] [--prefix DIR] [--rdma-prefix /usr-or-extracted-usr]"
-            echo "Options: --framework-build-dir DIR (reuse, Provider only), --runtime-only (lib only), --sanitize"
-            echo "Optional environment: NDA_SECUREC_INCLUDE_DIR, NDA_SECUREC_LIBRARY (full .so path), NDA_RDMA_UAPI_INCLUDE_DIR, NDA_RDMA_SOURCE_DIR, NDA_CCAN_INCLUDE_DIR, CMAKE_BUILD_PARALLEL_LEVEL"
+            echo "Options: --framework-build-dir DIR (reuse, Provider only), --runtime-only (lib only), --no-config (lib and headers), --sanitize"
+            echo "Optional environment: NDA_SECUREC_INCLUDE_DIR, NDA_SECUREC_LIBRARY (full .so path), NDA_RDMA_UAPI_INCLUDE_DIR, NDA_RDMA_SOURCE_DIR, NDA_RDMA_SOURCE_RPM (offline package), NDA_CCAN_INCLUDE_DIR, CMAKE_BUILD_PARALLEL_LEVEL"
             exit 0 ;;
         *) echo "Unknown argument: $1" >&2; exit 2 ;;
     esac
@@ -44,11 +46,13 @@ BUILD_DIR="$(cd -- "$BUILD_DIR" && pwd)"
 PREFIX="${PREFIX:-$BUILD_DIR/install}"
 mkdir -p -- "$PREFIX"
 PREFIX="$(cd -- "$PREFIX" && pwd)"
-COMMON=(-DNDA_DEPENDENCY_MODE=INSTALLED "-DCMAKE_BUILD_TYPE=$BUILD_TYPE")
+NDA_RDMA_SOURCE_DIR="$(bash "$ADP_DIR/tools/prepare_rdma_source.sh" "$BUILD_DIR/dependencies/rdma-source")"
+printf '[NDA] RDMA source headers: %s\n' "$NDA_RDMA_SOURCE_DIR"
+COMMON=(-DNDA_DEPENDENCY_MODE=INSTALLED "-DCMAKE_BUILD_TYPE=$BUILD_TYPE"
+    "-DNDA_RDMA_SOURCE_DIR=$NDA_RDMA_SOURCE_DIR"
+    "-DNDA_CCAN_INCLUDE_DIR=${NDA_CCAN_INCLUDE_DIR:-$NDA_RDMA_SOURCE_DIR}")
 [[ -z "$RDMA_PREFIX" ]] || COMMON+=("-DNDA_RDMA_PREFIX=$RDMA_PREFIX")
-[[ -z "${NDA_RDMA_UAPI_INCLUDE_DIR:-}" ]] || COMMON+=("-DNDA_RDMA_UAPI_INCLUDE_DIR=$NDA_RDMA_UAPI_INCLUDE_DIR")
-[[ -z "${NDA_CCAN_INCLUDE_DIR:-}" ]] || COMMON+=("-DNDA_CCAN_INCLUDE_DIR=$NDA_CCAN_INCLUDE_DIR")
-[[ -z "${NDA_RDMA_SOURCE_DIR:-}" ]] || COMMON+=("-DNDA_RDMA_SOURCE_DIR=$NDA_RDMA_SOURCE_DIR")
+COMMON+=("-DNDA_RDMA_UAPI_INCLUDE_DIR=${NDA_RDMA_UAPI_INCLUDE_DIR:-$NDA_RDMA_SOURCE_DIR/kernel-headers}")
 SECUREC=()
 [[ -z "${NDA_SECUREC_INCLUDE_DIR:-}" ]] || SECUREC+=("-DNDA_SECUREC_INCLUDE_DIR=$NDA_SECUREC_INCLUDE_DIR")
 [[ -z "${NDA_SECUREC_LIBRARY:-}" ]] || SECUREC+=("-DNDA_SECUREC_LIBRARY=$NDA_SECUREC_LIBRARY")
@@ -89,7 +93,7 @@ export LD_LIBRARY_PATH="$BUILD_DIR/provider:$FRAMEWORK_BUILD${LD_LIBRARY_PATH:+:
 cmake --build "$BUILD_DIR/provider" --parallel "$JOBS"
 # Component installation changes staging only.
 stage_build() {
-    if $RUNTIME_ONLY; then
+    if $RUNTIME_ONLY || ! $INSTALL_CONFIG; then
         cmake --install "$1" --prefix "$PREFIX" --component Runtime
     else
         cmake --install "$1" --prefix "$PREFIX"
@@ -97,7 +101,7 @@ stage_build() {
 }
 if $BUILD_FRAMEWORK; then
     # The original framework installs without components. Stage its library
-    # separately for runtime-only builds; full installs also retain its header.
+    # separately for runtime-only builds; other installs also retain its header.
     if $RUNTIME_ONLY; then
         cmake --install "$FRAMEWORK_BUILD" --prefix "$FRAMEWORK_BUILD/stage"
         mkdir -p -- "$PREFIX/lib"
