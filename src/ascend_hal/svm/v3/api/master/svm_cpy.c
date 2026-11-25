@@ -1039,7 +1039,7 @@ static drvError_t halMemcpyInner(void *dst, size_t dst_size, void *src, size_t c
         return ret;
     }
 
-    if (va_is_in_sp_range((u64)src, (u64)count)) {
+    if ((info != NULL) && va_is_in_sp_range((u64)src, (u64)count)) {
         svm_copy_va_info_pack((u64)src, (u64)count, info->devid, &src_info);
     } else {
         ret = svm_set_copy_va_info((u64)src, (u64)count, &src_info);
