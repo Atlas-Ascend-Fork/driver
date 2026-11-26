@@ -845,11 +845,7 @@ static inline bool ka_mm_is_support_pin_user_memory(void)
 
 static inline bool ka_mm_is_support_obmm(void)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
     return true;
-#else
-    return false;
-#endif
 }
 
 static inline bool ka_mm_is_support_mmu_notifier_get_put(void)

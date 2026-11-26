@@ -29,6 +29,8 @@
 #include "ka_memory_pub.h"
 #include "ka_task_pub.h"
 #include "ka_system_pub.h"
+#include "ka_barrier_pub.h"
+#include "ka_dfx_pub.h"
 #include "kernel_adapt_init.h"
 #include "ka_mem.h"
 
@@ -595,12 +597,72 @@ int ka_mm_va_to_pa_pgd_range(ka_pgd_t *pgd, u64 start, u64 end, u64 *pas, u64 *n
 EXPORT_SYMBOL_GPL(ka_mm_va_to_pa_pgd_range);
 #endif
 
+/*
+ * alloc_contig_range()/free_contig_range() are exported to modules since 5.8, the older kernels (4.19/5.4
+ * included) have the same prototypes, but their symbols are not visible to the module, so resolve the
+ * addresses by symbol lookup in that case. ka_dfx_kallsyms_lookup_name() uses kallsyms_lookup_name() before
+ * 5.7 and symbol_get() after 5.7, so it returns 0 when the symbol can not be resolved.
+ */
+/* free_contig_range() takes a 32-bit nr_pages on the older kernels, which is narrower than the type used here */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0)
+typedef int (*ka_mm_alloc_contig_range_fn_t)(unsigned long start, unsigned long end, unsigned migratetype,
+                                             gfp_t gfp_mask);
+typedef void (*ka_mm_free_contig_range_fn_t)(unsigned long pfn, unsigned long nr_pages);
+
+static ka_mm_alloc_contig_range_fn_t g_ka_alloc_contig_range = NULL;
+static ka_mm_free_contig_range_fn_t g_ka_free_contig_range = NULL;
+static bool g_ka_contig_range_resolved = false;
+KA_TASK_DEFINE_MUTEX(g_ka_contig_range_mutex);
+
+static void ka_mm_resolve_contig_range(void)
+{
+    /* paired with the store_release below, the cached addresses are visible once the flag is seen as true */
+    if (ka_smp_load_acquire(&g_ka_contig_range_resolved)) {
+        return;
+    }
+
+    ka_task_mutex_lock(&g_ka_contig_range_mutex);
+    if (!g_ka_contig_range_resolved) {
+        g_ka_alloc_contig_range = (ka_mm_alloc_contig_range_fn_t)ka_dfx_kallsyms_lookup_name("alloc_contig_range");
+        g_ka_free_contig_range = (ka_mm_free_contig_range_fn_t)ka_dfx_kallsyms_lookup_name("free_contig_range");
+        /*
+         * The callers read the cached addresses without the mutex, so the flag has to be published with
+         * release semantics. Otherwise, on the weakly ordered machines (arm64), a concurrent caller can
+         * observe the resolved flag while the addresses are still NULL, which makes the allocation fail
+         * with -ENOSYS or makes the free skip the range silently.
+         */
+        ka_smp_store_release(&g_ka_contig_range_resolved, true);
+    }
+    ka_task_mutex_unlock(&g_ka_contig_range_mutex);
+
+    if ((g_ka_alloc_contig_range == NULL) || (g_ka_free_contig_range == NULL)) {
+        ka_err("resolve contig range symbol failed. (alloc_contig_range=%ps; free_contig_range=%ps)\n",
+               (void *)(uintptr_t)g_ka_alloc_contig_range, (void *)(uintptr_t)g_ka_free_contig_range);
+    }
+}
+#endif
+
 int ka_mm_alloc_contig_range(unsigned long start, unsigned long end, unsigned migratetype, gfp_t gfp_mask)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+    /*
+     * The kernels with the "sort out the alloc_contig_range() gfp flags mess" fix (6.14 and its backports,
+     * e.g. openEuler 6.6.0-114) reject the modifiers they do not support instead of ignoring them. Of the
+     * flags passed by the caller only __GFP_ACCOUNT and __GFP_NORETRY are unsupported (__GFP_COMP and
+     * __GFP_NOWARN are accepted), so drop these two and keep the other flags as is.
+     */
+    gfp_mask &= ~(__KA_GFP_ACCOUNT | __KA_GFP_NORETRY);
+#endif
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
     return alloc_contig_range(start, end, migratetype, gfp_mask);
 #else
-    return -ENOSYS;
+    ka_mm_resolve_contig_range();
+    /* the paired free_contig_range() is needed to free the range, so it is required as well */
+    if ((g_ka_alloc_contig_range == NULL) || (g_ka_free_contig_range == NULL)) {
+        return -ENOSYS;
+    }
+    return g_ka_alloc_contig_range(start, end, migratetype, gfp_mask);
 #endif
 }
 EXPORT_SYMBOL_GPL(ka_mm_alloc_contig_range);
@@ -609,6 +671,11 @@ void ka_mm_free_contig_range(unsigned long pfn, unsigned long nr_pages)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 8, 0)
     free_contig_range(pfn, nr_pages);
+#else
+    ka_mm_resolve_contig_range();
+    if (g_ka_free_contig_range != NULL) {
+        g_ka_free_contig_range(pfn, nr_pages);
+    }
 #endif
 }
 EXPORT_SYMBOL_GPL(ka_mm_free_contig_range);
