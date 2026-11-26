@@ -37,11 +37,18 @@ int hal_kernel_get_pg_info(unsigned int dev_id, HAL_PG_INFO_TYPE info_type, char
 KA_EXPORT_SYMBOL_GPL(hal_kernel_get_pg_info);
 
 #ifndef CFG_EDGE_HOST
-STATIC void dms_pf_get_cpu_topo(struct cpu_topology_info *cpu_topo)
+STATIC int dms_pf_get_cpu_topo(struct cpu_topology_info *cpu_topo)
 {
     const struct cpumask *mask;
     unsigned int i = 0;
     cpu_topo->total_nums = num_online_cpus();
+
+    if (cpu_topo->total_nums > HAL_KERNEL_MAX_CPU_TOPO_NUM) {
+        soc_err("cpu num exceeds max topo num. (cpu_total_nums=%u; max_topo_num=%u)\n", cpu_topo->total_nums,
+                HAL_KERNEL_MAX_CPU_TOPO_NUM);
+        return -EINVAL;
+    }
+
     for (; i < cpu_topo->total_nums; i++) {
         mask = topology_sibling_cpumask(i);
         cpu_topo->single_cpu_topo[i].cpu_id = (unsigned char)i;
@@ -52,7 +59,7 @@ STATIC void dms_pf_get_cpu_topo(struct cpu_topology_info *cpu_topo)
         }
         cpu_topo->single_cpu_topo[i].hyperthread_id = (i == cpumask_first(mask)) ? 0 : 1;
     }
-    return;
+    return 0;
 }
 
 STATIC int dms_vf_get_cpu_topo(uint32_t dev_id, struct cpu_topology_info *cpu_topo)
@@ -67,9 +74,20 @@ STATIC int dms_vf_get_cpu_topo(uint32_t dev_id, struct cpu_topology_info *cpu_to
         soc_err("Failed to get aicpu info. (ret=%d; dev_id=%u;)\n", ret, dev_id);
         return ret;
     }
+
+    if (info.total_num > HAL_KERNEL_MAX_CPU_TOPO_NUM) {
+        soc_err("ai cpu total num exceeds max topo num. (dev_id=%u; cpu_total_nums=%u; max_topo_num=%u)\n", dev_id,
+                info.total_num, HAL_KERNEL_MAX_CPU_TOPO_NUM);
+        return -EINVAL;
+    }
+
     cpu_topo->total_nums = info.total_num;
     id = __ka_base_ffs(info.bitmap);
     for (; i < cpu_topo->total_nums; i++) {
+        if (id >= nr_cpu_ids) {
+            soc_err("ai cpu id over max cpu id. (dev_id=%u; id=%u; max_cpu_id=%u)\n", dev_id, id, nr_cpu_ids);
+            return -EINVAL;
+        }
         mask = topology_sibling_cpumask(id);
         cpu_topo->single_cpu_topo[i].cpu_id = (unsigned char)id;
         cpu_topo->single_cpu_topo[i].cpu_mask = *(unsigned long long *)cpumask_bits(mask);
@@ -99,7 +117,11 @@ int hal_kernel_get_cpu_topo(uint32_t dev_id, struct cpu_topology_info *res)
         return -ENODEV;
     }
     if (uda_is_pf_dev(dev_id)) {
-        dms_pf_get_cpu_topo(&cpu_topo);
+        ret = dms_pf_get_cpu_topo(&cpu_topo);
+        if (ret != 0) {
+            soc_err("Failed to get pf cpu_topo. (ret=%d; dev_id=%u)\n", ret, dev_id);
+            return ret;
+        }
     } else {
         ret = dms_vf_get_cpu_topo(dev_id, &cpu_topo);
         if (ret != 0) {
