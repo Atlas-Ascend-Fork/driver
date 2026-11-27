@@ -91,7 +91,7 @@ def adjust_xml(xml_file, xml_it_file):
     tag = it_root_node.tag
     attrib = it_root_node.attrib
     if tag != root_node.tag or attrib != root_node.attrib:
-        return
+        raise ValueError(f"XML root mismatch: {xml_file} and {xml_it_file}")
 
     # 将drvier.xml中的develop开发形态从解压的driver run包中获取
     for item in root_node.findall('file_info'):
