@@ -19,7 +19,7 @@
 #define BUFF_LIST_MUTEX_FLAG_LOCK 1
 
 /* BUFF_MAX_MZ_NODE_NUM = BUFF_MAX_CFG_NUM + 8, max config num for total config = user config + default config
- * BUFF_MAX_CFG_NUM: 64, max config num for for user config in normal memtype
+ * BUFF_MAX_CFG_NUM: 64, max config num for user config in normal memtype
  * 8: max config num for default config in special memtype(dvpp mem). */
 #define BUFF_MAX_MZ_NODE_NUM (BUFF_MAX_CFG_NUM + 8)
 

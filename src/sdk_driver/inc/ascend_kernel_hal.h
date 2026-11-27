@@ -862,7 +862,7 @@ int hal_kernel_bbox_bootdot_init_blk(u32 block_id, u32 magic, u32 execption_id, 
  */
 int hal_kernel_bbox_bootdot_set_blk(u32 block_id, u32 magic, u32 current_status);
 
-/* This model indicates the the relationship between hosts and devices is fixed by hardware and cannot be reconfigured.
+/* This model indicates the relationship between hosts and devices is fixed by hardware and cannot be reconfigured.
  */
 #define FIX_MODEL 0
 /* This model indicates that the relationship between hosts and devices is a pooling relationship, which can be
