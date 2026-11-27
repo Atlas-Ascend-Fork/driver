@@ -7,8 +7,7 @@
     - [NPU Direct Async场景](#npu-direct-async场景)
     - [Hyper RoCE场景](#hyper-roce场景)
 - [安装](#安装)
-  - [方式一：通过源码编译安装](#方式一通过源码编译安装)
-  - [方式二：通过HDK包安装](#方式二通过hdk包安装)
+  - [通过源码编译安装](#通过源码编译安装)
 - [使用](#使用)
 - [API接口参考](#api接口参考)
   - [通用接口](#通用接口)
@@ -118,7 +117,7 @@ ibv\_extend组件提供了以下核心功能：
 
 # 安装
 
-## 方式一：通过源码编译安装
+## 通过源码编译安装
 
 1. 获取源码，并进入到组件源码目录。
 
@@ -254,29 +253,6 @@ ibv\_extend组件提供了以下核心功能：
     export LD_LIBRARY_PATH=/path/to/libboundscheck-v1.1.16/lib:$LD_LIBRARY_PATH
     ```
 
-## 方式二：通过HDK包安装
-
-1. 安装支持NDA特性的HDK软件包。
-    1. 获取[支持NDA特性的HDK软件包](https://support.huawei.com/enterprise/zh/ascend-computing/ascend-hdk-pid-252764743/software/267204993?idAbsPath=fixnode01|23710424|251366513|254884019|261408772|252764743)。
-    2. 参考对应硬件产品的《[NPU驱动和固件安装指南](https://support.huawei.com/enterprise/zh/ascend-computing/ascend-hdk-pid-252764743?category=installation-upgrade)》完成HDK驱动包的安装。
-   
-2. 安装后，检查输出文件。
-    1. libibv\_extend.so 在 /usr/local/Ascend/driver/lib64/driver/ 目录下。
-    2. ibv\_extend.h 在 /usr/local/Ascend/driver/include/ 目录下。
-
-3. 运行时需加载环境变量。
-    - 如果已安装cann-toolkit等开发工具包，可执行如下命令加载环境变量（如下命令以root用户安装为例，请以实际CANN安装路径为准）。
-
-        ```bash
-        source /usr/local/Ascend/cann/set_env.sh
-        ```
-
-    - 如果未安装cann-toolkit等开发工具包，可执行如下命令加载环境变量。
-
-        ```bash
-        export LD_LIBRARY_PATH=/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64/common:$LD_LIBRARY_PATH
-        ```
-
 # 使用
 
 ibv\_extend组件允许上层通信库通过**配置环境变量**或**配置文件**两种方式动态加载扩展驱动。
@@ -303,7 +279,7 @@ ibv\_extend组件允许上层通信库通过**配置环境变量**或**配置文
         </td>
         <td rowspan="2">
             <ol>
-                <li>检查libibv_extend.so是否已安装。<br><code>ll /path/to/ibv_extend/output/lib</code><br><code>ll /usr/local/Ascend/driver/lib64/driver/ | grep libibv_extend.so</code><br>如果任意一个有回显，则表示libibv_extend已安装，结束。<br>如果无回显，则继续。</li>
+                <li>检查libibv_extend.so是否已安装。<br><code>ll /path/to/ibv_extend/output/lib</code><br>如果有回显，则表示libibv_extend已安装，结束。<br>如果无回显，则继续。</li>
                 <li>安装libibv_extend，请参考<a href="#安装">安装</a>。</li>
             </ol>
         </td>

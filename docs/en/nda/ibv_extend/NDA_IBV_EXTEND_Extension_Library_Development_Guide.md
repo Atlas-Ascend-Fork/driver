@@ -7,8 +7,7 @@
     - [NPU Direct Async Scenarios](#npu-direct-async-scenarios)
     - [Hyper RoCE Scenarios](#hyper-roce-scenarios)
 - [Installation](#installation)
-  - [Method 1: Install through Source Compilation](#method-1-install-through-source-compilation)
-  - [Method 2: Install through HDK Package](#method-2-install-through-hdk-package)
+  - [Install through Source Compilation](#install-through-source-compilation)
 - [Usage](#usage)
 - [API Reference](#api-reference)
   - [Common Interfaces](#common-interfaces)
@@ -119,7 +118,7 @@ The ibv_extend component provides the following core features:
 
 # Installation
 
-## Method 1: Install through Source Compilation
+## Install through Source Compilation
 
 1. Obtain source code and enter the component source directory.
 
@@ -255,29 +254,6 @@ The ibv_extend component provides the following core features:
     export LD_LIBRARY_PATH=/path/to/libboundscheck-v1.1.16/lib:$LD_LIBRARY_PATH
     ```
 
-## Method 2: Install through HDK Package
-
-1. Install HDK software package supporting NDA feature.
-    1. Obtain [HDK software package supporting NDA feature](https://support.huawei.com/enterprise/zh/ascend-computing/ascend-hdk-pid-252764743/software/267204993?idAbsPath=fixnode01|23710424|251366513|254884019|261408772|252764743).
-    2. Refer to the corresponding hardware product [NPU Driver and Firmware Installation Guide](https://support.huawei.com/enterprise/zh/ascend-computing/ascend-hdk-pid-252764743?category=installation-upgrade) to complete HDK driver package installation.
-
-2. After installation, check output files.
-    1. libibv_extend.so is in /usr/local/Ascend/driver/lib64/driver/ directory.
-    2. ibv_extend.h is in /usr/local/Ascend/driver/include/ directory.
-
-3. Need to load environment variables at runtime.
-    - If cann-toolkit and other development tool packages are already installed, execute the following command to load environment variables (the following command uses root user installation as example, please use actual CANN installation path).
-
-        ```bash
-        source /usr/local/Ascend/cann/set_env.sh
-        ```
-
-    - If cann-toolkit and other development tool packages are not installed, execute the following command to load environment variables.
-
-        ```bash
-        export LD_LIBRARY_PATH=/usr/local/Ascend/driver/lib64/driver:/usr/local/Ascend/driver/lib64/common:$LD_LIBRARY_PATH
-        ```
-
 # Usage
 
 The ibv_extend component allows upper-layer communication libraries to dynamically load extension drivers through **configuring environment variables** or **configuration files**.
@@ -304,7 +280,7 @@ Before running, ensure that libibverbs.so and libibv_extend.so are correctly ins
         </td>
         <td rowspan="2">
             <ol>
-                <li>Check if libibv_extend.so is installed.<br><code>ll /path/to/ibv_extend/output/lib</code><br><code>ll /usr/local/Ascend/driver/lib64/driver/ | grep libibv_extend.so</code><br>If either has output, libibv_extend is installed, done.<br>If no output, continue.</li>
+                <li>Check if libibv_extend.so is installed.<br><code>ll /path/to/ibv_extend/output/lib</code><br>If there is output, libibv_extend is installed, done.<br>If no output, continue.</li>
                 <li>Install libibv_extend, refer to <a href="#installation">Installation</a>.</li>
             </ol>
         </td>
